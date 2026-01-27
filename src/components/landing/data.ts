@@ -35,7 +35,7 @@ export const heroData: HeroData = {
   description:
     'Mobile app, web dashboard, WhatsApp updates, and instant receipt printing — all in one system. Stay connected and in control. Anytime, anywhere.',
   ctaButtons: [
-    { text: 'Start Today', link: '/signin' },
+    { text: 'Start Today', link: '/store-admin/login' },
     { text: 'How It Works ↓', link: '/#how-it-works' },
   ],
   customerImages: [

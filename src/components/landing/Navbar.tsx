@@ -14,7 +14,7 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const handleSignIn = () => {
-    navigate({ to: '/login/store-admin' });
+    navigate({ to: '/store-admin/login' });
   };
 
   const navLinks = [

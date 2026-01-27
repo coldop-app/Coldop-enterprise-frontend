@@ -1,0 +1,495 @@
+---
+description: Comprehensive style guide for Bhatti Agri-tech frontend - design system, components, typography, colors, spacing, and UI patterns
+alwaysApply: true
+---
+
+# Bhatti Agri-tech Frontend Style Guide
+
+## Design System Overview
+
+This project uses a modern design system built on:
+- **Framework**: React 19 + TypeScript + Vite
+- **Styling**: Tailwind CSS v4 with OKLCH color space
+- **Component Library**: shadcn/ui (New York style)
+- **Icons**: Lucide React
+- **Router**: TanStack Router
+
+---
+
+## Typography
+
+### Font Family
+- **Primary Font**: Inter (Google Fonts)
+- **Weights Available**: 300, 400, 500, 600, 700, 800, 900
+- **Custom Class**: Always use `font-custom` class for Inter font family
+
+```tsx
+// ✅ GOOD
+<h1 className="font-custom text-4xl font-bold">Heading</h1>
+<p className="font-custom text-base">Body text</p>
+
+// ❌ BAD
+<h1 className="text-4xl font-bold">Heading</h1> // Missing font-custom
+```
+
+### Font Weights by Element
+
+| Element | Weight | Usage |
+|---------|--------|-------|
+| h1, h2 | 700 (font-bold) | Main headings |
+| h3-h6 | 600 (font-semibold) | Subheadings |
+| Body text | 400 (font-normal) | Default paragraphs |
+| Buttons (default) | 500 (font-medium) | Standard buttons |
+| Buttons (bold) | 700 (font-bold) | Primary CTAs |
+| Table numbers | 500 (font-medium) | Data display |
+
+### Typography Scale
+
+```tsx
+// Headings
+<h1 className="font-custom text-[2.1rem] font-bold leading-[1.05] tracking-[-0.5px] xl:text-[3rem]">
+<h2 className="font-custom text-4xl font-bold tracking-tighter lg:text-5xl">
+<h3 className="font-custom text-2xl font-semibold lg:text-3xl">
+
+// Body Text
+<p className="font-custom text-base font-normal leading-[1.6] md:text-xl">
+<p className="font-custom text-sm leading-relaxed text-gray-600">
+```
+
+---
+
+## Color System
+
+### Primary Colors (OKLCH)
+- **Primary**: `oklch(0.63 0.17 149.2)` - Green accent color
+- **Primary Foreground**: `oklch(0.982 0.018 155.826)` - Light text on primary
+- **Secondary**: `oklch(0.967 0.001 286.375)` - Light gray background
+- **Secondary Foreground**: `oklch(0.21 0.006 285.885)` - Dark text on secondary
+
+### Usage Patterns
+
+```tsx
+// Primary buttons
+<Button variant="default" className="bg-primary text-secondary">
+
+// Secondary backgrounds
+<section className="bg-secondary">
+
+// Text colors
+<p className="text-gray-700"> // Navigation links
+<p className="text-gray-600"> // Body text
+<p className="text-[#333]"> // Headings
+<p className="text-[#6f6f6f]"> // Muted descriptions
+```
+
+### Color Utilities
+- Use Tailwind color classes: `text-primary`, `bg-primary`, `border-primary`
+- For custom colors, use hex values: `text-[#333]`, `text-[#6f6f6f]`
+- Hover states: `hover:bg-primary/90`, `hover:text-primary`
+
+---
+
+## Spacing & Layout
+
+### Container Widths
+- **Max Container**: `max-w-[75rem]` (1200px) - Standard content width
+- **Extended Container**: `max-w-[81.25rem]` (1300px) - For hero sections
+
+```tsx
+// Standard container
+<div className="mx-auto max-w-[75rem] px-8 sm:px-16 lg:px-24">
+
+// Hero container
+<div className="mx-auto max-w-[75rem] xl:max-w-[81.25rem]">
+```
+
+### Responsive Breakpoints
+- **sm**: 640px
+- **md**: 768px
+- **lg**: 1024px
+- **xl**: 1280px
+
+### Spacing Patterns
+
+```tsx
+// Section padding
+<section className="px-4 pb-16 pt-6 sm:px-8 sm:py-24">
+
+// Component gaps
+<div className="flex gap-4"> // Buttons
+<div className="grid gap-8 sm:gap-12 md:gap-16 lg:gap-24"> // Grid layouts
+<div className="space-y-4"> // Vertical spacing
+```
+
+---
+
+## Components
+
+### Button Component
+
+**Always use shadcn Button component** - Never create custom button elements.
+
+```tsx
+// ✅ GOOD
+import { Button } from '@/components/ui/button';
+
+<Button
+  variant="default"
+  size="lg"
+  weight="bold"
+  className="font-custom px-8 py-3 text-xl"
+>
+  Sign In
+</Button>
+
+// For links as buttons
+<Button variant="default" size="lg" weight="bold" asChild>
+  <Link to="/path">Click me</Link>
+</Button>
+
+// ❌ BAD
+<button className="bg-primary px-8 py-3">Click</button>
+```
+
+**Button Variants:**
+- `default`: Primary action (bg-primary, text-secondary)
+- `destructive`: Delete/danger actions
+- `outline`: Secondary actions
+- `secondary`: Subtle actions
+- `ghost`: Minimal styling
+- `link`: Text link style
+
+**Button Sizes:**
+- `default`: `px-4 py-2 text-sm`
+- `sm`: `h-8 px-3 text-sm`
+- `lg`: `px-8 py-3 text-xl rounded-lg` (for CTAs)
+- `xs`, `icon`, `icon-xs`, `icon-sm`, `icon-lg`
+
+**Button Weights:**
+- `default`: `font-medium` (500)
+- `bold`: `font-bold` (700)
+
+### Card Component
+
+Use shadcn Card components for structured content:
+
+```tsx
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+
+<Card>
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+    <CardDescription>Description</CardDescription>
+  </CardHeader>
+  <CardContent>Content</CardContent>
+</Card>
+```
+
+### Sheet Component
+
+Use for mobile navigation and side panels:
+
+```tsx
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+
+<Sheet>
+  <SheetTrigger>Open</SheetTrigger>
+  <SheetContent side="right" className="w-80">
+    <SheetClose asChild>
+      <Link to="/path">Link</Link>
+    </SheetClose>
+  </SheetContent>
+</Sheet>
+```
+
+---
+
+## Interactive Elements
+
+### Links
+
+**Navigation Links Pattern:**
+```tsx
+<Link
+  to="/path"
+  className="font-custom text-xl font-medium text-gray-700 hover:text-primary transition-colors duration-200 relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-2 py-1"
+>
+  Link Text
+  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 ease-in-out group-hover:w-full group-focus-visible:w-full" />
+</Link>
+```
+
+**Footer Links Pattern:**
+```tsx
+<Link
+  to="/path"
+  className="font-custom text-sm text-gray-600 transition-colors duration-200 hover:text-primary relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-1"
+>
+  Link Text
+  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 ease-in-out group-hover:w-full group-focus-visible:w-full" />
+</Link>
+```
+
+### Focus States
+
+**Always include focus-visible styles:**
+```tsx
+className="focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+```
+
+### Hover Effects
+
+**Common hover patterns:**
+```tsx
+// Scale transform
+className="hover:scale-105 transition-transform duration-200"
+
+// Color change
+className="hover:text-primary transition-colors duration-200"
+
+// Background opacity
+className="hover:bg-primary/90"
+
+// Underline animation (see Links section above)
+```
+
+---
+
+## Transitions & Animations
+
+### Duration Standards
+- **Fast**: `duration-100` (100ms) - Button interactions
+- **Standard**: `duration-200` (200ms) - Most hover/focus states
+- **Smooth**: `ease-in-out` - Standard easing
+
+```tsx
+// ✅ GOOD
+className="transition-colors duration-200 ease-in-out hover:text-primary"
+className="transition-transform duration-200 ease-in-out hover:scale-105"
+className="transition-all duration-200 ease-in-out"
+
+// ❌ BAD
+className="transition" // Missing duration
+```
+
+---
+
+## Border Radius
+
+```tsx
+// Buttons
+className="rounded-lg" // Standard buttons
+
+// Cards
+className="rounded-xl" // Card components
+
+// Small elements
+className="rounded-md" // Small buttons, inputs
+
+// Full circle
+className="rounded-full" // Icons, avatars
+```
+
+---
+
+## Shadows
+
+```tsx
+// Subtle elevation
+className="shadow-sm"
+
+// Standard elevation
+className="shadow-lg"
+
+// Strong elevation
+className="shadow-2xl"
+
+// Buttons
+className="shadow-lg hover:shadow-xl" // With hover state
+```
+
+---
+
+## Responsive Design Patterns
+
+### Mobile-First Approach
+
+```tsx
+// Base (mobile), then scale up
+<div className="px-4 sm:px-8 lg:px-16">
+<h1 className="text-[2.1rem] xl:text-[3rem]">
+<div className="grid grid-cols-1 lg:grid-cols-2">
+```
+
+### Common Responsive Patterns
+
+```tsx
+// Text alignment
+<div className="text-center lg:text-left">
+
+// Flex direction
+<div className="flex flex-col sm:flex-row">
+
+// Grid columns
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
+
+// Spacing
+<div className="gap-8 sm:gap-12 md:gap-16 lg:gap-24">
+
+// Visibility
+<div className="hidden sm:block"> // Desktop only
+<div className="sm:hidden"> // Mobile only
+```
+
+---
+
+## Component Structure Patterns
+
+### Section Pattern
+
+```tsx
+<section className="px-4 pb-16 pt-6 sm:px-8 sm:py-24">
+  <div className="mx-auto max-w-[75rem]">
+    {/* Content */}
+  </div>
+</section>
+```
+
+### Hero Section Pattern
+
+```tsx
+<section className="bg-secondary px-4 pb-16 pt-6 sm:px-8 sm:py-24">
+  <div className="mx-auto grid max-w-[75rem] grid-cols-1 items-center gap-8 sm:gap-12 md:gap-16 lg:grid-cols-2 lg:gap-24 xl:max-w-[81.25rem]">
+    {/* Content */}
+  </div>
+</section>
+```
+
+### Navbar Pattern
+
+```tsx
+// Fixed navbar with backdrop blur
+<header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
+
+// Spacer to prevent content jump
+<div className="h-16 lg:h-20" />
+```
+
+---
+
+## Accessibility
+
+### Required Patterns
+
+1. **Focus States**: Always include `focus-visible:ring-2 focus-visible:ring-primary`
+2. **ARIA Labels**: Use for icon-only buttons
+3. **Semantic HTML**: Use proper heading hierarchy (h1 → h2 → h3)
+4. **Alt Text**: Always provide for images
+5. **Link Text**: Descriptive, not "click here"
+
+```tsx
+// ✅ GOOD
+<button aria-label="Close menu">
+  <XIcon />
+</button>
+
+<img src="/logo.webp" alt="Coldop Logo" />
+
+// ❌ BAD
+<button><XIcon /></button> // Missing aria-label
+<img src="/logo.webp" /> // Missing alt
+```
+
+---
+
+## Image Optimization
+
+```tsx
+// Use WebP with fallback
+<picture>
+  <source srcSet="/image.webp" type="image/webp" />
+  <img src="/image.png" alt="Description" />
+</picture>
+
+// Lazy loading for below-fold images
+<img src="/image.webp" alt="Description" loading="lazy" />
+
+// Eager loading for hero images
+<img src="/hero.webp" alt="Description" loading="eager" />
+```
+
+---
+
+## Code Organization
+
+### Component Structure
+
+```tsx
+// 1. Imports (external, then internal)
+import { memo } from 'react';
+import { Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
+
+// 2. Types/Interfaces
+interface ComponentProps {
+  // ...
+}
+
+// 3. Component
+const Component = ({ prop }: ComponentProps) => {
+  // ...
+};
+
+// 4. Export
+export default memo(Component);
+```
+
+### File Naming
+- Components: PascalCase (`Navbar.tsx`, `Hero.tsx`)
+- Utilities: camelCase (`utils.ts`)
+- Routes: kebab-case (`store-admin/login/index.tsx`)
+
+---
+
+## Best Practices
+
+1. **Always use shadcn components** when available (Button, Card, Sheet)
+2. **Always include `font-custom`** class for text elements
+3. **Use semantic HTML** (section, header, nav, footer)
+4. **Mobile-first responsive design**
+5. **Include focus states** for all interactive elements
+6. **Use memo()** for components that don't need frequent re-renders
+7. **Consistent spacing** using Tailwind spacing scale
+8. **OKLCH colors** for theme variables, hex for specific colors
+9. **Transitions** should always specify duration
+10. **TypeScript** - Define proper interfaces for all props
+
+---
+
+## Common Mistakes to Avoid
+
+```tsx
+// ❌ Don't create custom buttons
+<button className="bg-primary">Click</button>
+
+// ✅ Use Button component
+<Button variant="default">Click</Button>
+
+// ❌ Missing font-custom
+<h1 className="text-4xl">Heading</h1>
+
+// ✅ Include font-custom
+<h1 className="font-custom text-4xl">Heading</h1>
+
+// ❌ Missing focus states
+<Link to="/path">Link</Link>
+
+// ✅ Include focus states
+<Link to="/path" className="focus-visible:ring-2 focus-visible:ring-primary">Link</Link>
+
+// ❌ Hardcoded colors
+<div className="bg-green-500">
+
+// ✅ Use theme colors
+<div className="bg-primary">
+```
