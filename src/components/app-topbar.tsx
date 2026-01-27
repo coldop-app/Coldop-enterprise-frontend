@@ -142,7 +142,7 @@ const PageTitleComponent = () => {
   }, [pathname]);
 
   return (
-    <div className="ml-2 md:ml-6 md:pl-6 border-l border-border">
+    <div className="md:ml-6 md:pl-6 md:border-l border-border">
       <h1 className="text-2xl font-bold text-foreground tracking-tight">
         {formatted}
       </h1>
@@ -164,8 +164,8 @@ function Navbar() {
       <nav className="sticky top-0 z-40 bg-background shadow-sm border-b border-border">
         <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center">
-            <SidebarTrigger />
-            <div className="ml-2 md:ml-6 md:pl-6 border-l border-border">
+            <SidebarTrigger className="hidden md:flex" />
+            <div className="md:ml-6 md:pl-6 md:border-l border-border">
               <Skeleton className="h-6 w-48 rounded-md" />
             </div>
           </div>
@@ -184,7 +184,7 @@ function Navbar() {
       <div className="px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
         {/* Left: Sidebar + page title */}
         <div className="flex items-center">
-          <SidebarTrigger />
+          <SidebarTrigger className="hidden md:flex" />
           <PageTitle />
         </div>
 

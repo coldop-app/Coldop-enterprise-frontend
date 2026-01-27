@@ -1,12 +1,7 @@
-import { memo, useMemo, useState, useCallback } from 'react';
-import {
-  BookOpen,
-  Users,
-  BarChart3,
-  Settings,
-  ChevronRight,
-} from 'lucide-react';
+import { memo, useMemo } from 'react';
+import { BookOpen, Users, BarChart3, Settings } from 'lucide-react';
 import { useLocation, Link } from '@tanstack/react-router';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import {
   Sidebar,
@@ -19,11 +14,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from '@/components/ui/collapsible';
 
 type NavigationItemWithChildren = {
   name: string;
@@ -52,12 +42,6 @@ const navigationItems: NavigationItem[] = [
     name: 'Daybook',
     href: '/store-admin/daybook',
     icon: BookOpen,
-    children: [
-      { name: 'Overview', href: '/store-admin/daybook' },
-      { name: 'Incoming', href: '/store-admin/incoming' },
-      { name: 'Outgoing', href: '/store-admin/outgoing' },
-      { name: 'Payment History', href: '/store-admin/payment-history' },
-    ],
   },
   {
     name: 'People',
@@ -102,26 +86,7 @@ SidebarHeaderContent.displayName = 'SidebarHeaderContent';
 
 const AppSidebar = () => {
   const { pathname } = useLocation();
-
-  // Derive daybook open state directly from pathname instead of using useEffect
-  const daybookOpen = useMemo(() => {
-    return (
-      pathname.startsWith('/store-admin/incoming') ||
-      pathname.startsWith('/store-admin/outgoing') ||
-      pathname.startsWith('/store-admin/payment-history') ||
-      pathname === '/store-admin/daybook'
-    );
-  }, [pathname]);
-
-  // Use state for user-controlled toggling, but initialize from pathname
-  const [userToggledOpen, setUserToggledOpen] = useState<boolean | null>(null);
-
-  // Determine final open state: user toggle takes precedence, otherwise use pathname-based state
-  const isOpen = userToggledOpen !== null ? userToggledOpen : daybookOpen;
-
-  const handleOpenChange = useCallback((open: boolean) => {
-    setUserToggledOpen(open);
-  }, []);
+  const isMobile = useIsMobile();
 
   const navigationItemsWithState = useMemo(() => {
     return navigationItems.map((item) => {
@@ -130,7 +95,7 @@ const AppSidebar = () => {
           pathname === item.href ||
           item.children.some((c) => pathname.startsWith(c.href));
 
-        return { ...item, isActive, isOpen, setOpen: handleOpenChange };
+        return { ...item, isActive };
       }
 
       // TypeScript now knows item is NavigationItemWithoutChildren
@@ -142,7 +107,12 @@ const AppSidebar = () => {
 
       return { ...item, isActive };
     });
-  }, [pathname, isOpen, handleOpenChange]);
+  }, [pathname]);
+
+  // Hide sidebar on mobile - bottom nav will be shown instead
+  if (isMobile) {
+    return null;
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -157,68 +127,15 @@ const AppSidebar = () => {
               {navigationItemsWithState.map((item) => {
                 const Icon = item.icon;
 
-                if (hasChildren(item)) {
-                  return (
-                    <SidebarMenuItem key={item.name}>
-                      <Collapsible
-                        open={item.isOpen}
-                        onOpenChange={item.setOpen}
-                        className="group/collapsible"
-                      >
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={item.isActive}
-                            variant="coldop-variant"
-                            tooltip={item.name}
-                            className="flex justify-between w-full"
-                            onClick={() => item.setOpen(true)}
-                          >
-                            <Link
-                              to={item.href}
-                              className="flex items-center justify-between w-full"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4" />
-                                <span>{item.name}</span>
-                              </div>
-                              <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                            </Link>
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-
-                        <CollapsibleContent className="ml-6 mt-1 group-data-[collapsible=icon]:hidden">
-                          {item.children.map((child) => {
-                            const isChildActive = pathname === child.href;
-
-                            return (
-                              <SidebarMenuButton
-                                key={child.name}
-                                asChild
-                                isActive={isChildActive}
-                                size="sm"
-                                className="pl-6"
-                              >
-                                <Link to={child.href}>{child.name}</Link>
-                              </SidebarMenuButton>
-                            );
-                          })}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </SidebarMenuItem>
-                  );
-                }
-
                 return (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton
                       asChild
                       isActive={item.isActive}
-                      variant="coldop-variant"
                       tooltip={item.name}
                     >
                       <Link to={item.href}>
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-4 w-4 text-current" />
                         <span>{item.name}</span>
                       </Link>
                     </SidebarMenuButton>
