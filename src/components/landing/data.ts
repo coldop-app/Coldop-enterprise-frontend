@@ -35,8 +35,8 @@ export const heroData: HeroData = {
   description:
     'Mobile app, web dashboard, WhatsApp updates, and instant receipt printing — all in one system. Stay connected and in control. Anytime, anywhere.',
   ctaButtons: [
-    { text: 'Start Today', link: '#' },
-    { text: 'How It Works ↓', link: '#' },
+    { text: 'Start Today', link: '/signin' },
+    { text: 'How It Works ↓', link: '/#how-it-works' },
   ],
   customerImages: [
     { src: './customers/customer-1.jpg', alt: 'Customer photo' },
@@ -51,8 +51,8 @@ export const heroData: HeroData = {
     text: 'using Coldop to manage their harvests.',
   },
   heroImage: {
-    webp: '',
-    png: '/hero-min.png',
+    webp: '/hero-min.webp',
+    png: '/hero-min.webp',
     alt: 'Woman enjoying food, meals in storage container, and food bowls on a table',
   },
 };
@@ -310,7 +310,7 @@ export interface FooterData {
 export const footerData: FooterData = {
   companyName: 'Coldop',
   year: '2026',
-  logo: '/coldop-logo.png',
+  logo: '/coldop-logo.webp',
   logoAlt: 'Coldop Logo',
   description:
     'The complete cold storage management platform. Mobile app, web dashboard, WhatsApp updates, and instant receipt printing — all in one system.',

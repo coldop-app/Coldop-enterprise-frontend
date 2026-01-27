@@ -1,5 +1,5 @@
 import Hero from './Hero';
-import { howItWorksData, demoVideoData, footerData } from './data';
+import { heroData, howItWorksData, demoVideoData, footerData } from './data';
 import Navbar from './Navbar';
 import HowItWorks from './HowItWorks';
 import DemoVideo from './DemoVideo';
@@ -9,13 +9,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen ">
       <Navbar />
-      <Hero
-        heroImage={{
-          webp: '/hero-min.webp',
-          png: '/hero-image.png',
-          alt: 'Hero Image',
-        }}
-      />
+      <Hero data={heroData} />
       <HowItWorks
         title={howItWorksData.title}
         subtitle={howItWorksData.subtitle}

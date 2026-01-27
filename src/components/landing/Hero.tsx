@@ -1,44 +1,50 @@
 import { memo } from 'react';
 import { Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
+import type { HeroData } from './data';
 
 interface HeroProps {
-  heroImage: {
-    webp?: string;
-    png: string;
-    alt: string;
-  };
+  data: HeroData;
 }
 
-const Hero = ({ heroImage }: HeroProps) => {
+const Hero = ({ data }: HeroProps) => {
+  const { heading, description, ctaButtons, customerStats, heroImage } = data;
+
   return (
     <section className="bg-secondary px-4 pb-16 pt-6 sm:px-8 sm:py-24">
       <div className="mx-auto grid max-w-[75rem] grid-cols-1 items-center gap-8 py-8 sm:gap-12 md:gap-16 md:py-2 lg:grid-cols-2 lg:gap-24 xl:max-w-[81.25rem]">
         {/* LEFT */}
         <div className="text-center lg:text-left">
           <h1 className="mb-8 font-custom text-[2.1rem] font-bold leading-[1.05] tracking-[-0.5px] text-[#333] xl:text-[3rem]">
-            Manage your business smarter, faster, better
+            {heading}
           </h1>
 
           <p className="mb-12 font-custom text-base font-normal leading-[1.6] md:text-xl">
-            Everything you need to track inventory, users, and operations — all
-            in one place.
+            {description}
           </p>
 
           <div className="flex justify-center gap-4 whitespace-nowrap lg:justify-start">
-            <Link
-              to="/signin"
-              className="font-custom rounded-lg bg-primary px-4 py-2 text-lg font-bold text-secondary hover:bg-primary/85 sm:px-8 sm:py-4 sm:text-xl"
-            >
-              Get Started
-            </Link>
+            {ctaButtons.map((button, index) => {
+              const isHashLink = button.link.includes('#');
+              const [path, hash] = isHashLink
+                ? button.link.split('#')
+                : [button.link, undefined];
 
-            <Link
-              to="/#how-it-works"
-              hash="how-it-works"
-              className="font-custom rounded-lg bg-primary px-4 py-2 text-lg font-bold text-secondary hover:bg-primary/85 sm:px-8 sm:py-4 sm:text-xl"
-            >
-              How it works
-            </Link>
+              return (
+                <Button
+                  key={index}
+                  variant="default"
+                  size="lg"
+                  weight="bold"
+                  asChild
+                  className="font-custom px-4 py-2 text-lg sm:px-8 sm:py-4 sm:text-xl"
+                >
+                  <Link to={path || '/'} hash={hash}>
+                    {button.text}
+                  </Link>
+                </Button>
+              );
+            })}
           </div>
 
           {/* STATIC METRIC */}
@@ -61,10 +67,10 @@ const Hero = ({ heroImage }: HeroProps) => {
 
             <div>
               <p className="text-xl font-bold text-primary sm:text-2xl lg:text-3xl">
-                300+
+                {customerStats.count}
               </p>
               <p className="text-xs font-medium text-gray-600 sm:text-sm lg:text-base">
-                customers visited our website
+                {customerStats.text}
               </p>
             </div>
           </div>

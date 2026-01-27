@@ -1,4 +1,6 @@
 import { memo } from 'react';
+import { Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
 
 interface DemoVideoProps {
   eyebrow: string;
@@ -74,12 +76,15 @@ const DemoVideo = ({
 
         {/* CTA */}
         <div className="mt-16 text-center sm:mt-20">
-          <a
-            href={ctaHref}
-            className="font-custom inline-block rounded-lg bg-primary px-8 py-4 text-xl font-semibold text-secondary shadow-lg transition hover:bg-primary/85 hover:shadow-xl"
+          <Button
+            variant="default"
+            size="lg"
+            weight="bold"
+            asChild
+            className="font-custom px-8 py-4 text-xl shadow-lg"
           >
-            {ctaText}
-          </a>
+            <Link to={ctaHref as '/'}>{ctaText}</Link>
+          </Button>
         </div>
       </div>
     </section>

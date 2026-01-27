@@ -17,7 +17,10 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
   return (
     <>
       {/* DESKTOP */}
-      <section id="how-it-works" className="hidden sm:block mt-16 px-8 sm:px-16 lg:px-24">
+      <section
+        id="how-it-works"
+        className="hidden sm:block mt-16 px-8 sm:px-16 lg:px-24"
+      >
         <div className="mx-auto max-w-[75rem]">
           <span className="font-custom mb-4 block text-lg font-medium uppercase tracking-[0.075rem] text-foreground">
             {title}
@@ -34,14 +37,16 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
               {index % 2 === 0 && (
                 <div className="step-text-box">
                   <p className="font-custom my-3 text-8xl font-semibold text-gray-200">
-                    <span className="cursor-pointer hover:text-primary/85">
+                    <span className="cursor-pointer transition-colors duration-200 hover:text-primary/85 focus:outline-none focus-visible:text-primary/85">
                       {step.number}
                     </span>
                   </p>
                   <h3 className="font-custom mb-6 text-2xl font-semibold lg:text-3xl">
                     {step.heading}
                   </h3>
-                  <p className="font-custom text-xl leading-loose">{step.description}</p>
+                  <p className="font-custom text-xl leading-loose">
+                    {step.description}
+                  </p>
                 </div>
               )}
 
@@ -65,14 +70,16 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
               {index % 2 === 1 && (
                 <div className="step-text-box">
                   <p className="font-custom my-3 text-8xl font-semibold text-gray-200">
-                    <span className="cursor-pointer hover:text-primary/85">
+                    <span className="cursor-pointer transition-colors duration-200 hover:text-primary/85 focus:outline-none focus-visible:text-primary/85">
                       {step.number}
                     </span>
                   </p>
                   <h3 className="font-custom mb-6 text-2xl font-semibold lg:text-3xl">
                     {step.heading}
                   </h3>
-                  <p className="font-custom text-xl leading-loose">{step.description}</p>
+                  <p className="font-custom text-xl leading-loose">
+                    {step.description}
+                  </p>
                 </div>
               )}
             </div>
@@ -111,8 +118,12 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
                 <p className="font-custom mb-3 text-7xl font-semibold text-gray-200">
                   {step.number}
                 </p>
-                <h3 className="font-custom mb-6 text-xl font-semibold">{step.heading}</h3>
-                <p className="font-custom text-base leading-loose">{step.description}</p>
+                <h3 className="font-custom mb-6 text-xl font-semibold">
+                  {step.heading}
+                </h3>
+                <p className="font-custom text-base leading-loose">
+                  {step.description}
+                </p>
               </div>
             </div>
           ))}
