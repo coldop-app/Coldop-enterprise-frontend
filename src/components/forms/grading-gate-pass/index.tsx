@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { Fragment, memo, useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 
@@ -104,7 +104,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
           date: formatDateToISO(value.date),
           variety,
           orderDetails,
-          allocationStatus: 'PENDING',
+          allocationStatus: 'UNALLOCATED',
           remarks: value.remarks.trim() || undefined,
         },
         {
@@ -168,107 +168,242 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
             }}
           />
 
-          {/* Size-wise entries */}
-          <div className="space-y-3">
-            <h3 className="font-custom text-base font-semibold text-[#333]">
+          {/* Size-wise entries — elegant layout with horizontal spacing, mobile friendly */}
+          <div className="space-y-4">
+            <h3 className="font-custom text-foreground text-base font-semibold sm:text-lg">
               Enter Quantities
             </h3>
             <p className="text-muted-foreground font-custom text-sm">
               Please select a variety first to enter quantities.
             </p>
-            <div className="space-y-3">
-              {GRADING_SIZES.map((sizeLabel, index) => (
-                <div
-                  key={sizeLabel}
-                  className="flex flex-row items-center gap-3"
-                >
-                  <span className="font-custom min-w-22 text-sm font-medium text-[#333]">
-                    {sizeLabel}
-                  </span>
-                  <form.Field
-                    name={`sizeEntries[${index}].quantity`}
-                    children={(field) => (
-                      <Field className="w-20 shrink-0">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={1}
-                          placeholder="Qty"
-                          value={
-                            field.state.value === 0
-                              ? ''
-                              : (field.state.value ?? '')
-                          }
-                          onBlur={field.handleBlur}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (raw === '' || raw === '-') {
-                              field.handleChange(0);
-                              return;
+
+            {/* Quantities grid: mobile cards, desktop table-like */}
+            <div className="space-y-4 md:space-y-0">
+              {/* Desktop: single grid with header + rows for alignment */}
+              <div className="hidden md:grid md:grid-cols-[minmax(5rem,1fr)_7rem_8rem_6rem] md:gap-x-6 md:gap-y-3 lg:grid-cols-[minmax(6rem,1.25fr)_8rem_9rem_7rem] lg:gap-x-8 lg:gap-y-4">
+                <span className="font-custom text-muted-foreground border-border/60 border-b pb-2 text-xs font-medium tracking-wide uppercase">
+                  Size
+                </span>
+                <span className="font-custom text-muted-foreground border-border/60 border-b pb-2 text-xs font-medium tracking-wide uppercase">
+                  Qty
+                </span>
+                <span className="font-custom text-muted-foreground border-border/60 border-b pb-2 text-xs font-medium tracking-wide uppercase">
+                  Bag Type
+                </span>
+                <span className="font-custom text-muted-foreground border-border/60 border-b pb-2 text-xs font-medium tracking-wide uppercase">
+                  Wt (kg)
+                </span>
+                {GRADING_SIZES.map((sizeLabel, index) => (
+                  <Fragment key={sizeLabel}>
+                    <span className="font-custom text-foreground text-sm font-medium md:text-base">
+                      {sizeLabel}
+                    </span>
+                    <form.Field
+                      name={`sizeEntries[${index}].quantity`}
+                      children={(field) => (
+                        <Field className="min-w-0">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            placeholder="Qty"
+                            value={
+                              field.state.value === 0
+                                ? ''
+                                : (field.state.value ?? '')
                             }
-                            const parsed = parseInt(raw, 10);
-                            field.handleChange(
-                              Number.isNaN(parsed) ? 0 : parsed
-                            );
-                          }}
-                          className="font-custom h-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        />
-                      </Field>
-                    )}
-                  />
-                  <form.Field
-                    name={`sizeEntries[${index}].bagType`}
-                    children={(field) => (
-                      <Field className="w-24 shrink-0">
-                        <select
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                          className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                        >
-                          {BAG_TYPES.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    )}
-                  />
-                  <form.Field
-                    name={`sizeEntries[${index}].weightPerBagKg`}
-                    children={(field) => (
-                      <Field className="w-20 shrink-0">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          placeholder="Wt"
-                          value={
-                            field.state.value === 0 ||
-                            field.state.value === undefined
-                              ? ''
-                              : field.state.value
-                          }
-                          onBlur={field.handleBlur}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (raw === '' || raw === '-') {
-                              field.handleChange(0);
-                              return;
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === '' || raw === '-') {
+                                field.handleChange(0);
+                                return;
+                              }
+                              const parsed = parseInt(raw, 10);
+                              field.handleChange(
+                                Number.isNaN(parsed) ? 0 : parsed
+                              );
+                            }}
+                            className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                        </Field>
+                      )}
+                    />
+                    <form.Field
+                      name={`sizeEntries[${index}].bagType`}
+                      children={(field) => (
+                        <Field className="min-w-0">
+                          <select
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                          >
+                            {BAG_TYPES.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      )}
+                    />
+                    <form.Field
+                      name={`sizeEntries[${index}].weightPerBagKg`}
+                      children={(field) => (
+                        <Field className="min-w-0">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="Wt"
+                            value={
+                              field.state.value === 0 ||
+                              field.state.value === undefined
+                                ? ''
+                                : field.state.value
                             }
-                            const parsed = parseFloat(raw);
-                            field.handleChange(
-                              Number.isNaN(parsed) ? 0 : parsed
-                            );
-                          }}
-                          className="font-custom h-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        />
-                      </Field>
-                    )}
-                  />
-                </div>
-              ))}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === '' || raw === '-') {
+                                field.handleChange(0);
+                                return;
+                              }
+                              const parsed = parseFloat(raw);
+                              field.handleChange(
+                                Number.isNaN(parsed) ? 0 : parsed
+                              );
+                            }}
+                            className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                        </Field>
+                      )}
+                    />
+                  </Fragment>
+                ))}
+              </div>
+
+              {/* Mobile: card per size */}
+              <div className="space-y-4 md:hidden">
+                {GRADING_SIZES.map((sizeLabel, index) => (
+                  <div
+                    key={sizeLabel}
+                    className="border-border/40 bg-muted/20 flex flex-col gap-4 rounded-lg border p-4"
+                  >
+                    <span className="font-custom text-foreground text-base font-semibold">
+                      {sizeLabel}
+                    </span>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <form.Field
+                        name={`sizeEntries[${index}].quantity`}
+                        children={(field) => (
+                          <Field>
+                            <label
+                              htmlFor={`qty-m-${index}`}
+                              className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                            >
+                              Quantity
+                            </label>
+                            <Input
+                              id={`qty-m-${index}`}
+                              type="number"
+                              min={0}
+                              step={1}
+                              placeholder="Qty"
+                              value={
+                                field.state.value === 0
+                                  ? ''
+                                  : (field.state.value ?? '')
+                              }
+                              onBlur={field.handleBlur}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === '' || raw === '-') {
+                                  field.handleChange(0);
+                                  return;
+                                }
+                                const parsed = parseInt(raw, 10);
+                                field.handleChange(
+                                  Number.isNaN(parsed) ? 0 : parsed
+                                );
+                              }}
+                              className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </Field>
+                        )}
+                      />
+                      <form.Field
+                        name={`sizeEntries[${index}].bagType`}
+                        children={(field) => (
+                          <Field>
+                            <label
+                              htmlFor={`bag-m-${index}`}
+                              className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                            >
+                              Bag Type
+                            </label>
+                            <select
+                              id={`bag-m-${index}`}
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                              className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                            >
+                              {BAG_TYPES.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                        )}
+                      />
+                      <form.Field
+                        name={`sizeEntries[${index}].weightPerBagKg`}
+                        children={(field) => (
+                          <Field>
+                            <label
+                              htmlFor={`wt-m-${index}`}
+                              className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                            >
+                              Weight (kg)
+                            </label>
+                            <Input
+                              id={`wt-m-${index}`}
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              placeholder="Wt"
+                              value={
+                                field.state.value === 0 ||
+                                field.state.value === undefined
+                                  ? ''
+                                  : field.state.value
+                              }
+                              onBlur={field.handleBlur}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === '' || raw === '-') {
+                                  field.handleChange(0);
+                                  return;
+                                }
+                                const parsed = parseFloat(raw);
+                                field.handleChange(
+                                  Number.isNaN(parsed) ? 0 : parsed
+                                );
+                              }}
+                              className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </Field>
+                        )}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             <span className="text-muted-foreground block text-xs">
               Quantity / Approx Weight (kg)
@@ -302,12 +437,12 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
           />
         </FieldGroup>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4 pt-4">
+        {/* Actions — full width on mobile, inline on desktop */}
+        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end sm:gap-4">
           <Button
             type="button"
             variant="outline"
-            className="font-custom"
+            className="font-custom order-2 w-full sm:order-1 sm:w-auto"
             onClick={() => form.reset()}
             disabled={isPending}
           >
@@ -317,7 +452,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
             type="submit"
             variant="default"
             size="lg"
-            className="font-custom px-8 font-bold"
+            className="font-custom order-1 w-full px-8 font-bold sm:order-2 sm:w-auto"
             disabled={isPending || isLoadingVoucher || !gatePassNo}
           >
             Next

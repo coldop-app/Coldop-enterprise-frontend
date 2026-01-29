@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-01-29
+
+### Added
+- Grading gate pass form: bag type and weight per size entry in quantities grid
+- Grading summary sheet: table-style size rows with Size, Bag Type, Qty, Wt (kg) columns
+
+### Changed
+- Grading gate pass form: responsive quantities layout (mobile cards, desktop table-like grid) with improved typography and spacing
+- Grading gate pass form: allocation status set to `UNALLOCATED` on submit (was `PENDING`)
+- Grading summary sheet: refactored meta row and size rows into `SummaryMetaRow` and `RowCells` components; updated styling (zinc palette, compact layout)
+
 ## [0.6.0] - 2026-01-29
 
 ### Added
