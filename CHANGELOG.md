@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-01-30
+
+### Added
+- Nikasi (outgoing) gate pass form with validation and submission
+- Nikasi gate pass summary sheet for review before submit
+- Nikasi gate pass route and page (`/store-admin/nikasi`)
+- Service hooks: `useCreateNikasiGatePass`, `useGetNikasiGatePasses`
+- Type definitions for nikasi gate pass data structures
+
+### Changed
+- Nikasi gate pass voucher: full implementation (replacing placeholder) with farmer, vehicle, variety, and grading details
+- Incoming gate pass voucher: layout and content updates
+- Grading form: minor adjustments
+
 ## [0.7.0] - 2026-01-29
 
 ### Added

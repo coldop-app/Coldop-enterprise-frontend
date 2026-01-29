@@ -87,8 +87,9 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     onSubmit: async ({ value }) => {
       if (!admin?._id || !voucherNumber) return;
 
-      const orderDetails: CreateGradingGatePassOrderDetail[] =
-        value.sizeEntries.map((row) => ({
+      const orderDetails: CreateGradingGatePassOrderDetail[] = value.sizeEntries
+        .filter((row) => row.quantity > 0)
+        .map((row) => ({
           size: row.size,
           bagType: row.bagType as 'JUTE' | 'LENO',
           currentQuantity: row.quantity,

@@ -25,9 +25,11 @@ import {
 } from '@/components/ui/empty';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
+import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import GradingGatePassVoucher from './grading-gate-pass-voucher';
 import StorageGatePassVoucher from './storage-gate-pass-voucher';
+import NikasiGatePassVoucher from './nikasi-gate-pass-voucher';
 
 type VoucherTabType = 'grading' | 'storage' | 'nikasi' | 'outgoing';
 
@@ -142,6 +144,7 @@ function IncomingGatePassVoucher({
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: gradingPasses } = useGetGradingGatePasses();
   const { data: storagePasses } = useGetStorageGatePasses();
+  const { data: nikasiPasses } = useGetNikasiGatePasses();
 
   const gradingPassesForThisIncoming = useMemo(() => {
     const list = gradingPasses ?? [];
@@ -156,6 +159,15 @@ function IncomingGatePassVoucher({
       )
     );
   }, [storagePasses, voucher._id]);
+
+  const nikasiPassesForThisIncoming = useMemo(() => {
+    const list = nikasiPasses ?? [];
+    return list.filter((np) =>
+      np.gradingGatePassIds?.some(
+        (gp) => gp.incomingGatePassId?._id === voucher._id
+      )
+    );
+  }, [nikasiPasses, voucher._id]);
 
   const farmer = voucher.farmerStorageLinkId.farmerId;
   const linkedBy = voucher.farmerStorageLinkId.linkedById;
@@ -466,15 +478,23 @@ function IncomingGatePassVoucher({
 
         <TabsContent value="nikasi" className="mt-0 outline-none">
           <CardContent className="px-4 py-6">
-            <EmptyVoucherState
-              voucherType="nikasi"
-              onCreateVoucher={(type) => {
-                if (type === 'nikasi') {
-                  navigate({ to: '/store-admin/nikasi' });
-                }
-                onCreateVoucher?.(type);
-              }}
-            />
+            {nikasiPassesForThisIncoming.length === 0 ? (
+              <EmptyVoucherState
+                voucherType="nikasi"
+                onCreateVoucher={(type) => {
+                  if (type === 'nikasi') {
+                    navigate({ to: '/store-admin/nikasi' });
+                  }
+                  onCreateVoucher?.(type);
+                }}
+              />
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {nikasiPassesForThisIncoming.map((np) => (
+                  <NikasiGatePassVoucher key={np._id} voucher={np} />
+                ))}
+              </div>
+            )}
           </CardContent>
         </TabsContent>
 
