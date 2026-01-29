@@ -24,8 +24,10 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
+import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import GradingGatePassVoucher from './grading-gate-pass-voucher';
+import StorageGatePassVoucher from './storage-gate-pass-voucher';
 
 type VoucherTabType = 'grading' | 'storage' | 'nikasi' | 'outgoing';
 
@@ -139,11 +141,21 @@ function IncomingGatePassVoucher({
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: gradingPasses } = useGetGradingGatePasses();
+  const { data: storagePasses } = useGetStorageGatePasses();
 
   const gradingPassesForThisIncoming = useMemo(() => {
     const list = gradingPasses ?? [];
     return list.filter((gp) => gp.incomingGatePassId._id === voucher._id);
   }, [gradingPasses, voucher._id]);
+
+  const storagePassesForThisIncoming = useMemo(() => {
+    const list = storagePasses ?? [];
+    return list.filter((sp) =>
+      sp.gradingGatePassIds?.some(
+        (gp) => gp.incomingGatePassId?._id === voucher._id
+      )
+    );
+  }, [storagePasses, voucher._id]);
 
   const farmer = voucher.farmerStorageLinkId.farmerId;
   const linkedBy = voucher.farmerStorageLinkId.linkedById;
@@ -432,15 +444,23 @@ function IncomingGatePassVoucher({
 
         <TabsContent value="storage" className="mt-0 outline-none">
           <CardContent className="px-4 py-6">
-            <EmptyVoucherState
-              voucherType="storage"
-              onCreateVoucher={(type) => {
-                if (type === 'storage') {
-                  navigate({ to: '/store-admin/storage' });
-                }
-                onCreateVoucher?.(type);
-              }}
-            />
+            {storagePassesForThisIncoming.length === 0 ? (
+              <EmptyVoucherState
+                voucherType="storage"
+                onCreateVoucher={(type) => {
+                  if (type === 'storage') {
+                    navigate({ to: '/store-admin/storage' });
+                  }
+                  onCreateVoucher?.(type);
+                }}
+              />
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {storagePassesForThisIncoming.map((sp) => (
+                  <StorageGatePassVoucher key={sp._id} voucher={sp} />
+                ))}
+              </div>
+            )}
           </CardContent>
         </TabsContent>
 
