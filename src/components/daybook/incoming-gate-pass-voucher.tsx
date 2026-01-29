@@ -434,7 +434,12 @@ function IncomingGatePassVoucher({
           <CardContent className="px-4 py-6">
             <EmptyVoucherState
               voucherType="storage"
-              onCreateVoucher={onCreateVoucher}
+              onCreateVoucher={(type) => {
+                if (type === 'storage') {
+                  navigate({ to: '/store-admin/storage' });
+                }
+                onCreateVoucher?.(type);
+              }}
             />
           </CardContent>
         </TabsContent>
@@ -443,7 +448,12 @@ function IncomingGatePassVoucher({
           <CardContent className="px-4 py-6">
             <EmptyVoucherState
               voucherType="nikasi"
-              onCreateVoucher={onCreateVoucher}
+              onCreateVoucher={(type) => {
+                if (type === 'nikasi') {
+                  navigate({ to: '/store-admin/nikasi' });
+                }
+                onCreateVoucher?.(type);
+              }}
             />
           </CardContent>
         </TabsContent>
@@ -452,7 +462,12 @@ function IncomingGatePassVoucher({
           <CardContent className="px-4 py-6">
             <EmptyVoucherState
               voucherType="outgoing"
-              onCreateVoucher={onCreateVoucher}
+              onCreateVoucher={(type) => {
+                if (type === 'outgoing') {
+                  navigate({ to: '/store-admin/outgoing' });
+                }
+                onCreateVoucher?.(type);
+              }}
             />
           </CardContent>
         </TabsContent>

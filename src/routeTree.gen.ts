@@ -15,6 +15,8 @@ import { Route as StoreAdminAuthenticatedRouteImport } from './routes/store-admi
 import { Route as StoreAdminLoginIndexRouteImport } from './routes/store-admin/login/index'
 import { Route as StoreAdminAuthenticatedStorageIndexRouteImport } from './routes/store-admin/_authenticated/storage/index'
 import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes/store-admin/_authenticated/people/index'
+import { Route as StoreAdminAuthenticatedOutgoingIndexRouteImport } from './routes/store-admin/_authenticated/outgoing/index'
+import { Route as StoreAdminAuthenticatedNikasiIndexRouteImport } from './routes/store-admin/_authenticated/nikasi/index'
 import { Route as StoreAdminAuthenticatedIncomingIndexRouteImport } from './routes/store-admin/_authenticated/incoming/index'
 import { Route as StoreAdminAuthenticatedGradingIndexRouteImport } from './routes/store-admin/_authenticated/grading/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
@@ -52,6 +54,18 @@ const StoreAdminAuthenticatedPeopleIndexRoute =
     path: '/people/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedOutgoingIndexRoute =
+  StoreAdminAuthenticatedOutgoingIndexRouteImport.update({
+    id: '/outgoing/',
+    path: '/outgoing/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedNikasiIndexRoute =
+  StoreAdminAuthenticatedNikasiIndexRouteImport.update({
+    id: '/nikasi/',
+    path: '/nikasi/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedIncomingIndexRoute =
   StoreAdminAuthenticatedIncomingIndexRouteImport.update({
     id: '/incoming/',
@@ -85,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/incoming/': typeof StoreAdminAuthenticatedIncomingIndexRoute
+  '/store-admin/nikasi/': typeof StoreAdminAuthenticatedNikasiIndexRoute
+  '/store-admin/outgoing/': typeof StoreAdminAuthenticatedOutgoingIndexRoute
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -97,6 +113,8 @@ export interface FileRoutesByTo {
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/grading': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/incoming': typeof StoreAdminAuthenticatedIncomingIndexRoute
+  '/store-admin/nikasi': typeof StoreAdminAuthenticatedNikasiIndexRoute
+  '/store-admin/outgoing': typeof StoreAdminAuthenticatedOutgoingIndexRoute
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/storage': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -110,6 +128,8 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/_authenticated/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/_authenticated/incoming/': typeof StoreAdminAuthenticatedIncomingIndexRoute
+  '/store-admin/_authenticated/nikasi/': typeof StoreAdminAuthenticatedNikasiIndexRoute
+  '/store-admin/_authenticated/outgoing/': typeof StoreAdminAuthenticatedOutgoingIndexRoute
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/_authenticated/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -124,6 +144,8 @@ export interface FileRouteTypes {
     | '/store-admin/daybook/'
     | '/store-admin/grading/'
     | '/store-admin/incoming/'
+    | '/store-admin/nikasi/'
+    | '/store-admin/outgoing/'
     | '/store-admin/people/'
     | '/store-admin/storage/'
     | '/store-admin/people/$farmerStorageLinkId/'
@@ -136,6 +158,8 @@ export interface FileRouteTypes {
     | '/store-admin/daybook'
     | '/store-admin/grading'
     | '/store-admin/incoming'
+    | '/store-admin/nikasi'
+    | '/store-admin/outgoing'
     | '/store-admin/people'
     | '/store-admin/storage'
     | '/store-admin/people/$farmerStorageLinkId'
@@ -148,6 +172,8 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/daybook/'
     | '/store-admin/_authenticated/grading/'
     | '/store-admin/_authenticated/incoming/'
+    | '/store-admin/_authenticated/nikasi/'
+    | '/store-admin/_authenticated/outgoing/'
     | '/store-admin/_authenticated/people/'
     | '/store-admin/_authenticated/storage/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -204,6 +230,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/outgoing/': {
+      id: '/store-admin/_authenticated/outgoing/'
+      path: '/outgoing'
+      fullPath: '/store-admin/outgoing/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedOutgoingIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/nikasi/': {
+      id: '/store-admin/_authenticated/nikasi/'
+      path: '/nikasi'
+      fullPath: '/store-admin/nikasi/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedNikasiIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/incoming/': {
       id: '/store-admin/_authenticated/incoming/'
       path: '/incoming'
@@ -239,6 +279,8 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
   StoreAdminAuthenticatedGradingIndexRoute: typeof StoreAdminAuthenticatedGradingIndexRoute
   StoreAdminAuthenticatedIncomingIndexRoute: typeof StoreAdminAuthenticatedIncomingIndexRoute
+  StoreAdminAuthenticatedNikasiIndexRoute: typeof StoreAdminAuthenticatedNikasiIndexRoute
+  StoreAdminAuthenticatedOutgoingIndexRoute: typeof StoreAdminAuthenticatedOutgoingIndexRoute
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
   StoreAdminAuthenticatedStorageIndexRoute: typeof StoreAdminAuthenticatedStorageIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -252,6 +294,10 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedGradingIndexRoute,
     StoreAdminAuthenticatedIncomingIndexRoute:
       StoreAdminAuthenticatedIncomingIndexRoute,
+    StoreAdminAuthenticatedNikasiIndexRoute:
+      StoreAdminAuthenticatedNikasiIndexRoute,
+    StoreAdminAuthenticatedOutgoingIndexRoute:
+      StoreAdminAuthenticatedOutgoingIndexRoute,
     StoreAdminAuthenticatedPeopleIndexRoute:
       StoreAdminAuthenticatedPeopleIndexRoute,
     StoreAdminAuthenticatedStorageIndexRoute:
