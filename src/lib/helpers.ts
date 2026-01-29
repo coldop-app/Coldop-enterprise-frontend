@@ -19,3 +19,19 @@ export const formatDateToISO = (dateString: string): string => {
   const dayStr = String(day).padStart(2, '0');
   return `${year}-${monthStr}-${dayStr}T00:00:00.000Z`;
 };
+
+/** Parse date string (ISO or dd.mm.yyyy) to start-of-day timestamp for comparison. Returns NaN if invalid. */
+export function parseDateToTimestamp(dateString: string): number {
+  if (!dateString || typeof dateString !== 'string') return NaN;
+  const trimmed = dateString.trim();
+  if (trimmed.includes('-')) {
+    const d = new Date(trimmed);
+    return isNaN(d.getTime())
+      ? NaN
+      : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+  const [day, month, year] = trimmed.split('.').map(Number);
+  if (!day || !month || !year) return NaN;
+  const d = new Date(year, month - 1, day);
+  return isNaN(d.getTime()) ? NaN : d.getTime();
+}

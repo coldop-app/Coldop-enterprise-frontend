@@ -34,11 +34,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DatePicker } from '@/components/forms/date-picker';
+import { SearchSelector } from '@/components/forms/search-selector';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
-import { formatDate } from '@/lib/helpers';
+import { formatDate, parseDateToTimestamp } from '@/lib/helpers';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
-import { Columns } from 'lucide-react';
+import { ArrowDown, ArrowUp, Columns } from 'lucide-react';
 import { QuantityRemoveDialog } from './quantity-remove-dialog';
 import { GradingGatePassCell } from './grading-gate-pass-cell';
 
@@ -59,6 +60,15 @@ function getUniqueSizes(passes: GradingGatePass[]): string[] {
     for (const detail of pass.orderDetails ?? []) {
       if (detail.size) set.add(detail.size);
     }
+  }
+  return Array.from(set).sort();
+}
+
+/** Collect unique varieties from all grading passes, sorted */
+function getUniqueVarieties(passes: GradingGatePass[]): string[] {
+  const set = new Set<string>();
+  for (const pass of passes) {
+    if (pass.variety?.trim()) set.add(pass.variety.trim());
   }
   return Array.from(set).sort();
 }
@@ -84,7 +94,36 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
   const { data: gradingPasses = [], isLoading: isLoadingPasses } =
     useGetGradingGatePasses();
 
-  const sizes = useMemo(() => getUniqueSizes(gradingPasses), [gradingPasses]);
+  const varieties = useMemo(
+    () => getUniqueVarieties(gradingPasses),
+    [gradingPasses]
+  );
+
+  const [varietyFilter, setVarietyFilter] = useState<string>('');
+  const [dateFilterFrom, setDateFilterFrom] = useState<string>('');
+  const [dateFilterTo, setDateFilterTo] = useState<string>('');
+  const [dateSort, setDateSort] = useState<'asc' | 'desc'>('desc');
+
+  const filteredAndSortedPasses = useMemo(() => {
+    let list = gradingPasses;
+    if (varietyFilter) {
+      list = list.filter((p) => p.variety?.trim() === varietyFilter);
+    }
+    const fromTs = dateFilterFrom ? parseDateToTimestamp(dateFilterFrom) : null;
+    const toTs = dateFilterTo ? parseDateToTimestamp(dateFilterTo) : null;
+    if (fromTs != null && !Number.isNaN(fromTs)) {
+      list = list.filter((p) => parseDateToTimestamp(p.date) >= fromTs);
+    }
+    if (toTs != null && !Number.isNaN(toTs)) {
+      list = list.filter((p) => parseDateToTimestamp(p.date) <= toTs);
+    }
+    return [...list].sort((a, b) => {
+      const ta = parseDateToTimestamp(a.date);
+      const tb = parseDateToTimestamp(b.date);
+      if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
+      return dateSort === 'asc' ? ta - tb : tb - ta;
+    });
+  }, [gradingPasses, varietyFilter, dateFilterFrom, dateFilterTo, dateSort]);
 
   const [removedQuantities, setRemovedQuantities] = useState<RemovedQuantities>(
     () => ({})
@@ -105,10 +144,15 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
   const [quantityError, setQuantityError] = useState('');
   const [dialogMaxQuantity, setDialogMaxQuantity] = useState(0);
 
+  const tableSizes = useMemo(
+    () => getUniqueSizes(filteredAndSortedPasses),
+    [filteredAndSortedPasses]
+  );
+
   const visibleSizes = useMemo(() => {
-    if (visibleColumns.size === 0 && sizes.length > 0) return sizes;
-    return sizes.filter((s) => visibleColumns.has(s));
-  }, [sizes, visibleColumns]);
+    if (visibleColumns.size === 0 && tableSizes.length > 0) return tableSizes;
+    return tableSizes.filter((s) => visibleColumns.has(s));
+  }, [tableSizes, visibleColumns]);
 
   const formSchema = useMemo(() => buildFormSchema(), []);
 
@@ -228,14 +272,18 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
   const voucherNumberDisplay =
     voucherNumber != null ? `#${voucherNumber}` : null;
 
-  const hasGradingData = gradingPasses.length > 0 && sizes.length > 0;
+  const hasGradingData = gradingPasses.length > 0;
+  const hasFilteredData =
+    filteredAndSortedPasses.length > 0 && tableSizes.length > 0;
+  const hasActiveFilters =
+    !!varietyFilter || !!dateFilterFrom || !!dateFilterTo;
   const hasExistingQuantity =
     dialogPassId != null &&
     dialogSize != null &&
     (removedQuantities[dialogPassId]?.[dialogSize] ?? 0) > 0;
 
   return (
-    <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
+    <main className="font-custom mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-12">
       {/* Header */}
       <div className="mb-8 space-y-4">
         <h1 className="font-custom text-3xl font-bold text-[#333] sm:text-4xl dark:text-white">
@@ -299,47 +347,122 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
           {/* Grading gate passes – Card + Table */}
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <CardTitle className="font-custom text-xl">
-                    Grading Gate Passes
-                  </CardTitle>
-                  <CardDescription className="font-custom text-muted-foreground text-sm">
-                    {hasGradingData
-                      ? `Select quantities to remove from each size. Use the Columns button to show or hide size columns.`
-                      : 'Load grading gate passes to see orders.'}
-                  </CardDescription>
-                </div>
-                {hasGradingData && sizes.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="font-custom gap-2"
-                      >
-                        <Columns className="h-4 w-4" />
-                        Columns
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuLabel className="font-custom">
-                        Toggle Columns
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {sizes.map((size) => (
-                        <DropdownMenuCheckboxItem
-                          key={size}
-                          checked={visibleColumns.has(size)}
-                          onCheckedChange={() => handleColumnToggle(size)}
-                          className="font-custom"
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <CardTitle className="font-custom text-xl">
+                      Grading Gate Passes
+                    </CardTitle>
+                    <CardDescription className="font-custom text-muted-foreground text-sm">
+                      {hasGradingData
+                        ? `Select quantities to remove from each size. Use the Columns button to show or hide size columns.`
+                        : 'Load grading gate passes to see orders.'}
+                    </CardDescription>
+                  </div>
+                  {hasGradingData && tableSizes.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="font-custom gap-2"
                         >
-                          {size}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          <Columns className="h-4 w-4" />
+                          Columns
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel className="font-custom">
+                          Toggle Columns
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {tableSizes.map((size) => (
+                          <DropdownMenuCheckboxItem
+                            key={size}
+                            checked={visibleColumns.has(size)}
+                            onCheckedChange={() => handleColumnToggle(size)}
+                            className="font-custom"
+                          >
+                            {size}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+
+                {hasGradingData && (
+                  <div className="border-border/60 bg-muted/30 flex flex-wrap items-end gap-3 rounded-lg border px-3 py-3 sm:gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label
+                        htmlFor="grading-variety-filter"
+                        className="font-custom text-muted-foreground text-xs font-medium"
+                      >
+                        Variety
+                      </label>
+                      <SearchSelector
+                        id="grading-variety-filter"
+                        options={[
+                          { value: '', label: 'All varieties' },
+                          ...varieties.map((v) => ({ value: v, label: v })),
+                        ]}
+                        placeholder="All varieties"
+                        onSelect={(value) => setVarietyFilter(value ?? '')}
+                        defaultValue={varietyFilter || ''}
+                        buttonClassName="font-custom w-[160px] sm:w-[180px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="font-custom text-muted-foreground text-xs font-medium">
+                        Date from
+                      </span>
+                      <DatePicker
+                        value={dateFilterFrom}
+                        onChange={(v) => setDateFilterFrom(v ?? '')}
+                        id="grading-date-from"
+                        label=""
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="font-custom text-muted-foreground text-xs font-medium">
+                        Date to
+                      </span>
+                      <DatePicker
+                        value={dateFilterTo}
+                        onChange={(v) => setDateFilterTo(v ?? '')}
+                        id="grading-date-to"
+                        label=""
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="font-custom text-muted-foreground text-xs font-medium">
+                        Sort by date
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant={dateSort === 'desc' ? 'default' : 'outline'}
+                          size="sm"
+                          className="font-custom gap-1.5"
+                          onClick={() => setDateSort('desc')}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                          Newest first
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={dateSort === 'asc' ? 'default' : 'outline'}
+                          size="sm"
+                          className="font-custom gap-1.5"
+                          onClick={() => setDateSort('asc')}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                          Oldest first
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -360,6 +483,22 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
 
               {!isLoadingPasses &&
                 hasGradingData &&
+                !hasFilteredData &&
+                (hasActiveFilters ? (
+                  <p className="font-custom text-muted-foreground py-6 text-center text-sm">
+                    No passes match the current filters. Try adjusting variety
+                    or date range.
+                  </p>
+                ) : (
+                  <p className="font-custom text-muted-foreground py-6 text-center text-sm">
+                    No grading gate passes with order details. Create grading
+                    gate passes first.
+                  </p>
+                ))}
+
+              {!isLoadingPasses &&
+                hasGradingData &&
+                hasFilteredData &&
                 (visibleSizes.length === 0 ? (
                   <div className="font-custom text-muted-foreground py-8 text-center text-sm">
                     No columns selected. Use the Columns button to show columns.
@@ -383,7 +522,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {gradingPasses.map((pass) => (
+                        {filteredAndSortedPasses.map((pass) => (
                           <TableRow
                             key={pass._id}
                             className="border-border/40 hover:bg-transparent"
@@ -408,16 +547,15 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
                                 removedQuantities[pass._id]?.[size] ?? 0;
                               if (!detail) {
                                 return (
-                                  <TableCell key={size} className="py-2">
-                                    <div className="bg-muted/30 border-border/40 h-20 rounded-lg border" />
+                                  <TableCell key={size} className="py-1">
+                                    <div className="bg-muted/30 border-border/40 h-[58px] w-[70px] rounded-md border" />
                                   </TableCell>
                                 );
                               }
                               return (
-                                <TableCell key={size} className="py-2">
+                                <TableCell key={size} className="py-1">
                                   <GradingGatePassCell
                                     variety={pass.variety}
-                                    location={size}
                                     currentQuantity={detail.currentQuantity}
                                     initialQuantity={detail.initialQuantity}
                                     removedQuantity={removed}
