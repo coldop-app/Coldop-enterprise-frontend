@@ -23,7 +23,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
+import GradingGatePassVoucher from './grading-gate-pass-voucher';
 
 type VoucherTabType = 'grading' | 'storage' | 'nikasi' | 'outgoing';
 
@@ -136,6 +138,14 @@ function IncomingGatePassVoucher({
 }: IncomingGatePassVoucherProps) {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { data: gradingPasses } = useGetGradingGatePasses();
+
+  const gradingPassesForThisIncoming = useMemo(() => {
+    const list = gradingPasses ?? [];
+    return list.filter(
+      (gp) => gp.incomingGatePassId._id === voucher._id
+    );
+  }, [gradingPasses, voucher._id]);
 
   const farmer = voucher.farmerStorageLinkId.farmerId;
   const linkedBy = voucher.farmerStorageLinkId.linkedById;
@@ -396,21 +406,29 @@ function IncomingGatePassVoucher({
 
         <TabsContent value="grading" className="mt-0 outline-none">
           <CardContent className="px-4 py-6">
-            <EmptyVoucherState
-              voucherType="grading"
-              onCreateVoucher={(type) => {
-                if (type === 'grading') {
-                  navigate({
-                    to: '/store-admin/grading',
-                    search: {
-                      incomingGatePassId: voucher._id,
-                      variety: voucher.variety,
-                    },
-                  });
-                }
-                onCreateVoucher?.(type);
-              }}
-            />
+            {gradingPassesForThisIncoming.length === 0 ? (
+              <EmptyVoucherState
+                voucherType="grading"
+                onCreateVoucher={(type) => {
+                  if (type === 'grading') {
+                    navigate({
+                      to: '/store-admin/grading',
+                      search: {
+                        incomingGatePassId: voucher._id,
+                        variety: voucher.variety,
+                      },
+                    });
+                  }
+                  onCreateVoucher?.(type);
+                }}
+              />
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {gradingPassesForThisIncoming.map((gp) => (
+                  <GradingGatePassVoucher key={gp._id} voucher={gp} />
+                ))}
+              </div>
+            )}
           </CardContent>
         </TabsContent>
 

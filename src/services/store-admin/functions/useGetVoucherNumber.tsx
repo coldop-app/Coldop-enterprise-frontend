@@ -49,11 +49,15 @@ export const voucherNumberQueryOptions = (
     queryFn: () => fetchVoucherNumber(type),
   });
 
-/** Hook to fetch voucher number for a given gate-pass type */
+/** Hook to fetch voucher number for a given gate-pass type. Always fetches latest when the form mounts. */
 export function useGetReceiptVoucherNumber(
   type: VoucherNumberType = 'incoming-gate-pass'
 ) {
-  return useQuery(voucherNumberQueryOptions(type));
+  return useQuery({
+    ...voucherNumberQueryOptions(type),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
 }
 
 /** Prefetch voucher number – e.g. before opening a gate-pass form */
