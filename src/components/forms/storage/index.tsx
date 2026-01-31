@@ -40,6 +40,7 @@ import { SearchSelector } from '@/components/forms/search-selector';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import { useCreateStorageGatePass } from '@/services/store-admin/storage-gate-pass/useCreateStorageGatePass';
+import { toast } from 'sonner';
 import {
   formatDate,
   formatDateToISO,
@@ -68,6 +69,7 @@ function buildFormSchema() {
       .string()
       .trim()
       .max(500, 'Remarks must not exceed 500 characters'),
+    manualGatePassNumber: z.union([z.number(), z.undefined()]),
   });
 }
 
@@ -203,6 +205,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
     defaultValues: {
       date: formatDate(new Date()),
       remarks: '',
+      manualGatePassNumber: undefined as number | undefined,
     },
     validators: {
       onChange: formSchema,
@@ -242,6 +245,9 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
           variety,
           gradingGatePasses,
           remarks: value.remarks.trim() || undefined,
+          ...(value.manualGatePassNumber != null && {
+            manualGatePassNumber: value.manualGatePassNumber,
+          }),
         },
         {
           onSuccess: () => {
@@ -460,6 +466,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
       remarks: form.state.values.remarks ?? '',
       gradingGatePasses,
       variety,
+      manualGatePassNumber: form.state.values.manualGatePassNumber,
     };
   }, [
     removedQuantities,
@@ -467,6 +474,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
     filteredAndSortedPasses,
     form.state.values.date,
     form.state.values.remarks,
+    form.state.values.manualGatePassNumber,
   ]);
 
   const hasGradingData = gradingPasses.length > 0;
@@ -903,6 +911,41 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
                 </CardContent>
               </Card>
 
+              {/* Manual Gate Pass Number */}
+              <form.Field
+                name="manualGatePassNumber"
+                children={(field) => (
+                  <Field>
+                    <FieldLabel
+                      htmlFor="storage-manualGatePassNumber"
+                      className="font-custom text-base font-semibold"
+                    >
+                      Manual Gate Pass Number
+                    </FieldLabel>
+                    <Input
+                      id="storage-manualGatePassNumber"
+                      type="number"
+                      min={0}
+                      value={field.state.value ?? ''}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '') {
+                          field.handleChange(undefined);
+                          return;
+                        }
+                        const parsed = parseInt(raw, 10);
+                        field.handleChange(
+                          Number.isNaN(parsed) ? undefined : parsed
+                        );
+                      }}
+                      placeholder="Optional"
+                      className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                  </Field>
+                )}
+              />
+
               <form.Field
                 name="remarks"
                 children={(field) => (
@@ -911,7 +954,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
                       htmlFor="storage-gate-pass-remarks"
                       className="font-custom text-base font-semibold"
                     >
-                      Remarks (optional)
+                      Remarks
                     </FieldLabel>
                     <textarea
                       id="storage-gate-pass-remarks"
@@ -938,7 +981,10 @@ const StorageGatePassForm = memo(function StorageGatePassForm() {
                 type="button"
                 variant="outline"
                 className="font-custom order-2 w-full sm:order-1 sm:w-auto"
-                onClick={() => form.reset()}
+                onClick={() => {
+                  form.reset();
+                  toast.info('Form reset');
+                }}
               >
                 Reset
               </Button>

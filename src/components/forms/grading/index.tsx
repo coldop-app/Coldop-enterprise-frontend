@@ -14,6 +14,7 @@ import { DatePicker } from '@/components/forms/date-picker';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useCreateGradingGatePass } from '@/services/store-admin/grading-gate-pass/useCreateGradingGatePass';
 import { useStore } from '@/stores/store';
+import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 
 import { GRADING_SIZES, BAG_TYPES } from './constants';
@@ -55,6 +56,7 @@ function buildFormSchema() {
       .string()
       .trim()
       .max(500, 'Remarks must not exceed 500 characters'),
+    manualGatePassNumber: z.union([z.number(), z.undefined()]),
   });
 }
 
@@ -78,6 +80,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
       date: formatDate(new Date()),
       sizeEntries: defaultSizeEntries,
       remarks: '',
+      manualGatePassNumber: undefined as number | undefined,
     },
     validators: {
       onChange: formSchema,
@@ -107,6 +110,9 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
           orderDetails,
           allocationStatus: 'UNALLOCATED',
           remarks: value.remarks.trim() || undefined,
+          ...(value.manualGatePassNumber != null && {
+            manualGatePassNumber: value.manualGatePassNumber,
+          }),
         },
         {
           onSuccess: () => {
@@ -411,6 +417,41 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
             </span>
           </div>
 
+          {/* Manual Gate Pass Number */}
+          <form.Field
+            name="manualGatePassNumber"
+            children={(field) => (
+              <Field>
+                <FieldLabel
+                  htmlFor="grading-manualGatePassNumber"
+                  className="font-custom text-base font-semibold"
+                >
+                  Manual Gate Pass Number
+                </FieldLabel>
+                <Input
+                  id="grading-manualGatePassNumber"
+                  type="number"
+                  min={0}
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      field.handleChange(undefined);
+                      return;
+                    }
+                    const parsed = parseInt(raw, 10);
+                    field.handleChange(
+                      Number.isNaN(parsed) ? undefined : parsed
+                    );
+                  }}
+                  placeholder="Optional"
+                  className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </Field>
+            )}
+          />
+
           {/* Remarks */}
           <form.Field
             name="remarks"
@@ -420,7 +461,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
                   htmlFor="grading-remarks"
                   className="font-custom text-base font-semibold"
                 >
-                  Remarks (optional)
+                  Remarks
                 </FieldLabel>
                 <textarea
                   id="grading-remarks"
@@ -444,7 +485,10 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
             type="button"
             variant="outline"
             className="font-custom order-2 w-full sm:order-1 sm:w-auto"
-            onClick={() => form.reset()}
+            onClick={() => {
+              form.reset();
+              toast.info('Form reset');
+            }}
             disabled={isPending}
           >
             Reset
@@ -471,6 +515,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
           date: form.state.values.date,
           sizeEntries: form.state.values.sizeEntries,
           remarks: form.state.values.remarks,
+          manualGatePassNumber: form.state.values.manualGatePassNumber,
         }}
         isPending={isPending}
         isLoadingVoucher={isLoadingVoucher}

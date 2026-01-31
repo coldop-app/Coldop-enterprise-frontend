@@ -41,6 +41,7 @@ interface SummarySheetProps {
       tareWeightKg: number;
     };
     remarks?: string;
+    manualGatePassNumber?: number;
   };
   isPending: boolean;
   isLoadingVoucher: boolean;

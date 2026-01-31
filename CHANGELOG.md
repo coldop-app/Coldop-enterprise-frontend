@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-01-31
+
+### Added
+- Progress UI component (shadcn, Radix) for progress bars
+- Optional manual gate pass number field on Incoming, Grading, Nikasi, and Storage gate pass forms
+- Incoming gate pass voucher: stage progress bar (Incoming → Grading → Storage → Nikasi → Outgoing) with labels and percentage
+- Success toasts on form submission (incoming, storage) via sonner
+
+### Changed
+- Incoming, Grading, Nikasi, and Storage gate pass types: added optional `manualGatePassNumber`
+- Summary sheets pass through manual gate pass number for all gate pass types
+- Incoming gate pass voucher: layout and stage visibility improvements
+
 ## [0.8.0] - 2026-01-30
 
 ### Added

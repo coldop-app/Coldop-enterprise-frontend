@@ -23,6 +23,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Progress } from '@/components/ui/progress';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
 import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
@@ -187,6 +188,24 @@ function IncomingGatePassVoucher({
     [voucher.status]
   );
 
+  const voucherStageProgress = useMemo(() => {
+    const hasGrading = gradingPassesForThisIncoming.length > 0;
+    const hasStorage = storagePassesForThisIncoming.length > 0;
+    const hasNikasi = nikasiPassesForThisIncoming.length > 0;
+    const stages = 5;
+    const step = 100 / stages;
+    if (hasNikasi) return step * 4;
+    if (hasStorage) return step * 3;
+    if (hasGrading) return step * 2;
+    return step;
+  }, [
+    gradingPassesForThisIncoming.length,
+    storagePassesForThisIncoming.length,
+    nikasiPassesForThisIncoming.length,
+  ]);
+
+  const stageLabels = ['Incoming', 'Grading', 'Storage', 'Nikasi', 'Outgoing'];
+
   return (
     <Card className="border-border/40 hover:border-primary/30 overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
       <Tabs defaultValue="incoming" className="w-full">
@@ -229,6 +248,41 @@ function IncomingGatePassVoucher({
               <span className="hidden sm:inline">Outgoing</span>
             </TabsTrigger>
           </TabsList>
+        </div>
+
+        {/* Voucher stage progress */}
+        <div className="border-border/40 px-4 pb-2 pt-1 sm:px-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground font-custom text-xs font-medium">
+              Stage
+            </span>
+            <span className="text-muted-foreground font-custom text-xs font-medium">
+              {voucherStageProgress}%
+            </span>
+          </div>
+          <Progress
+            value={voucherStageProgress}
+            className="mt-1.5 h-2 transition-all duration-500 ease-out"
+          />
+          <div className="mt-1.5 flex justify-between">
+            {stageLabels.map((label, i) => {
+              const step = 100 / stageLabels.length;
+              const threshold = (i + 1) * step;
+              const isReached = voucherStageProgress >= threshold;
+              return (
+                <span
+                  key={label}
+                  className={`font-custom text-[10px] ${
+                    isReached
+                      ? 'text-primary font-medium'
+                      : 'text-muted-foreground/70'
+                  }`}
+                >
+                  {label}
+                </span>
+              );
+            })}
+          </div>
         </div>
 
         <TabsContent value="incoming" className="mt-0 outline-none">

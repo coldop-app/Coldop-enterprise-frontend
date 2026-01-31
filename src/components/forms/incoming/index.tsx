@@ -21,6 +21,7 @@ import { SummarySheet } from './summary-sheet';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import { useCreateIncomingGatePass } from '@/services/store-admin/incoming-gate-pass/useCreateIncomingGatePass';
+import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 
 // Common potato varieties
@@ -96,6 +97,7 @@ export const IncomingForm = memo(function IncomingForm() {
           .string()
           .trim()
           .max(500, 'Remarks must not exceed 500 characters'),
+        manualGatePassNumber: z.union([z.number(), z.undefined()]),
       }),
     []
   );
@@ -109,6 +111,7 @@ export const IncomingForm = memo(function IncomingForm() {
       bagsReceived: 0,
       weightSlip: { slipNumber: '', grossWeightKg: 0, tareWeightKg: 0 },
       remarks: '',
+      manualGatePassNumber: undefined as number | undefined,
     },
     validators: {
       onChange: formSchema,
@@ -140,6 +143,8 @@ export const IncomingForm = memo(function IncomingForm() {
         };
       }
       if (value.remarks?.trim()) payload.remarks = value.remarks.trim();
+      if (value.manualGatePassNumber != null)
+        payload.manualGatePassNumber = value.manualGatePassNumber;
 
       createIncomingGatePass(payload, {
         onSuccess: () => {
@@ -427,7 +432,7 @@ export const IncomingForm = memo(function IncomingForm() {
             }}
           />
 
-          {/* Weight Slip (optional) */}
+          {/* Weight Slip */}
           <div className="border-primary/30 bg-primary/5 space-y-3 rounded-lg border p-4">
             <p className="font-custom text-base font-semibold">Weight Slip</p>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -537,7 +542,42 @@ export const IncomingForm = memo(function IncomingForm() {
             </div>
           </div>
 
-          {/* Remarks (optional) */}
+          {/* Manual Gate Pass Number */}
+          <form.Field
+            name="manualGatePassNumber"
+            children={(field) => (
+              <Field>
+                <FieldLabel
+                  htmlFor="manualGatePassNumber"
+                  className="font-custom text-base font-semibold"
+                >
+                  Manual Gate Pass Number
+                </FieldLabel>
+                <Input
+                  id="manualGatePassNumber"
+                  type="number"
+                  min={0}
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      field.handleChange(undefined);
+                      return;
+                    }
+                    const parsed = parseInt(raw, 10);
+                    field.handleChange(
+                      Number.isNaN(parsed) ? undefined : parsed
+                    );
+                  }}
+                  placeholder="Optional"
+                  className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </Field>
+            )}
+          />
+
+          {/* Remarks */}
           <form.Field
             name="remarks"
             children={(field) => (
@@ -546,7 +586,7 @@ export const IncomingForm = memo(function IncomingForm() {
                   htmlFor="remarks"
                   className="font-custom text-base font-semibold"
                 >
-                  Remarks (optional)
+                  Remarks
                 </FieldLabel>
                 <textarea
                   id="remarks"
@@ -573,6 +613,7 @@ export const IncomingForm = memo(function IncomingForm() {
             onClick={() => {
               form.reset();
               setSelectedFarmerId('');
+              toast.info('Form reset');
             }}
             disabled={isPending}
           >
@@ -604,6 +645,7 @@ export const IncomingForm = memo(function IncomingForm() {
           bagsReceived: form.state.values.bagsReceived,
           weightSlip: form.state.values.weightSlip,
           remarks: form.state.values.remarks,
+          manualGatePassNumber: form.state.values.manualGatePassNumber,
         }}
         isPending={isPending}
         isLoadingVoucher={isLoadingVoucher}

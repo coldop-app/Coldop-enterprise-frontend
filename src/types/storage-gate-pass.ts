@@ -22,6 +22,7 @@ export interface CreateStorageGatePassInput {
   variety: string;
   gradingGatePasses: CreateStorageGatePassGradingEntry[];
   remarks?: string;
+  manualGatePassNumber?: number;
 }
 
 /** Incoming bag size snapshot as returned in grading gate pass snapshots */

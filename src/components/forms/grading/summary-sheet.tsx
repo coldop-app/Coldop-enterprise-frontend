@@ -24,6 +24,7 @@ export interface GradingSummaryFormValues {
     weightPerBagKg: number;
   }>;
   remarks?: string;
+  manualGatePassNumber?: number;
 }
 
 export interface GradingSummarySheetProps {

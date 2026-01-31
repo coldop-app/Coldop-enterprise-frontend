@@ -24,6 +24,7 @@ export interface CreateNikasiGatePassInput {
   toField: string;
   gradingGatePasses: CreateNikasiGatePassGradingEntry[];
   remarks?: string;
+  manualGatePassNumber?: number;
 }
 
 /** Incoming bag size snapshot in created nikasi gate pass */

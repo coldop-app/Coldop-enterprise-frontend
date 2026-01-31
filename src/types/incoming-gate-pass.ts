@@ -25,6 +25,7 @@ export interface CreateIncomingGatePassInput {
   status?: 'OPEN' | 'CLOSED';
   gradingSummary?: CreateIncomingGatePassGradingSummary;
   remarks?: string;
+  manualGatePassNumber?: number;
 }
 
 /** Grading summary on an incoming gate pass */

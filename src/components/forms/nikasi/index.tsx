@@ -40,6 +40,7 @@ import { SearchSelector } from '@/components/forms/search-selector';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import { useCreateNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useCreateNikasiGatePass';
+import { toast } from 'sonner';
 import {
   formatDate,
   formatDateToISO,
@@ -65,6 +66,7 @@ function buildFormSchema() {
       .string()
       .trim()
       .max(500, 'Remarks must not exceed 500 characters'),
+    manualGatePassNumber: z.union([z.number(), z.undefined()]),
   });
 }
 
@@ -178,6 +180,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
       toField: '',
       date: formatDate(new Date()),
       remarks: '',
+      manualGatePassNumber: undefined as number | undefined,
     },
     validators: {
       onChange: formSchema,
@@ -216,6 +219,9 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
           toField: value.toField.trim(),
           gradingGatePasses,
           remarks: value.remarks.trim() || undefined,
+          ...(value.manualGatePassNumber != null && {
+            manualGatePassNumber: value.manualGatePassNumber,
+          }),
         },
         {
           onSuccess: () => {
@@ -383,6 +389,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
       remarks: form.state.values.remarks ?? '',
       gradingGatePasses,
       variety,
+      manualGatePassNumber: form.state.values.manualGatePassNumber,
     };
   }, [
     removedQuantities,
@@ -391,6 +398,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
     form.state.values.from,
     form.state.values.toField,
     form.state.values.remarks,
+    form.state.values.manualGatePassNumber,
   ]);
 
   const hasGradingData = gradingPasses.length > 0;
@@ -645,9 +653,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
                       <div className="flex gap-1">
                         <Button
                           type="button"
-                          variant={
-                            dateSort === 'desc' ? 'default' : 'outline'
-                          }
+                          variant={dateSort === 'desc' ? 'default' : 'outline'}
                           size="sm"
                           className="font-custom gap-1.5"
                           onClick={() => setDateSort('desc')}
@@ -691,8 +697,8 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
                 !hasFilteredData &&
                 (hasActiveFilters ? (
                   <p className="font-custom text-muted-foreground py-6 text-center text-sm">
-                    No passes match the current filters. Try adjusting variety or
-                    date range.
+                    No passes match the current filters. Try adjusting variety
+                    or date range.
                   </p>
                 ) : (
                   <p className="font-custom text-muted-foreground py-6 text-center text-sm">
@@ -747,10 +753,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
                               </div>
                             </TableCell>
                             {visibleSizes.map((size) => {
-                              const detail = getOrderDetailForSize(
-                                pass,
-                                size
-                              );
+                              const detail = getOrderDetailForSize(pass, size);
                               const removed =
                                 removedQuantities[pass._id]?.[size] ?? 0;
                               if (!detail) {
@@ -785,6 +788,41 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
             </CardContent>
           </Card>
 
+          {/* Manual Gate Pass Number */}
+          <form.Field
+            name="manualGatePassNumber"
+            children={(field) => (
+              <Field>
+                <FieldLabel
+                  htmlFor="nikasi-manualGatePassNumber"
+                  className="font-custom text-base font-semibold"
+                >
+                  Manual Gate Pass Number
+                </FieldLabel>
+                <Input
+                  id="nikasi-manualGatePassNumber"
+                  type="number"
+                  min={0}
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      field.handleChange(undefined);
+                      return;
+                    }
+                    const parsed = parseInt(raw, 10);
+                    field.handleChange(
+                      Number.isNaN(parsed) ? undefined : parsed
+                    );
+                  }}
+                  placeholder="Optional"
+                  className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </Field>
+            )}
+          />
+
           {/* Remarks */}
           <form.Field
             name="remarks"
@@ -794,7 +832,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
                   htmlFor="nikasi-gate-pass-remarks"
                   className="font-custom text-base font-semibold"
                 >
-                  Remarks (optional)
+                  Remarks
                 </FieldLabel>
                 <textarea
                   id="nikasi-gate-pass-remarks"
@@ -817,7 +855,10 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm() {
             type="button"
             variant="outline"
             className="font-custom order-2 w-full sm:order-1 sm:w-auto"
-            onClick={() => form.reset()}
+            onClick={() => {
+              form.reset();
+              toast.info('Form reset');
+            }}
           >
             Reset
           </Button>

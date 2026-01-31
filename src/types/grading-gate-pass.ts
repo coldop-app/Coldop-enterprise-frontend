@@ -99,6 +99,7 @@ export interface CreateGradingGatePassInput {
   orderDetails: CreateGradingGatePassOrderDetail[];
   allocationStatus: string;
   remarks?: string;
+  manualGatePassNumber?: number;
 }
 
 /** Created grading gate pass as returned by POST /grading-gate-pass (refs as IDs) */

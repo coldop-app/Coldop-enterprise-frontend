@@ -39,6 +39,7 @@ export interface NikasiSummaryFormValues {
   remarks: string;
   gradingGatePasses: NikasiSummaryGradingEntry[];
   variety: string;
+  manualGatePassNumber?: number;
 }
 
 /** Format dd.mm.yyyy or ISO to "Jan 18, 2026" */
