@@ -36,10 +36,8 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
               {/* TEXT (EVEN) */}
               {index % 2 === 0 && (
                 <div className="step-text-box">
-                  <p className="font-custom text-muted my-3 text-8xl font-semibold">
-                    <span className="hover:text-primary/85 focus-visible:text-primary/85 cursor-pointer transition-colors duration-200 focus:outline-none">
-                      {step.number}
-                    </span>
+                  <p className="font-custom text-primary my-3 text-8xl font-semibold">
+                    {step.number}
                   </p>
                   <h3 className="font-custom text-foreground mb-6 text-2xl font-semibold lg:text-3xl">
                     {step.heading}
@@ -62,10 +60,8 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
               {/* TEXT (ODD) */}
               {index % 2 === 1 && (
                 <div className="step-text-box">
-                  <p className="font-custom text-muted my-3 text-8xl font-semibold">
-                    <span className="hover:text-primary/85 focus-visible:text-primary/85 cursor-pointer transition-colors duration-200 focus:outline-none">
-                      {step.number}
-                    </span>
+                  <p className="font-custom text-primary my-3 text-8xl font-semibold">
+                    {step.number}
                   </p>
                   <h3 className="font-custom text-foreground mb-6 text-2xl font-semibold lg:text-3xl">
                     {step.heading}
@@ -103,7 +99,7 @@ const HowItWorks = ({ title, subtitle, steps }: HowItWorksProps) => {
               </div>
 
               <div className="step-text-box mt-6">
-                <p className="font-custom text-muted mb-3 text-7xl font-semibold">
+                <p className="font-custom text-primary mb-3 text-7xl font-semibold">
                   {step.number}
                 </p>
                 <h3 className="font-custom text-foreground mb-6 text-xl font-semibold">
