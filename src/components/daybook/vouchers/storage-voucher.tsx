@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -11,86 +11,41 @@ import {
   Package,
   Warehouse,
 } from 'lucide-react';
-import type { StorageGatePass } from '@/types/storage-gate-pass';
+import { DetailRow } from './detail-row';
+import { formatVoucherDate } from './format-date';
+import type { PassVoucherData } from './types';
+import type { StorageOrderDetailRow } from './types';
+import { totalBagsFromOrderDetails, type VoucherFarmerInfo } from './types';
 
-interface StorageGatePassVoucherProps {
-  voucher: StorageGatePass;
+export interface StorageVoucherProps extends VoucherFarmerInfo {
+  voucher: PassVoucherData;
 }
 
-const DetailRow = memo(function DetailRow({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ElementType;
-}) {
-  return (
-    <div className="flex items-start gap-2">
-      {Icon && <Icon className="text-muted-foreground/60 mt-0.5 h-3.5 w-3.5" />}
-      <div className="min-w-0 flex-1">
-        <div className="text-muted-foreground/70 mb-0.5 text-[10px] font-medium tracking-wider uppercase">
-          {label}
-        </div>
-        <div className="text-foreground truncate text-sm font-semibold">
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-});
-
-function formatDate(dateString: string): string {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
+const StorageVoucher = memo(function StorageVoucher({
+  voucher,
+  farmerName,
+  farmerAccount,
+}: StorageVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const firstGrading = voucher.gradingGatePassIds?.[0];
-  const farmer =
-    firstGrading?.incomingGatePassId?.farmerStorageLinkId?.farmerId;
-  const accountNumber =
-    firstGrading?.incomingGatePassId?.farmerStorageLinkId?.accountNumber;
+  const bags = totalBagsFromOrderDetails(voucher.orderDetails);
+  const snapshots = voucher.gradingGatePassSnapshots ?? [];
+  const fallbackIds = voucher.gradingGatePassIds ?? [];
+  const gradingCount =
+    snapshots.length > 0 ? snapshots.length : fallbackIds.length;
 
-  const formattedDate = useMemo(() => formatDate(voucher.date), [voucher.date]);
+  const { totalQty, totalInitial } = useMemo(() => {
+    const details = (voucher.orderDetails ?? []) as StorageOrderDetailRow[];
+    let qty = 0;
+    let initial = 0;
+    for (const od of details) {
+      qty += od.currentQuantity ?? 0;
+      initial += od.initialQuantity ?? 0;
+    }
+    return { totalQty: qty, totalInitial: initial };
+  }, [voucher.orderDetails]);
 
-  const handleToggleExpanded = useCallback(() => {
-    setIsExpanded((prev) => !prev);
-  }, []);
-
-  const handlePrint = useCallback(() => {
-    window.print();
-  }, []);
-
-  const totalBags = useMemo(
-    () => voucher.orderDetails.reduce((sum, od) => sum + od.currentQuantity, 0),
-    [voucher.orderDetails]
-  );
-
-  const orderDetailsTotals = useMemo(
-    () => ({
-      qty: voucher.orderDetails.reduce(
-        (sum, od) => sum + od.currentQuantity,
-        0
-      ),
-      initial: voucher.orderDetails.reduce(
-        (sum, od) => sum + od.initialQuantity,
-        0
-      ),
-    }),
-    [voucher.orderDetails]
-  );
+  const orderDetails = (voucher.orderDetails ?? []) as StorageOrderDetailRow[];
 
   return (
     <Card className="border-border/40 hover:border-primary/30 overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
@@ -102,11 +57,13 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
                 <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
                 <h3 className="text-foreground font-custom text-base font-bold tracking-tight">
                   SGP{' '}
-                  <span className="text-primary">#{voucher.gatePassNo}</span>
+                  <span className="text-primary">
+                    #{voucher.gatePassNo ?? '—'}
+                  </span>
                 </h3>
               </div>
               <p className="text-muted-foreground mt-2 text-xs">
-                {formattedDate}
+                {formatVoucherDate(voucher.date)}
               </p>
             </div>
 
@@ -115,23 +72,27 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
                 variant="secondary"
                 className="px-2 py-0.5 text-[10px] font-medium"
               >
-                {totalBags.toLocaleString('en-IN')} bags
+                {bags.toLocaleString('en-IN')} bags
               </Badge>
             </div>
           </div>
         </CardHeader>
 
         <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {farmer && (
-            <DetailRow label="Farmer" value={farmer.name} icon={User} />
+          {farmerName != null && (
+            <DetailRow label="Farmer" value={farmerName} icon={User} />
           )}
-          {accountNumber != null && (
-            <DetailRow label="Account" value={`#${accountNumber}`} />
+          {farmerAccount != null && (
+            <DetailRow label="Account" value={`#${farmerAccount}`} />
           )}
-          <DetailRow label="Variety" value={voucher.variety} icon={Package} />
+          <DetailRow
+            label="Variety"
+            value={voucher.variety ?? '—'}
+            icon={Package}
+          />
           <DetailRow
             label="Grading refs"
-            value={`${voucher.gradingGatePassIds?.length ?? 0} GGP(s)`}
+            value={`${gradingCount} GGP(s)`}
             icon={Warehouse}
           />
         </div>
@@ -140,7 +101,7 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleToggleExpanded}
+            onClick={() => setIsExpanded((p) => !p)}
             className="hover:bg-accent h-8 px-3 text-xs"
           >
             {isExpanded ? (
@@ -159,7 +120,7 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={handlePrint}
+            onClick={() => window.print()}
             className="h-8 w-8 p-0"
             aria-label="Print gate pass"
           >
@@ -171,41 +132,71 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
           <>
             <Separator className="my-4" />
             <div className="space-y-4">
-              {farmer && (
+              {(farmerName != null || farmerAccount != null) && (
                 <section>
                   <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
                     Farmer Details
                   </h4>
                   <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <DetailRow label="Name" value={farmer.name} />
-                    <DetailRow label="Mobile" value={farmer.mobileNumber} />
-                    {accountNumber != null && (
-                      <DetailRow label="Account" value={`${accountNumber}`} />
+                    {farmerName != null && (
+                      <DetailRow label="Name" value={farmerName} />
+                    )}
+                    {farmerAccount != null && (
+                      <DetailRow label="Account" value={`${farmerAccount}`} />
                     )}
                   </div>
                 </section>
               )}
 
-              {voucher.gradingGatePassIds != null &&
-                voucher.gradingGatePassIds.length > 0 && (
-                  <>
-                    <Separator />
-                    <section>
-                      <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
-                        Grading Gate Passes
-                      </h4>
-                      <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {voucher.gradingGatePassIds.map((gp) => (
-                          <DetailRow
-                            key={gp._id}
-                            label={`GGP #${gp.gatePassNo}`}
-                            value={`IGP #${gp.incomingGatePassId?.gatePassNo ?? '—'}`}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  </>
-                )}
+              {gradingCount > 0 && (
+                <>
+                  <Separator />
+                  <section>
+                    <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
+                      Grading Gate Passes
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {snapshots.length > 0
+                        ? snapshots.map((gp) => {
+                            const totalBags = (
+                              gp.incomingBagSizes ?? []
+                            ).reduce((s, b) => s + (b.currentQuantity ?? 0), 0);
+                            return (
+                              <div
+                                key={gp._id ?? gp.gatePassNo ?? ''}
+                                className="bg-muted/30 border-border/50 rounded-lg border p-3"
+                              >
+                                <p className="text-muted-foreground font-custom text-xs font-medium">
+                                  GGP #{gp.gatePassNo ?? '—'}
+                                </p>
+                                <p className="text-foreground font-custom mt-1 text-sm font-semibold">
+                                  #{gp.gatePassNo ?? '—'}
+                                </p>
+                                {totalBags > 0 && (
+                                  <p className="text-muted-foreground font-custom mt-1 text-[10px]">
+                                    {totalBags.toLocaleString('en-IN')} bags
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })
+                        : fallbackIds.map((gp) => (
+                            <div
+                              key={gp._id ?? gp.gatePassNo ?? ''}
+                              className="bg-muted/30 border-border/50 rounded-lg border p-3"
+                            >
+                              <p className="text-muted-foreground font-custom text-xs font-medium">
+                                GGP #{gp.gatePassNo ?? '—'}
+                              </p>
+                              <p className="text-foreground font-custom mt-1 text-sm font-semibold">
+                                #{gp.gatePassNo ?? '—'}
+                              </p>
+                            </div>
+                          ))}
+                    </div>
+                  </section>
+                </>
+              )}
 
               <Separator />
 
@@ -228,24 +219,26 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {voucher.orderDetails.map((od, idx) => (
+                      {orderDetails.map((od, idx) => (
                         <tr
                           key={`${od.size}-${od.chamber}-${od.floor}-${od.row}-${idx}`}
                           className="border-border/40 border-b"
                         >
-                          <td className="py-2 pr-3 font-medium">{od.size}</td>
-                          <td className="py-2 pr-3">{od.bagType}</td>
-                          <td className="py-2 pr-3">{od.chamber}</td>
-                          <td className="py-2 pr-3">{od.floor}</td>
-                          <td className="py-2 pr-3">{od.row}</td>
+                          <td className="py-2 pr-3 font-medium">
+                            {od.size ?? '—'}
+                          </td>
+                          <td className="py-2 pr-3">{od.bagType ?? '—'}</td>
+                          <td className="py-2 pr-3">{od.chamber ?? '—'}</td>
+                          <td className="py-2 pr-3">{od.floor ?? '—'}</td>
+                          <td className="py-2 pr-3">{od.row ?? '—'}</td>
                           <td className="py-2 pr-3 text-right font-medium">
-                            {od.currentQuantity.toLocaleString('en-IN')}
+                            {(od.currentQuantity ?? 0).toLocaleString('en-IN')}
                           </td>
                           <td className="py-2 pr-3 text-right">
-                            {od.initialQuantity.toLocaleString('en-IN')}
+                            {(od.initialQuantity ?? 0).toLocaleString('en-IN')}
                           </td>
                           <td className="py-2 text-right">
-                            {od.weightPerBag.toLocaleString('en-IN')}
+                            {(od.weightPerBag ?? 0).toLocaleString('en-IN')}
                           </td>
                         </tr>
                       ))}
@@ -254,10 +247,10 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
                           Total
                         </td>
                         <td className="py-2.5 pr-3 text-right">
-                          {orderDetailsTotals.qty.toLocaleString('en-IN')}
+                          {totalQty.toLocaleString('en-IN')}
                         </td>
                         <td className="py-2.5 pr-3 text-right">
-                          {orderDetailsTotals.initial.toLocaleString('en-IN')}
+                          {totalInitial.toLocaleString('en-IN')}
                         </td>
                         <td className="py-2.5 text-right opacity-70">—</td>
                       </tr>
@@ -266,7 +259,7 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
                 </div>
               </section>
 
-              {voucher.remarks && (
+              {voucher.remarks != null && voucher.remarks !== '' && (
                 <>
                   <Separator />
                   <section>
@@ -287,6 +280,6 @@ function StorageGatePassVoucher({ voucher }: StorageGatePassVoucherProps) {
       </div>
     </Card>
   );
-}
+});
 
-export default memo(StorageGatePassVoucher);
+export { StorageVoucher };
