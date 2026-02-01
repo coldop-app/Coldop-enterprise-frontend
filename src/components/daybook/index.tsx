@@ -88,41 +88,38 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
         <Progress value={progressValue} className="mt-1.5 h-2" />
       </div>
       <Tabs defaultValue="incoming" className="w-full">
-        <TabsList
-          variant="line"
-          className="border-border bg-muted/50 dark:bg-muted/30 flex h-auto w-full flex-nowrap justify-start gap-0.5 overflow-x-auto rounded-t-lg border border-b-0 px-1 pt-1 pb-0"
-        >
+        <TabsList className="font-custom flex h-auto w-full flex-nowrap overflow-x-auto">
           <TabsTrigger
             value="incoming"
-            className="font-custom text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary dark:data-[state=active]:bg-primary/20 dark:data-[state=active]:text-primary min-w-0 shrink-0 rounded-t-md border-b-2 border-transparent px-2 py-1.5 transition-all duration-200 data-[state=active]:font-semibold data-[state=active]:after:opacity-0 sm:px-4 sm:py-2"
+            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
           >
             <span className="sm:hidden">Inc</span>
             <span className="hidden sm:inline">Incoming</span>
           </TabsTrigger>
           <TabsTrigger
             value="grading"
-            className="font-custom text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary dark:data-[state=active]:bg-primary/20 dark:data-[state=active]:text-primary min-w-0 shrink-0 rounded-t-md border-b-2 border-transparent px-2 py-1.5 transition-all duration-200 data-[state=active]:font-semibold data-[state=active]:after:opacity-0 sm:px-4 sm:py-2"
+            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
           >
             <span className="sm:hidden">Gra</span>
             <span className="hidden sm:inline">Grading</span>
           </TabsTrigger>
           <TabsTrigger
             value="storage"
-            className="font-custom text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary dark:data-[state=active]:bg-primary/20 dark:data-[state=active]:text-primary min-w-0 shrink-0 rounded-t-md border-b-2 border-transparent px-2 py-1.5 transition-all duration-200 data-[state=active]:font-semibold data-[state=active]:after:opacity-0 sm:px-4 sm:py-2"
+            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
           >
             <span className="sm:hidden">Sto</span>
             <span className="hidden sm:inline">Storage</span>
           </TabsTrigger>
           <TabsTrigger
             value="nikasi"
-            className="font-custom text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary dark:data-[state=active]:bg-primary/20 dark:data-[state=active]:text-primary min-w-0 shrink-0 rounded-t-md border-b-2 border-transparent px-2 py-1.5 transition-all duration-200 data-[state=active]:font-semibold data-[state=active]:after:opacity-0 sm:px-4 sm:py-2"
+            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
           >
             <span className="sm:hidden">Dis</span>
             <span className="hidden sm:inline">Nikasi</span>
           </TabsTrigger>
           <TabsTrigger
             value="outgoing"
-            className="font-custom text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary dark:data-[state=active]:bg-primary/20 dark:data-[state=active]:text-primary min-w-0 shrink-0 rounded-t-md border-b-2 border-transparent px-2 py-1.5 transition-all duration-200 data-[state=active]:font-semibold data-[state=active]:after:opacity-0 sm:px-4 sm:py-2"
+            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
           >
             <span className="sm:hidden">Out</span>
             <span className="hidden sm:inline">Outgoing</span>

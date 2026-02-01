@@ -134,10 +134,10 @@ const StorageVoucher = memo(function StorageVoucher({
             <div className="space-y-4">
               {(farmerName != null || farmerAccount != null) && (
                 <section>
-                  <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
+                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wider uppercase">
                     Farmer Details
                   </h4>
-                  <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="bg-muted/30 grid grid-cols-1 gap-2 rounded-lg p-2 sm:grid-cols-2 lg:grid-cols-3">
                     {farmerName != null && (
                       <DetailRow label="Name" value={farmerName} />
                     )}
