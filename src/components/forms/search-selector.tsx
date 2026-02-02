@@ -35,7 +35,10 @@ export interface SearchSelectorProps<T extends string> {
   emptyMessage?: string;
   loading?: boolean;
   loadingMessage?: string;
+  /** Initial value when uncontrolled */
   defaultValue?: T | '';
+  /** When set, component is controlled: display and selection follow this value */
+  value?: T | '';
 }
 
 export function SearchSelector<T extends string>({
@@ -51,21 +54,26 @@ export function SearchSelector<T extends string>({
   loading = false,
   loadingMessage = 'Loading...',
   defaultValue = '',
+  value: controlledValue,
 }: SearchSelectorProps<T>) {
   const [open, setOpen] = React.useState(false);
-  const [value, setValue] = React.useState<T | ''>(defaultValue);
+  const [uncontrolledValue, setUncontrolledValue] =
+    React.useState<T | ''>(defaultValue);
+
+  const isControlled = controlledValue !== undefined;
+  const displayValue = isControlled ? controlledValue : uncontrolledValue;
 
   React.useEffect(() => {
-    if (defaultValue !== undefined) {
-      setValue(defaultValue);
+    if (!isControlled && defaultValue !== undefined) {
+      setUncontrolledValue(defaultValue);
     }
-  }, [defaultValue]);
+  }, [isControlled, defaultValue]);
 
-  const selectedOption = options.find((opt) => opt.value === value);
+  const selectedOption = options.find((opt) => opt.value === displayValue);
 
   const handleSelect = (currentValue: T) => {
-    const newValue = currentValue === value ? '' : currentValue;
-    setValue(newValue);
+    const newValue = currentValue === displayValue ? '' : currentValue;
+    if (!isControlled) setUncontrolledValue(newValue);
     onSelect?.(newValue);
     setOpen(false);
   };
@@ -129,7 +137,7 @@ export function SearchSelector<T extends string>({
                       <Check
                         className={cn(
                           'ml-auto',
-                          value === opt.value ? 'opacity-100' : 'opacity-0'
+                          displayValue === opt.value ? 'opacity-100' : 'opacity-0'
                         )}
                       />
                     </CommandItem>

@@ -33,9 +33,21 @@ import {
   RefreshCw,
   Receipt,
   ArrowUpFromLine,
+  ClipboardList,
+  Package,
+  Truck,
+  ArrowRightFromLine,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyContent,
+  EmptyMedia,
+} from '@/components/ui/empty';
 import { useGetDaybook } from '@/services/store-admin/grading-gate-pass/useGetDaybook';
 import type { DaybookEntry, DaybookGatePassType } from '@/types/daybook';
 import EntrySummariesBar from './EntrySummariesBar';
@@ -156,9 +168,19 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground font-custom py-6 text-center text-sm">
-                No grading passes.
-              </p>
+              <Empty className="font-custom py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ClipboardList className="size-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>No Grading voucher is present</EmptyTitle>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
+                    <Link to="/store-admin/grading">Add Grading voucher</Link>
+                  </Button>
+                </EmptyContent>
+              </Empty>
             )}
           </TabsContent>
           <TabsContent value="storage" className="mt-0 outline-none">
@@ -174,9 +196,19 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground font-custom py-6 text-center text-sm">
-                No storage passes.
-              </p>
+              <Empty className="font-custom py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Package className="size-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>No Storage voucher is present</EmptyTitle>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
+                    <Link to="/store-admin/storage">Add Storage voucher</Link>
+                  </Button>
+                </EmptyContent>
+              </Empty>
             )}
           </TabsContent>
           <TabsContent value="nikasi" className="mt-0 outline-none">
@@ -192,9 +224,19 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground font-custom py-6 text-center text-sm">
-                No dispatch passes.
-              </p>
+              <Empty className="font-custom py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Truck className="size-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>No Dispatch voucher is present</EmptyTitle>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
+                    <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
+                  </Button>
+                </EmptyContent>
+              </Empty>
             )}
           </TabsContent>
           <TabsContent value="outgoing" className="mt-0 outline-none">
@@ -210,9 +252,19 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground font-custom py-6 text-center text-sm">
-                No outgoing passes.
-              </p>
+              <Empty className="font-custom py-6">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ArrowRightFromLine className="size-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>No Outgoing voucher is present</EmptyTitle>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
+                    <Link to="/store-admin/outgoing">Add Outgoing voucher</Link>
+                  </Button>
+                </EmptyContent>
+              </Empty>
             )}
           </TabsContent>
         </div>
@@ -463,13 +515,38 @@ const DaybookPage = memo(function DaybookPage() {
 
         {/* List: one tabbed card per daybook entry */}
         {isLoading ? (
-          <Card>
-            <CardContent className="py-8 pt-6 text-center">
-              <p className="font-custom text-muted-foreground">
-                Loading vouchers...
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="overflow-hidden p-0">
+                <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                  <Skeleton className="mt-1.5 h-2 w-full rounded-full" />
+                </div>
+                <div className="space-y-2 border-b px-4 py-3">
+                  <div className="flex gap-4">
+                    {[...Array(4)].map((__, j) => (
+                      <Skeleton key={j} className="h-4 w-14" />
+                    ))}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex gap-2">
+                    {[...Array(5)].map((__, j) => (
+                      <Skeleton key={j} className="h-9 flex-1 rounded-lg" />
+                    ))}
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-[80%]" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         ) : filteredAndSortedEntries.length === 0 ? (
           <Card>
             <CardContent className="py-8 pt-6 text-center">

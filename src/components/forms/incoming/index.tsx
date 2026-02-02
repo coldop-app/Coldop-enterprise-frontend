@@ -37,7 +37,6 @@ export const IncomingForm = memo(function IncomingForm() {
   const { mutate: createIncomingGatePass, isPending } =
     useCreateIncomingGatePass();
 
-  const [selectedFarmerId, setSelectedFarmerId] = useState<string>('');
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
 
   // Format voucher number for display
@@ -103,8 +102,7 @@ export const IncomingForm = memo(function IncomingForm() {
       manualGatePassNumber: undefined as number | undefined,
     },
     validators: {
-      onChange: formSchema,
-      onBlur: formSchema,
+      // Validate only on submit so selection updates are committed before validation runs
       onSubmit: formSchema,
     },
     onSubmit: async ({ value }) => {
@@ -138,7 +136,6 @@ export const IncomingForm = memo(function IncomingForm() {
       createIncomingGatePass(payload, {
         onSuccess: () => {
           form.reset();
-          setSelectedFarmerId('');
           setIsSummarySheetOpen(false);
           navigate({ to: '/store-admin/daybook' });
         },
@@ -147,7 +144,6 @@ export const IncomingForm = memo(function IncomingForm() {
   });
 
   const handleFarmerSelect = (value: string) => {
-    setSelectedFarmerId(value);
     form.setFieldValue('farmerStorageLinkId', value);
   };
 
@@ -155,19 +151,24 @@ export const IncomingForm = memo(function IncomingForm() {
     refetchFarmers();
   };
 
-  // Get selected farmer details for summary
+  // Get selected farmer details for summary (from form state)
+  const farmerStorageLinkId = form.state.values.farmerStorageLinkId;
   const selectedFarmer = useMemo(() => {
-    if (!selectedFarmerId || !farmerLinks) return null;
-    return farmerLinks.find((link) => link._id === selectedFarmerId) ?? null;
-  }, [selectedFarmerId, farmerLinks]);
+    if (!farmerStorageLinkId || !farmerLinks) return null;
+    return farmerLinks.find((link) => link._id === farmerStorageLinkId) ?? null;
+  }, [farmerStorageLinkId, farmerLinks]);
 
-  // Handle Next button click - validate and open summary sheet
+  // Handle Next button click - validate and open summary sheet.
+  // Defer validation to next tick so any pending form updates (e.g. from SearchSelector) are committed first.
   const handleNextClick = () => {
-    form.validateAllFields('submit');
-    const formState = form.state;
-    if (formState.isValid) {
-      setIsSummarySheetOpen(true);
-    }
+    requestAnimationFrame(() => {
+      form.validateAllFields('submit');
+      requestAnimationFrame(() => {
+        if (form.state.isValid) {
+          setIsSummarySheetOpen(true);
+        }
+      });
+    });
   };
 
   // Handle final submission from summary sheet
@@ -286,8 +287,13 @@ export const IncomingForm = memo(function IncomingForm() {
           <form.Field
             name="farmerStorageLinkId"
             children={(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid;
+              const hasSubmitError = Boolean(
+                field.state.meta.errorMap && 'onSubmit' in field.state.meta.errorMap && field.state.meta.errorMap.onSubmit
+              );
+              const invalidFromValidation =
+                hasSubmitError || (field.state.meta.isTouched && !field.state.meta.isValid);
+              // Only show "please select" when invalid and value is actually empty (avoids stale validation state)
+              const isInvalid = invalidFromValidation && !field.state.value;
               return (
                 <Field data-invalid={isInvalid}>
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -304,7 +310,7 @@ export const IncomingForm = memo(function IncomingForm() {
                         placeholder="Search or Create Farmer"
                         searchPlaceholder="Search by name, account number, or mobile..."
                         onSelect={handleFarmerSelect}
-                        defaultValue={selectedFarmerId}
+                        value={field.state.value}
                         loading={isLoadingFarmers}
                         loadingMessage="Loading farmers..."
                         emptyMessage="No farmers found"
@@ -335,8 +341,13 @@ export const IncomingForm = memo(function IncomingForm() {
           <form.Field
             name="variety"
             children={(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid;
+              const hasSubmitError = Boolean(
+                field.state.meta.errorMap && 'onSubmit' in field.state.meta.errorMap && field.state.meta.errorMap.onSubmit
+              );
+              const invalidFromValidation =
+                hasSubmitError || (field.state.meta.isTouched && !field.state.meta.isValid);
+              // Only show "please select" when invalid and value is actually empty (avoids stale validation state)
+              const isInvalid = invalidFromValidation && !field.state.value;
               return (
                 <Field data-invalid={isInvalid}>
                   <div className="border-primary/30 bg-primary/5 space-y-2 rounded-lg border p-4">
@@ -355,7 +366,7 @@ export const IncomingForm = memo(function IncomingForm() {
                       placeholder="Select a variety"
                       searchPlaceholder="Search variety..."
                       onSelect={(value) => field.handleChange(value)}
-                      defaultValue={field.state.value}
+                      value={field.state.value}
                       className="w-full"
                       buttonClassName="w-full justify-between"
                     />
@@ -601,7 +612,6 @@ export const IncomingForm = memo(function IncomingForm() {
             className="font-custom"
             onClick={() => {
               form.reset();
-              setSelectedFarmerId('');
               toast.info('Form reset');
             }}
             disabled={isPending}

@@ -5,6 +5,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Item,
   ItemHeader,
@@ -482,13 +483,38 @@ function PeopleDetailPage() {
 
         {/* List: one tabbed card per daybook entry */}
         {isLoading ? (
-          <Card>
-            <CardContent className="py-8 pt-6 text-center">
-              <p className="font-custom text-muted-foreground">
-                Loading vouchers...
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="overflow-hidden p-0">
+                <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                  <Skeleton className="mt-1.5 h-2 w-full rounded-full" />
+                </div>
+                <div className="space-y-2 border-b px-4 py-3">
+                  <div className="flex gap-4">
+                    {[...Array(4)].map((__, j) => (
+                      <Skeleton key={j} className="h-4 w-14" />
+                    ))}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex gap-2">
+                    {[...Array(5)].map((__, j) => (
+                      <Skeleton key={j} className="h-9 flex-1 rounded-lg" />
+                    ))}
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-[80%]" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         ) : filteredAndSortedEntries.length === 0 ? (
           <Card>
             <CardContent className="py-8 pt-6 text-center">

@@ -73,19 +73,34 @@ const PeoplePage = memo(function PeoplePage() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto max-w-[75rem] px-4 pt-6 pb-16 sm:px-8 sm:py-24">
+      <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
         <div className="space-y-6">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <div className="space-y-3">
-                  <Skeleton className="font-custom h-6 w-1/4" />
-                  <Skeleton className="font-custom h-4 w-3/4" />
-                  <Skeleton className="font-custom h-4 w-1/2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <Skeleton className="h-12 w-48 rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+                      <div className="min-w-0 space-y-2">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-6 w-14 rounded-full" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </main>
     );
