@@ -126,7 +126,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
           const passWeight = details.reduce(
             (s, od) =>
               s +
-              ((od as { currentQuantity?: number }).currentQuantity ?? 0) *
+              ((od as { initialQuantity?: number }).initialQuantity ?? 0) *
                 ((od as { weightPerBagKg?: number }).weightPerBagKg ?? 0),
             0
           );
