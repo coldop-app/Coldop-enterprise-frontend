@@ -67,6 +67,17 @@ interface DaybookEntryCardProps {
 
 const PIPELINE_STAGES = 5; // Incoming → Grading → Storage → Nikasi → Outgoing
 
+/** Get farmerStorageLinkId from incoming (id string or populated object with _id) */
+function getFarmerStorageLinkId(
+  incoming: Record<string, unknown>
+): string | undefined {
+  const link = incoming.farmerStorageLinkId;
+  if (typeof link === 'string') return link;
+  if (link != null && typeof link === 'object' && '_id' in link)
+    return (link as { _id: string })._id;
+  return undefined;
+}
+
 function getPipelineProgress(entry: DaybookEntry): number {
   let completedStages = 1; // Incoming is always present when we have an entry
   if ((entry.gradingPasses?.length ?? 0) > 0) completedStages = 2;
@@ -86,6 +97,25 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
   const farmerAddress = farmer?.address;
   const farmerMobile = farmer?.mobileNumber;
   const progressValue = getPipelineProgress(entry);
+
+  const farmerStorageLinkId = getFarmerStorageLinkId(entry.incoming);
+  const incomingGatePassId = incoming?._id;
+  const variety = incoming?.variety;
+
+  const gradingSearch =
+    farmerStorageLinkId && incomingGatePassId && variety
+      ? {
+          farmerStorageLinkId,
+          incomingGatePassId,
+          variety,
+        }
+      : undefined;
+  const storageSearch = farmerStorageLinkId
+    ? { farmerStorageLinkId }
+    : undefined;
+  const nikasiSearch = farmerStorageLinkId
+    ? { farmerStorageLinkId }
+    : undefined;
 
   return (
     <Card className="overflow-hidden p-0">
@@ -176,8 +206,13 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                   <EmptyTitle>No Grading voucher is present</EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
-                    <Link to="/store-admin/grading">Add Grading voucher</Link>
+                  <Button
+                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                    asChild
+                  >
+                    <Link to="/store-admin/grading" search={gradingSearch}>
+                      Add Grading voucher
+                    </Link>
                   </Button>
                 </EmptyContent>
               </Empty>
@@ -204,8 +239,13 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                   <EmptyTitle>No Storage voucher is present</EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
-                    <Link to="/store-admin/storage">Add Storage voucher</Link>
+                  <Button
+                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                    asChild
+                  >
+                    <Link to="/store-admin/storage" search={storageSearch}>
+                      Add Storage voucher
+                    </Link>
                   </Button>
                 </EmptyContent>
               </Empty>
@@ -232,8 +272,13 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                   <EmptyTitle>No Dispatch voucher is present</EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
-                    <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
+                  <Button
+                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                    asChild
+                  >
+                    <Link to="/store-admin/nikasi" search={nikasiSearch}>
+                      Add Dispatch voucher
+                    </Link>
                   </Button>
                 </EmptyContent>
               </Empty>
@@ -260,7 +305,10 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                   <EmptyTitle>No Outgoing voucher is present</EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2" asChild>
+                  <Button
+                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                    asChild
+                  >
                     <Link to="/store-admin/outgoing">Add Outgoing voucher</Link>
                   </Button>
                 </EmptyContent>
