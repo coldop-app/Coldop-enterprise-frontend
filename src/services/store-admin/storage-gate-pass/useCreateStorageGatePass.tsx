@@ -9,6 +9,8 @@ import type {
 } from '@/types/storage-gate-pass';
 import { storageGatePassKeys } from './useGetStorageGatePasses';
 import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
+import { gradingGatePassKeys } from '../grading-gate-pass/useGetGradingGatePasses';
+import { gradingGatePassesByFarmerKey } from '../grading-gate-pass/useGetGradingPassesOfSingleFarmer';
 
 /** API error shape (400, 404, 409): { success, error: { code, message } } */
 type StorageGatePassApiError = {
@@ -60,11 +62,15 @@ export function useCreateStorageGatePass() {
       return data;
     },
 
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data.success) {
         toast.success(data.message ?? 'Storage gate pass created successfully');
         queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: storageGatePassKeys.all });
+        queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: gradingGatePassesByFarmerKey(variables.farmerStorageLinkId),
+        });
       } else {
         toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
       }

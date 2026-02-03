@@ -9,6 +9,8 @@ import type {
 } from '@/types/nikasi-gate-pass';
 import { nikasiGatePassKeys } from './useGetNikasiGatePasses';
 import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
+import { gradingGatePassKeys } from '../grading-gate-pass/useGetGradingGatePasses';
+import { gradingGatePassesByFarmerKey } from '../grading-gate-pass/useGetGradingPassesOfSingleFarmer';
 
 /** API error shape (400, 404, 409): { success, error: { code, message } } */
 type NikasiGatePassApiError = {
@@ -46,11 +48,15 @@ export function useCreateNikasiGatePass() {
       return data;
     },
 
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data.status === 'Success') {
         toast.success(data.message ?? 'Nikasi gate pass created successfully');
         queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: nikasiGatePassKeys.all });
+        queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: gradingGatePassesByFarmerKey(variables.farmerStorageLinkId),
+        });
       } else {
         toast.error(data.message ?? 'Failed to create nikasi gate pass');
       }

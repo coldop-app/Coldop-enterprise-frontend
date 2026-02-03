@@ -68,6 +68,7 @@ export function gradingGatePassesByFarmerQueryOptions(
     queryKey: gradingGatePassesByFarmerKey(farmerStorageLinkId),
     queryFn: () => fetchGradingGatePassesByFarmer(farmerStorageLinkId),
     enabled: Boolean(farmerStorageLinkId),
+    refetchOnMount: 'always',
   });
 }
 
