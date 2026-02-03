@@ -123,7 +123,6 @@ export const AddFarmerModal = memo(function AddFarmerModal({
         {
           onSuccess: () => {
             form.reset();
-            form.setFieldValue('accountNumber', value.accountNumber + 1);
             setIsOpen(false);
             onFarmerAdded?.();
           },
@@ -206,23 +205,52 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      type="number"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) =>
-                        field.handleChange(
-                          e.target.value === ''
-                            ? nextAccountNumber
-                            : Number(e.target.value) || 0
-                        )
-                      }
-                      aria-invalid={isInvalid}
-                      placeholder="Enter account number"
-                      className="font-custom"
-                    />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type="number"
+                          min={1}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === '') {
+                              field.handleChange(nextAccountNumber);
+                              return;
+                            }
+                            const num = Number(raw);
+                            field.handleChange(
+                              Number.isNaN(num) || num < 1
+                                ? nextAccountNumber
+                                : num
+                            );
+                          }}
+                          aria-invalid={isInvalid}
+                          placeholder={`Suggested: ${nextAccountNumber}`}
+                          className="font-custom flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="font-custom shrink-0"
+                          onClick={() =>
+                            form.setFieldValue(
+                              'accountNumber',
+                              nextAccountNumber
+                            )
+                          }
+                        >
+                          Use suggested ({nextAccountNumber})
+                        </Button>
+                      </div>
+                      <p className="text-muted-foreground font-custom text-xs">
+                        Next suggested: {nextAccountNumber}. Enter manually or
+                        use the button.
+                      </p>
+                    </div>
                     {isInvalid && (
                       <FieldError
                         errors={
