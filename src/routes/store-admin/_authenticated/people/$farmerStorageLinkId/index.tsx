@@ -48,6 +48,10 @@ import type {
 } from '@/types/daybook';
 import { useGetFarmerStorageLinkVouchers } from '@/services/store-admin/people/useGetFarmerStorageLinkVouchers';
 import { DaybookEntryCard } from '@/components/daybook';
+import {
+  totalBagsFromOrderDetails,
+  type PassVoucherData,
+} from '@/components/daybook/vouchers';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -187,8 +191,22 @@ function PeopleDetailPage() {
       acc.totalBagsIncoming += s.totalBagsIncoming ?? 0;
       acc.totalBagsGraded += s.totalBagsGraded ?? 0;
       acc.totalBagsStored += s.totalBagsStored ?? 0;
-      acc.totalBagsNikasi += s.totalBagsNikasi ?? 0;
-      acc.totalBagsOutgoing += s.totalBagsOutgoing ?? 0;
+      // API may not populate summaries.totalBagsNikasi; compute from nikasi passes (Dispatch)
+      const nikasiBags = (entry.nikasiPasses ?? []).reduce<number>(
+        (sum, pass) =>
+          sum +
+          totalBagsFromOrderDetails((pass as PassVoucherData).orderDetails),
+        0
+      );
+      acc.totalBagsNikasi += nikasiBags;
+      // API may not populate summaries.totalBagsOutgoing; compute from outgoing passes
+      const outgoingBags = (entry.outgoingPasses ?? []).reduce<number>(
+        (sum, pass) =>
+          sum +
+          totalBagsFromOrderDetails((pass as PassVoucherData).orderDetails),
+        0
+      );
+      acc.totalBagsOutgoing += outgoingBags;
     }
     return acc;
   }, [daybook]);
@@ -315,7 +333,7 @@ function PeopleDetailPage() {
                   </div>
                 </div>
 
-                {/* Total Bags (Dispatch) */}
+                {/* Total Bags (Dispatch) – Dispatch is the display name for nikasi; value is totalBagsNikasi */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="bg-primary/10 dark:bg-primary/20 flex h-12 w-12 items-center justify-center rounded-xl">

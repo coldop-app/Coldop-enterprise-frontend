@@ -16,6 +16,12 @@ This project uses a modern design system built on:
 
 ---
 
+## Domain Terminology
+
+- **Dispatch / Nikasi**: "Dispatch" is the user-facing label for the **nikasi** gate-pass type. In code, use the `nikasi` identifier (e.g. `nikasiPasses`, `totalBagsNikasi`, gate pass type `'nikasi'`). In UI headers and labels, use "Dispatch" when showing nikasi totals or filters.
+
+---
+
 ## Typography
 
 ### Font Family
