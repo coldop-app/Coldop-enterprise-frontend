@@ -29,6 +29,8 @@ export interface GradingVoucherProps extends VoucherFarmerInfo {
   wastageKg?: number;
   /** Wastage as % of net incoming weight. Shown in More details when defined. */
   wastagePercent?: number;
+  /** Net incoming weight (kg) from weight slip. Used to show total graded weight % of net. */
+  incomingNetKg?: number;
 }
 
 const GradingVoucher = memo(function GradingVoucher({
@@ -38,6 +40,7 @@ const GradingVoucher = memo(function GradingVoucher({
   farmerStorageLinkId,
   wastageKg,
   wastagePercent,
+  incomingNetKg,
 }: GradingVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -45,20 +48,39 @@ const GradingVoucher = memo(function GradingVoucher({
   const allocationStatus = voucher.allocationStatus ?? '';
   const gradedBy = voucher.createdBy;
 
-  const { totalQty, totalInitial, allOrderDetails } = useMemo(() => {
-    const details = (voucher.orderDetails ?? []) as GradingOrderDetailRow[];
-    let qty = 0;
-    let initial = 0;
-    for (const od of details) {
-      qty += od.currentQuantity ?? 0;
-      initial += od.initialQuantity ?? 0;
-    }
-    return {
-      totalQty: qty,
-      totalInitial: initial,
-      allOrderDetails: details,
-    };
-  }, [voucher.orderDetails]);
+  const { totalQty, totalInitial, totalGradedWeightKg, allOrderDetails } =
+    useMemo(() => {
+      const details = (voucher.orderDetails ?? []) as GradingOrderDetailRow[];
+      let qty = 0;
+      let initial = 0;
+      let weightKg = 0;
+      for (const od of details) {
+        qty += od.currentQuantity ?? 0;
+        initial += od.initialQuantity ?? 0;
+        weightKg += (od.initialQuantity ?? 0) * (od.weightPerBagKg ?? 0);
+      }
+      return {
+        totalQty: qty,
+        totalInitial: initial,
+        totalGradedWeightKg: weightKg,
+        allOrderDetails: details,
+      };
+    }, [voucher.orderDetails]);
+
+  const totalGradedWeightPercent =
+    incomingNetKg != null && incomingNetKg > 0 && totalGradedWeightKg > 0
+      ? (totalGradedWeightKg / incomingNetKg) * 100
+      : undefined;
+
+  const PERCENT_TOLERANCE = 0.1;
+  const percentSum =
+    totalGradedWeightPercent != null && wastagePercent != null
+      ? totalGradedWeightPercent + wastagePercent
+      : undefined;
+  const hasDiscrepancy =
+    percentSum != null && Math.abs(percentSum - 100) > PERCENT_TOLERANCE;
+  const discrepancyValue =
+    hasDiscrepancy && percentSum != null ? 100 - percentSum : undefined;
 
   return (
     <Card className="border-border/40 hover:border-primary/30 overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
@@ -221,39 +243,6 @@ const GradingVoucher = memo(function GradingVoucher({
                 </div>
               </section>
 
-              {wastageKg !== undefined && (
-                <>
-                  <Separator />
-                  <section>
-                    <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wider uppercase">
-                      Wastage
-                    </h4>
-                    <div className="border-destructive/30 bg-destructive/5 flex items-center gap-2 rounded-lg border px-3 py-2.5">
-                      <AlertTriangle
-                        className="text-destructive h-4 w-4 shrink-0"
-                        aria-hidden
-                      />
-                      <span className="text-destructive font-custom text-sm font-medium tabular-nums">
-                        {wastageKg.toLocaleString('en-IN')} kg
-                        {wastagePercent !== undefined && (
-                          <>
-                            {' '}
-                            <span className="text-destructive/90">
-                              (
-                              {wastagePercent.toLocaleString('en-IN', {
-                                minimumFractionDigits: 1,
-                                maximumFractionDigits: 1,
-                              })}
-                              % of net)
-                            </span>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  </section>
-                </>
-              )}
-
               <Separator />
 
               <section>
@@ -302,12 +291,109 @@ const GradingVoucher = memo(function GradingVoucher({
                         <td className="py-2.5 pr-3 text-right">
                           {totalInitial.toLocaleString('en-IN')}
                         </td>
-                        <td className="py-2.5 text-right opacity-70">—</td>
+                        <td className="py-2.5 text-right font-medium">
+                          {totalGradedWeightKg.toLocaleString('en-IN')}
+                        </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </section>
+
+              <Separator />
+              <section>
+                <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wider uppercase">
+                  Total graded weight
+                </h4>
+                <div className="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-lg border px-3 py-2.5">
+                  <Package
+                    className="text-primary h-4 w-4 shrink-0"
+                    aria-hidden
+                  />
+                  <span className="text-primary font-custom text-sm font-medium tabular-nums">
+                    {totalGradedWeightKg.toLocaleString('en-IN')} kg
+                    {totalGradedWeightPercent !== undefined && (
+                      <>
+                        {' '}
+                        <span className="text-primary/90">
+                          (
+                          {totalGradedWeightPercent.toLocaleString('en-IN', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                          % of net)
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              </section>
+
+              {wastageKg !== undefined && (
+                <>
+                  <Separator />
+                  <section>
+                    <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wider uppercase">
+                      Wastage
+                    </h4>
+                    <div className="border-destructive/30 bg-destructive/5 flex items-center gap-2 rounded-lg border px-3 py-2.5">
+                      <AlertTriangle
+                        className="text-destructive h-4 w-4 shrink-0"
+                        aria-hidden
+                      />
+                      <span className="text-destructive font-custom text-sm font-medium tabular-nums">
+                        {wastageKg.toLocaleString('en-IN')} kg
+                        {wastagePercent !== undefined && (
+                          <>
+                            {' '}
+                            <span className="text-destructive/90">
+                              (
+                              {wastagePercent.toLocaleString('en-IN', {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 1,
+                              })}
+                              % of net)
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {hasDiscrepancy &&
+                discrepancyValue !== undefined &&
+                percentSum != null && (
+                  <>
+                    <Separator />
+                    <section>
+                      <h4 className="text-destructive mb-2 text-xs font-semibold tracking-wider uppercase">
+                        Discrepancy
+                      </h4>
+                      <div className="border-destructive bg-destructive/10 flex items-center gap-2 rounded-lg border-2 px-3 py-2.5">
+                        <AlertTriangle
+                          className="text-destructive h-4 w-4 shrink-0"
+                          aria-hidden
+                        />
+                        <span className="text-destructive font-custom text-sm font-semibold tabular-nums">
+                          Graded + Wastage ={' '}
+                          {percentSum.toLocaleString('en-IN', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                          % (expected 100%). Discrepancy:{' '}
+                          {discrepancyValue >= 0 ? '+' : ''}
+                          {discrepancyValue.toLocaleString('en-IN', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                          %
+                        </span>
+                      </div>
+                    </section>
+                  </>
+                )}
 
               {voucher.remarks != null && voucher.remarks !== '' && (
                 <>

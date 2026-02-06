@@ -9,6 +9,8 @@ export interface DaybookEntrySummaries {
   wastageKg?: number;
   /** Wastage as % of net incoming weight. Optional when not computable. */
   wastagePercent?: number;
+  /** Net incoming weight (kg) from weight slip. Optional when not available. */
+  incomingNetKg?: number;
 }
 
 /** Farmer in a daybook entry (from API) */

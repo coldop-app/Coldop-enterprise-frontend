@@ -119,6 +119,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
 
     // Wastage (kg) = [Net − (incoming bags × 700 g)] − [graded weight − (per row: bags × JUTE/LENO bag weight)]
     let wastageKg: number | undefined;
+    let incomingNetKg: number | undefined;
     const slip = incoming?.weightSlip;
     const incomingBags =
       (incoming as { bagsReceived?: number })?.bagsReceived ?? 0;
@@ -127,7 +128,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
         Number((slip as { grossWeightKg?: number }).grossWeightKg) || 0;
       const tare =
         Number((slip as { tareWeightKg?: number }).tareWeightKg) || 0;
-      const incomingNetKg = gross - tare;
+      incomingNetKg = gross - tare;
       let gradingWeightKg = 0;
       let bagWeightDeductionKg = 0;
       for (const pass of entry.gradingPasses ?? []) {
@@ -160,6 +161,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
       totalBagsNikasi: nikasiTotal,
       ...(wastageKg !== undefined && { wastageKg }),
       ...(wastagePercent !== undefined && { wastagePercent }),
+      ...(incomingNetKg !== undefined && { incomingNetKg }),
     };
   }, [
     entry.summaries,
@@ -277,6 +279,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                     farmerStorageLinkId={farmerStorageLinkId}
                     wastageKg={summariesWithNikasi.wastageKg}
                     wastagePercent={summariesWithNikasi.wastagePercent}
+                    incomingNetKg={summariesWithNikasi.incomingNetKg}
                   />
                 ))}
               </div>
