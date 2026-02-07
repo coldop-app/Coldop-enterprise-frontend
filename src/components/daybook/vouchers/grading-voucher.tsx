@@ -27,22 +27,18 @@ import {
   computeTotalGradedWeightPercent,
   computeWastagePercentOfNetProduct,
   computeDiscrepancy,
-  getBagWeightKg,
 } from './grading-voucher-calculations';
 import { GradingVoucherCalculationsDialog } from './grading-voucher-calculations-dialog';
 import { useStore } from '@/stores/store';
+import { pdf } from '@react-pdf/renderer';
+import { GradingVoucherPdf } from '@/components/pdf/GradingVoucherPdf';
 
 export interface GradingVoucherProps extends VoucherFarmerInfo {
   voucher: PassVoucherData;
-  /** When set, show Add Storage / Add Nikasi links for this grading pass */
   farmerStorageLinkId?: string;
-  /** Entry-level wastage (kg): [Net weight − (incoming bags × 700 g)] − [graded weight − (60 g × graded bags)]. Shown in More details when defined. */
   wastageKg?: number;
-  /** Wastage as % of net incoming weight. Shown in More details when defined. */
   wastagePercent?: number;
-  /** Net incoming weight (kg) from weight slip. Used to show total graded weight % of net. */
   incomingNetKg?: number;
-  /** Total incoming bags (from incoming gate pass). Used to compute net product (net − bags × 700 g). */
   incomingBagsCount?: number;
 }
 
@@ -94,6 +90,34 @@ const GradingVoucher = memo(function GradingVoucher({
     totalGradedWeightPercent,
     wastagePercentOfNetProduct
   );
+
+  const handlePrint = async () => {
+    const blob = await pdf(
+      <GradingVoucherPdf
+        voucher={voucher}
+        farmerName={farmerName}
+        farmerAccount={farmerAccount}
+        orderDetails={allOrderDetails}
+        totals={{
+          totalQty,
+          totalInitial,
+          totalGradedWeightKg,
+          totalGradedWeightGrossKg,
+          totalBagWeightDeductionKg,
+        }}
+        totalGradedWeightPercent={totalGradedWeightPercent}
+        wastageKg={wastageKg}
+        wastagePercentOfNetProduct={wastagePercentOfNetProduct}
+        hasDiscrepancy={hasDiscrepancy}
+        discrepancyValue={discrepancyValue}
+        percentSum={percentSum}
+      />
+    ).toBlob();
+
+    const url = URL.createObjectURL(blob);
+
+    window.open(url, '_blank');
+  };
 
   return (
     <Card className="border-border/40 hover:border-primary/30 overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
@@ -223,7 +247,7 @@ const GradingVoucher = memo(function GradingVoucher({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.print()}
+            onClick={() => handlePrint()}
             className="h-8 w-8 p-0"
             aria-label="Print gate pass"
           >
@@ -309,20 +333,20 @@ const GradingVoucher = memo(function GradingVoucher({
                     </thead>
                     <tbody>
                       {(() => {
-                        const weightDenominator =
-                          totalGradedWeightKg + (wastageKg ?? 0);
+                        // Total graded weight = sum of (initial qty × weight per bag) — used as denominator so row % sum to 100%
+                        const totalGradedWeight =
+                          totalGradedWeightGrossKg > 0
+                            ? totalGradedWeightGrossKg
+                            : 0;
                         return (
                           <>
                             {allOrderDetails.map((od, idx) => {
                               const qty = od.initialQuantity ?? 0;
                               const wt = od.weightPerBagKg ?? 0;
-                              const lineGross = qty * wt;
-                              const lineProduct =
-                                lineGross -
-                                qty * getBagWeightKg(od.bagType);
+                              const rowWeight = qty * wt;
                               const weightPct =
-                                weightDenominator > 0
-                                  ? (lineProduct / weightDenominator) * 100
+                                totalGradedWeight > 0
+                                  ? (rowWeight / totalGradedWeight) * 100
                                   : 0;
                               return (
                                 <tr
@@ -367,19 +391,17 @@ const GradingVoucher = memo(function GradingVoucher({
                                 {totalInitial.toLocaleString('en-IN')}
                               </td>
                               <td className="py-2.5 pr-3 text-right tabular-nums">
-                                {weightDenominator > 0
-                                  ? (
-                                      (totalGradedWeightKg /
-                                        weightDenominator) *
-                                      100
-                                    ).toLocaleString('en-IN', {
+                                {totalGradedWeight > 0
+                                  ? (100).toLocaleString('en-IN', {
                                       minimumFractionDigits: 1,
                                       maximumFractionDigits: 1,
                                     }) + '%'
                                   : '—'}
                               </td>
                               <td className="py-2.5 text-right font-medium">
-                                {totalGradedWeightKg.toLocaleString('en-IN')}
+                                {totalGradedWeightGrossKg.toLocaleString(
+                                  'en-IN'
+                                )}
                               </td>
                             </tr>
                           </>
