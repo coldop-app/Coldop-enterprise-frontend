@@ -33,6 +33,22 @@ const IncomingVoucher = memo(function IncomingVoucher({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const bags = voucher.bagsReceived ?? 0;
+
+  const handlePrint = async () => {
+    const [{ pdf }, { IncomingVoucherPdf }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('@/components/pdf/IncomingVoucherPdf'),
+    ]);
+    const blob = await pdf(
+      <IncomingVoucherPdf
+        voucher={voucher}
+        farmerName={farmerName}
+        farmerAccount={farmerAccount}
+      />
+    ).toBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
   const status = voucher.status ?? '—';
   const linkedBy = voucher.createdBy;
 
@@ -117,7 +133,7 @@ const IncomingVoucher = memo(function IncomingVoucher({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="h-8 w-8 p-0"
             aria-label="Print gate pass"
           >
