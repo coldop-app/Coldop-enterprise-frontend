@@ -22,7 +22,7 @@ const DetailRow = memo(function DetailRow({
         <div className="text-muted-foreground/70 mb-0.5 text-[10px] font-medium tracking-wider uppercase">
           {label}
         </div>
-        <div className="text-foreground truncate text-sm font-semibold">
+        <div className="text-foreground wrap-break-word text-sm font-semibold sm:truncate">
           {value ?? '—'}
         </div>
       </div>

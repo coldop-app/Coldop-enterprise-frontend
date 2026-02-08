@@ -92,6 +92,13 @@ const GradingVoucher = memo(function GradingVoucher({
   );
 
   const handlePrint = async () => {
+    // Open window synchronously so mobile popup blockers allow it
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
     setIsPrinting(true);
     try {
       const [{ pdf }, { GradingVoucherPdf }] = await Promise.all([
@@ -122,8 +129,12 @@ const GradingVoucher = memo(function GradingVoucher({
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
-
-      window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } finally {
       setIsPrinting(false);
     }
@@ -133,7 +144,7 @@ const GradingVoucher = memo(function GradingVoucher({
     <Card className="border-border/40 hover:border-primary/30 overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
       <div className="px-4 pt-2 pb-4">
         <CardHeader className="px-0 pt-3 pb-2">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
@@ -149,7 +160,7 @@ const GradingVoucher = memo(function GradingVoucher({
               </p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <Badge
                 variant="secondary"
                 className="px-2 py-0.5 text-[10px] font-medium"
@@ -168,7 +179,7 @@ const GradingVoucher = memo(function GradingVoucher({
           </div>
         </CardHeader>
 
-        <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <DetailRow label="Farmer" value={farmerName ?? '—'} icon={User} />
           <DetailRow label="Account" value={`#${farmerAccount ?? '—'}`} />
           <DetailRow
@@ -183,22 +194,22 @@ const GradingVoucher = memo(function GradingVoucher({
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded((p) => !p)}
-              className="hover:bg-accent h-8 px-3 text-xs"
+              className="hover:bg-accent h-9 min-h-9 px-3 text-xs sm:h-8 sm:min-h-0"
             >
               {isExpanded ? (
                 <>
-                  <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
+                  <ChevronUp className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                   Less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
+                  <ChevronDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                   More
                 </>
               )}
@@ -208,7 +219,7 @@ const GradingVoucher = memo(function GradingVoucher({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="font-custom h-8 gap-1.5 px-3 text-xs"
+                  className="font-custom h-9 min-h-9 gap-1.5 px-3 text-xs sm:h-8 sm:min-h-0"
                   asChild
                 >
                   <Link
@@ -218,14 +229,14 @@ const GradingVoucher = memo(function GradingVoucher({
                       gradingPassId: voucher._id,
                     }}
                   >
-                    <PackagePlus className="h-3.5 w-3.5" />
+                    <PackagePlus className="h-3.5 w-3.5 shrink-0" />
                     Store
                   </Link>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="font-custom h-8 gap-1.5 px-3 text-xs"
+                  className="font-custom h-9 min-h-9 gap-1.5 px-3 text-xs sm:h-8 sm:min-h-0"
                   asChild
                 >
                   <Link
@@ -235,7 +246,7 @@ const GradingVoucher = memo(function GradingVoucher({
                       gradingPassId: voucher._id,
                     }}
                   >
-                    <Truck className="h-3.5 w-3.5" />
+                    <Truck className="h-3.5 w-3.5 shrink-0" />
                     Dispatch
                   </Link>
                 </Button>
@@ -246,11 +257,11 @@ const GradingVoucher = memo(function GradingVoucher({
                 variant="outline"
                 size="sm"
                 onClick={() => setCalculationsOpen(true)}
-                className="font-custom h-8 gap-1.5 px-3 text-xs"
+                className="font-custom h-9 min-h-9 gap-1.5 px-3 text-xs sm:h-8 sm:min-h-0"
                 aria-label="Show calculations"
               >
-                <Calculator className="h-3.5 w-3.5" />
-                Show calculations
+                <Calculator className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline">Show calculations</span>
               </Button>
             )}
           </div>
@@ -259,7 +270,7 @@ const GradingVoucher = memo(function GradingVoucher({
             size="sm"
             onClick={() => handlePrint()}
             disabled={isPrinting}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 shrink-0 p-0 sm:h-8 sm:w-8"
             aria-label={isPrinting ? 'Generating PDF…' : 'Print gate pass'}
           >
             {isPrinting ? (

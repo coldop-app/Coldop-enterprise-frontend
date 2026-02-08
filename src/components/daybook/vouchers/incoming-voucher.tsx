@@ -37,6 +37,13 @@ const IncomingVoucher = memo(function IncomingVoucher({
   const bags = voucher.bagsReceived ?? 0;
 
   const handlePrint = async () => {
+    // Open window synchronously so mobile popup blockers allow it
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
     setIsPrinting(true);
     try {
       const [{ pdf }, { IncomingVoucherPdf }] = await Promise.all([
@@ -51,7 +58,12 @@ const IncomingVoucher = memo(function IncomingVoucher({
         />
       ).toBlob();
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } finally {
       setIsPrinting(false);
     }
