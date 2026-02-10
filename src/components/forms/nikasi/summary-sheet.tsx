@@ -19,14 +19,15 @@ import type {
 /* -------------------------------------------------------------------------- */
 
 /** Allocation with display-only available quantity */
-export interface NikasiSummaryAllocation
-  extends CreateNikasiGatePassAllocation {
+export interface NikasiSummaryAllocation extends CreateNikasiGatePassAllocation {
   availableQuantity?: number;
 }
 
 /** Extended entry for summary display */
-export interface NikasiSummaryGradingEntry
-  extends Omit<CreateNikasiGatePassGradingEntry, 'allocations'> {
+export interface NikasiSummaryGradingEntry extends Omit<
+  CreateNikasiGatePassGradingEntry,
+  'allocations'
+> {
   allocations: NikasiSummaryAllocation[];
   gatePassNo?: number;
   date?: string;
@@ -99,11 +100,9 @@ const SummaryMetaRow = memo(function SummaryMetaRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      {Icon && (
-        <Icon className="text-zinc-400 h-4 w-4 shrink-0" aria-hidden />
-      )}
+      {Icon && <Icon className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />}
       <div className="min-w-0">
-        <p className="text-zinc-400 text-[11px] font-medium uppercase tracking-wide">
+        <p className="text-[11px] font-medium tracking-wide text-zinc-400 uppercase">
           {label}
         </p>
         <p className="font-custom truncate text-sm font-medium text-white">
@@ -135,7 +134,10 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
       pass.gradingGatePasses.reduce(
         (a, entry) =>
           a +
-          entry.allocations.reduce((b, alloc) => b + alloc.quantityToAllocate, 0),
+          entry.allocations.reduce(
+            (b, alloc) => b + alloc.quantityToAllocate,
+            0
+          ),
         0
       ),
     0
@@ -159,7 +161,7 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
           </SheetHeader>
 
           {voucherNumberDisplay && (
-            <div className="border-zinc-700/60 flex flex-wrap gap-x-6 gap-y-3 border-b px-4 py-3 sm:px-6">
+            <div className="flex flex-wrap gap-x-6 gap-y-3 border-b border-zinc-700/60 px-4 py-3 sm:px-6">
               <SummaryMetaRow
                 label="Voucher(s)"
                 value={voucherNumberDisplay}
@@ -170,8 +172,14 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
 
           <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
             {passList.map((pass, passIndex) => {
-              const { date, from, toField, remarks, gradingGatePasses, variety } =
-                pass;
+              const {
+                date,
+                from,
+                toField,
+                remarks,
+                gradingGatePasses,
+                variety,
+              } = pass;
               const passBags = gradingGatePasses.reduce(
                 (sum, entry) =>
                   sum +
@@ -184,13 +192,25 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
               return (
                 <div
                   key={passIndex}
-                  className="mb-6 rounded-xl border border-zinc-600/50 bg-zinc-800/60 overflow-hidden"
+                  className="mb-6 overflow-hidden rounded-xl border border-zinc-600/50 bg-zinc-800/60"
                 >
-                  <div className="border-zinc-600/50 flex flex-wrap gap-x-6 gap-y-3 border-b px-4 py-3 sm:px-5">
+                  <div className="flex flex-wrap gap-x-6 gap-y-3 border-b border-zinc-600/50 px-4 py-3 sm:px-5">
                     <SummaryMetaRow label="Date" value={date} icon={Calendar} />
-                    <SummaryMetaRow label="From" value={from || '—'} icon={MapPin} />
-                    <SummaryMetaRow label="To" value={toField || '—'} icon={MapPin} />
-                    <SummaryMetaRow label="Variety" value={variety || '—'} icon={Package} />
+                    <SummaryMetaRow
+                      label="From"
+                      value={from || '—'}
+                      icon={MapPin}
+                    />
+                    <SummaryMetaRow
+                      label="To"
+                      value={toField || '—'}
+                      icon={MapPin}
+                    />
+                    <SummaryMetaRow
+                      label="Variety"
+                      value={variety || '—'}
+                      icon={Package}
+                    />
                     <span className="font-custom text-primary text-sm font-semibold">
                       {passBags} bags
                     </span>
@@ -206,9 +226,9 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                     return (
                       <div
                         key={entry.gradingGatePassId}
-                        className="mb-4 mx-4 rounded-lg bg-zinc-800/80 overflow-hidden"
+                        className="mx-4 mb-4 overflow-hidden rounded-lg bg-zinc-800/80"
                       >
-                        <div className="border-zinc-600/50 flex flex-wrap items-start justify-between gap-4 border-b px-3 py-3 sm:px-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-600/50 px-3 py-3 sm:px-4">
                           <div>
                             <p className="font-custom text-base font-bold text-white">
                               Gate Pass #{entry.gatePassNo ?? '—'}
@@ -222,16 +242,16 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                           <table className="font-custom w-full border-collapse text-sm">
                             <thead>
                               <tr>
-                                <th className="border-zinc-600/50 border-b py-2 pr-3 text-left text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                                <th className="border-b border-zinc-600/50 py-2 pr-3 text-left text-[10px] font-medium tracking-wide text-zinc-400 uppercase">
                                   Size
                                 </th>
-                                <th className="border-zinc-600/50 border-b py-2 px-2 text-right text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                                <th className="border-b border-zinc-600/50 px-2 py-2 text-right text-[10px] font-medium tracking-wide text-zinc-400 uppercase">
                                   Avail
                                 </th>
-                                <th className="border-zinc-600/50 border-b py-2 px-2 text-right text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                                <th className="border-b border-zinc-600/50 px-2 py-2 text-right text-[10px] font-medium tracking-wide text-zinc-400 uppercase">
                                   Sel
                                 </th>
-                                <th className="border-zinc-600/50 border-b py-2 pl-2 text-right text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                                <th className="border-b border-zinc-600/50 py-2 pl-2 text-right text-[10px] font-medium tracking-wide text-zinc-400 uppercase">
                                   Rem
                                 </th>
                               </tr>
@@ -245,19 +265,23 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                                     : null;
                                 return (
                                   <tr key={alloc.size}>
-                                    <td className="border-zinc-600/40 border-b py-2 pr-3 font-medium text-white">
+                                    <td className="border-b border-zinc-600/40 py-2 pr-3 font-medium text-white">
                                       {alloc.size}
                                     </td>
-                                    <td className="border-zinc-600/40 border-b py-2 px-2 text-right text-white">
+                                    <td className="border-b border-zinc-600/40 px-2 py-2 text-right text-white">
                                       {avail != null
                                         ? Number(avail).toFixed(1)
                                         : '—'}
                                     </td>
-                                    <td className="border-zinc-600/40 border-b py-2 px-2 text-right font-medium text-primary">
-                                      {Number(alloc.quantityToAllocate).toFixed(1)}
+                                    <td className="text-primary border-b border-zinc-600/40 px-2 py-2 text-right font-medium">
+                                      {Number(alloc.quantityToAllocate).toFixed(
+                                        1
+                                      )}
                                     </td>
-                                    <td className="border-zinc-600/40 border-b py-2 pl-2 text-right text-white">
-                                      {rem != null ? Number(rem).toFixed(1) : '—'}
+                                    <td className="border-b border-zinc-600/40 py-2 pl-2 text-right text-white">
+                                      {rem != null
+                                        ? Number(rem).toFixed(1)
+                                        : '—'}
                                     </td>
                                   </tr>
                                 );
@@ -271,7 +295,7 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
 
                   {remarks?.trim() && (
                     <div className="mx-4 mb-4 rounded-lg bg-zinc-800/60 px-3 py-2 sm:px-4">
-                      <p className="text-zinc-400 text-[10px] font-medium uppercase tracking-wide">
+                      <p className="text-[10px] font-medium tracking-wide text-zinc-400 uppercase">
                         Remarks
                       </p>
                       <p className="font-custom mt-1 text-xs text-zinc-300">
@@ -288,14 +312,14 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                 <span className="font-custom text-base font-bold text-white sm:text-lg">
                   Grand Total
                 </span>
-                <span className="font-custom text-xl font-bold text-primary sm:text-2xl">
+                <span className="font-custom text-primary text-xl font-bold sm:text-2xl">
                   {totalBags}
                 </span>
               </div>
             </div>
           </div>
 
-          <SheetFooter className="border-zinc-700/60 bg-zinc-800/90 border-t px-4 py-4 sm:px-6">
+          <SheetFooter className="border-t border-zinc-700/60 bg-zinc-800/90 px-4 py-4 sm:px-6">
             <div className="flex w-full flex-col gap-3 sm:flex-row">
               <Button
                 type="button"
@@ -319,7 +343,7 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                     Creating...
                   </span>
                 ) : (
-                  `Create ${passList.length} Nikasi Gate Pass${passList.length !== 1 ? 'es' : ''}`
+                  `Create Nikasi Gate Pass${passList.length !== 1 ? 'es' : ''}`
                 )}
               </Button>
             </div>
