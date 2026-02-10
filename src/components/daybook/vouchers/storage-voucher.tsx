@@ -17,6 +17,15 @@ import type { PassVoucherData } from './types';
 import type { StorageOrderDetailRow } from './types';
 import { totalBagsFromOrderDetails, type VoucherFarmerInfo } from './types';
 
+function getGpDisplay(
+  gp: string | { _id?: string; gatePassNo?: number }
+): { id: string; gatePassNo?: number } {
+  if (typeof gp === 'string') {
+    return { id: gp, gatePassNo: undefined };
+  }
+  return { id: gp._id ?? '', gatePassNo: gp.gatePassNo };
+}
+
 export interface StorageVoucherProps extends VoucherFarmerInfo {
   voucher: PassVoucherData;
 }
@@ -186,19 +195,22 @@ const StorageVoucher = memo(function StorageVoucher({
                               </div>
                             );
                           })
-                        : fallbackIds.map((gp) => (
-                            <div
-                              key={gp._id ?? gp.gatePassNo ?? ''}
-                              className="bg-muted/30 border-border/50 rounded-lg border p-3"
-                            >
-                              <p className="text-muted-foreground font-custom text-xs font-medium">
-                                GGP #{gp.gatePassNo ?? '—'}
-                              </p>
-                              <p className="text-foreground font-custom mt-1 text-sm font-semibold">
-                                #{gp.gatePassNo ?? '—'}
-                              </p>
-                            </div>
-                          ))}
+                        : fallbackIds.map((gp, idx) => {
+                            const { id, gatePassNo } = getGpDisplay(gp);
+                            return (
+                              <div
+                                key={id || `gp-${idx}`}
+                                className="bg-muted/30 border-border/50 rounded-lg border p-3"
+                              >
+                                <p className="text-muted-foreground font-custom text-xs font-medium">
+                                  GGP #{gatePassNo ?? '—'}
+                                </p>
+                                <p className="text-foreground font-custom mt-1 text-sm font-semibold">
+                                  #{gatePassNo ?? '—'}
+                                </p>
+                              </div>
+                            );
+                          })}
                     </div>
                   </section>
                 </>
