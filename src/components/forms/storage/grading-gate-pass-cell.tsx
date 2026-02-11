@@ -58,7 +58,7 @@ export const GradingGatePassCell = memo(function GradingGatePassCell({
           : 'bg-card/50 border-border/60',
         borderByPercentage,
         disabled &&
-          'cursor-not-allowed opacity-60 hover:bg-transparent hover:border-border/60 pointer-events-none'
+          'hover:border-border/60 pointer-events-none cursor-not-allowed opacity-60 hover:bg-transparent'
       )}
     >
       {hasQuantity && (

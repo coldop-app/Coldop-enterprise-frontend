@@ -54,11 +54,9 @@ const SummaryMetaRow = memo(function SummaryMetaRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      {Icon && (
-        <Icon className="text-zinc-400 h-4 w-4 shrink-0" aria-hidden />
-      )}
+      {Icon && <Icon className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />}
       <div className="min-w-0">
-        <p className="text-zinc-400 text-[11px] font-medium uppercase tracking-wide">
+        <p className="text-[11px] font-medium tracking-wide text-zinc-400 uppercase">
           {label}
         </p>
         <p className="font-custom truncate text-sm font-medium text-white">
@@ -84,13 +82,13 @@ const RowCells = memo(function RowCells({
 }) {
   return (
     <>
-      <div className="font-custom border-zinc-600/40 border-b py-2.5 font-medium text-zinc-300">
+      <div className="font-custom border-b border-zinc-600/40 py-2.5 font-medium text-zinc-300">
         {size}
       </div>
-      <div className="font-custom border-zinc-600/40 border-b py-2.5 font-medium text-zinc-300">
+      <div className="font-custom border-b border-zinc-600/40 py-2.5 font-medium text-zinc-300">
         {bagType}
       </div>
-      <div className="font-custom border-zinc-600/40 text-right font-medium text-primary border-b py-2.5">
+      <div className="font-custom text-primary border-b border-zinc-600/40 py-2.5 text-right font-medium">
         {quantity}
       </div>
     </>
@@ -117,7 +115,9 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
     0
   );
 
-  const rowsWithQuantity = formValues.sizeEntries.filter((row) => row.quantity > 0);
+  const rowsWithQuantity = formValues.sizeEntries.filter(
+    (row) => row.quantity > 0
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -141,7 +141,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
           </SheetHeader>
 
           {/* Meta: Voucher, Date (compact) */}
-          <div className="border-zinc-700/60 flex flex-wrap gap-x-6 gap-y-3 border-b px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-3 border-b border-zinc-700/60 px-4 py-3 sm:px-6">
             {voucherNumberDisplay && (
               <SummaryMetaRow
                 label="Voucher"
@@ -149,7 +149,11 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
                 icon={FileText}
               />
             )}
-            <SummaryMetaRow label="Date" value={formValues.date} icon={Calendar} />
+            <SummaryMetaRow
+              label="Date"
+              value={formValues.date}
+              icon={Calendar}
+            />
           </div>
 
           {/* Varieties & Quantities section (image style) */}
@@ -160,7 +164,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
 
             {/* Variety card */}
             <div className="rounded-xl bg-zinc-800/80 shadow-lg">
-              <div className="border-zinc-600/50 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-600/50 px-4 py-3 sm:px-5">
                 <span className="font-custom inline-flex items-center gap-2 rounded-full bg-zinc-700/80 px-3 py-1 text-sm font-semibold text-white">
                   <Package className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
                   Variety: {variety}
@@ -174,13 +178,13 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
               {/* Table: Size | Bag Type | Quantity */}
               <div className="px-4 py-3 sm:px-5">
                 <div className="grid grid-cols-[1fr_1fr_minmax(5rem,auto)] gap-x-6 gap-y-0 text-sm">
-                  <div className="font-custom border-zinc-600/50 border-b py-2.5 font-medium uppercase tracking-wide text-zinc-400">
+                  <div className="font-custom border-b border-zinc-600/50 py-2.5 font-medium tracking-wide text-zinc-400 uppercase">
                     Size
                   </div>
-                  <div className="font-custom border-zinc-600/50 border-b py-2.5 font-medium uppercase tracking-wide text-zinc-400">
+                  <div className="font-custom border-b border-zinc-600/50 py-2.5 font-medium tracking-wide text-zinc-400 uppercase">
                     Bag Type
                   </div>
-                  <div className="font-custom border-zinc-600/50 text-right font-medium uppercase tracking-wide text-zinc-400 border-b py-2.5">
+                  <div className="font-custom border-b border-zinc-600/50 py-2.5 text-right font-medium tracking-wide text-zinc-400 uppercase">
                     Quantity
                   </div>
                   {rowsWithQuantity.length > 0 ? (
@@ -194,10 +198,10 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
                     ))
                   ) : (
                     <>
-                      <div className="font-custom border-zinc-600/40 col-span-2 border-b py-2.5 text-zinc-500">
+                      <div className="font-custom col-span-2 border-b border-zinc-600/40 py-2.5 text-zinc-500">
                         —
                       </div>
-                      <div className="font-custom border-zinc-600/40 text-right font-medium text-primary border-b py-2.5">
+                      <div className="font-custom text-primary border-b border-zinc-600/40 py-2.5 text-right font-medium">
                         0
                       </div>
                     </>
@@ -212,7 +216,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
                 <span className="font-custom text-base font-bold text-white sm:text-lg">
                   Grand Total
                 </span>
-                <span className="font-custom text-xl font-bold text-primary sm:text-2xl">
+                <span className="font-custom text-primary text-xl font-bold sm:text-2xl">
                   {totalBags}
                 </span>
               </div>
@@ -220,7 +224,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
 
             {formValues.remarks?.trim() && (
               <div className="mt-4 rounded-lg bg-zinc-800/60 px-4 py-3 sm:px-5">
-                <p className="text-zinc-400 text-xs font-medium uppercase tracking-wide">
+                <p className="text-xs font-medium tracking-wide text-zinc-400 uppercase">
                   Remarks
                 </p>
                 <p className="font-custom mt-1 text-sm text-zinc-300">
@@ -234,7 +238,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
           {/* Footer (light bar)                                                 */}
           {/* ------------------------------------------------------------------ */}
 
-          <SheetFooter className="border-zinc-700/60 bg-zinc-800/90 border-t px-4 py-4 sm:px-6">
+          <SheetFooter className="border-t border-zinc-700/60 bg-zinc-800/90 px-4 py-4 sm:px-6">
             <div className="flex w-full flex-col gap-3 sm:flex-row">
               <Button
                 type="button"

@@ -254,9 +254,11 @@ export const StorageSummarySheet = memo(function StorageSummarySheet({
                                       {alloc.size}
                                     </td>
                                     <td className="border-b border-zinc-600/40 px-2 py-2 text-white">
-                                      {[alloc.chamber, alloc.floor, alloc.row].join(
-                                        '/'
-                                      )}
+                                      {[
+                                        alloc.chamber,
+                                        alloc.floor,
+                                        alloc.row,
+                                      ].join('/')}
                                     </td>
                                     <td className="border-b border-zinc-600/40 px-2 py-2 text-right text-white">
                                       {avail != null
