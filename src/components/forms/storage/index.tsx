@@ -1,7 +1,8 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
-import { FieldGroup } from '@/components/ui/field';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import { useCreateBulkStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useCreateBulkStorageGatePasses';
@@ -73,6 +74,8 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
     useCreateBulkStorageGatePasses();
   const [voucherSort, setVoucherSort] = useState<'asc' | 'desc'>('asc');
   const [groupBy, setGroupBy] = useState<'farmer' | 'date'>('farmer');
+  const [manualGatePassNumberInput, setManualGatePassNumberInput] =
+    useState<string>('');
   const [formStep, setFormStep] = useState<1 | 2>(1);
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
   const [locationErrors, setLocationErrors] = useState<
@@ -448,6 +451,15 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
 
   const handleSubmit = useCallback(() => {
     if (!voucherNumber) return;
+    const manualStart =
+      manualGatePassNumberInput.trim() === ''
+        ? null
+        : parseInt(manualGatePassNumberInput.trim(), 10);
+    const useManual =
+      typeof manualStart === 'number' &&
+      !Number.isNaN(manualStart) &&
+      manualStart > 0;
+
     const apiPasses = passes.map((pass, index) => {
       const gradingGatePasses: CreateStorageGatePassGradingEntry[] =
         Object.entries(pass.removedQuantities)
@@ -470,6 +482,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
       return {
         farmerStorageLinkId,
         gatePassNo: voucherNumber + index,
+        ...(useManual ? { manualGatePassNumber: manualStart + index } : {}),
         date: formatDateToISO(pass.date),
         variety: varietyFilter.trim(),
         gradingGatePasses,
@@ -497,6 +510,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
     voucherNumber,
     varietyFilter,
     farmerStorageLinkId,
+    manualGatePassNumberInput,
     createBulkStorageGatePasses,
     navigate,
   ]);
@@ -556,6 +570,27 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
       >
         <StorageFormStepIndicator formStep={formStep} />
 
+        {formStep === 1 && (
+          <Field>
+            <FieldLabel
+              htmlFor="storage-manual-gate-pass-no"
+              className="font-custom text-sm"
+            >
+              Manual Gate Pass No (optional)
+            </FieldLabel>
+            <Input
+              id="storage-manual-gate-pass-no"
+              type="number"
+              min={1}
+              step={1}
+              placeholder="e.g. 101"
+              value={manualGatePassNumberInput}
+              onChange={(e) => setManualGatePassNumberInput(e.target.value)}
+              className="font-custom w-full max-w-48"
+            />
+          </Field>
+        )}
+
         <FieldGroup className="space-y-6">
           {formStep === 1 &&
             passes.map((pass, passIndex) => (
@@ -607,6 +642,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
           onReset={() => {
             setPasses([createDefaultPass(`pass-${Date.now()}`)]);
             setFormStep(1);
+            setManualGatePassNumberInput('');
             toast.info('Form reset');
           }}
           onStep2Back={handleStep2Back}
