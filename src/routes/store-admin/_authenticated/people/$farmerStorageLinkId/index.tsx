@@ -185,12 +185,24 @@ function PeopleDetailPage() {
     return daybook.map((entry, index) => {
       const inc = entry.incoming as IncomingVoucherData & { date?: string };
       const bags = entry.summaries?.totalBagsIncoming ?? inc.bagsReceived ?? 0;
+      const ws = inc.weightSlip;
+      const gross = ws?.grossWeightKg;
+      const tare = ws?.tareWeightKg;
+      const net =
+        gross != null && tare != null && !Number.isNaN(gross - tare)
+          ? gross - tare
+          : undefined;
       return {
         serialNo: index + 1,
         date: inc.date,
         incomingGatePassNo: inc.gatePassNo ?? '—',
+        store: 'JICSPL- Bazpur',
         truckNumber: inc.truckNumber,
         bagsReceived: bags,
+        weightSlipNumber: ws?.slipNumber,
+        grossWeightKg: gross,
+        tareWeightKg: tare,
+        netWeightKg: net,
       };
     });
   }, [daybook]);

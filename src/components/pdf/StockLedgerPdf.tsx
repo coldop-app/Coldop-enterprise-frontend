@@ -6,8 +6,13 @@ export interface StockLedgerRow {
   serialNo: number;
   date: string | undefined;
   incomingGatePassNo: number | string;
+  store: string;
   truckNumber: string | number | undefined;
   bagsReceived: number;
+  weightSlipNumber?: string;
+  grossWeightKg?: number;
+  tareWeightKg?: number;
+  netWeightKg?: number;
 }
 
 export interface StockLedgerPdfProps {
@@ -19,11 +24,16 @@ const HEADER_BG = '#f9fafb';
 const BORDER = '#e5e7eb';
 
 const COL_WIDTHS = {
-  serialNo: 50,
-  date: 110,
-  gatePassNo: 110,
-  truckNumber: 140,
-  bagsReceived: 80,
+  serialNo: 44,
+  date: 88,
+  gatePassNo: 88,
+  store: 95,
+  truckNumber: 100,
+  bagsReceived: 68,
+  weightSlipNo: 72,
+  grossWeight: 56,
+  tareWeight: 56,
+  netWeight: 56,
 } as const;
 
 const styles = StyleSheet.create({
@@ -104,31 +114,55 @@ function TableHeader() {
       <View style={[styles.headerCell, { width: COL_WIDTHS.gatePassNo }]}>
         <Text>Incoming Gate Pass No.</Text>
       </View>
+      <View style={[styles.headerCell, { width: COL_WIDTHS.store }]}>
+        <Text>Store</Text>
+      </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.truckNumber }]}>
         <Text>Truck Number</Text>
+      </View>
+      <View style={[styles.headerCell, { width: COL_WIDTHS.bagsReceived }]}>
+        <Text style={styles.cellRight}>No. of Bags Received</Text>
+      </View>
+      <View style={[styles.headerCell, { width: COL_WIDTHS.weightSlipNo }]}>
+        <Text>Weight Slip No.</Text>
+      </View>
+      <View style={[styles.headerCell, { width: COL_WIDTHS.grossWeight }]}>
+        <Text style={styles.cellRight}>Gross (kg)</Text>
+      </View>
+      <View style={[styles.headerCell, { width: COL_WIDTHS.tareWeight }]}>
+        <Text style={styles.cellRight}>Tare (kg)</Text>
       </View>
       <View
         style={[
           styles.headerCell,
           styles.headerCellLast,
-          { width: COL_WIDTHS.bagsReceived },
+          { width: COL_WIDTHS.netWeight },
         ]}
       >
-        <Text style={styles.cellRight}>No. of Bags Received</Text>
+        <Text style={styles.cellRight}>Net (kg)</Text>
       </View>
     </View>
   );
 }
 
-function DataRow({ row, isLast }: { row: StockLedgerRow; isLast: boolean }) {
+function formatWeight(value: number | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return value.toLocaleString('en-IN');
+}
+
+function DataRow({ row }: { row: StockLedgerRow }) {
   const dateStr = formatVoucherDate(row.date);
   const truckStr =
     row.truckNumber != null && String(row.truckNumber).trim() !== ''
       ? String(row.truckNumber)
       : '—';
+  const slipStr =
+    row.weightSlipNumber != null && String(row.weightSlipNumber).trim() !== ''
+      ? row.weightSlipNumber
+      : '—';
 
   return (
-    <View style={[styles.dataRow, isLast && { borderBottomWidth: 1 }]}>
+    <View style={styles.dataRow}>
       <View style={[styles.cell, { width: COL_WIDTHS.serialNo }]}>
         <Text style={styles.cellCenter}>{row.serialNo}</Text>
       </View>
@@ -138,19 +172,30 @@ function DataRow({ row, isLast }: { row: StockLedgerRow; isLast: boolean }) {
       <View style={[styles.cell, { width: COL_WIDTHS.gatePassNo }]}>
         <Text style={styles.cellCenter}>{row.incomingGatePassNo}</Text>
       </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.store }]}>
+        <Text>{row.store}</Text>
+      </View>
       <View style={[styles.cell, { width: COL_WIDTHS.truckNumber }]}>
         <Text>{truckStr}</Text>
       </View>
-      <View
-        style={[
-          styles.cell,
-          styles.cellLast,
-          { width: COL_WIDTHS.bagsReceived },
-        ]}
-      >
+      <View style={[styles.cell, { width: COL_WIDTHS.bagsReceived }]}>
         <Text style={styles.cellRight}>
           {row.bagsReceived.toLocaleString('en-IN')}
         </Text>
+      </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.weightSlipNo }]}>
+        <Text>{slipStr}</Text>
+      </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.grossWeight }]}>
+        <Text style={styles.cellRight}>{formatWeight(row.grossWeightKg)}</Text>
+      </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.tareWeight }]}>
+        <Text style={styles.cellRight}>{formatWeight(row.tareWeightKg)}</Text>
+      </View>
+      <View
+        style={[styles.cell, styles.cellLast, { width: COL_WIDTHS.netWeight }]}
+      >
+        <Text style={styles.cellRight}>{formatWeight(row.netWeightKg)}</Text>
       </View>
     </View>
   );
@@ -164,12 +209,8 @@ export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
           <Text style={styles.titleText}>{farmerName}</Text>
         </View>
         <TableHeader />
-        {rows.map((row, index) => (
-          <DataRow
-            key={row.serialNo}
-            row={row}
-            isLast={index === rows.length - 1}
-          />
+        {rows.map((row) => (
+          <DataRow key={row.serialNo} row={row} />
         ))}
       </Page>
     </Document>
