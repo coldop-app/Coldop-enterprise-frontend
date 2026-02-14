@@ -211,16 +211,33 @@ function PeopleDetailPage() {
 
       const sizeBagsJute: Record<string, number> = {};
       const sizeBagsLeno: Record<string, number> = {};
+      const sizeWeightPerBagJute: Record<string, number> = {};
+      const sizeWeightPerBagLeno: Record<string, number> = {};
       for (const pass of gradingPasses) {
         const details = (pass.orderDetails ?? []) as GradingOrderDetailRow[];
         for (const d of details) {
           if (d.size == null || (d.currentQuantity ?? 0) <= 0) continue;
           const typeKey = d.bagType?.toUpperCase();
           const qty = d.currentQuantity ?? 0;
+          const weightKg = d.weightPerBagKg;
           if (typeKey === 'JUTE') {
             sizeBagsJute[d.size] = (sizeBagsJute[d.size] ?? 0) + qty;
+            if (
+              weightKg != null &&
+              !Number.isNaN(weightKg) &&
+              sizeWeightPerBagJute[d.size] == null
+            ) {
+              sizeWeightPerBagJute[d.size] = weightKg;
+            }
           } else if (typeKey === 'LENO') {
             sizeBagsLeno[d.size] = (sizeBagsLeno[d.size] ?? 0) + qty;
+            if (
+              weightKg != null &&
+              !Number.isNaN(weightKg) &&
+              sizeWeightPerBagLeno[d.size] == null
+            ) {
+              sizeWeightPerBagLeno[d.size] = weightKg;
+            }
           }
         }
       }
@@ -243,6 +260,14 @@ function PeopleDetailPage() {
         bagType,
         sizeBagsJute: hasJute ? sizeBagsJute : undefined,
         sizeBagsLeno: hasLeno ? sizeBagsLeno : undefined,
+        sizeWeightPerBagJute:
+          hasJute && Object.keys(sizeWeightPerBagJute).length > 0
+            ? sizeWeightPerBagJute
+            : undefined,
+        sizeWeightPerBagLeno:
+          hasLeno && Object.keys(sizeWeightPerBagLeno).length > 0
+            ? sizeWeightPerBagLeno
+            : undefined,
       };
     });
   }, [daybook]);
