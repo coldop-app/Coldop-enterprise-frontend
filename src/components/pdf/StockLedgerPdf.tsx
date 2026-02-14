@@ -296,6 +296,52 @@ const styles = StyleSheet.create({
   totalCellText: {
     fontWeight: 700,
   },
+  /** Bag size analytics section below the table */
+  analyticsSection: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 2,
+    padding: 6,
+    backgroundColor: '#fafafa',
+  },
+  analyticsTitle: {
+    fontSize: 5,
+    fontWeight: 700,
+    color: '#333',
+    marginBottom: 4,
+  },
+  analyticsSubtitle: {
+    fontSize: 3,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  analyticsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    alignItems: 'center',
+  },
+  analyticsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 1,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    gap: 2,
+  },
+  analyticsChipLabel: {
+    fontSize: 3.5,
+    color: '#374151',
+  },
+  analyticsChipValue: {
+    fontSize: 3.5,
+    fontWeight: 700,
+    color: '#111',
+  },
 });
 
 /** Short labels for grading size columns to save space */
@@ -649,6 +695,114 @@ function computeTotals(rows: StockLedgerRow[]) {
     totalWeightShortagePercent,
     totalAmountPayable,
   };
+}
+
+/**
+ * For each bag size: sum over all rows of quantity × (gross weight per bag − tare weight of bag type).
+ * Result is the net potato weight (kg) attributable to that size.
+ */
+function computeBagSizeNetWeights(
+  rows: StockLedgerRow[]
+): Record<string, number> {
+  const bySize: Record<string, number> = {};
+  for (const size of GRADING_SIZES) {
+    bySize[size] = 0;
+  }
+  for (const row of rows) {
+    const hasSplit = row.sizeBagsJute != null || row.sizeBagsLeno != null;
+    if (hasSplit) {
+      for (const size of GRADING_SIZES) {
+        const juteBags = row.sizeBagsJute?.[size] ?? 0;
+        const juteWt = row.sizeWeightPerBagJute?.[size];
+        const lenoBags = row.sizeBagsLeno?.[size] ?? 0;
+        const lenoWt = row.sizeWeightPerBagLeno?.[size];
+        if (juteBags > 0 && juteWt != null && !Number.isNaN(juteWt)) {
+          bySize[size] += juteBags * (juteWt - JUTE_BAG_WEIGHT);
+        }
+        if (lenoBags > 0 && lenoWt != null && !Number.isNaN(lenoWt)) {
+          bySize[size] += lenoBags * (lenoWt - LENO_BAG_WEIGHT);
+        }
+      }
+    } else {
+      const bagWt =
+        row.bagType?.toUpperCase() === 'LENO'
+          ? LENO_BAG_WEIGHT
+          : JUTE_BAG_WEIGHT;
+      for (const size of GRADING_SIZES) {
+        const bags = row.sizeBags?.[size] ?? 0;
+        const wt = row.sizeWeightPerBag?.[size];
+        if (bags > 0 && wt != null && !Number.isNaN(wt)) {
+          bySize[size] += bags * (wt - bagWt);
+        }
+      }
+    }
+  }
+  return bySize;
+}
+
+/**
+ * Bag size share of actual potato weight: (net weight for size / total actual wt of potato) × 100.
+ * Returns entries only for sizes with a positive share.
+ */
+function computeBagSizePercentages(rows: StockLedgerRow[]): {
+  totalActualWtOfPotato: number;
+  percentages: {
+    size: string;
+    label: string;
+    netKg: number;
+    percent: number;
+  }[];
+} {
+  const totals = computeTotals(rows);
+  const totalActualWtOfPotato = totals.totalActualWtOfPotato;
+  const netBySize = computeBagSizeNetWeights(rows);
+  const percentages: {
+    size: string;
+    label: string;
+    netKg: number;
+    percent: number;
+  }[] = [];
+  if (totalActualWtOfPotato <= 0) {
+    return { totalActualWtOfPotato: 0, percentages };
+  }
+  for (const size of GRADING_SIZES) {
+    const netKg = netBySize[size] ?? 0;
+    if (netKg <= 0) continue;
+    const percent = (netKg / totalActualWtOfPotato) * 100;
+    percentages.push({
+      size,
+      label: SIZE_HEADER_LABELS[size] ?? size,
+      netKg,
+      percent,
+    });
+  }
+  return { totalActualWtOfPotato, percentages };
+}
+
+function BagSizeAnalytics({ rows }: { rows: StockLedgerRow[] }) {
+  const { totalActualWtOfPotato, percentages } =
+    computeBagSizePercentages(rows);
+  if (percentages.length === 0) return null;
+  return (
+    <View style={styles.analyticsSection}>
+      <Text style={styles.analyticsTitle}>
+        Bag size mix (% of actual potato weight)
+      </Text>
+      <Text style={styles.analyticsSubtitle}>
+        For each size: Σ (bags × (weight per bag − bag tare)) ÷ total actual wt
+        of potato × 100. Total actual wt of potato:{' '}
+        {totalActualWtOfPotato.toLocaleString('en-IN')} kg.
+      </Text>
+      <View style={styles.analyticsRow}>
+        {percentages.map(({ size, label, percent }) => (
+          <View key={size} style={styles.analyticsChip}>
+            <Text style={styles.analyticsChipLabel}>{label}</Text>
+            <Text style={styles.analyticsChipValue}>{percent.toFixed(1)}%</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
@@ -1198,6 +1352,7 @@ export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
           <DataRow key={`${row.incomingGatePassNo}-${index}`} row={row} />
         ))}
         <TotalRow rows={sortedRows} />
+        <BagSizeAnalytics rows={sortedRows} />
       </Page>
     </Document>
   );
