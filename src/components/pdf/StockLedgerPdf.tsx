@@ -13,6 +13,10 @@ export interface StockLedgerRow {
   serialNo: number;
   date: string | undefined;
   incomingGatePassNo: number | string;
+  /** Manual incoming voucher number (displayed in table). */
+  manualIncomingVoucherNo?: number | string;
+  /** Grading gate pass number(s), e.g. from grading voucher (displayed in table). */
+  gradingGatePassNo?: number | string;
   store: string;
   truckNumber: string | number | undefined;
   bagsReceived: number;
@@ -36,7 +40,7 @@ export interface StockLedgerRow {
   sizeWeightPerBagLeno?: Record<string, number>;
   /** Per-size weight per bag (kg) when sizeBags used without JUTE/LENO split. */
   sizeWeightPerBag?: Record<string, number>;
-  /** Potato variety for buy-back rate (e.g. from grading pass). Used for Amount Payable. */
+  /** Potato variety for buy-back rate (e.g. from grading pass). Used for Amount Payable and displayed in table. */
   variety?: string;
 }
 
@@ -53,8 +57,11 @@ const ROW_HEIGHT = 12;
 /** Column widths: minimal to fit content, center-aligned. */
 const COL_WIDTHS = {
   gpNo: 22,
+  manualIncomingVoucherNo: 22,
+  gradingGatePassNo: 22,
   date: 30,
   store: 38,
+  variety: 32,
   truckNumber: 48,
   bagsReceived: 26,
   weightSlipNo: 26,
@@ -84,8 +91,11 @@ const COL_WIDTHS = {
 /** Total width of left block (Gp No through Post Gr.) for exact alignment. */
 const LEFT_BLOCK_WIDTH =
   COL_WIDTHS.gpNo +
+  COL_WIDTHS.manualIncomingVoucherNo +
+  COL_WIDTHS.gradingGatePassNo +
   COL_WIDTHS.date +
   COL_WIDTHS.store +
+  COL_WIDTHS.variety +
   COL_WIDTHS.truckNumber +
   COL_WIDTHS.bagsReceived +
   COL_WIDTHS.weightSlipNo +
@@ -342,6 +352,54 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: '#111',
   },
+  /** Amount Payable calculations in detail section */
+  amountPayableSection: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 2,
+    padding: 6,
+    backgroundColor: '#fafafa',
+  },
+  amountPayableFormula: {
+    fontSize: 3,
+    color: '#374151',
+    marginBottom: 6,
+    lineHeight: 1.4,
+  },
+  amountPayableRowBlock: {
+    marginBottom: 6,
+  },
+  amountPayableRowTitle: {
+    fontSize: 3.5,
+    fontWeight: 700,
+    color: '#111',
+    marginBottom: 2,
+  },
+  amountPayableLine: {
+    fontSize: 3,
+    color: '#4b5563',
+    marginLeft: 6,
+    marginBottom: 1,
+    lineHeight: 1.35,
+  },
+  amountPayableRowTotal: {
+    fontSize: 3.5,
+    fontWeight: 700,
+    color: '#111',
+    marginLeft: 6,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  amountPayableGrandTotal: {
+    fontSize: 4,
+    fontWeight: 700,
+    color: '#111',
+    marginTop: 6,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
 });
 
 /** Short labels for grading size columns to save space */
@@ -366,11 +424,27 @@ function TableHeader() {
       <View style={[styles.headerCell, { width: COL_WIDTHS.gpNo }]}>
         <Text style={styles.cellCenter}>Gp No</Text>
       </View>
+      <View
+        style={[
+          styles.headerCell,
+          { width: COL_WIDTHS.manualIncomingVoucherNo },
+        ]}
+      >
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Manual No</Text>
+      </View>
+      <View
+        style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassNo }]}
+      >
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>GGP No</Text>
+      </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.date }]}>
         <Text style={styles.cellCenter}>Date</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.store }]}>
         <Text style={styles.cellCenter}>Store</Text>
+      </View>
+      <View style={[styles.headerCell, { width: COL_WIDTHS.variety }]}>
+        <Text style={styles.cellCenter}>Variety</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.truckNumber }]}>
         <Text style={styles.cellCenter}>Truck</Text>
@@ -614,6 +688,109 @@ function computeAmountPayable(row: StockLedgerRow): number {
   return sum;
 }
 
+/** Single line in the amount payable breakdown (one size + bag type). */
+export interface AmountPayableBreakdownLine {
+  size: string;
+  sizeLabel: string;
+  bagType: string;
+  bags: number;
+  wtPerBagKg: number;
+  bagWtKg: number;
+  netWtPerBagKg: number;
+  ratePerKg: number;
+  amount: number;
+}
+
+/** Per-row breakdown for amount payable (for detailed calculation section). */
+export interface AmountPayableRowBreakdown {
+  rowLabel: string;
+  variety: string;
+  total: number;
+  lines: AmountPayableBreakdownLine[];
+}
+
+/**
+ * Returns the detailed breakdown for amount payable for a single row,
+ * so it can be rendered in the "Amount Payable — Calculations in detail" section.
+ */
+function getAmountPayableBreakdown(row: StockLedgerRow): AmountPayableRowBreakdown | null {
+  const variety = row.variety?.trim() ?? '';
+  const hasSplit = row.sizeBagsJute != null || row.sizeBagsLeno != null;
+  const lines: AmountPayableBreakdownLine[] = [];
+
+  if (hasSplit) {
+    for (const size of GRADING_SIZES) {
+      const rate = getBuyBackRate(variety, size);
+      const juteBags = row.sizeBagsJute?.[size] ?? 0;
+      const juteWt = row.sizeWeightPerBagJute?.[size];
+      if (juteBags > 0 && juteWt != null && !Number.isNaN(juteWt)) {
+        const netWtPerBag = juteWt - JUTE_BAG_WEIGHT;
+        if (netWtPerBag > 0) {
+          lines.push({
+            size,
+            sizeLabel: SIZE_HEADER_LABELS[size] ?? size,
+            bagType: 'JUTE',
+            bags: juteBags,
+            wtPerBagKg: juteWt,
+            bagWtKg: JUTE_BAG_WEIGHT,
+            netWtPerBagKg: netWtPerBag,
+            ratePerKg: rate,
+            amount: juteBags * netWtPerBag * rate,
+          });
+        }
+      }
+      const lenoBags = row.sizeBagsLeno?.[size] ?? 0;
+      const lenoWt = row.sizeWeightPerBagLeno?.[size];
+      if (lenoBags > 0 && lenoWt != null && !Number.isNaN(lenoWt)) {
+        const netWtPerBag = lenoWt - LENO_BAG_WEIGHT;
+        if (netWtPerBag > 0) {
+          lines.push({
+            size,
+            sizeLabel: SIZE_HEADER_LABELS[size] ?? size,
+            bagType: 'LENO',
+            bags: lenoBags,
+            wtPerBagKg: lenoWt,
+            bagWtKg: LENO_BAG_WEIGHT,
+            netWtPerBagKg: netWtPerBag,
+            ratePerKg: rate,
+            amount: lenoBags * netWtPerBag * rate,
+          });
+        }
+      }
+    }
+  } else {
+    const isLeno = row.bagType?.toUpperCase() === 'LENO';
+    const bagWt = isLeno ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
+    const bagType = isLeno ? 'LENO' : 'JUTE';
+    for (const size of GRADING_SIZES) {
+      const bags = row.sizeBags?.[size] ?? 0;
+      const wt = row.sizeWeightPerBag?.[size];
+      if (bags > 0 && wt != null && !Number.isNaN(wt)) {
+        const netWtPerBag = wt - bagWt;
+        if (netWtPerBag > 0) {
+          const rate = getBuyBackRate(variety, size);
+          lines.push({
+            size,
+            sizeLabel: SIZE_HEADER_LABELS[size] ?? size,
+            bagType,
+            bags,
+            wtPerBagKg: wt,
+            bagWtKg: bagWt,
+            netWtPerBagKg: netWtPerBag,
+            ratePerKg: rate,
+            amount: bags * netWtPerBag * rate,
+          });
+        }
+      }
+    }
+  }
+
+  if (lines.length === 0) return null;
+  const total = lines.reduce((s, l) => s + l.amount, 0);
+  const rowLabel = `GP No ${row.incomingGatePassNo}`;
+  return { rowLabel, variety, total, lines };
+}
+
 function computeTotals(rows: StockLedgerRow[]) {
   let totalBagsReceived = 0;
   let totalGrossKg = 0;
@@ -805,6 +982,62 @@ function BagSizeAnalytics({ rows }: { rows: StockLedgerRow[] }) {
   );
 }
 
+function AmountPayableDetail({ rows }: { rows: StockLedgerRow[] }) {
+  const breakdowns = rows
+    .map((row) => getAmountPayableBreakdown(row))
+    .filter((b): b is AmountPayableRowBreakdown => b != null && b.total > 0);
+  if (breakdowns.length === 0) return null;
+
+  const grandTotal = breakdowns.reduce((s, b) => s + b.total, 0);
+
+  return (
+    <View style={styles.amountPayableSection}>
+      <Text style={styles.analyticsTitle}>
+        Amount Payable — Calculations in detail
+      </Text>
+      <Text style={styles.amountPayableFormula}>
+        For each size and bag type: Amount = bags x (weight per bag - bag tare
+        in kg) x buy-back rate (Rs/kg). JUTE bag tare = {JUTE_BAG_WEIGHT} kg,
+        LENO bag tare = {LENO_BAG_WEIGHT} kg. Rates are per variety and size
+        (buy-back config).
+      </Text>
+      {breakdowns.map((b, idx) => (
+        <View key={idx} style={styles.amountPayableRowBlock}>
+          <Text style={styles.amountPayableRowTitle}>
+            {b.rowLabel}
+            {b.variety ? ` (Variety: ${b.variety})` : ''}
+          </Text>
+          {b.lines.map((line, lineIdx) => (
+            <Text key={lineIdx} style={styles.amountPayableLine}>
+              {line.sizeLabel}, {line.bagType}: {line.bags} bags x (
+              {line.wtPerBagKg} - {line.bagWtKg}) kg x Rs{' '}
+              {line.ratePerKg.toFixed(2)}/kg = Rs{' '}
+              {line.amount.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Text>
+          ))}
+          <Text style={styles.amountPayableRowTotal}>
+            Row total: Rs{' '}
+            {b.total.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+        </View>
+      ))}
+      <Text style={styles.amountPayableGrandTotal}>
+        Total Amount Payable: Rs{' '}
+        {grandTotal.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </Text>
+    </View>
+  );
+}
+
 function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
   const totals = computeTotals(rows);
   const boldCenter = [styles.cellCenter, styles.totalCellText];
@@ -813,10 +1046,23 @@ function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
       <View style={[styles.totalCell, { width: COL_WIDTHS.gpNo }]}>
         <Text style={[styles.cellCenter, styles.totalCellText]}>Total</Text>
       </View>
+      <View
+        style={[styles.totalCell, { width: COL_WIDTHS.manualIncomingVoucherNo }]}
+      >
+        <Text />
+      </View>
+      <View
+        style={[styles.totalCell, { width: COL_WIDTHS.gradingGatePassNo }]}
+      >
+        <Text />
+      </View>
       <View style={[styles.totalCell, { width: COL_WIDTHS.date }]}>
         <Text />
       </View>
       <View style={[styles.totalCell, { width: COL_WIDTHS.store }]}>
+        <Text />
+      </View>
+      <View style={[styles.totalCell, { width: COL_WIDTHS.variety }]}>
         <Text />
       </View>
       <View style={[styles.totalCell, { width: COL_WIDTHS.truckNumber }]}>
@@ -982,16 +1228,42 @@ function DataRow({ row }: { row: StockLedgerRow }) {
   const hasPostGrading =
     row.postGradingBags != null || sizeBagsJute != null || sizeBagsLeno != null;
 
+  const manualNoStr =
+    row.manualIncomingVoucherNo != null &&
+    String(row.manualIncomingVoucherNo).trim() !== ''
+      ? String(row.manualIncomingVoucherNo)
+      : '—';
+  const ggpNoStr =
+    row.gradingGatePassNo != null &&
+    String(row.gradingGatePassNo).trim() !== ''
+      ? String(row.gradingGatePassNo)
+      : '—';
+  const varietyStr =
+    row.variety != null && String(row.variety).trim() !== ''
+      ? String(row.variety).trim()
+      : '—';
+
   const leftCells = (
     <>
       <View style={[styles.cell, { width: COL_WIDTHS.gpNo }]}>
         <Text style={styles.cellCenter}>{row.incomingGatePassNo}</Text>
+      </View>
+      <View
+        style={[styles.cell, { width: COL_WIDTHS.manualIncomingVoucherNo }]}
+      >
+        <Text style={styles.cellCenter}>{manualNoStr}</Text>
+      </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.gradingGatePassNo }]}>
+        <Text style={styles.cellCenter}>{ggpNoStr}</Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
         <Text style={styles.cellCenter}>{dateStr}</Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.store }]}>
         <Text style={styles.cellCenter}>{row.store}</Text>
+      </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.variety }]}>
+        <Text style={styles.cellCenter}>{varietyStr}</Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.truckNumber }]}>
         <Text style={styles.cellCenter}>{truckStr}</Text>
@@ -1353,6 +1625,7 @@ export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
         ))}
         <TotalRow rows={sortedRows} />
         <BagSizeAnalytics rows={sortedRows} />
+        <AmountPayableDetail rows={sortedRows} />
       </Page>
     </Document>
   );
