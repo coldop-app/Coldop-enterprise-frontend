@@ -364,9 +364,7 @@ function TotalRow({
   const boldCenter = [styles.cellCenter, styles.totalCellText];
   return (
     <View style={styles.totalRow}>
-      <View
-        style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}
-      >
+      <View style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}>
         <Text style={styles.cellCenter}>—</Text>
       </View>
       <View

@@ -19,15 +19,14 @@ import {
   computeWeightShortage,
   computeWeightShortagePercent,
   computeAmountPayable,
-  getAmountPayableBreakdown,
-  computeBagSizeNetWeights,
 } from '@/components/pdf/gradingVoucherCalculations';
-import type { AmountPayableRowBreakdown } from '@/components/pdf/gradingVoucherCalculations';
 import type {
   StockLedgerRow,
   StockLedgerPdfProps,
 } from '@/components/pdf/stockLedgerTypes';
 import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
+import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
+import { STOCK_LEDGER_COL_WIDTHS as COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
 
 export type { StockLedgerRow, StockLedgerPdfProps };
 export {
@@ -50,41 +49,6 @@ const HEADER_BG = '#f9fafb';
 const BORDER = '#e5e7eb';
 /** Height of one data sub-row for TYPE + size columns (used for rowSpan 2 alignment). */
 const ROW_HEIGHT = 12;
-
-/** Column widths: minimal to fit content, center-aligned. */
-const COL_WIDTHS = {
-  gpNo: 22,
-  manualIncomingVoucherNo: 22,
-  gradingGatePassNo: 22,
-  manualGradingGatePassNo: 22,
-  date: 30,
-  store: 38,
-  variety: 32,
-  truckNumber: 48,
-  bagsReceived: 26,
-  weightSlipNo: 26,
-  grossWeight: 28,
-  tareWeight: 28,
-  netWeight: 28,
-  lessBardana: 26,
-  actualWeight: 28,
-  postGradingBags: 24,
-  bagType: 22,
-  /** Width for each grading size column (Below 25, 25–30, etc.) */
-  sizeColumn: 18,
-  /** Wt Received After Grading (row span after size columns) */
-  wtReceivedAfterGrading: 34,
-  /** Less Bardana after grading (bifurcated: JUTE/LENO bag weight deduction) */
-  lessBardanaAfterGrading: 28,
-  /** Actual wt of Potato = Wt Rec. After Gr. - Less Bard. (JUTE + LENO wastage) */
-  actualWtOfPotato: 34,
-  /** Weight Shortage = Actual Weight (incoming) - Actual wt of Potato (grading) */
-  weightShortage: 32,
-  /** Shortage % = (Weight Shortage / Actual Weight incoming) × 100 */
-  weightShortagePercent: 28,
-  /** Amount Payable = sum over sizes of bags × (wt per bag − bag wt) × buy-back rate */
-  amountPayable: 32,
-} as const;
 
 /** Total width of left block (Gp No through Post Gr.) for exact alignment. */
 const LEFT_BLOCK_WIDTH =
@@ -305,100 +269,6 @@ const styles = StyleSheet.create({
   totalCellText: {
     fontWeight: 700,
   },
-  /** Bag size analytics section below the table */
-  analyticsSection: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 2,
-    padding: 6,
-    backgroundColor: '#fafafa',
-  },
-  analyticsTitle: {
-    fontSize: 5,
-    fontWeight: 700,
-    color: '#333',
-    marginBottom: 4,
-  },
-  analyticsSubtitle: {
-    fontSize: 3,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  analyticsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    alignItems: 'center',
-  },
-  analyticsChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 1,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    gap: 2,
-  },
-  analyticsChipLabel: {
-    fontSize: 3.5,
-    color: '#374151',
-  },
-  analyticsChipValue: {
-    fontSize: 3.5,
-    fontWeight: 700,
-    color: '#111',
-  },
-  /** Amount Payable calculations in detail section */
-  amountPayableSection: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 2,
-    padding: 6,
-    backgroundColor: '#fafafa',
-  },
-  amountPayableFormula: {
-    fontSize: 3,
-    color: '#374151',
-    marginBottom: 6,
-    lineHeight: 1.4,
-  },
-  amountPayableRowBlock: {
-    marginBottom: 6,
-  },
-  amountPayableRowTitle: {
-    fontSize: 3.5,
-    fontWeight: 700,
-    color: '#111',
-    marginBottom: 2,
-  },
-  amountPayableLine: {
-    fontSize: 3,
-    color: '#4b5563',
-    marginLeft: 6,
-    marginBottom: 1,
-    lineHeight: 1.35,
-  },
-  amountPayableRowTotal: {
-    fontSize: 3.5,
-    fontWeight: 700,
-    color: '#111',
-    marginLeft: 6,
-    marginTop: 2,
-    marginBottom: 2,
-  },
-  amountPayableGrandTotal: {
-    fontSize: 4,
-    fontWeight: 700,
-    color: '#111',
-    marginTop: 6,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-  },
 });
 
 function TableHeader() {
@@ -608,127 +478,6 @@ function computeTotals(rows: StockLedgerRow[]) {
     totalWeightShortagePercent,
     totalAmountPayable,
   };
-}
-
-/**
- * Bag size share of actual potato weight: (net weight for size / total actual wt of potato) × 100.
- * Returns entries only for sizes with a positive share.
- */
-function computeBagSizePercentages(rows: StockLedgerRow[]): {
-  totalActualWtOfPotato: number;
-  percentages: {
-    size: string;
-    label: string;
-    netKg: number;
-    percent: number;
-  }[];
-} {
-  const totals = computeTotals(rows);
-  const totalActualWtOfPotato = totals.totalActualWtOfPotato;
-  const netBySize = computeBagSizeNetWeights(rows);
-  const percentages: {
-    size: string;
-    label: string;
-    netKg: number;
-    percent: number;
-  }[] = [];
-  if (totalActualWtOfPotato <= 0) {
-    return { totalActualWtOfPotato: 0, percentages };
-  }
-  for (const size of GRADING_SIZES) {
-    const netKg = netBySize[size] ?? 0;
-    if (netKg <= 0) continue;
-    const percent = (netKg / totalActualWtOfPotato) * 100;
-    percentages.push({
-      size,
-      label: SIZE_HEADER_LABELS[size] ?? size,
-      netKg,
-      percent,
-    });
-  }
-  return { totalActualWtOfPotato, percentages };
-}
-
-function BagSizeAnalytics({ rows }: { rows: StockLedgerRow[] }) {
-  const { totalActualWtOfPotato, percentages } =
-    computeBagSizePercentages(rows);
-  if (percentages.length === 0) return null;
-  return (
-    <View style={styles.analyticsSection}>
-      <Text style={styles.analyticsTitle}>
-        Bag size mix (% of actual potato weight)
-      </Text>
-      <Text style={styles.analyticsSubtitle}>
-        For each size: Σ (bags × (weight per bag − bag tare)) ÷ total actual wt
-        of potato × 100. Total actual wt of potato:{' '}
-        {totalActualWtOfPotato.toLocaleString('en-IN')} kg.
-      </Text>
-      <View style={styles.analyticsRow}>
-        {percentages.map(({ size, label, percent }) => (
-          <View key={size} style={styles.analyticsChip}>
-            <Text style={styles.analyticsChipLabel}>{label}</Text>
-            <Text style={styles.analyticsChipValue}>{percent.toFixed(1)}%</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function AmountPayableDetail({ rows }: { rows: StockLedgerRow[] }) {
-  const breakdowns = rows
-    .map((row) => getAmountPayableBreakdown(row))
-    .filter((b): b is AmountPayableRowBreakdown => b != null && b.total > 0);
-  if (breakdowns.length === 0) return null;
-
-  const grandTotal = breakdowns.reduce((s, b) => s + b.total, 0);
-
-  return (
-    <View style={styles.amountPayableSection}>
-      <Text style={styles.analyticsTitle}>
-        Amount Payable — Calculations in detail
-      </Text>
-      <Text style={styles.amountPayableFormula}>
-        For each size and bag type: Amount = bags x (weight per bag - bag tare
-        in kg) x buy-back rate (Rs/kg). JUTE bag tare = {JUTE_BAG_WEIGHT} kg,
-        LENO bag tare = {LENO_BAG_WEIGHT} kg. Rates are per variety and size
-        (buy-back config).
-      </Text>
-      {breakdowns.map((b, idx) => (
-        <View key={idx} style={styles.amountPayableRowBlock}>
-          <Text style={styles.amountPayableRowTitle}>
-            {b.rowLabel}
-            {b.variety ? ` (Variety: ${b.variety})` : ''}
-          </Text>
-          {b.lines.map((line, lineIdx) => (
-            <Text key={lineIdx} style={styles.amountPayableLine}>
-              {line.sizeLabel}, {line.bagType}: {line.bags} bags x (
-              {line.wtPerBagKg} - {line.bagWtKg}) kg x Rs{' '}
-              {line.ratePerKg.toFixed(2)}/kg = Rs{' '}
-              {line.amount.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Text>
-          ))}
-          <Text style={styles.amountPayableRowTotal}>
-            Row total: Rs{' '}
-            {b.total.toLocaleString('en-IN', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </Text>
-        </View>
-      ))}
-      <Text style={styles.amountPayableGrandTotal}>
-        Total Amount Payable: Rs{' '}
-        {grandTotal.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
-      </Text>
-    </View>
-  );
 }
 
 function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
@@ -1343,8 +1092,7 @@ export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
           <DataRow key={`${row.incomingGatePassNo}-${index}`} row={row} />
         ))}
         <TotalRow rows={sortedRows} />
-        <BagSizeAnalytics rows={sortedRows} />
-        <AmountPayableDetail rows={sortedRows} />
+        <SummaryTablePdf rows={sortedRows} />
       </Page>
       {showGradingTablePage && (
         <Page size="A4" orientation="landscape" style={styles.page}>
