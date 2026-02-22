@@ -1,0 +1,84 @@
+import type {
+  GradingGatePassReportDataFlat,
+  GradingGatePassReportDataGrouped,
+  IncomingGatePassReportDataFlat,
+  IncomingGatePassReportDataFlatWithStatus,
+  IncomingGatePassReportDataGrouped,
+  IncomingGatePassReportDataGroupedWithStatus,
+} from '@/types/analytics';
+
+function isGradingGrouped(
+  data: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
+): data is GradingGatePassReportDataGrouped {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'gatePasses' in data[0] &&
+    Array.isArray((data[0] as GradingGatePassReportDataGrouped[0]).gatePasses)
+  );
+}
+
+/** Collect set of incoming gate pass IDs that have a grading gate pass (i.e. are graded) */
+function getGradedIncomingGatePassIds(
+  gradingData: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
+): Set<string> {
+  const ids = new Set<string>();
+  if (isGradingGrouped(gradingData)) {
+    for (const group of gradingData) {
+      for (const gp of group.gatePasses) {
+        const id =
+          typeof gp.incomingGatePassId === 'object' &&
+          gp.incomingGatePassId != null
+            ? (gp.incomingGatePassId as { _id?: string })._id
+            : null;
+        if (id) ids.add(id);
+      }
+    }
+  } else {
+    for (const gp of gradingData) {
+      const id =
+        typeof gp.incomingGatePassId === 'object' &&
+        gp.incomingGatePassId != null
+          ? (gp.incomingGatePassId as { _id?: string })._id
+          : null;
+      if (id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+function isIncomingGrouped(
+  data: IncomingGatePassReportDataGrouped | IncomingGatePassReportDataFlat
+): data is IncomingGatePassReportDataGrouped {
+  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+}
+
+/**
+ * Adds grading status to each incoming gate pass by comparing with grading report data.
+ * Incoming gate passes whose _id appears as incomingGatePassId in any grading gate pass get status "Graded", others "Ungraded".
+ */
+export function addGradingStatusToIncomingReport(
+  incomingData:
+    | IncomingGatePassReportDataGrouped
+    | IncomingGatePassReportDataFlat,
+  gradingData: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
+):
+  | IncomingGatePassReportDataGroupedWithStatus
+  | IncomingGatePassReportDataFlatWithStatus {
+  const gradedIds = getGradedIncomingGatePassIds(gradingData);
+
+  const withStatus = (
+    pass: IncomingGatePassReportDataFlat[number]
+  ): IncomingGatePassReportDataFlatWithStatus[number] => ({
+    ...pass,
+    gradingStatus: gradedIds.has(pass._id) ? 'Graded' : 'Ungraded',
+  });
+
+  if (isIncomingGrouped(incomingData)) {
+    return incomingData.map((group) => ({
+      farmer: group.farmer,
+      gatePasses: group.gatePasses.map(withStatus),
+    }));
+  }
+  return (incomingData as IncomingGatePassReportDataFlat).map(withStatus);
+}

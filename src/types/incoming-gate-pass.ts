@@ -81,6 +81,7 @@ export interface IncomingGatePassWithLink {
   _id: string;
   farmerStorageLinkId: IncomingGatePassFarmerStorageLink;
   gatePassNo: number;
+  manualGatePassNumber?: number;
   date: string;
   variety: string;
   truckNumber: string;

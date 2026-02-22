@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-02-23
+
+### Added
+- Analytics: "Get Reports" button on overview stat cards opens a dialog to generate Incoming or Grading reports with date range and group-by-farmer; PDF download for incoming report
+- Get Reports dialog: `GetReportsDialog` component with date pickers (From/To), group-by-farmer checkbox, and PDF generation for incoming gate pass report
+- Service: `useGetGradingGatePassReports` and `gradingGatePassReportQueryOptions` for GET `/analytics/grading-gate-pass-report` (dateFrom, dateTo, groupByFarmer)
+- PDF: `incoming-gate-pass-report-pdf.tsx` for incoming gate pass report
+- Helpers: `addGradingStatusToIncomingReport` in `analytics/incoming/format-data.ts` to merge grading report data and mark incoming gate passes as Graded/Ungraded
+- Types: grading report (`GradingGatePassReportFarmer`, `GradingGatePassReportItem`, `GradingGatePassReportDataGrouped`, `GradingGatePassReportDataFlat`, `GetGradingGatePassReportApiResponse`); incoming with status (`IncomingGatePassWithLinkWithStatus`, `IncomingGatePassReportDataGroupedWithStatus`, `IncomingGatePassReportDataFlatWithStatus`)
+
+### Changed
+- Analytics overview: stat cards accept `onGetReports` callback and show "Get Reports" button; overview opens `GetReportsDialog` with report type per card (incoming, ungraded, grading, stored, dispatch, outgoing)
+- Types: `analytics.ts` extended with grading report and status types
+
 ## [0.10.0] - 2026-02-23
 
 ### Added

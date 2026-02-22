@@ -23,6 +23,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -30,6 +31,12 @@ import {
   type GetOverviewParams,
 } from '@/services/store-admin/analytics/useGetOverview';
 import type { AnalyticsOverviewData } from '@/types/analytics';
+import {
+  GetReportsDialog,
+  type OverviewReportType,
+} from '@/components/analytics/get-reports-dialog';
+
+export type { OverviewReportType };
 
 /** Format number with locale (e.g. 37144 → "37,144") */
 function formatNumber(value: number): string {
@@ -47,6 +54,7 @@ interface StatCardProps {
   description?: string;
   icon: React.ReactNode;
   iconBgClass?: string;
+  onGetReports?: () => void;
 }
 
 const StatCard = memo(function StatCard({
@@ -55,6 +63,7 @@ const StatCard = memo(function StatCard({
   description,
   icon,
   iconBgClass = 'bg-primary/10 text-primary',
+  onGetReports,
 }: StatCardProps) {
   return (
     <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
@@ -71,14 +80,25 @@ const StatCard = memo(function StatCard({
           {icon}
         </span>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <p className="font-custom text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
           {value}
         </p>
         {description != null && description !== '' && (
-          <CardDescription className="font-custom text-muted-foreground mt-1 text-sm">
+          <CardDescription className="font-custom text-muted-foreground text-sm">
             {description}
           </CardDescription>
+        )}
+        {onGetReports != null && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-custom mt-2 gap-1.5"
+            onClick={onGetReports}
+          >
+            <FileText className="h-4 w-4" />
+            Get Reports
+          </Button>
         )}
       </CardContent>
     </Card>
@@ -89,12 +109,14 @@ interface GradingCardProps {
   initialQuantity: number;
   currentQuantity: number;
   weightKg: number;
+  onGetReports?: () => void;
 }
 
 const GradingCard = memo(function GradingCard({
   initialQuantity,
   currentQuantity,
   weightKg,
+  onGetReports,
 }: GradingCardProps) {
   const [open, setOpen] = useState(false);
 
@@ -116,6 +138,17 @@ const GradingCard = memo(function GradingCard({
           <CardDescription className="font-custom text-muted-foreground text-sm">
             {formatWeight(weightKg)}
           </CardDescription>
+          {onGetReports != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom mt-2 gap-1.5"
+              onClick={onGetReports}
+            >
+              <FileText className="h-4 w-4" />
+              Get Reports
+            </Button>
+          )}
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
@@ -151,42 +184,50 @@ const GradingCard = memo(function GradingCard({
 
 const OverviewContent = memo(function OverviewContent({
   data,
+  onOpenReportsDialog,
 }: {
   data: AnalyticsOverviewData;
+  onOpenReportsDialog: (reportType: OverviewReportType) => void;
 }) {
   return (
     <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:gap-8">
       <StatCard
         title="Total Incoming Bags"
         value={formatNumber(data.totalIncomingBags)}
-        description={formatWeight(data.totalIncomingWeight)}
+        description={`${formatWeight(data.totalIncomingWeight)} (excl bardana)`}
         icon={<Package className="h-5 w-5" />}
+        onGetReports={() => onOpenReportsDialog('incoming')}
       />
       <StatCard
         title="Ungraded Bags"
         value={formatNumber(data.totalUngradedBags)}
         description={`${formatWeight(data.totalUngradedWeight)} ungraded`}
         icon={<Boxes className="h-5 w-5" />}
+        onGetReports={() => onOpenReportsDialog('ungraded')}
       />
       <GradingCard
         initialQuantity={data.totalGradingBags.initialQuantity}
         currentQuantity={data.totalGradingBags.currentQuantity}
         weightKg={data.totalGradingWeight}
+        onGetReports={() => onOpenReportsDialog('grading')}
       />
       <StatCard
         title="Bags Stored"
         value={formatNumber(data.totalBagsStored)}
         icon={<Warehouse className="h-5 w-5" />}
+        onGetReports={() => onOpenReportsDialog('stored')}
       />
       <StatCard
         title="Dispatch"
         value={formatNumber(data.totalBagsDispatched)}
         icon={<Truck className="h-5 w-5" />}
+        onGetReports={() => onOpenReportsDialog('dispatch')}
       />
       <StatCard
         title="Total Outgoing Bags"
         value={formatNumber(data.totalOutgoingBags)}
         icon={<ArrowUpRight className="h-5 w-5" />}
+        onGetReports={() => onOpenReportsDialog('outgoing')}
       />
     </div>
   );
@@ -217,6 +258,9 @@ interface OverviewProps {
 const Overview = memo(function Overview({ dateParams }: OverviewProps) {
   const { data, isLoading, isError, error, refetch } =
     useGetOverview(dateParams);
+  const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
+  const [reportsDialogReportType, setReportsDialogReportType] =
+    useState<OverviewReportType>('incoming');
 
   if (isLoading) {
     return (
@@ -257,9 +301,22 @@ const Overview = memo(function Overview({ dateParams }: OverviewProps) {
     return null;
   }
 
+  const handleOpenReportsDialog = (reportType: OverviewReportType) => {
+    setReportsDialogReportType(reportType);
+    setReportsDialogOpen(true);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <OverviewContent data={data} />
+      <OverviewContent
+        data={data}
+        onOpenReportsDialog={handleOpenReportsDialog}
+      />
+      <GetReportsDialog
+        open={reportsDialogOpen}
+        onOpenChange={setReportsDialogOpen}
+        reportType={reportsDialogReportType}
+      />
     </div>
   );
 });
