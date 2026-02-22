@@ -27,6 +27,7 @@ import type {
   StockLedgerRow,
   StockLedgerPdfProps,
 } from '@/components/pdf/stockLedgerTypes';
+import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
 
 export type { StockLedgerRow, StockLedgerPdfProps };
 export {
@@ -1318,8 +1319,19 @@ export function sortRowsByGatePassNo(rows: StockLedgerRow[]): StockLedgerRow[] {
   });
 }
 
+function hasGradingGatePassRows(rows: StockLedgerRow[]): boolean {
+  return rows.some(
+    (row) =>
+      (row.gradingGatePassNo != null &&
+        String(row.gradingGatePassNo).trim() !== '') ||
+      (row.manualGradingGatePassNo != null &&
+        String(row.manualGradingGatePassNo).trim() !== '')
+  );
+}
+
 export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
   const sortedRows = sortRowsByGatePassNo(rows);
+  const showGradingTablePage = hasGradingGatePassRows(sortedRows);
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
@@ -1334,6 +1346,11 @@ export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
         <BagSizeAnalytics rows={sortedRows} />
         <AmountPayableDetail rows={sortedRows} />
       </Page>
+      {showGradingTablePage && (
+        <Page size="A4" orientation="landscape" style={styles.page}>
+          <GradingGatePassTablePdf farmerName={farmerName} rows={sortedRows} />
+        </Page>
+      )}
     </Document>
   );
 }
