@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-02-23
+
+### Added
+- Analytics: date range filters (From / To) with Apply and Reset; Apply refetches overview and incoming data with toast feedback
+- Analytics: Incoming tab showing incoming gate passes for the selected date range
+- Service: `useGetIncomingGatePassReports` and `incomingGatePassReportQueryOptions` for GET `/analytics/incoming-gate-pass-report` (dateFrom, dateTo, groupByFarmer)
+- Types: `IncomingGatePassReportFarmer`, `IncomingGatePassReportGroupedItem`, `IncomingGatePassReportDataGrouped`, `IncomingGatePassReportDataFlat`, `GetIncomingGatePassReportApiResponse` in analytics types
+
+### Changed
+- Analytics overview and incoming data support optional date range params (dateFrom, dateTo)
+- `useGetIncomingGatePasses`: added `GetIncomingGatePassesParams` (dateFrom, dateTo) and exported `incomingGatePassesQueryOptions` for use in analytics
+- `useGetOverview`: accepts `GetOverviewParams` with optional dateFrom/dateTo
+- Helpers: `formatDateToYYYYMMDD` for converting dd.mm.yyyy to YYYY-MM-DD for API params
+- Date picker: used in analytics with configurable label and id (From/To)
+
 ## [0.9.9] - 2026-02-22
 
 ### Added

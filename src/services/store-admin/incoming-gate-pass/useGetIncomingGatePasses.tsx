@@ -7,14 +7,20 @@ import type {
 } from '@/types/incoming-gate-pass';
 import { incomingGatePassKeys } from './useCreateIncomingGatePass';
 
-/** Query key for the list of incoming gate passes */
-const incomingGatePassListKey = [...incomingGatePassKeys.all, 'list'] as const;
+/** Params for fetching incoming gate passes (date range in YYYY-MM-DD) */
+export interface GetIncomingGatePassesParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
 
 /** Fetcher used by queryOptions and prefetch */
-async function fetchIncomingGatePasses(): Promise<IncomingGatePassWithLink[]> {
+async function fetchIncomingGatePasses(
+  params: GetIncomingGatePassesParams
+): Promise<IncomingGatePassWithLink[]> {
   const { data } =
     await storeAdminAxiosClient.get<GetIncomingGatePassesApiResponse>(
-      '/incoming-gate-pass'
+      '/incoming-gate-pass',
+      { params: { dateFrom: params.dateFrom, dateTo: params.dateTo } }
     );
 
   if (!data.success || data.data == null) {
@@ -25,18 +31,24 @@ async function fetchIncomingGatePasses(): Promise<IncomingGatePassWithLink[]> {
 }
 
 /** Query options – use with useQuery, prefetchQuery, or in loaders */
-export const incomingGatePassesQueryOptions = () =>
+export const incomingGatePassesQueryOptions = (
+  params: GetIncomingGatePassesParams = {}
+) =>
   queryOptions({
-    queryKey: incomingGatePassListKey,
-    queryFn: fetchIncomingGatePasses,
+    queryKey: [...incomingGatePassKeys.all, 'list', params] as const,
+    queryFn: () => fetchIncomingGatePasses(params),
   });
 
-/** Hook to fetch all incoming gate passes */
-export function useGetIncomingGatePasses() {
-  return useQuery(incomingGatePassesQueryOptions());
+/** Hook to fetch incoming gate passes for a date range */
+export function useGetIncomingGatePasses(
+  params: GetIncomingGatePassesParams = {}
+) {
+  return useQuery(incomingGatePassesQueryOptions(params));
 }
 
 /** Prefetch incoming gate passes – e.g. on route hover or before navigation */
-export function prefetchIncomingGatePasses() {
-  return queryClient.prefetchQuery(incomingGatePassesQueryOptions());
+export function prefetchIncomingGatePasses(
+  params: GetIncomingGatePassesParams = {}
+) {
+  return queryClient.prefetchQuery(incomingGatePassesQueryOptions(params));
 }

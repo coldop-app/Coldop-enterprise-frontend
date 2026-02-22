@@ -25,7 +25,10 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useGetOverview } from '@/services/store-admin/analytics/useGetOverview';
+import {
+  useGetOverview,
+  type GetOverviewParams,
+} from '@/services/store-admin/analytics/useGetOverview';
 import type { AnalyticsOverviewData } from '@/types/analytics';
 
 /** Format number with locale (e.g. 37144 → "37,144") */
@@ -207,8 +210,13 @@ function OverviewSkeleton() {
   );
 }
 
-const Overview = memo(function Overview() {
-  const { data, isLoading, isError, error, refetch } = useGetOverview();
+interface OverviewProps {
+  dateParams: GetOverviewParams;
+}
+
+const Overview = memo(function Overview({ dateParams }: OverviewProps) {
+  const { data, isLoading, isError, error, refetch } =
+    useGetOverview(dateParams);
 
   if (isLoading) {
     return (

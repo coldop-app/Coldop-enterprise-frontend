@@ -20,6 +20,15 @@ export const formatDisplayDate = (dateStr: string | undefined): string => {
       });
 };
 
+/** Convert dd.mm.yyyy to YYYY-MM-DD for API query params */
+export function formatDateToYYYYMMDD(dateString: string): string {
+  const [day, month, year] = dateString.split('.').map(Number);
+  if (!day || !month || !year) return dateString;
+  const monthStr = String(month).padStart(2, '0');
+  const dayStr = String(day).padStart(2, '0');
+  return `${year}-${monthStr}-${dayStr}`;
+}
+
 // Helper to convert dd.mm.yyyy format to ISO format (2025-12-19T00:00:00.000Z)
 export const formatDateToISO = (dateString: string): string => {
   const [day, month, year] = dateString.split('.').map(Number);

@@ -52,7 +52,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     if (value !== undefined) {
       setInputValue(value);
       const parsed = parseDate(value);
-      if (parsed) setDate(parsed);
+      setDate(parsed ?? undefined);
     }
   }, [value]);
 
