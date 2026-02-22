@@ -56,7 +56,7 @@ const StatCard = memo(function StatCard({
   return (
     <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
       <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
-        <CardTitle className="text-base font-semibold text-[#333] sm:text-lg">
+        <CardTitle className="text-foreground text-base font-semibold sm:text-lg">
           {title}
         </CardTitle>
         <span
@@ -69,11 +69,11 @@ const StatCard = memo(function StatCard({
         </span>
       </CardHeader>
       <CardContent>
-        <p className="font-custom text-2xl font-bold tracking-tight text-[#333] sm:text-3xl">
+        <p className="font-custom text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
           {value}
         </p>
         {description != null && description !== '' && (
-          <CardDescription className="font-custom mt-1 text-sm text-[#6f6f6f]">
+          <CardDescription className="font-custom text-muted-foreground mt-1 text-sm">
             {description}
           </CardDescription>
         )}
@@ -99,7 +99,7 @@ const GradingCard = memo(function GradingCard({
     <Collapsible open={open} onOpenChange={setOpen}>
       <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
         <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold text-[#333] sm:text-lg">
+          <CardTitle className="text-foreground text-base font-semibold sm:text-lg">
             Grading (Initial)
           </CardTitle>
           <span className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
@@ -107,17 +107,17 @@ const GradingCard = memo(function GradingCard({
           </span>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="font-custom text-2xl font-bold tracking-tight text-[#333] sm:text-3xl">
+          <p className="font-custom text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
             {formatNumber(initialQuantity)}
           </p>
-          <CardDescription className="font-custom text-sm text-[#6f6f6f]">
+          <CardDescription className="font-custom text-muted-foreground text-sm">
             {formatWeight(weightKg)}
           </CardDescription>
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              className="font-custom hover:text-primary mt-2 h-auto gap-1.5 px-0 text-[#6f6f6f]"
+              className="font-custom text-muted-foreground hover:text-primary mt-2 h-auto gap-1.5 px-0"
             >
               {open ? (
                 <>
@@ -133,9 +133,9 @@ const GradingCard = memo(function GradingCard({
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="font-custom border-t border-gray-200 pt-3 text-sm">
-              <span className="text-[#6f6f6f]">Current quantity: </span>
-              <span className="font-semibold text-[#333]">
+            <div className="font-custom border-border border-t pt-3 text-sm">
+              <span className="text-muted-foreground">Current quantity: </span>
+              <span className="text-foreground font-semibold">
                 {formatNumber(currentQuantity)}
               </span>
             </div>
@@ -212,45 +212,36 @@ const Overview = memo(function Overview() {
 
   if (isLoading) {
     return (
-      <section className="px-4 pt-6 pb-16 sm:px-8 sm:py-8">
-        <div className="mx-auto max-w-300 px-4 sm:px-6 lg:px-8">
-          <h2 className="font-custom mb-6 text-2xl font-semibold text-[#333] sm:mb-8 lg:text-3xl">
-            Analytics Overview
-          </h2>
-          <OverviewSkeleton />
-        </div>
-      </section>
+      <div className="space-y-4 sm:space-y-6">
+        <OverviewSkeleton />
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <section className="px-4 pt-6 pb-16 sm:px-8 sm:py-8">
-        <div className="mx-auto max-w-300 px-4 sm:px-6 lg:px-8">
-          <Card className="font-custom border-destructive/30 bg-destructive/5">
-            <CardHeader>
-              <CardTitle className="text-destructive">
-                Failed to load overview
-              </CardTitle>
-              <CardDescription>
-                {error instanceof Error
-                  ? error.message
-                  : 'Something went wrong.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                variant="default"
-                onClick={() => refetch()}
-                className="font-custom gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      <div className="space-y-4 sm:space-y-6">
+        <Card className="font-custom border-destructive/30 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="text-destructive">
+              Failed to load overview
+            </CardTitle>
+            <CardDescription>
+              {error instanceof Error ? error.message : 'Something went wrong.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="default"
+              onClick={() => refetch()}
+              className="font-custom gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -259,14 +250,9 @@ const Overview = memo(function Overview() {
   }
 
   return (
-    <section className="px-4 pt-6 pb-16 sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-300 px-4 sm:px-6 lg:px-8">
-        <h2 className="font-custom mb-6 text-2xl font-semibold text-[#333] sm:mb-8 lg:text-3xl">
-          Analytics Overview
-        </h2>
-        <OverviewContent data={data} />
-      </div>
-    </section>
+    <div className="space-y-4 sm:space-y-6">
+      <OverviewContent data={data} />
+    </div>
   );
 });
 
