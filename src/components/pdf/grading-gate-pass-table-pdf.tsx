@@ -8,15 +8,17 @@ import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
 
-/** Column widths: base columns + per-size (Size name, Qty, Wt in Kg, Bag Type) + Total. */
+/** Column widths: base columns + per-size (Qty with size name as header, Wt in Kg, Bag Type) + Total. */
 const COL_WIDTHS = {
+  incomingGatePassNo: 22,
+  manualIncomingVoucherNo: 22,
   gradingGatePassNo: 22,
   manualGradingGatePassNo: 22,
   farmerName: 48,
   variety: 32,
   date: 30,
-  sizeName: 22,
-  qty: 16,
+  /** Single column: header = size name (e.g. 35-40), cell = quantity */
+  sizeQty: 22,
   wtInKg: 18,
   bagType: 16,
   total: 20,
@@ -155,6 +157,13 @@ function getRowTotal(row: StockLedgerRow): number {
   return GRADING_SIZES.reduce((sum, size) => sum + getSizeQty(row, size), 0);
 }
 
+/** Sizes that have at least one row with quantity > 0 (so we only show columns for these). */
+function getSizesWithQuantities(rows: StockLedgerRow[]): string[] {
+  return GRADING_SIZES.filter((size) =>
+    rows.some((row) => getSizeQty(row, size) > 0)
+  );
+}
+
 export interface GradingGatePassTablePdfProps {
   farmerName: string;
   rows: StockLedgerRow[];
@@ -174,10 +183,25 @@ function GradingGatePassTablePdf({
 
   if (rowsWithGgp.length === 0) return null;
 
+  const sizesWithQty = getSizesWithQuantities(rowsWithGgp);
+
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Grading Gate Pass Table</Text>
       <View style={styles.headerRow}>
+        <View
+          style={[styles.headerCell, { width: COL_WIDTHS.incomingGatePassNo }]}
+        >
+          <Text style={styles.cellCenter}>Incoming GP</Text>
+        </View>
+        <View
+          style={[
+            styles.headerCell,
+            { width: COL_WIDTHS.manualIncomingVoucherNo },
+          ]}
+        >
+          <Text style={styles.cellCenter}>Manual GP</Text>
+        </View>
         <View
           style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassNo }]}
         >
@@ -200,22 +224,22 @@ function GradingGatePassTablePdf({
         <View style={[styles.headerCell, { width: COL_WIDTHS.date }]}>
           <Text style={styles.cellCenter}>Date</Text>
         </View>
-        {GRADING_SIZES.map((size) => (
-          <Fragment key={size}>
-            <View style={[styles.headerCell, { width: COL_WIDTHS.sizeName }]}>
-              <Text style={styles.cellCenter}>Size name</Text>
-            </View>
-            <View style={[styles.headerCell, { width: COL_WIDTHS.qty }]}>
-              <Text style={styles.cellCenter}>Qty</Text>
-            </View>
-            <View style={[styles.headerCell, { width: COL_WIDTHS.wtInKg }]}>
-              <Text style={styles.cellCenter}>Wt in Kg</Text>
-            </View>
-            <View style={[styles.headerCell, { width: COL_WIDTHS.bagType }]}>
-              <Text style={styles.cellCenter}>Bag Type</Text>
-            </View>
-          </Fragment>
-        ))}
+        {sizesWithQty.map((size) => {
+          const sizeLabel = SIZE_HEADER_LABELS[size] ?? size;
+          return (
+            <Fragment key={size}>
+              <View style={[styles.headerCell, { width: COL_WIDTHS.sizeQty }]}>
+                <Text style={styles.cellCenter}>{sizeLabel}</Text>
+              </View>
+              <View style={[styles.headerCell, { width: COL_WIDTHS.wtInKg }]}>
+                <Text style={styles.cellCenter}>Wt in Kg</Text>
+              </View>
+              <View style={[styles.headerCell, { width: COL_WIDTHS.bagType }]}>
+                <Text style={styles.cellCenter}>Bag Type</Text>
+              </View>
+            </Fragment>
+          );
+        })}
         <View
           style={[
             styles.headerCell,
@@ -233,6 +257,23 @@ function GradingGatePassTablePdf({
             key={`ggp-${row.incomingGatePassNo}-${index}`}
             style={styles.dataRow}
           >
+            <View
+              style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}
+            >
+              <Text style={styles.cellCenter}>
+                {formatGgpValue(row.incomingGatePassNo)}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.cell,
+                { width: COL_WIDTHS.manualIncomingVoucherNo },
+              ]}
+            >
+              <Text style={styles.cellCenter}>
+                {formatGgpValue(row.manualIncomingVoucherNo)}
+              </Text>
+            </View>
             <View
               style={[styles.cell, { width: COL_WIDTHS.gradingGatePassNo }]}
             >
@@ -267,16 +308,12 @@ function GradingGatePassTablePdf({
                   : '—'}
               </Text>
             </View>
-            {GRADING_SIZES.map((size) => {
+            {sizesWithQty.map((size) => {
               const { wt, type } = getSizeWtAndType(row, size);
               const qty = getSizeQty(row, size);
-              const sizeLabel = SIZE_HEADER_LABELS[size] ?? size;
               return (
                 <Fragment key={size}>
-                  <View style={[styles.cell, { width: COL_WIDTHS.sizeName }]}>
-                    <Text style={styles.cellCenter}>{sizeLabel}</Text>
-                  </View>
-                  <View style={[styles.cell, { width: COL_WIDTHS.qty }]}>
+                  <View style={[styles.cell, { width: COL_WIDTHS.sizeQty }]}>
                     <Text style={styles.cellCenter}>
                       {qty > 0 ? qty.toLocaleString('en-IN') : '—'}
                     </Text>
@@ -304,12 +341,18 @@ function GradingGatePassTablePdf({
           </View>
         );
       })}
-      <TotalRow rows={rowsWithGgp} />
+      <TotalRow rows={rowsWithGgp} sizesWithQty={sizesWithQty} />
     </View>
   );
 }
 
-function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
+function TotalRow({
+  rows,
+  sizesWithQty,
+}: {
+  rows: StockLedgerRow[];
+  sizesWithQty: string[];
+}) {
   const totalsBySize: Record<string, number> = {};
   for (const size of GRADING_SIZES) {
     totalsBySize[size] = rows.reduce(
@@ -321,6 +364,16 @@ function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
   const boldCenter = [styles.cellCenter, styles.totalCellText];
   return (
     <View style={styles.totalRow}>
+      <View
+        style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}
+      >
+        <Text style={styles.cellCenter}>—</Text>
+      </View>
+      <View
+        style={[styles.cell, { width: COL_WIDTHS.manualIncomingVoucherNo }]}
+      >
+        <Text style={styles.cellCenter}>—</Text>
+      </View>
       <View style={[styles.cell, { width: COL_WIDTHS.gradingGatePassNo }]}>
         <Text style={boldCenter}>Total</Text>
       </View>
@@ -338,14 +391,11 @@ function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
       <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
         <Text style={styles.cellCenter}>—</Text>
       </View>
-      {GRADING_SIZES.map((size) => {
+      {sizesWithQty.map((size) => {
         const totalQty = totalsBySize[size] ?? 0;
         return (
           <Fragment key={size}>
-            <View style={[styles.cell, { width: COL_WIDTHS.sizeName }]}>
-              <Text style={styles.cellCenter}>—</Text>
-            </View>
-            <View style={[styles.cell, { width: COL_WIDTHS.qty }]}>
+            <View style={[styles.cell, { width: COL_WIDTHS.sizeQty }]}>
               <Text style={boldCenter}>
                 {totalQty > 0 ? totalQty.toLocaleString('en-IN') : '—'}
               </Text>
