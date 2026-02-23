@@ -6,10 +6,7 @@ import {
 } from '@/components/forms/grading/constants';
 import {
   SIZE_HEADER_LABELS,
-  computeWtReceivedAfterGrading,
-  computeLessBardanaAfterGrading,
-  computeActualWtOfPotato,
-  computeAmountPayable,
+  getBuyBackRate,
 } from '@/components/pdf/gradingVoucherCalculations';
 import { STOCK_LEDGER_COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
@@ -34,7 +31,7 @@ export interface SummaryTotals {
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
 
-/** Key: "bagType|size|weightKey" (weightKey = weight.toFixed(2)), value: total bag count */
+/** Key: "bagType|size|weightKey|variety" (weightKey = weight.toFixed(2)), value: total bag count */
 function buildGroupedMap(rows: StockLedgerRow[]): Map<string, number> {
   const map = new Map<string, number>();
   const add = (key: string, count: number) => {
@@ -42,20 +39,23 @@ function buildGroupedMap(rows: StockLedgerRow[]): Map<string, number> {
   };
   const weightKey = (w: number | undefined) =>
     w != null && !Number.isNaN(w) ? w.toFixed(2) : '0.00';
+  const varietyKey = (v: string | undefined) =>
+    (v ?? '').trim() || '';
 
   for (const row of rows) {
+    const variety = varietyKey(row.variety);
     const hasSplit = row.sizeBagsJute != null || row.sizeBagsLeno != null;
     if (hasSplit) {
       for (const size of GRADING_SIZES) {
         const juteQty = row.sizeBagsJute?.[size] ?? 0;
         const juteWt = row.sizeWeightPerBagJute?.[size];
         if (juteQty > 0) {
-          add(`JUTE|${size}|${weightKey(juteWt)}`, juteQty);
+          add(`JUTE|${size}|${weightKey(juteWt)}|${variety}`, juteQty);
         }
         const lenoQty = row.sizeBagsLeno?.[size] ?? 0;
         const lenoWt = row.sizeWeightPerBagLeno?.[size];
         if (lenoQty > 0) {
-          add(`LENO|${size}|${weightKey(lenoWt)}`, lenoQty);
+          add(`LENO|${size}|${weightKey(lenoWt)}|${variety}`, lenoQty);
         }
       }
     } else {
@@ -64,7 +64,7 @@ function buildGroupedMap(rows: StockLedgerRow[]): Map<string, number> {
         const qty = row.sizeBags?.[size] ?? 0;
         const wt = row.sizeWeightPerBag?.[size];
         if (qty > 0) {
-          add(`${bagType}|${size}|${weightKey(wt)}`, qty);
+          add(`${bagType}|${size}|${weightKey(wt)}|${variety}`, qty);
         }
       }
     }
@@ -72,45 +72,13 @@ function buildGroupedMap(rows: StockLedgerRow[]): Map<string, number> {
   return map;
 }
 
-/** Distinct (bagType, weightPerBagKg) for row order: JUTE first, then LENO; within each, sort by weight. */
-function getOrderedRowKeys(map: Map<string, number>): {
-  type: string;
-  weightKey: string;
-  weightNum: number;
-}[] {
-  const seen = new Set<string>();
-  for (const key of map.keys()) {
-    const [type, , wk] = key.split('|');
-    const k = `${type}|${wk}`;
-    if (!seen.has(k)) seen.add(k);
-  }
-  const entries: {
-    type: string;
-    weightKey: string;
-    weightNum: number;
-  }[] = [];
-  seen.forEach((k) => {
-    const [type, weightKey] = k.split('|');
-    const weightNum = parseFloat(weightKey);
-    entries.push({
-      type,
-      weightKey,
-      weightNum: Number.isNaN(weightNum) ? 0 : weightNum,
-    });
-  });
-  entries.sort((a, b) => {
-    if (a.type !== b.type) return a.type === 'JUTE' ? -1 : 1;
-    return a.weightNum - b.weightNum;
-  });
-  return entries;
-}
-
-/** One row per (type, weightKey, size) with count > 0 — one consolidated quantity per bag size per row. */
+/** One row per (type, weightKey, size, variety) with count > 0 — one consolidated quantity per bag size per row. */
 export interface SummaryRow {
   type: string;
   weightKey: string;
   weightNum: number;
   size: string;
+  variety: string;
   count: number;
 }
 
@@ -121,13 +89,18 @@ function getSummaryRows(map: Map<string, number>): SummaryRow[] {
   const rows: SummaryRow[] = [];
   for (const [key, count] of map) {
     if (count <= 0) continue;
-    const [type, size, weightKey] = key.split('|');
+    const parts = key.split('|');
+    const type = parts[0] ?? 'JUTE';
+    const size = parts[1] ?? '';
+    const weightKey = parts[2] ?? '0.00';
+    const variety = parts[3] ?? '';
     const weightNum = parseFloat(weightKey);
     rows.push({
       type,
       weightKey,
       weightNum: Number.isNaN(weightNum) ? 0 : weightNum,
       size,
+      variety,
       count,
     });
   }
@@ -139,132 +112,63 @@ function getSummaryRows(map: Map<string, number>): SummaryRow[] {
   return rows;
 }
 
-const weightKeyStr = (w: number | undefined) =>
-  w != null && !Number.isNaN(w) ? w.toFixed(2) : '0.00';
-
-/** Bag count per (type, weightKey) from a single ledger row. Key: "type|weightKey". */
-function getRowContributionsByTypeWeight(
-  row: StockLedgerRow
-): Map<string, number> {
-  const map = new Map<string, number>();
-  const add = (key: string, count: number) => {
-    map.set(key, (map.get(key) ?? 0) + count);
+/**
+ * Per-row calculations for the summary table:
+ * 1. Weight recd = wt bag × no. of bags in the row
+ * 2. Less bardana = no. of bags × 0.7 (JUTE) or 0.06 (LENO)
+ * 3. Actual weight = (1) − (2)
+ * 4. Rate = from BUY_BACK_COST as per size and variety (constants)
+ * 5. Amount payable = (3) × (4)
+ */
+function computeSummaryRightValuesForRow(
+  row: SummaryRow
+): SummaryRightValues {
+  const bagWt =
+    row.type === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
+  const weightRecd = row.weightNum * row.count;
+  const lessBardana = row.count * bagWt;
+  const actualWt = weightRecd - lessBardana;
+  const rate = getBuyBackRate(row.variety || undefined, row.size);
+  const amountPayable = actualWt * rate;
+  return {
+    wtReceivedAfterGrading: weightRecd,
+    lessBardanaAfterGrading: lessBardana,
+    actualWtOfPotato: actualWt,
+    rate: rate > 0 ? rate : undefined,
+    amountPayable,
   };
-  const hasSplit = row.sizeBagsJute != null || row.sizeBagsLeno != null;
-  if (hasSplit) {
-    for (const size of GRADING_SIZES) {
-      const juteQty = row.sizeBagsJute?.[size] ?? 0;
-      const juteWt = row.sizeWeightPerBagJute?.[size];
-      if (juteQty > 0) add(`JUTE|${weightKeyStr(juteWt)}`, juteQty);
-      const lenoQty = row.sizeBagsLeno?.[size] ?? 0;
-      const lenoWt = row.sizeWeightPerBagLeno?.[size];
-      if (lenoQty > 0) add(`LENO|${weightKeyStr(lenoWt)}`, lenoQty);
-    }
-  } else {
-    const bagType = (row.bagType ?? 'JUTE').toUpperCase();
-    for (const size of GRADING_SIZES) {
-      const qty = row.sizeBags?.[size] ?? 0;
-      const wt = row.sizeWeightPerBag?.[size];
-      if (qty > 0) add(`${bagType}|${weightKeyStr(wt)}`, qty);
-    }
-  }
-  return map;
 }
 
-/** Allocate each ledger row's values to (type, weightKey) by bag-share; same formulas as main table. */
-function buildSummaryRightValues(
-  rows: StockLedgerRow[],
-  rowKeys: { type: string; weightKey: string }[]
+/** Build right-hand column values for each summary row using the standard formulas. */
+function buildSummaryRightValuesByRow(
+  summaryRows: SummaryRow[]
 ): Map<string, SummaryRightValues> {
-  const acc = new Map<string, SummaryRightValues>();
-  for (const { type, weightKey } of rowKeys) {
-    const k = `${type}|${weightKey}`;
-    acc.set(k, {
-      wtReceivedAfterGrading: 0,
-      lessBardanaAfterGrading: 0,
-      actualWtOfPotato: 0,
-      rate: undefined,
-      amountPayable: 0,
-    });
-  }
-  for (const row of rows) {
-    const contributions = getRowContributionsByTypeWeight(row);
-    const rowTotalBags = [...contributions.values()].reduce((a, b) => a + b, 0);
-    if (rowTotalBags <= 0) continue;
-    const wtReceived = computeWtReceivedAfterGrading(row);
-    const lessBardana = computeLessBardanaAfterGrading(row);
-    const actualWt = computeActualWtOfPotato(row);
-    const amountPayable = computeAmountPayable(row);
-    for (const [key, bags] of contributions) {
-      const entry = acc.get(key);
-      if (!entry) continue;
-      const frac = bags / rowTotalBags;
-      entry.wtReceivedAfterGrading += frac * wtReceived;
-      entry.lessBardanaAfterGrading += frac * lessBardana;
-      entry.actualWtOfPotato += frac * actualWt;
-      entry.amountPayable += frac * amountPayable;
-    }
-  }
-  return acc;
-}
-
-/** Allocate base (type, weightKey) values to each (type, weightKey, size) row by size fraction. */
-function buildSummaryRightValuesForRows(
-  summaryRows: SummaryRow[],
-  baseValues: Map<string, SummaryRightValues>
-): Map<string, SummaryRightValues> {
-  const totalBagsPerTypeWeight = new Map<string, number>();
-  for (const row of summaryRows) {
-    const k = `${row.type}|${row.weightKey}`;
-    totalBagsPerTypeWeight.set(
-      k,
-      (totalBagsPerTypeWeight.get(k) ?? 0) + row.count
-    );
-  }
   const result = new Map<string, SummaryRightValues>();
   for (const row of summaryRows) {
-    const baseKey = `${row.type}|${row.weightKey}`;
-    const total = totalBagsPerTypeWeight.get(baseKey) ?? 1;
-    const frac = row.count / total;
-    const base = baseValues.get(baseKey);
-    const rowKey = `${row.type}|${row.weightKey}|${row.size}`;
-    if (!base) {
-      result.set(rowKey, {
-        wtReceivedAfterGrading: 0,
-        lessBardanaAfterGrading: 0,
-        actualWtOfPotato: 0,
-        rate: undefined,
-        amountPayable: 0,
-      });
-      continue;
-    }
-    const amountPayable = base.amountPayable * frac;
-    const bagWt = row.type === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
-    const netWt = row.count * (row.weightNum - bagWt);
-    const rate =
-      netWt > 0 && !Number.isNaN(netWt) ? amountPayable / netWt : undefined;
-    result.set(rowKey, {
-      wtReceivedAfterGrading: base.wtReceivedAfterGrading * frac,
-      lessBardanaAfterGrading: base.lessBardanaAfterGrading * frac,
-      actualWtOfPotato: base.actualWtOfPotato * frac,
-      rate,
-      amountPayable,
-    });
+    const rowKey = `${row.type}|${row.weightKey}|${row.size}|${row.variety}`;
+    result.set(rowKey, computeSummaryRightValuesForRow(row));
   }
   return result;
 }
 
-/** Totals for right-hand columns using same formula as main table (sum over rows). */
-function computeSummaryTotals(rows: StockLedgerRow[]): SummaryTotals {
+/** Totals for right-hand columns: sum of per-row values (same formulas as rows). */
+function computeSummaryTotalsFromRows(
+  summaryRows: SummaryRow[],
+  rightValuesByRow: Map<string, SummaryRightValues>
+): SummaryTotals {
   let totalWtReceivedAfterGrading = 0;
   let totalLessBardanaAfterGrading = 0;
   let totalActualWtOfPotato = 0;
   let totalAmountPayable = 0;
-  for (const row of rows) {
-    totalWtReceivedAfterGrading += computeWtReceivedAfterGrading(row);
-    totalLessBardanaAfterGrading += computeLessBardanaAfterGrading(row);
-    totalActualWtOfPotato += computeActualWtOfPotato(row);
-    totalAmountPayable += computeAmountPayable(row);
+  for (const row of summaryRows) {
+    const rowKey = `${row.type}|${row.weightKey}|${row.size}|${row.variety}`;
+    const entry = rightValuesByRow.get(rowKey);
+    if (entry) {
+      totalWtReceivedAfterGrading += entry.wtReceivedAfterGrading;
+      totalLessBardanaAfterGrading += entry.lessBardanaAfterGrading;
+      totalActualWtOfPotato += entry.actualWtOfPotato;
+      totalAmountPayable += entry.amountPayable;
+    }
   }
   return {
     totalWtReceivedAfterGrading,
@@ -430,13 +334,11 @@ function formatRightCellValue(
 export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
   const groupedMap = buildGroupedMap(rows);
   const summaryRows = getSummaryRows(groupedMap);
-  const rowKeys = getOrderedRowKeys(groupedMap);
-  const baseRightValues = buildSummaryRightValues(rows, rowKeys);
-  const summaryRightValuesByRow = buildSummaryRightValuesForRows(
+  const summaryRightValuesByRow = buildSummaryRightValuesByRow(summaryRows);
+  const summaryTotals = computeSummaryTotalsFromRows(
     summaryRows,
-    baseRightValues
+    summaryRightValuesByRow
   );
-  const summaryTotals = computeSummaryTotals(rows);
 
   const totalsBySize: Record<string, number> = {};
   for (const size of GRADING_SIZES) {
@@ -497,7 +399,7 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
       </View>
       {showGroupedSummary &&
         summaryRows.map((row, rowIdx) => {
-          const rowValueKey = `${row.type}|${row.weightKey}|${row.size}`;
+          const rowValueKey = `${row.type}|${row.weightKey}|${row.size}|${row.variety}`;
           const entry = summaryRightValuesByRow.get(rowValueKey);
           return (
             <View key={`${rowValueKey}-${rowIdx}`} style={styles.dataRow}>
