@@ -21,7 +21,10 @@ import {
   incomingGatePassReportQueryOptions,
   type GetIncomingGatePassReportParams,
 } from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
-import { gradingGatePassReportQueryOptions } from '@/services/store-admin/analytics/grading/useGetGradingGatePassReports';
+import {
+  gradingGatePassReportQueryOptions,
+  type GetGradingGatePassReportParams,
+} from '@/services/store-admin/analytics/grading/useGetGradingGatePassReports';
 import { addGradingStatusToIncomingReport } from '@/components/analytics/incoming/format-data';
 import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
@@ -60,16 +63,20 @@ export function GetReportsDialog({
   const [fromDate, setFromDate] = useState(defaultDateString);
   const [toDate, setToDate] = useState(defaultDateString);
   const [groupByFarmer, setGroupByFarmer] = useState(false);
-  const [submittedParams, setSubmittedParams] =
-    useState<GetIncomingGatePassReportParams | null>(null);
+  const [submittedParams, setSubmittedParams] = useState<
+    GetIncomingGatePassReportParams | GetGradingGatePassReportParams | null
+  >(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const userTriggeredFetchRef = useRef(false);
 
   const coldStorage = useStore((s) => s.coldStorage);
 
   const isIncoming = reportType === 'incoming';
-  const queryParams: GetIncomingGatePassReportParams =
+  const isGrading = reportType === 'grading';
+  const queryParams =
     submittedParams ?? ({} as GetIncomingGatePassReportParams);
+  const gradingQueryParams =
+    submittedParams ?? ({} as GetGradingGatePassReportParams);
 
   const incomingQuery = useQuery({
     ...incomingGatePassReportQueryOptions(queryParams),
@@ -83,9 +90,9 @@ export function GetReportsDialog({
   });
 
   const gradingQuery = useQuery({
-    ...gradingGatePassReportQueryOptions(queryParams),
+    ...gradingGatePassReportQueryOptions(gradingQueryParams),
     enabled:
-      isIncoming &&
+      (isIncoming || isGrading) &&
       submittedParams != null &&
       submittedParams.dateFrom != null &&
       submittedParams.dateTo != null,
@@ -95,12 +102,15 @@ export function GetReportsDialog({
 
   useEffect(() => {
     if (!userTriggeredFetchRef.current) return;
-    const bothDone =
+    const incomingDone =
+      isIncoming &&
       incomingQuery.isSuccess &&
       incomingQuery.data != null &&
       gradingQuery.isSuccess &&
       gradingQuery.data != null;
-    if (bothDone) {
+    const gradingDone =
+      isGrading && gradingQuery.isSuccess && gradingQuery.data != null;
+    if (incomingDone || gradingDone) {
       toast.success('Reports refreshed', {
         id: 'get-reports',
         description: 'Report data is ready. You can view the PDF.',
@@ -112,6 +122,8 @@ export function GetReportsDialog({
       userTriggeredFetchRef.current = false;
     }
   }, [
+    isIncoming,
+    isGrading,
     incomingQuery.isSuccess,
     incomingQuery.isError,
     incomingQuery.data,
@@ -126,7 +138,7 @@ export function GetReportsDialog({
   };
 
   const handleGetReports = () => {
-    if (reportType !== 'incoming') return;
+    if (reportType !== 'incoming' && reportType !== 'grading') return;
 
     const dateFrom = fromDate.trim() ? formatDateToYYYYMMDD(fromDate) : '';
     const dateTo = toDate.trim() ? formatDateToYYYYMMDD(toDate) : '';
@@ -152,7 +164,11 @@ export function GetReportsDialog({
     setSubmittedParams(newParams);
 
     if (sameParams) {
-      void Promise.all([incomingQuery.refetch(), gradingQuery.refetch()]);
+      if (reportType === 'incoming') {
+        void Promise.all([incomingQuery.refetch(), gradingQuery.refetch()]);
+      } else {
+        void gradingQuery.refetch();
+      }
     }
   };
 
@@ -164,15 +180,6 @@ export function GetReportsDialog({
   };
 
   const handleViewPdf = async () => {
-    const incomingData = incomingQuery.data;
-    const gradingData = gradingQuery.data;
-    if (!incomingData || !gradingData) return;
-
-    const dataWithStatus = addGradingStatusToIncomingReport(
-      incomingData,
-      gradingData
-    );
-
     const companyName = coldStorage?.name ?? 'Cold Storage';
     const dateRangeLabel = formatDateRangeLabel(
       submittedParams?.dateFrom ?? '',
@@ -188,6 +195,43 @@ export function GetReportsDialog({
 
     setIsGeneratingPdf(true);
     try {
+      if (reportType === 'grading') {
+        const gradingData = gradingQuery.data;
+        if (!gradingData) return;
+        const [{ pdf }, { GradingGatePassReportPdf }] = await Promise.all([
+          import('@react-pdf/renderer'),
+          import('@/components/pdf/analytics/grading-gate-pass-report.pdf'),
+        ]);
+        const blob = await pdf(
+          <GradingGatePassReportPdf
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            data={gradingData}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        toast.success('PDF opened in new tab', {
+          duration: 3000,
+          description: 'Grading gate pass report is ready to view or print.',
+        });
+        return;
+      }
+
+      const incomingData = incomingQuery.data;
+      const gradingData = gradingQuery.data;
+      if (!incomingData || !gradingData) return;
+
+      const dataWithStatus = addGradingStatusToIncomingReport(
+        incomingData,
+        gradingData
+      );
+
       const [{ pdf }, { IncomingGatePassReportPdf }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('@/components/pdf/analytics/incoming-gate-pass-report-pdf'),
@@ -221,20 +265,24 @@ export function GetReportsDialog({
   };
 
   const isLoading =
-    isIncoming && (incomingQuery.isFetching || gradingQuery.isFetching);
-  const isError = isIncoming && (incomingQuery.isError || gradingQuery.isError);
+    (isIncoming && (incomingQuery.isFetching || gradingQuery.isFetching)) ||
+    (isGrading && gradingQuery.isFetching);
+  const isError =
+    (isIncoming && (incomingQuery.isError || gradingQuery.isError)) ||
+    (isGrading && gradingQuery.isError);
   const errorMessage =
     isIncoming && incomingQuery.error instanceof Error
       ? incomingQuery.error.message
-      : isIncoming && gradingQuery.error instanceof Error
+      : (isIncoming || isGrading) && gradingQuery.error instanceof Error
         ? gradingQuery.error.message
         : null;
   const reportReady =
-    isIncoming &&
-    incomingQuery.isSuccess &&
-    incomingQuery.data != null &&
-    gradingQuery.isSuccess &&
-    gradingQuery.data != null;
+    (isIncoming &&
+      incomingQuery.isSuccess &&
+      incomingQuery.data != null &&
+      gradingQuery.isSuccess &&
+      gradingQuery.data != null) ||
+    (isGrading && gradingQuery.isSuccess && gradingQuery.data != null);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -272,18 +320,18 @@ export function GetReportsDialog({
             </Label>
           </div>
 
-          {reportType !== 'incoming' && (
+          {reportType !== 'incoming' && reportType !== 'grading' && (
             <p className="text-muted-foreground font-custom text-sm">
               Report for this section is not available yet.
             </p>
           )}
 
-          {isIncoming && isLoading && (
+          {(isIncoming || isGrading) && isLoading && (
             <p className="text-muted-foreground font-custom text-sm">
               Loading report…
             </p>
           )}
-          {isIncoming && isError && errorMessage && (
+          {(isIncoming || isGrading) && isError && errorMessage && (
             <p className="font-custom text-destructive text-sm">
               {errorMessage}
             </p>
@@ -308,7 +356,7 @@ export function GetReportsDialog({
           <Button
             className="font-custom w-full sm:w-auto"
             onClick={handleGetReports}
-            disabled={isIncoming && isLoading}
+            disabled={(isIncoming || isGrading) && isLoading}
           >
             Get Reports
           </Button>

@@ -19,7 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Item } from '@/components/ui/item';
+import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import type { IncomingGatePassWithLinkWithStatus } from '@/types/analytics';
 
@@ -56,9 +57,7 @@ const incomingColumns: ColumnDef<IncomingGatePassRow>[] = [
     header: 'GP No',
     enableSorting: true,
     cell: ({ row }) => (
-      <div className="font-custom font-medium">
-        {row.original.gatePassNo}
-      </div>
+      <div className="font-custom font-medium">{row.original.gatePassNo}</div>
     ),
   },
   {
@@ -76,9 +75,7 @@ const incomingColumns: ColumnDef<IncomingGatePassRow>[] = [
     header: 'Date',
     enableSorting: false,
     cell: ({ row }) => (
-      <div className="font-custom">
-        {formatDateDDMMYY(row.original.date)}
-      </div>
+      <div className="font-custom">{formatDateDDMMYY(row.original.date)}</div>
     ),
   },
   {
@@ -86,7 +83,7 @@ const incomingColumns: ColumnDef<IncomingGatePassRow>[] = [
     header: 'Farmer Name',
     enableSorting: false,
     cell: ({ row }) => (
-      <div className="font-custom min-w-0 max-w-[180px] wrap-break-word whitespace-normal">
+      <div className="font-custom max-w-[180px] min-w-0 wrap-break-word whitespace-normal">
         {row.original.farmerStorageLinkId?.farmerId?.name ?? '—'}
       </div>
     ),
@@ -159,7 +156,7 @@ const incomingColumns: ColumnDef<IncomingGatePassRow>[] = [
     header: 'Remarks',
     enableSorting: false,
     cell: ({ row }) => (
-      <div className="font-custom max-w-[240px] wrap-break-word text-left">
+      <div className="font-custom max-w-[240px] text-left wrap-break-word">
         {row.original.remarks ?? '—'}
       </div>
     ),
@@ -230,173 +227,181 @@ function DataTable<TData, TValue>({
 
   return (
     <div className="font-custom space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          {onSearchChange != null && (
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="text-muted-foreground absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2" />
-              <Input
-                type="search"
-                placeholder={searchPlaceholder ?? 'Search…'}
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="font-custom h-8 pl-8 pr-3"
-              />
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-          <span className="font-custom text-muted-foreground text-sm">
-            Sort by GP No:
-          </span>
-          <div className="flex rounded-lg border border-border p-0.5">
-            <Button
-              variant={
-                sorting[0]?.desc === true ? 'default' : 'ghost'
-              }
-              size="sm"
-              className="font-custom h-8 rounded-md px-3 text-sm"
-              onClick={() => setSorting([{ id: 'gatePassNo', desc: true }])}
-            >
-              Latest first
-            </Button>
-            <Button
-              variant={
-                sorting[0]?.desc === false ? 'default' : 'ghost'
-              }
-              size="sm"
-              className="font-custom h-8 rounded-md px-3 text-sm"
-              onClick={() => setSorting([{ id: 'gatePassNo', desc: false }])}
-            >
-              Oldest first
-            </Button>
-          </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-custom text-muted-foreground text-sm">
-            Rows per page:
-          </span>
-          <select
-            className="font-custom border-input bg-background h-8 rounded-md border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            value={pagination.pageSize}
-            onChange={(e) => {
-              const pageSize = Number(e.target.value);
-              setPagination({ pageIndex: 0, pageSize });
-            }}
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="overflow-hidden rounded-lg border border-border">
-      <Table className="border-collapse [&_th]:border [&_th]:border-border [&_td]:border [&_td]:border-border [&_th]:px-3 [&_th]:py-2.5 [&_td]:px-3 [&_td]:py-2.5">
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="bg-secondary hover:bg-secondary">
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  className="font-custom font-bold text-foreground"
+      <Item variant="outline" size="sm" className="rounded-xl shadow-sm">
+        <div className="flex w-full flex-wrap items-center justify-between gap-4 sm:gap-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            {onSearchChange != null && (
+              <div className="relative max-w-sm min-w-[200px] flex-1">
+                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                <Input
+                  type="search"
+                  placeholder={searchPlaceholder ?? 'Search…'}
+                  value={searchValue}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="font-custom focus-visible:ring-primary h-9 rounded-lg border bg-white pr-3 pl-9 shadow-sm focus-visible:ring-2 focus-visible:ring-offset-0"
+                />
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-custom text-sm font-medium text-[#333]">
+                Sort by GP No:
+              </span>
+              <div className="border-input flex rounded-lg border bg-white shadow-sm">
+                <Button
+                  variant={sorting[0]?.desc === true ? 'default' : 'ghost'}
+                  size="sm"
+                  className="font-custom h-9 rounded-lg px-3 text-sm font-medium"
+                  onClick={() => setSorting([{ id: 'gatePassNo', desc: true }])}
                 >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {rowCount ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? 'selected' : undefined}
-                className="bg-background"
+                  Latest first
+                </Button>
+                <Button
+                  variant={sorting[0]?.desc === false ? 'default' : 'ghost'}
+                  size="sm"
+                  className="font-custom h-9 rounded-lg px-3 text-sm font-medium"
+                  onClick={() =>
+                    setSorting([{ id: 'gatePassNo', desc: false }])
+                  }
+                >
+                  Oldest first
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-custom text-sm font-medium text-[#333]">
+              Rows per page:
+            </span>
+            <div className="relative">
+              <select
+                className="font-custom border-input focus-visible:ring-primary h-9 appearance-none rounded-lg border bg-white px-3 pr-8 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0"
+                value={pagination.pageSize}
+                onChange={(e) => {
+                  const pageSize = Number(e.target.value);
+                  setPagination({ pageIndex: 0, pageSize });
+                }}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={
-                      cell.column.id === 'remarks' ||
-                      cell.column.id === 'farmerName'
-                        ? 'min-w-0 whitespace-normal'
-                        : undefined
-                    }
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 h-4 w-4 -translate-y-1/2" />
+            </div>
+          </div>
+        </div>
+      </Item>
+      <div className="border-border overflow-hidden rounded-lg border">
+        <Table className="[&_th]:border-border [&_td]:border-border border-collapse [&_td]:border [&_td]:px-3 [&_td]:py-2.5 [&_th]:border [&_th]:px-3 [&_th]:py-2.5">
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow
+                key={headerGroup.id}
+                className="bg-secondary hover:bg-secondary"
+              >
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="font-custom text-foreground font-bold"
                   >
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
-                  </TableCell>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="font-custom h-24 text-center text-muted-foreground"
-              >
-                No results.
-              </TableCell>
-            </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {rowCount ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() ? 'selected' : undefined}
+                  className="bg-background"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className={
+                        cell.column.id === 'remarks' ||
+                        cell.column.id === 'farmerName'
+                          ? 'min-w-0 whitespace-normal'
+                          : undefined
+                      }
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="font-custom text-muted-foreground h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+          {totalRows > 0 && (
+            <TableFooter className="border-border bg-primary/10 [&_td]:border [&_td]:px-3 [&_td]:py-2.5">
+              <TableRow className="hover:bg-primary/10">
+                {footerTotals ? (
+                  <>
+                    <TableCell
+                      colSpan={6}
+                      className="font-custom text-foreground font-bold"
+                    >
+                      Total
+                    </TableCell>
+                    <TableCell className="font-custom text-right font-bold">
+                      {formatNumber(footerTotals.bags)}
+                    </TableCell>
+                    <TableCell className="font-custom text-right font-bold">
+                      {formatWeight(footerTotals.grossKg)}
+                    </TableCell>
+                    <TableCell className="font-custom text-right font-bold">
+                      {formatWeight(footerTotals.tareKg)}
+                    </TableCell>
+                    <TableCell className="font-custom text-primary text-right font-bold">
+                      {formatWeight(footerTotals.netKg)}
+                    </TableCell>
+                    <TableCell className="font-custom font-bold" />
+                  </>
+                ) : (
+                  <>
+                    <TableCell
+                      colSpan={columns.length - 1}
+                      className="font-custom text-foreground font-bold"
+                    >
+                      Total
+                    </TableCell>
+                    <TableCell className="font-custom text-primary text-right font-bold">
+                      {formatNumber(rowCount)} gate pass
+                      {rowCount !== 1 ? 'es' : ''}
+                    </TableCell>
+                  </>
+                )}
+              </TableRow>
+            </TableFooter>
           )}
-        </TableBody>
-        {totalRows > 0 && (
-          <TableFooter className="border-border bg-primary/10 [&_td]:border [&_td]:px-3 [&_td]:py-2.5">
-            <TableRow className="hover:bg-primary/10">
-              {footerTotals ? (
-                <>
-                  <TableCell
-                    colSpan={6}
-                    className="font-custom font-bold text-foreground"
-                  >
-                    Total
-                  </TableCell>
-                  <TableCell className="font-custom text-right font-bold">
-                    {formatNumber(footerTotals.bags)}
-                  </TableCell>
-                  <TableCell className="font-custom text-right font-bold">
-                    {formatWeight(footerTotals.grossKg)}
-                  </TableCell>
-                  <TableCell className="font-custom text-right font-bold">
-                    {formatWeight(footerTotals.tareKg)}
-                  </TableCell>
-                  <TableCell className="font-custom text-primary text-right font-bold">
-                    {formatWeight(footerTotals.netKg)}
-                  </TableCell>
-                  <TableCell className="font-custom font-bold" />
-                </>
-              ) : (
-                <>
-                  <TableCell
-                    colSpan={columns.length - 1}
-                    className="font-custom font-bold text-foreground"
-                  >
-                    Total
-                  </TableCell>
-                  <TableCell className="font-custom text-primary text-right font-bold">
-                    {formatNumber(rowCount)} gate pass{rowCount !== 1 ? 'es' : ''}
-                  </TableCell>
-                </>
-              )}
-            </TableRow>
-          </TableFooter>
-        )}
-      </Table>
+        </Table>
       </div>
       {totalRows > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="font-custom text-muted-foreground text-sm">
-            Showing {table.getRowModel().rows.length} of {formatNumber(totalRows)} row{totalRows !== 1 ? 's' : ''}
+            Showing {table.getRowModel().rows.length} of{' '}
+            {formatNumber(totalRows)} row{totalRows !== 1 ? 's' : ''}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -439,6 +444,27 @@ const IncomingGatePassAnalyticsScreen = ({
   queryResult,
 }: IncomingGatePassAnalyticsScreenProps) => {
   const { data, isPending, error } = queryResult;
+  const [search, setSearch] = useState('');
+
+  const filteredRows = useMemo(() => {
+    const list: IncomingGatePassRow[] = (data ?? []).map(
+      (pass): IncomingGatePassRow => {
+        const gradingStatus =
+          'gradingStatus' in pass &&
+          (pass.gradingStatus === 'Graded' || pass.gradingStatus === 'Ungraded')
+            ? pass.gradingStatus
+            : undefined;
+        return { ...pass, gradingStatus };
+      }
+    );
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((row) => {
+      const name = row.farmerStorageLinkId?.farmerId?.name?.toLowerCase() ?? '';
+      const truck = row.truckNumber?.toLowerCase() ?? '';
+      return name.includes(q) || truck.includes(q);
+    });
+  }, [data, search]);
 
   if (isPending) {
     return (
@@ -455,23 +481,6 @@ const IncomingGatePassAnalyticsScreen = ({
       </p>
     );
   }
-
-  const [search, setSearch] = useState('');
-
-  const filteredRows = useMemo(() => {
-    const list: IncomingGatePassRow[] = (data ?? []).map((pass) => ({
-      ...pass,
-      gradingStatus: 'gradingStatus' in pass ? pass.gradingStatus : undefined,
-    }));
-    const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((row) => {
-      const name =
-        row.farmerStorageLinkId?.farmerId?.name?.toLowerCase() ?? '';
-      const truck = row.truckNumber?.toLowerCase() ?? '';
-      return name.includes(q) || truck.includes(q);
-    });
-  }, [data, search]);
 
   const footerTotals =
     filteredRows.length > 0
@@ -494,7 +503,7 @@ const IncomingGatePassAnalyticsScreen = ({
       : undefined;
 
   return (
-    <div className="max-h-[70vh] overflow-auto space-y-3">
+    <div className="max-h-[70vh] space-y-3 overflow-auto">
       <DataTable
         columns={incomingColumns}
         data={filteredRows}

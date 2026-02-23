@@ -271,7 +271,11 @@ const styles = StyleSheet.create({
   },
 });
 
-function TableHeader() {
+function TableHeader({
+  includeAmountPayable = true,
+}: {
+  includeAmountPayable?: boolean;
+}) {
   return (
     <View style={styles.headerRow}>
       <View style={[styles.headerCell, { width: COL_WIDTHS.gpNo }]}>
@@ -380,15 +384,19 @@ function TableHeader() {
       >
         <Text style={[styles.cellCenter, { fontSize: 3 }]}>Shortage %</Text>
       </View>
-      <View
-        style={[
-          styles.headerCell,
-          styles.headerCellLast,
-          { width: COL_WIDTHS.amountPayable },
-        ]}
-      >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Amount Payable</Text>
-      </View>
+      {includeAmountPayable && (
+        <View
+          style={[
+            styles.headerCell,
+            styles.headerCellLast,
+            { width: COL_WIDTHS.amountPayable },
+          ]}
+        >
+          <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+            Amount Payable
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -480,7 +488,13 @@ function computeTotals(rows: StockLedgerRow[]) {
   };
 }
 
-function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
+function TotalRow({
+  rows,
+  includeAmountPayable = true,
+}: {
+  rows: StockLedgerRow[];
+  includeAmountPayable?: boolean;
+}) {
   const totals = computeTotals(rows);
   const boldCenter = [styles.cellCenter, styles.totalCellText];
   return (
@@ -617,22 +631,24 @@ function TotalRow({ rows }: { rows: StockLedgerRow[] }) {
             : ''}
         </Text>
       </View>
-      <View
-        style={[
-          styles.totalCell,
-          styles.cellLast,
-          { width: COL_WIDTHS.amountPayable },
-        ]}
-      >
-        <Text style={boldCenter}>
-          {totals.totalAmountPayable > 0
-            ? totals.totalAmountPayable.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
-            : ''}
-        </Text>
-      </View>
+      {includeAmountPayable && (
+        <View
+          style={[
+            styles.totalCell,
+            styles.cellLast,
+            { width: COL_WIDTHS.amountPayable },
+          ]}
+        >
+          <Text style={boldCenter}>
+            {totals.totalAmountPayable > 0
+              ? totals.totalAmountPayable.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              : ''}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -657,7 +673,13 @@ function getSizeBagsLeno(
   return undefined;
 }
 
-function DataRow({ row }: { row: StockLedgerRow }) {
+function DataRow({
+  row,
+  includeAmountPayable = true,
+}: {
+  row: StockLedgerRow;
+  includeAmountPayable?: boolean;
+}) {
   const dateStr = formatVoucherDate(row.date);
   const truckStr =
     row.truckNumber != null && String(row.truckNumber).trim() !== ''
@@ -940,27 +962,29 @@ function DataRow({ row }: { row: StockLedgerRow }) {
             </Text>
           </View>
         </View>
-        <View style={styles.dataRowAmountPayableBlock}>
-          <View
-            style={[
-              styles.cell,
-              {
-                width: COL_WIDTHS.amountPayable,
-                borderLeftWidth: 0,
-                borderRightWidth: 0,
-              },
-            ]}
-          >
-            <Text style={styles.cellCenter}>
-              {amountPayable > 0
-                ? amountPayable.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })
-                : '—'}
-            </Text>
+        {includeAmountPayable && (
+          <View style={styles.dataRowAmountPayableBlock}>
+            <View
+              style={[
+                styles.cell,
+                {
+                  width: COL_WIDTHS.amountPayable,
+                  borderLeftWidth: 0,
+                  borderRightWidth: 0,
+                },
+              ]}
+            >
+              <Text style={styles.cellCenter}>
+                {amountPayable > 0
+                  ? amountPayable.toLocaleString('en-IN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : '—'}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
     );
   }
@@ -1036,22 +1060,24 @@ function DataRow({ row }: { row: StockLedgerRow }) {
             : '—'}
         </Text>
       </View>
-      <View
-        style={[
-          styles.cell,
-          styles.cellLast,
-          { width: COL_WIDTHS.amountPayable },
-        ]}
-      >
-        <Text style={styles.cellCenter}>
-          {amountPayable > 0
-            ? amountPayable.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
-            : '—'}
-        </Text>
-      </View>
+      {includeAmountPayable && (
+        <View
+          style={[
+            styles.cell,
+            styles.cellLast,
+            { width: COL_WIDTHS.amountPayable },
+          ]}
+        >
+          <Text style={styles.cellCenter}>
+            {amountPayable > 0
+              ? amountPayable.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              : '—'}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -1078,20 +1104,56 @@ function hasGradingGatePassRows(rows: StockLedgerRow[]): boolean {
   );
 }
 
+/** Main table only (title + header + data rows + total). Used by StockLedgerPdf and Grading Gate Pass Report PDF. */
+export function StockLedgerMainTableOnly({
+  title,
+  rows,
+  includeAmountPayable = true,
+}: {
+  title: string;
+  rows: StockLedgerRow[];
+  includeAmountPayable?: boolean;
+}) {
+  const sortedRows = sortRowsByGatePassNo(rows);
+  return (
+    <>
+      <View style={styles.titleRow}>
+        <Text style={styles.titleText}>{title}</Text>
+      </View>
+      <TableHeader includeAmountPayable={includeAmountPayable} />
+      {sortedRows.map((row, index) => (
+        <DataRow
+          key={`${row.incomingGatePassNo}-${index}`}
+          row={row}
+          includeAmountPayable={includeAmountPayable}
+        />
+      ))}
+      <TotalRow
+        rows={sortedRows}
+        includeAmountPayable={includeAmountPayable}
+      />
+    </>
+  );
+}
+
+/** Page style for main table (landscape A4). Export for use in Grading Gate Pass Report PDF. */
+export const stockLedgerPageStyle = {
+  padding: 12,
+  fontSize: 4,
+  fontFamily: 'Helvetica',
+};
+
 export function StockLedgerPdf({ farmerName, rows }: StockLedgerPdfProps) {
   const sortedRows = sortRowsByGatePassNo(rows);
   const showGradingTablePage = hasGradingGatePassRows(sortedRows);
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.titleRow}>
-          <Text style={styles.titleText}>{farmerName}</Text>
-        </View>
-        <TableHeader />
-        {sortedRows.map((row, index) => (
-          <DataRow key={`${row.incomingGatePassNo}-${index}`} row={row} />
-        ))}
-        <TotalRow rows={sortedRows} />
+        <StockLedgerMainTableOnly
+          title={farmerName}
+          rows={sortedRows}
+          includeAmountPayable
+        />
         <SummaryTablePdf rows={sortedRows} />
       </Page>
       {showGradingTablePage && (

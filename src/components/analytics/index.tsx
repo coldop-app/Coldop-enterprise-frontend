@@ -19,8 +19,10 @@ import {
   analyticsOverviewQueryOptions,
 } from '@/services/store-admin/analytics/useGetOverview';
 import { incomingGatePassesQueryOptions } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
+import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import Overview from './overview';
 import IncomingGatePassAnalyticsScreen from './incoming';
+import GradingGatePassAnalyticsScreen from './grading';
 
 const AnalyticsPage = () => {
   const [fromDate, setFromDate] = useState<string | undefined>();
@@ -56,6 +58,7 @@ const AnalyticsPage = () => {
   const incomingQuery = useQuery(
     incomingGatePassesQueryOptions(appliedDateParams)
   );
+  const gradingQuery = useGetGradingGatePasses();
 
   const handleResetDates = async () => {
     const fetchPromise = Promise.all([
@@ -203,10 +206,7 @@ const AnalyticsPage = () => {
               <IncomingGatePassAnalyticsScreen queryResult={incomingQuery} />
             </TabsContent>
             <TabsContent value="grading" className="mt-0 outline-none">
-              <p className="font-custom text-sm leading-relaxed text-gray-600">
-                Grading analytics content will appear here. This section will
-                display grading pass summaries and quality metrics.
-              </p>
+              <GradingGatePassAnalyticsScreen queryResult={gradingQuery} />
             </TabsContent>
             <TabsContent value="storage" className="mt-0 outline-none">
               <p className="font-custom text-sm leading-relaxed text-gray-600">

@@ -2,6 +2,7 @@ import type { IncomingGatePassWithLink } from './incoming-gate-pass';
 import type {
   GradingGatePass,
   GradingGatePassGradedBy,
+  GradingGatePassIncomingGatePass,
 } from './grading-gate-pass';
 
 /** Grading bags summary (initial vs current quantity) */
@@ -86,10 +87,41 @@ export interface GradingGatePassReportFarmer {
   address: string;
 }
 
-/** Single grading gate pass as in the report response (uses createdBy, includes manualGatePassNumber) */
-export type GradingGatePassReportItem = Omit<GradingGatePass, 'gradedById'> & {
+/** Incoming gate pass summary as in grading report (leaner than full GradingGatePass.incomingGatePassId) */
+export interface GradingGatePassReportIncomingSummary {
+  _id: string;
+  gatePassNo: number;
+  manualGatePassNumber?: number;
+  truckNumber: string;
+  bagsReceived: number;
+  grossWeightKg?: number;
+  netWeightKg?: number;
+}
+
+/** Farmer storage link as returned on each gate pass in the report */
+export interface GradingGatePassReportFarmerStorageLink {
+  _id: string;
+  accountNumber: number;
+  farmerId: {
+    _id: string;
+    name: string;
+    mobileNumber: string;
+    address: string;
+  };
+}
+
+/** Single grading gate pass as in the report response (uses createdBy, optional farmerStorageLink) */
+export type GradingGatePassReportItem = Omit<
+  GradingGatePass,
+  'gradedById' | 'incomingGatePassId'
+> & {
   createdBy: GradingGatePassGradedBy;
   manualGatePassNumber?: number;
+  /** Report API may return lean summary or full nested incoming */
+  incomingGatePassId:
+    | GradingGatePassReportIncomingSummary
+    | GradingGatePassIncomingGatePass;
+  farmerStorageLink?: GradingGatePassReportFarmerStorageLink;
 };
 
 /** Single group when GET /analytics/grading-gate-pass-report is called with groupByFarmer=true */
