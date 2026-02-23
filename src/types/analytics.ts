@@ -5,6 +5,7 @@ import type {
   GradingGatePassIncomingGatePass,
 } from './grading-gate-pass';
 import type { StorageGatePass } from './storage-gate-pass';
+import type { NikasiGatePass } from './nikasi-gate-pass';
 
 /** Grading bags summary (initial vs current quantity) */
 export interface AnalyticsOverviewGradingBags {
@@ -193,5 +194,56 @@ export type StorageGatePassReportDataFlat = StorageGatePassReportItem[];
 export interface GetStorageGatePassReportApiResponse {
   success: boolean;
   data: StorageGatePassReportDataGrouped | StorageGatePassReportDataFlat;
+  message?: string;
+}
+
+// --- Nikasi (dispatch) gate pass report (GET /analytics/nikasi-gate-pass-report) ---
+
+/** Farmer as returned in GET /analytics/nikasi-gate-pass-report when groupByFarmer=true */
+export interface NikasiGatePassReportFarmer {
+  _id: string;
+  accountNumber: number;
+  name: string;
+  mobileNumber: string;
+  address: string;
+}
+
+/** Farmer storage link as returned on each nikasi gate pass in the report */
+export interface NikasiGatePassReportFarmerStorageLink {
+  _id: string;
+  accountNumber: number;
+  farmerId: {
+    _id: string;
+    name: string;
+    mobileNumber: string;
+    address: string;
+  };
+}
+
+/** Single nikasi gate pass as in the report (farmerStorageLinkId populated) */
+export type NikasiGatePassReportItem = Omit<
+  NikasiGatePass,
+  'farmerStorageLinkId'
+> & {
+  farmerStorageLinkId: NikasiGatePassReportFarmerStorageLink;
+};
+
+/** Single group when GET /analytics/nikasi-gate-pass-report is called with groupByFarmer=true */
+export interface NikasiGatePassReportGroupedItem {
+  farmer: NikasiGatePassReportFarmer;
+  gatePasses: NikasiGatePassReportItem[];
+}
+
+/** Data shape when groupByFarmer=true */
+export type NikasiGatePassReportDataGrouped =
+  NikasiGatePassReportGroupedItem[];
+
+/** Data shape when groupByFarmer=false */
+export type NikasiGatePassReportDataFlat = NikasiGatePassReportItem[];
+
+/** API response for GET /analytics/nikasi-gate-pass-report */
+export interface GetNikasiGatePassReportApiResponse {
+  success: boolean;
+  data: NikasiGatePassReportDataGrouped | NikasiGatePassReportDataFlat;
   message?: string;
 }

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-02-23
+
+### Added
+- Analytics Get Reports: Dispatch (nikasi) report type — date range, group-by-farmer, and PDF download for nikasi gate pass report
+- Service: `useGetNikasiGatePassReports` and `nikasiGatePassReportQueryOptions` for GET `/analytics/nikasi-gate-pass-report` (dateFrom, dateTo, groupByFarmer)
+- PDF: `nikasi-gate-pass-report.pdf.tsx` for Dispatch (nikasi) gate pass report
+- Types: `NikasiGatePassReportFarmer`, `NikasiGatePassReportFarmerStorageLink`, `NikasiGatePassReportItem`, `NikasiGatePassReportGroupedItem`, `NikasiGatePassReportDataGrouped`, `NikasiGatePassReportDataFlat`, `GetNikasiGatePassReportApiResponse` in analytics types
+
+### Changed
+- Get Reports dialog: supports report type `dispatch`; fetches nikasi report and generates Dispatch gate pass report PDF
+
 ## [0.12.0] - 2026-02-23
 
 ### Added

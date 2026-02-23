@@ -30,6 +30,10 @@ import {
   type GetStorageGatePassReportParams,
 } from '@/services/store-admin/analytics/storage/useGetStorageGatePassReports';
 import {
+  nikasiGatePassReportQueryOptions,
+  type GetNikasiGatePassReportParams,
+} from '@/services/store-admin/analytics/nikasi/useGetNikasiGatePassReports';
+import {
   addGradingStatusToIncomingReport,
   filterIncomingReportToUngraded,
 } from '@/components/analytics/incoming/format-data';
@@ -74,6 +78,7 @@ export function GetReportsDialog({
     | GetIncomingGatePassReportParams
     | GetGradingGatePassReportParams
     | GetStorageGatePassReportParams
+    | GetNikasiGatePassReportParams
     | null
   >(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -85,12 +90,15 @@ export function GetReportsDialog({
   const isUngraded = reportType === 'ungraded';
   const isGrading = reportType === 'grading';
   const isStored = reportType === 'stored';
+  const isDispatch = reportType === 'dispatch';
   const queryParams =
     submittedParams ?? ({} as GetIncomingGatePassReportParams);
   const gradingQueryParams =
     submittedParams ?? ({} as GetGradingGatePassReportParams);
   const storageQueryParams =
     submittedParams ?? ({} as GetStorageGatePassReportParams);
+  const nikasiQueryParams =
+    submittedParams ?? ({} as GetNikasiGatePassReportParams);
 
   const incomingQuery = useQuery({
     ...incomingGatePassReportQueryOptions(queryParams),
@@ -125,6 +133,17 @@ export function GetReportsDialog({
     gcTime: 0,
   });
 
+  const nikasiQuery = useQuery({
+    ...nikasiGatePassReportQueryOptions(nikasiQueryParams),
+    enabled:
+      isDispatch &&
+      submittedParams != null &&
+      submittedParams.dateFrom != null &&
+      submittedParams.dateTo != null,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   useEffect(() => {
     if (!userTriggeredFetchRef.current) return;
     const incomingDone =
@@ -137,14 +156,21 @@ export function GetReportsDialog({
       isGrading && gradingQuery.isSuccess && gradingQuery.data != null;
     const storageDone =
       isStored && storageQuery.isSuccess && storageQuery.data != null;
-    if (incomingDone || gradingDone || storageDone) {
+    const dispatchDone =
+      isDispatch && nikasiQuery.isSuccess && nikasiQuery.data != null;
+    if (incomingDone || gradingDone || storageDone || dispatchDone) {
       toast.success('Reports refreshed', {
         id: 'get-reports',
         description: 'Report data is ready. You can view the PDF.',
       });
       userTriggeredFetchRef.current = false;
     }
-    if (incomingQuery.isError || gradingQuery.isError || storageQuery.isError) {
+    if (
+      incomingQuery.isError ||
+      gradingQuery.isError ||
+      storageQuery.isError ||
+      nikasiQuery.isError
+    ) {
       toast.dismiss('get-reports');
       userTriggeredFetchRef.current = false;
     }
@@ -153,6 +179,7 @@ export function GetReportsDialog({
     isUngraded,
     isGrading,
     isStored,
+    isDispatch,
     incomingQuery.isSuccess,
     incomingQuery.isError,
     incomingQuery.data,
@@ -162,6 +189,9 @@ export function GetReportsDialog({
     storageQuery.isSuccess,
     storageQuery.isError,
     storageQuery.data,
+    nikasiQuery.isSuccess,
+    nikasiQuery.isError,
+    nikasiQuery.data,
   ]);
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -174,7 +204,8 @@ export function GetReportsDialog({
       reportType !== 'incoming' &&
       reportType !== 'ungraded' &&
       reportType !== 'grading' &&
-      reportType !== 'stored'
+      reportType !== 'stored' &&
+      reportType !== 'dispatch'
     )
       return;
 
@@ -208,6 +239,8 @@ export function GetReportsDialog({
         void gradingQuery.refetch();
       } else if (reportType === 'stored') {
         void storageQuery.refetch();
+      } else if (reportType === 'dispatch') {
+        void nikasiQuery.refetch();
       }
     }
   };
@@ -291,6 +324,34 @@ export function GetReportsDialog({
         return;
       }
 
+      if (reportType === 'dispatch') {
+        const nikasiData = nikasiQuery.data;
+        if (!nikasiData) return;
+        const [{ pdf }, { NikasiGatePassReportPdf }] = await Promise.all([
+          import('@react-pdf/renderer'),
+          import('@/components/pdf/analytics/nikasi-gate-pass-report.pdf'),
+        ]);
+        const blob = await pdf(
+          <NikasiGatePassReportPdf
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            data={nikasiData}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        toast.success('PDF opened in new tab', {
+          duration: 3000,
+          description: 'Dispatch gate pass report is ready to view or print.',
+        });
+        return;
+      }
+
       const incomingData = incomingQuery.data;
       const gradingData = gradingQuery.data;
       if (!incomingData || !gradingData) return;
@@ -344,12 +405,14 @@ export function GetReportsDialog({
     ((isIncoming || isUngraded) &&
       (incomingQuery.isFetching || gradingQuery.isFetching)) ||
     (isGrading && gradingQuery.isFetching) ||
-    (isStored && storageQuery.isFetching);
+    (isStored && storageQuery.isFetching) ||
+    (isDispatch && nikasiQuery.isFetching);
   const isError =
     ((isIncoming || isUngraded) &&
       (incomingQuery.isError || gradingQuery.isError)) ||
     (isGrading && gradingQuery.isError) ||
-    (isStored && storageQuery.isError);
+    (isStored && storageQuery.isError) ||
+    (isDispatch && nikasiQuery.isError);
   const errorMessage =
     (isIncoming || isUngraded) && incomingQuery.error instanceof Error
       ? incomingQuery.error.message
@@ -358,7 +421,9 @@ export function GetReportsDialog({
         ? gradingQuery.error.message
         : isStored && storageQuery.error instanceof Error
           ? storageQuery.error.message
-          : null;
+          : isDispatch && nikasiQuery.error instanceof Error
+            ? nikasiQuery.error.message
+            : null;
   const reportReady =
     ((isIncoming || isUngraded) &&
       incomingQuery.isSuccess &&
@@ -366,7 +431,8 @@ export function GetReportsDialog({
       gradingQuery.isSuccess &&
       gradingQuery.data != null) ||
     (isGrading && gradingQuery.isSuccess && gradingQuery.data != null) ||
-    (isStored && storageQuery.isSuccess && storageQuery.data != null);
+    (isStored && storageQuery.isSuccess && storageQuery.data != null) ||
+    (isDispatch && nikasiQuery.isSuccess && nikasiQuery.data != null);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -407,18 +473,20 @@ export function GetReportsDialog({
           {reportType !== 'incoming' &&
             reportType !== 'ungraded' &&
             reportType !== 'grading' &&
-            reportType !== 'stored' && (
+            reportType !== 'stored' &&
+            reportType !== 'dispatch' && (
               <p className="text-muted-foreground font-custom text-sm">
                 Report for this section is not available yet.
               </p>
             )}
 
-          {(isIncoming || isUngraded || isGrading || isStored) && isLoading && (
-            <p className="text-muted-foreground font-custom text-sm">
-              Loading report…
-            </p>
-          )}
-          {(isIncoming || isUngraded || isGrading || isStored) &&
+          {(isIncoming || isUngraded || isGrading || isStored || isDispatch) &&
+            isLoading && (
+              <p className="text-muted-foreground font-custom text-sm">
+                Loading report…
+              </p>
+            )}
+          {(isIncoming || isUngraded || isGrading || isStored || isDispatch) &&
             isError &&
             errorMessage && (
               <p className="font-custom text-destructive text-sm">
@@ -446,7 +514,12 @@ export function GetReportsDialog({
             className="font-custom w-full sm:w-auto"
             onClick={handleGetReports}
             disabled={
-              (isIncoming || isUngraded || isGrading || isStored) && isLoading
+              (isIncoming ||
+                isUngraded ||
+                isGrading ||
+                isStored ||
+                isDispatch) &&
+              isLoading
             }
           >
             Get Reports
