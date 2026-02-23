@@ -216,20 +216,60 @@ const COLUMNS = [
 
 /** Columns when data is grouped by farmer (omit Farmer Name) */
 const COLUMNS_GROUPED = [
-  { key: 'gatePassNo', label: 'Gate Pass No', width: '8%', align: 'center' as const },
-  { key: 'manualGatePassNo', label: 'Manual Gate Pass No', width: '10%', align: 'center' as const },
+  {
+    key: 'gatePassNo',
+    label: 'Gate Pass No',
+    width: '8%',
+    align: 'center' as const,
+  },
+  {
+    key: 'manualGatePassNo',
+    label: 'Manual Gate Pass No',
+    width: '10%',
+    align: 'center' as const,
+  },
   { key: 'date', label: 'Date', width: '8%', align: 'center' as const },
-  { key: 'truckNumber', label: 'Truck No', width: '8%', align: 'center' as const },
+  {
+    key: 'truckNumber',
+    label: 'Truck No',
+    width: '8%',
+    align: 'center' as const,
+  },
   { key: 'variety', label: 'Variety', width: '10%', align: 'left' as const },
-  { key: 'bagsReceived', label: 'Bags Received', width: '7%', align: 'center' as const },
-  { key: 'grossWeight', label: 'Gross Wt (kg)', width: '8%', align: 'center' as const },
-  { key: 'tareWeight', label: 'Tare Wt (kg)', width: '8%', align: 'center' as const },
-  { key: 'netWeight', label: 'Net Wt (kg)', width: '8%', align: 'center' as const },
+  {
+    key: 'bagsReceived',
+    label: 'Bags Received',
+    width: '7%',
+    align: 'center' as const,
+  },
+  {
+    key: 'grossWeight',
+    label: 'Gross Wt (kg)',
+    width: '8%',
+    align: 'center' as const,
+  },
+  {
+    key: 'tareWeight',
+    label: 'Tare Wt (kg)',
+    width: '8%',
+    align: 'center' as const,
+  },
+  {
+    key: 'netWeight',
+    label: 'Net Wt (kg)',
+    width: '8%',
+    align: 'center' as const,
+  },
   { key: 'status', label: 'Status', width: '8%', align: 'center' as const },
   { key: 'remarks', label: 'Remarks', width: '17%', align: 'left' as const },
 ];
 
-type ColumnDef = { key: string; label: string; width: string; align: 'left' | 'center' };
+type ColumnDef = {
+  key: string;
+  label: string;
+  width: string;
+  align: 'left' | 'center';
+};
 
 function GatePassTableRow({
   pass,
@@ -245,29 +285,92 @@ function GatePassTableRow({
   const net = getNetWeightKg(pass);
   const farmerName = pass.farmerStorageLinkId?.farmerId?.name ?? '-';
 
-  const cells: { key: string; width: string; align: 'left' | 'center'; text: string }[] = [
-    { key: 'gatePassNo', width: columns[0].width, align: 'center', text: String(pass.gatePassNo) },
+  const cells: {
+    key: string;
+    width: string;
+    align: 'left' | 'center';
+    text: string;
+  }[] = [
+    {
+      key: 'gatePassNo',
+      width: columns[0].width,
+      align: 'center',
+      text: String(pass.gatePassNo),
+    },
     {
       key: 'manualGatePassNo',
       width: columns[1].width,
       align: 'center',
-      text: pass.manualGatePassNumber != null ? String(pass.manualGatePassNumber) : '-',
+      text:
+        pass.manualGatePassNumber != null
+          ? String(pass.manualGatePassNumber)
+          : '-',
     },
-    { key: 'date', width: columns[2].width, align: 'center', text: formatPdfDate(pass.date) },
+    {
+      key: 'date',
+      width: columns[2].width,
+      align: 'center',
+      text: formatPdfDate(pass.date),
+    },
   ];
   if (includeFarmerName) {
-    cells.push({ key: 'farmerName', width: columns[3].width, align: 'left', text: farmerName });
+    cells.push({
+      key: 'farmerName',
+      width: columns[3].width,
+      align: 'left',
+      text: farmerName,
+    });
   }
   const offset = includeFarmerName ? 1 : 0;
   cells.push(
-    { key: 'truckNumber', width: columns[3 + offset].width, align: 'center', text: pass.truckNumber || '-' },
-    { key: 'variety', width: columns[4 + offset].width, align: 'left', text: pass.variety || '-' },
-    { key: 'bagsReceived', width: columns[5 + offset].width, align: 'center', text: String(pass.bagsReceived) },
-    { key: 'grossWeight', width: columns[6 + offset].width, align: 'center', text: gross != null ? String(gross) : '-' },
-    { key: 'tareWeight', width: columns[7 + offset].width, align: 'center', text: tare != null ? String(tare) : '-' },
-    { key: 'netWeight', width: columns[8 + offset].width, align: 'center', text: net != null ? net.toFixed(2) : '-' },
-    { key: 'status', width: columns[9 + offset].width, align: 'center', text: pass.gradingStatus ?? '-' },
-    { key: 'remarks', width: columns[10 + offset].width, align: 'left', text: pass.remarks ?? '-' }
+    {
+      key: 'truckNumber',
+      width: columns[3 + offset].width,
+      align: 'center',
+      text: pass.truckNumber || '-',
+    },
+    {
+      key: 'variety',
+      width: columns[4 + offset].width,
+      align: 'left',
+      text: pass.variety || '-',
+    },
+    {
+      key: 'bagsReceived',
+      width: columns[5 + offset].width,
+      align: 'center',
+      text: String(pass.bagsReceived),
+    },
+    {
+      key: 'grossWeight',
+      width: columns[6 + offset].width,
+      align: 'center',
+      text: gross != null ? String(gross) : '-',
+    },
+    {
+      key: 'tareWeight',
+      width: columns[7 + offset].width,
+      align: 'center',
+      text: tare != null ? String(tare) : '-',
+    },
+    {
+      key: 'netWeight',
+      width: columns[8 + offset].width,
+      align: 'center',
+      text: net != null ? net.toFixed(2) : '-',
+    },
+    {
+      key: 'status',
+      width: columns[9 + offset].width,
+      align: 'center',
+      text: pass.gradingStatus ?? '-',
+    },
+    {
+      key: 'remarks',
+      width: columns[10 + offset].width,
+      align: 'left',
+      text: pass.remarks ?? '-',
+    }
   );
 
   return (
@@ -313,7 +416,7 @@ function FarmerBlockHeader({
     <View style={styles.farmerHeader}>
       <Text style={styles.farmerHeaderTitle}>{farmer.name}</Text>
       <Text style={styles.farmerHeaderRow}>
-        Account No: {farmer.accountNumber}  |  Mobile: {farmer.mobileNumber}
+        Account No: {farmer.accountNumber} | Mobile: {farmer.mobileNumber}
       </Text>
       <Text style={styles.farmerHeaderRow}>Address: {farmer.address}</Text>
     </View>
@@ -406,7 +509,9 @@ function GroupedTablePage({
                   key={col.key}
                   style={[
                     col.align === 'left' ? styles.cellLeft : styles.cell,
-                    ...(i === COLUMNS_GROUPED.length - 1 ? [styles.cellLast] : []),
+                    ...(i === COLUMNS_GROUPED.length - 1
+                      ? [styles.cellLast]
+                      : []),
                     { width: col.width },
                   ]}
                 >
@@ -454,7 +559,10 @@ export const IncomingGatePassReportPdf = ({
       <Document>
         {data.length === 0 ? (
           <Page size="A4" style={styles.page}>
-            <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} />
+            <ReportHeader
+              companyName={companyName}
+              dateRangeLabel={dateRangeLabel}
+            />
             <View style={styles.tableContainer}>
               <Text style={[styles.cellLeft, { paddingVertical: 8 }]}>
                 No incoming gate pass data for this period.

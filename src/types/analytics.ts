@@ -4,6 +4,7 @@ import type {
   GradingGatePassGradedBy,
   GradingGatePassIncomingGatePass,
 } from './grading-gate-pass';
+import type { StorageGatePass } from './storage-gate-pass';
 
 /** Grading bags summary (initial vs current quantity) */
 export interface AnalyticsOverviewGradingBags {
@@ -141,5 +142,56 @@ export type GradingGatePassReportDataFlat = GradingGatePassReportItem[];
 export interface GetGradingGatePassReportApiResponse {
   success: boolean;
   data: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat;
+  message?: string;
+}
+
+// --- Storage gate pass report (GET /analytics/storage-gate-pass-report) ---
+
+/** Farmer as returned in GET /analytics/storage-gate-pass-report when groupByFarmer=true */
+export interface StorageGatePassReportFarmer {
+  _id: string;
+  accountNumber: number;
+  name: string;
+  mobileNumber: string;
+  address: string;
+}
+
+/** Farmer storage link as returned on each storage gate pass in the report */
+export interface StorageGatePassReportFarmerStorageLink {
+  _id: string;
+  accountNumber: number;
+  farmerId: {
+    _id: string;
+    name: string;
+    mobileNumber: string;
+    address: string;
+  };
+}
+
+/** Single storage gate pass as in the report (farmerStorageLinkId populated) */
+export type StorageGatePassReportItem = Omit<
+  StorageGatePass,
+  'farmerStorageLinkId'
+> & {
+  farmerStorageLinkId: StorageGatePassReportFarmerStorageLink;
+};
+
+/** Single group when GET /analytics/storage-gate-pass-report is called with groupByFarmer=true */
+export interface StorageGatePassReportGroupedItem {
+  farmer: StorageGatePassReportFarmer;
+  gatePasses: StorageGatePassReportItem[];
+}
+
+/** Data shape when groupByFarmer=true */
+export type StorageGatePassReportDataGrouped =
+  StorageGatePassReportGroupedItem[];
+
+/** Data shape when groupByFarmer=false */
+export type StorageGatePassReportDataFlat = StorageGatePassReportItem[];
+
+/** API response for GET /analytics/storage-gate-pass-report */
+export interface GetStorageGatePassReportApiResponse {
+  success: boolean;
+  data: StorageGatePassReportDataGrouped | StorageGatePassReportDataFlat;
   message?: string;
 }

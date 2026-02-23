@@ -82,3 +82,36 @@ export function addGradingStatusToIncomingReport(
   }
   return (incomingData as IncomingGatePassReportDataFlat).map(withStatus);
 }
+
+function isGroupedWithStatus(
+  data:
+    | IncomingGatePassReportDataGroupedWithStatus
+    | IncomingGatePassReportDataFlatWithStatus
+): data is IncomingGatePassReportDataGroupedWithStatus {
+  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+}
+
+/**
+ * Filters incoming report data (with grading status) to only gate passes whose status is 'Ungraded'.
+ * Preserves grouped vs flat shape.
+ */
+export function filterIncomingReportToUngraded(
+  data:
+    | IncomingGatePassReportDataGroupedWithStatus
+    | IncomingGatePassReportDataFlatWithStatus
+):
+  | IncomingGatePassReportDataGroupedWithStatus
+  | IncomingGatePassReportDataFlatWithStatus {
+  if (isGroupedWithStatus(data)) {
+    const filtered = data
+      .map((group) => ({
+        farmer: group.farmer,
+        gatePasses: group.gatePasses.filter((p) => p.gradingStatus === 'Ungraded'),
+      }))
+      .filter((group) => group.gatePasses.length > 0);
+    return filtered;
+  }
+  return (data as IncomingGatePassReportDataFlatWithStatus).filter(
+    (p) => p.gradingStatus === 'Ungraded'
+  );
+}
