@@ -3,8 +3,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetGradingGatePassReportApiResponse,
-  GradingGatePassReportDataFlat,
-  GradingGatePassReportDataGrouped,
+  GradingGatePassReportData,
 } from '@/types/analytics';
 
 /** Query key prefix for grading gate pass report */
@@ -16,14 +15,16 @@ export const gradingGatePassReportKeys = {
 export interface GetGradingGatePassReportParams {
   dateFrom?: string;
   dateTo?: string;
-  /** When true, response is grouped by farmer; when false, flat list of gate passes */
+  /** When true, response is grouped by farmer */
   groupByFarmer?: boolean;
+  /** When true, response is grouped by variety (optionally nested by farmer if groupByFarmer is also true) */
+  groupByVariety?: boolean;
 }
 
 /** Fetcher used by queryOptions and prefetch */
 async function fetchGradingGatePassReport(
   params: GetGradingGatePassReportParams
-): Promise<GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat> {
+): Promise<GradingGatePassReportData> {
   const { data } =
     await storeAdminAxiosClient.get<GetGradingGatePassReportApiResponse>(
       '/analytics/grading-gate-pass-report',
@@ -32,6 +33,7 @@ async function fetchGradingGatePassReport(
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
           groupByFarmer: params.groupByFarmer,
+          groupByVariety: params.groupByVariety,
         },
       }
     );

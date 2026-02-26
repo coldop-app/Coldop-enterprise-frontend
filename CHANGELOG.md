@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-02-26
+
+### Added
+- Get Reports: **Group by variety** option for Grading, Storage, and Dispatch (nikasi) reports; can be combined with "Group by farmers" for variety-then-farmer grouping
+- Analytics types: variety-grouped report data shapes for grading, storage, and nikasi — `*ReportVarietyGroupItem`, `*ReportDataGroupedByVariety`, `*ReportVarietyAndFarmerItem`, `*ReportDataGroupedByVarietyAndFarmer`, and union types `GradingGatePassReportData`, `StorageGatePassReportData`, `NikasiGatePassReportData`
+
+### Changed
+- Get Reports dialog: Grading, Storage, and Dispatch report types now send `groupByVariety` to the API; param comparison includes `groupByVariety` for same-params check
+- Services: `useGetGradingGatePassReports`, `useGetNikasiGatePassReports`, `useGetStorageGatePassReports` accept optional `groupByVariety` and pass it to the API
+- Grading gate pass report PDF: supports flat, grouped-by-farmer, grouped-by-variety, and grouped-by-variety-and-farmer data; variety section headers and layout
+- Storage gate pass report PDF: same grouping support and variety section layout
+- Nikasi (Dispatch) gate pass report PDF: same grouping support and variety section layout
+- Analytics incoming format-data: extended for variety-grouped report handling where applicable
+
 ## [0.15.0] - 2026-02-26
 
 ### Added

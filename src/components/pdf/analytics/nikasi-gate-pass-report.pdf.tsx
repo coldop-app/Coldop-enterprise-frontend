@@ -9,6 +9,8 @@ import {
 import type {
   NikasiGatePassReportDataFlat,
   NikasiGatePassReportDataGrouped,
+  NikasiGatePassReportDataGroupedByVariety,
+  NikasiGatePassReportDataGroupedByVarietyAndFarmer,
   NikasiGatePassReportItem,
 } from '@/types/analytics';
 import { GRADING_SIZES } from '@/components/forms/grading/constants';
@@ -17,10 +19,16 @@ import { GRADING_SIZES } from '@/components/forms/grading/constants';
 /* Types */
 /* ------------------------------------------------------------------ */
 
+export type NikasiGatePassReportPdfData =
+  | NikasiGatePassReportDataFlat
+  | NikasiGatePassReportDataGrouped
+  | NikasiGatePassReportDataGroupedByVariety
+  | NikasiGatePassReportDataGroupedByVarietyAndFarmer;
+
 export interface NikasiGatePassReportPdfProps {
   companyName?: string;
   dateRangeLabel: string;
-  data: NikasiGatePassReportDataGrouped | NikasiGatePassReportDataFlat;
+  data: NikasiGatePassReportPdfData;
 }
 
 /** Per-size quantity issued for one gate pass row (no location) */
@@ -46,10 +54,38 @@ function formatPdfDate(iso: string): string {
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
 }
 
-function isGrouped(
-  data: NikasiGatePassReportDataGrouped | NikasiGatePassReportDataFlat
+function isGroupedByVarietyAndFarmer(
+  data: NikasiGatePassReportPdfData
+): data is NikasiGatePassReportDataGroupedByVarietyAndFarmer {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'farmers' in data[0]
+  );
+}
+
+function isGroupedByVarietyOnly(
+  data: NikasiGatePassReportPdfData
+): data is NikasiGatePassReportDataGroupedByVariety {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'gatePasses' in data[0] &&
+    !('farmers' in data[0])
+  );
+}
+
+function isGroupedByFarmer(
+  data: NikasiGatePassReportPdfData
 ): data is NikasiGatePassReportDataGrouped {
-  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'farmer' in data[0] &&
+    'gatePasses' in data[0]
+  );
 }
 
 /** Get unique sizes from all passes in report order (GRADING_SIZES first). */
@@ -329,6 +365,7 @@ interface NikasiReportTableProps {
   companyName: string;
   dateRangeLabel: string;
   farmerName?: string;
+  varietyLabel?: string;
   passes: NikasiGatePassReportItem[];
   pageIndex?: number;
   totalPages?: number;
@@ -338,6 +375,7 @@ function NikasiReportTable({
   companyName,
   dateRangeLabel,
   farmerName,
+  varietyLabel,
   passes,
   pageIndex = 0,
   totalPages = 1,
@@ -390,6 +428,17 @@ function NikasiReportTable({
         </Text>
         <Text style={styles.dateRange}>{dateRangeLabel}</Text>
       </View>
+
+      {varietyLabel != null && (
+        <View style={styles.farmerInfo}>
+          <View style={styles.farmerInfoCol}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Variety:</Text>
+              <Text style={styles.infoValue}>{varietyLabel}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {farmerName != null && (
         <View style={styles.farmerInfo}>
@@ -552,7 +601,82 @@ export function NikasiGatePassReportPdf({
 }: NikasiGatePassReportPdfProps) {
   const company = companyName;
 
-  if (isGrouped(data)) {
+  if (isGroupedByVarietyAndFarmer(data)) {
+    const totalPages = data.reduce((sum, v) => sum + v.farmers.length, 0);
+    let pageIndex = 0;
+    return (
+      <Document>
+        {data.length === 0 ? (
+          <Page size="A4" orientation="landscape" style={styles.page}>
+            <NikasiReportTable
+              companyName={company}
+              dateRangeLabel={dateRangeLabel}
+              passes={[]}
+              totalPages={1}
+            />
+          </Page>
+        ) : (
+          data.flatMap((varietyItem) =>
+            varietyItem.farmers.map((group) => (
+              <Page
+                key={`${varietyItem.variety}-${group.farmer._id}`}
+                size="A4"
+                orientation="landscape"
+                style={styles.page}
+              >
+                <NikasiReportTable
+                  companyName={company}
+                  dateRangeLabel={dateRangeLabel}
+                  varietyLabel={varietyItem.variety}
+                  farmerName={group.farmer.name}
+                  passes={group.gatePasses}
+                  pageIndex={pageIndex++}
+                  totalPages={totalPages}
+                />
+              </Page>
+            ))
+          )
+        )}
+      </Document>
+    );
+  }
+
+  if (isGroupedByVarietyOnly(data)) {
+    return (
+      <Document>
+        {data.length === 0 ? (
+          <Page size="A4" orientation="landscape" style={styles.page}>
+            <NikasiReportTable
+              companyName={company}
+              dateRangeLabel={dateRangeLabel}
+              passes={[]}
+              totalPages={1}
+            />
+          </Page>
+        ) : (
+          data.map((varietyItem, pageIndex) => (
+            <Page
+              key={varietyItem.variety}
+              size="A4"
+              orientation="landscape"
+              style={styles.page}
+            >
+              <NikasiReportTable
+                companyName={company}
+                dateRangeLabel={dateRangeLabel}
+                varietyLabel={varietyItem.variety}
+                passes={varietyItem.gatePasses}
+                pageIndex={pageIndex}
+                totalPages={data.length}
+              />
+            </Page>
+          ))
+        )}
+      </Document>
+    );
+  }
+
+  if (isGroupedByFarmer(data)) {
     return (
       <Document>
         {data.length === 0 ? (

@@ -218,20 +218,19 @@ export function GetReportsDialog({
       return;
     }
 
-    const newParams: GetIncomingGatePassReportParams = {
+    const newParams = {
       dateFrom,
       dateTo,
       groupByFarmer,
-      ...(isIncoming || isUngraded ? { groupByVariety } : {}),
+      groupByVariety,
     };
 
     const sameParams =
       submittedParams?.dateFrom === dateFrom &&
       submittedParams?.dateTo === dateTo &&
       submittedParams?.groupByFarmer === groupByFarmer &&
-      (reportType !== 'incoming' && reportType !== 'ungraded'
-        ? true
-        : submittedParams?.groupByVariety === groupByVariety);
+      (submittedParams as { groupByVariety?: boolean })?.groupByVariety ===
+        groupByVariety;
 
     userTriggeredFetchRef.current = true;
     toast.loading('Fetching reports…', { id: 'get-reports' });
@@ -500,21 +499,38 @@ export function GetReportsDialog({
             </>
           )}
           {(isGrading || isStored || isDispatch) && (
-            <div className="flex items-center gap-2 pt-1">
-              <Checkbox
-                id="reports-group-by-farmers-other"
-                checked={groupByFarmer}
-                onCheckedChange={(checked) =>
-                  setGroupByFarmer(checked === true)
-                }
-              />
-              <Label
-                htmlFor="reports-group-by-farmers-other"
-                className="font-custom cursor-pointer text-sm font-normal"
-              >
-                Group by farmers
-              </Label>
-            </div>
+            <>
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox
+                  id="reports-group-by-farmers-other"
+                  checked={groupByFarmer}
+                  onCheckedChange={(checked) =>
+                    setGroupByFarmer(checked === true)
+                  }
+                />
+                <Label
+                  htmlFor="reports-group-by-farmers-other"
+                  className="font-custom cursor-pointer text-sm font-normal"
+                >
+                  Group by farmers
+                </Label>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox
+                  id="reports-group-by-variety-other"
+                  checked={groupByVariety}
+                  onCheckedChange={(checked) =>
+                    setGroupByVariety(checked === true)
+                  }
+                />
+                <Label
+                  htmlFor="reports-group-by-variety-other"
+                  className="font-custom cursor-pointer text-sm font-normal"
+                >
+                  Group by variety
+                </Label>
+              </div>
+            </>
           )}
 
           {reportType !== 'incoming' &&

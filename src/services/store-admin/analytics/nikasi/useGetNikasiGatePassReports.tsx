@@ -3,8 +3,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetNikasiGatePassReportApiResponse,
-  NikasiGatePassReportDataFlat,
-  NikasiGatePassReportDataGrouped,
+  NikasiGatePassReportData,
 } from '@/types/analytics';
 
 /** Query key prefix for nikasi (dispatch) gate pass report */
@@ -16,14 +15,16 @@ export const nikasiGatePassReportKeys = {
 export interface GetNikasiGatePassReportParams {
   dateFrom?: string;
   dateTo?: string;
-  /** When true, response is grouped by farmer; when false, flat list of gate passes */
+  /** When true, response is grouped by farmer */
   groupByFarmer?: boolean;
+  /** When true, response is grouped by variety (optionally nested by farmer if groupByFarmer is also true) */
+  groupByVariety?: boolean;
 }
 
 /** Fetcher used by queryOptions and prefetch */
 async function fetchNikasiGatePassReport(
   params: GetNikasiGatePassReportParams
-): Promise<NikasiGatePassReportDataGrouped | NikasiGatePassReportDataFlat> {
+): Promise<NikasiGatePassReportData> {
   const { data } =
     await storeAdminAxiosClient.get<GetNikasiGatePassReportApiResponse>(
       '/analytics/nikasi-gate-pass-report',
@@ -32,6 +33,7 @@ async function fetchNikasiGatePassReport(
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
           groupByFarmer: params.groupByFarmer,
+          groupByVariety: params.groupByVariety,
         },
       }
     );

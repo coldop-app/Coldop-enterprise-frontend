@@ -3,8 +3,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetStorageGatePassReportApiResponse,
-  StorageGatePassReportDataFlat,
-  StorageGatePassReportDataGrouped,
+  StorageGatePassReportData,
 } from '@/types/analytics';
 
 /** Query key prefix for storage gate pass report */
@@ -16,14 +15,16 @@ export const storageGatePassReportKeys = {
 export interface GetStorageGatePassReportParams {
   dateFrom?: string;
   dateTo?: string;
-  /** When true, response is grouped by farmer; when false, flat list of gate passes */
+  /** When true, response is grouped by farmer */
   groupByFarmer?: boolean;
+  /** When true, response is grouped by variety (optionally nested by farmer if groupByFarmer is also true) */
+  groupByVariety?: boolean;
 }
 
 /** Fetcher used by queryOptions and prefetch */
 async function fetchStorageGatePassReport(
   params: GetStorageGatePassReportParams
-): Promise<StorageGatePassReportDataGrouped | StorageGatePassReportDataFlat> {
+): Promise<StorageGatePassReportData> {
   const { data } =
     await storeAdminAxiosClient.get<GetStorageGatePassReportApiResponse>(
       '/analytics/storage-gate-pass-report',
@@ -32,6 +33,7 @@ async function fetchStorageGatePassReport(
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
           groupByFarmer: params.groupByFarmer,
+          groupByVariety: params.groupByVariety,
         },
       }
     );

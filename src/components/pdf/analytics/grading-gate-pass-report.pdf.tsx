@@ -1,7 +1,9 @@
-import { Document, Page } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type {
   GradingGatePassReportDataFlat,
   GradingGatePassReportDataGrouped,
+  GradingGatePassReportDataGroupedByVariety,
+  GradingGatePassReportDataGroupedByVarietyAndFarmer,
   GradingGatePassReportItem,
   GradingGatePassReportIncomingSummary,
 } from '@/types/analytics';
@@ -14,16 +16,50 @@ import {
 } from '@/components/pdf/StockLedgerPdf';
 import { GRADING_SIZES } from '@/components/forms/grading/constants';
 
+export type GradingGatePassReportPdfData =
+  | GradingGatePassReportDataFlat
+  | GradingGatePassReportDataGrouped
+  | GradingGatePassReportDataGroupedByVariety
+  | GradingGatePassReportDataGroupedByVarietyAndFarmer;
+
 export interface GradingGatePassReportPdfProps {
   companyName?: string;
   dateRangeLabel: string;
-  data: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat;
+  data: GradingGatePassReportPdfData;
 }
 
-function isGrouped(
-  data: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
+function isGroupedByVarietyAndFarmer(
+  data: GradingGatePassReportPdfData
+): data is GradingGatePassReportDataGroupedByVarietyAndFarmer {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'farmers' in data[0]
+  );
+}
+
+function isGroupedByVarietyOnly(
+  data: GradingGatePassReportPdfData
+): data is GradingGatePassReportDataGroupedByVariety {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'gatePasses' in data[0] &&
+    !('farmers' in data[0])
+  );
+}
+
+function isGroupedByFarmer(
+  data: GradingGatePassReportPdfData
 ): data is GradingGatePassReportDataGrouped {
-  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'farmer' in data[0] &&
+    'gatePasses' in data[0]
+  );
 }
 
 function getFarmerName(pass: GradingGatePassReportItem): string {
@@ -175,20 +211,125 @@ function gradingReportItemToStockLedgerRow(
   };
 }
 
+const varietyHeaderStyle = StyleSheet.create({
+  block: {
+    backgroundColor: '#D0E8D0',
+    borderWidth: 1,
+    borderColor: '#000',
+    padding: 6,
+    marginBottom: 6,
+  },
+  title: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+});
+
+function VarietyHeader({ variety }: { variety: string }) {
+  return (
+    <View style={varietyHeaderStyle.block}>
+      <Text style={varietyHeaderStyle.title}>Variety: {variety}</Text>
+    </View>
+  );
+}
+
 export function GradingGatePassReportPdf({
   companyName = 'Cold Storage',
   dateRangeLabel,
   data,
 }: GradingGatePassReportPdfProps) {
   const pageStyle = stockLedgerPageStyle;
+  const baseTitle = `${companyName} — Grading (Initial) Gate Pass Report — ${dateRangeLabel}`;
 
-  if (isGrouped(data)) {
+  if (isGroupedByVarietyAndFarmer(data)) {
+    let pageIndex = 0;
     return (
       <Document>
         {data.length === 0 ? (
           <Page size="A4" orientation="landscape" style={pageStyle}>
             <StockLedgerMainTableOnly
-              title={`${companyName} — Grading (Initial) Gate Pass Report — ${dateRangeLabel}`}
+              title={baseTitle}
+              rows={[]}
+              includeAmountPayable={false}
+            />
+          </Page>
+        ) : (
+          data.flatMap((varietyItem) =>
+            varietyItem.farmers.map((group, farmerIndex) => {
+              const rows: StockLedgerRow[] = group.gatePasses.map((pass, i) =>
+                gradingReportItemToStockLedgerRow(pass, i + 1)
+              );
+              const sortedRows = sortRowsByGatePassNo(rows);
+              pageIndex++;
+              const showVarietyHeader = farmerIndex === 0;
+              return (
+                <Page
+                  key={`${varietyItem.variety}-${group.farmer._id}`}
+                  size="A4"
+                  orientation="landscape"
+                  style={pageStyle}
+                >
+                  {showVarietyHeader && (
+                    <VarietyHeader variety={varietyItem.variety} />
+                  )}
+                  <StockLedgerMainTableOnly
+                    title={group.farmer.name}
+                    rows={sortedRows}
+                    includeAmountPayable={false}
+                  />
+                </Page>
+              );
+            })
+          )
+        )}
+      </Document>
+    );
+  }
+
+  if (isGroupedByVarietyOnly(data)) {
+    return (
+      <Document>
+        {data.length === 0 ? (
+          <Page size="A4" orientation="landscape" style={pageStyle}>
+            <StockLedgerMainTableOnly
+              title={baseTitle}
+              rows={[]}
+              includeAmountPayable={false}
+            />
+          </Page>
+        ) : (
+          data.map((varietyItem) => {
+            const rows: StockLedgerRow[] = varietyItem.gatePasses.map(
+              (pass, i) => gradingReportItemToStockLedgerRow(pass, i + 1)
+            );
+            const sortedRows = sortRowsByGatePassNo(rows);
+            return (
+              <Page
+                key={varietyItem.variety}
+                size="A4"
+                orientation="landscape"
+                style={pageStyle}
+              >
+                <StockLedgerMainTableOnly
+                  title={`Variety: ${varietyItem.variety}`}
+                  rows={sortedRows}
+                  includeAmountPayable={false}
+                />
+              </Page>
+            );
+          })
+        )}
+      </Document>
+    );
+  }
+
+  if (isGroupedByFarmer(data)) {
+    return (
+      <Document>
+        {data.length === 0 ? (
+          <Page size="A4" orientation="landscape" style={pageStyle}>
+            <StockLedgerMainTableOnly
+              title={baseTitle}
               rows={[]}
               includeAmountPayable={false}
             />
@@ -223,13 +364,12 @@ export function GradingGatePassReportPdf({
     data as GradingGatePassReportDataFlat
   ).map((pass, i) => gradingReportItemToStockLedgerRow(pass, i + 1));
   const sortedRows = sortRowsByGatePassNo(flatRows);
-  const title = `${companyName} — Grading (Initial) Gate Pass Report — ${dateRangeLabel}`;
 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={pageStyle}>
         <StockLedgerMainTableOnly
-          title={title}
+          title={baseTitle}
           rows={sortedRows}
           includeAmountPayable={false}
         />

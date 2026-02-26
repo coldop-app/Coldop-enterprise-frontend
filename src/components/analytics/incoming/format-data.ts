@@ -1,6 +1,9 @@
 import type {
+  GradingGatePassReportData,
   GradingGatePassReportDataFlat,
   GradingGatePassReportDataGrouped,
+  GradingGatePassReportDataGroupedByVariety,
+  GradingGatePassReportDataGroupedByVarietyAndFarmer,
   IncomingGatePassReportDataFlat,
   IncomingGatePassReportDataFlatWithStatus,
   IncomingGatePassReportDataGrouped,
@@ -23,24 +26,38 @@ function isGradingGrouped(
   );
 }
 
+function isGradingGroupedByVariety(
+  data: GradingGatePassReportData
+): data is GradingGatePassReportDataGroupedByVariety {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'gatePasses' in data[0] &&
+    !('farmers' in data[0])
+  );
+}
+
+function isGradingGroupedByVarietyAndFarmer(
+  data: GradingGatePassReportData
+): data is GradingGatePassReportDataGroupedByVarietyAndFarmer {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'farmers' in data[0]
+  );
+}
+
 /** Collect set of incoming gate pass IDs that have a grading gate pass (i.e. are graded) */
 function getGradedIncomingGatePassIds(
-  gradingData: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
+  gradingData: GradingGatePassReportData
 ): Set<string> {
   const ids = new Set<string>();
-  if (isGradingGrouped(gradingData)) {
-    for (const group of gradingData) {
-      for (const gp of group.gatePasses) {
-        const id =
-          typeof gp.incomingGatePassId === 'object' &&
-          gp.incomingGatePassId != null
-            ? (gp.incomingGatePassId as { _id?: string })._id
-            : null;
-        if (id) ids.add(id);
-      }
-    }
-  } else {
-    for (const gp of gradingData) {
+  const collectFromGatePasses = (
+    gatePasses: GradingGatePassReportDataFlat
+  ): void => {
+    for (const gp of gatePasses) {
       const id =
         typeof gp.incomingGatePassId === 'object' &&
         gp.incomingGatePassId != null
@@ -48,6 +65,23 @@ function getGradedIncomingGatePassIds(
           : null;
       if (id) ids.add(id);
     }
+  };
+  if (isGradingGroupedByVarietyAndFarmer(gradingData)) {
+    for (const item of gradingData) {
+      for (const f of item.farmers) {
+        collectFromGatePasses(f.gatePasses);
+      }
+    }
+  } else if (isGradingGroupedByVariety(gradingData)) {
+    for (const item of gradingData) {
+      collectFromGatePasses(item.gatePasses);
+    }
+  } else if (isGradingGrouped(gradingData)) {
+    for (const group of gradingData) {
+      collectFromGatePasses(group.gatePasses);
+    }
+  } else {
+    collectFromGatePasses(gradingData as GradingGatePassReportDataFlat);
   }
   return ids;
 }
@@ -108,7 +142,7 @@ export function addGradingStatusToIncomingReport(
     | IncomingGatePassReportDataFlat
     | IncomingGatePassReportDataGroupedByVariety
     | IncomingGatePassReportDataGroupedByVarietyAndFarmer,
-  gradingData: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
+  gradingData: GradingGatePassReportData
 ):
   | IncomingGatePassReportDataGroupedWithStatus
   | IncomingGatePassReportDataFlatWithStatus

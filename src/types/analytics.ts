@@ -184,17 +184,44 @@ export interface GradingGatePassReportGroupedItem {
   gatePasses: GradingGatePassReportItem[];
 }
 
-/** Data shape when groupByFarmer=true */
+/** Data shape when groupByFarmer=true, groupByVariety=false */
 export type GradingGatePassReportDataGrouped =
   GradingGatePassReportGroupedItem[];
 
-/** Data shape when groupByFarmer=false */
+/** Data shape when groupByFarmer=false, groupByVariety=false */
 export type GradingGatePassReportDataFlat = GradingGatePassReportItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=false */
+export interface GradingGatePassReportVarietyGroupItem {
+  variety: string;
+  gatePasses: GradingGatePassReportItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=false */
+export type GradingGatePassReportDataGroupedByVariety =
+  GradingGatePassReportVarietyGroupItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=true */
+export interface GradingGatePassReportVarietyAndFarmerItem {
+  variety: string;
+  farmers: GradingGatePassReportGroupedItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=true */
+export type GradingGatePassReportDataGroupedByVarietyAndFarmer =
+  GradingGatePassReportVarietyAndFarmerItem[];
+
+/** Union of all possible grading gate pass report data shapes */
+export type GradingGatePassReportData =
+  | GradingGatePassReportDataFlat
+  | GradingGatePassReportDataGrouped
+  | GradingGatePassReportDataGroupedByVariety
+  | GradingGatePassReportDataGroupedByVarietyAndFarmer;
 
 /** API response for GET /analytics/grading-gate-pass-report */
 export interface GetGradingGatePassReportApiResponse {
   success: boolean;
-  data: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat;
+  data: GradingGatePassReportData;
   message?: string;
 }
 
@@ -235,17 +262,44 @@ export interface StorageGatePassReportGroupedItem {
   gatePasses: StorageGatePassReportItem[];
 }
 
-/** Data shape when groupByFarmer=true */
+/** Data shape when groupByFarmer=true, groupByVariety=false */
 export type StorageGatePassReportDataGrouped =
   StorageGatePassReportGroupedItem[];
 
-/** Data shape when groupByFarmer=false */
+/** Data shape when groupByFarmer=false, groupByVariety=false */
 export type StorageGatePassReportDataFlat = StorageGatePassReportItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=false */
+export interface StorageGatePassReportVarietyGroupItem {
+  variety: string;
+  gatePasses: StorageGatePassReportItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=false */
+export type StorageGatePassReportDataGroupedByVariety =
+  StorageGatePassReportVarietyGroupItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=true */
+export interface StorageGatePassReportVarietyAndFarmerItem {
+  variety: string;
+  farmers: StorageGatePassReportGroupedItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=true */
+export type StorageGatePassReportDataGroupedByVarietyAndFarmer =
+  StorageGatePassReportVarietyAndFarmerItem[];
+
+/** Union of all possible storage gate pass report data shapes */
+export type StorageGatePassReportData =
+  | StorageGatePassReportDataFlat
+  | StorageGatePassReportDataGrouped
+  | StorageGatePassReportDataGroupedByVariety
+  | StorageGatePassReportDataGroupedByVarietyAndFarmer;
 
 /** API response for GET /analytics/storage-gate-pass-report */
 export interface GetStorageGatePassReportApiResponse {
   success: boolean;
-  data: StorageGatePassReportDataGrouped | StorageGatePassReportDataFlat;
+  data: StorageGatePassReportData;
   message?: string;
 }
 
@@ -286,16 +340,42 @@ export interface NikasiGatePassReportGroupedItem {
   gatePasses: NikasiGatePassReportItem[];
 }
 
-/** Data shape when groupByFarmer=true */
-export type NikasiGatePassReportDataGrouped =
-  NikasiGatePassReportGroupedItem[];
+/** Data shape when groupByFarmer=true, groupByVariety=false */
+export type NikasiGatePassReportDataGrouped = NikasiGatePassReportGroupedItem[];
 
-/** Data shape when groupByFarmer=false */
+/** Data shape when groupByFarmer=false, groupByVariety=false */
 export type NikasiGatePassReportDataFlat = NikasiGatePassReportItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=false */
+export interface NikasiGatePassReportVarietyGroupItem {
+  variety: string;
+  gatePasses: NikasiGatePassReportItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=false */
+export type NikasiGatePassReportDataGroupedByVariety =
+  NikasiGatePassReportVarietyGroupItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=true */
+export interface NikasiGatePassReportVarietyAndFarmerItem {
+  variety: string;
+  farmers: NikasiGatePassReportGroupedItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=true */
+export type NikasiGatePassReportDataGroupedByVarietyAndFarmer =
+  NikasiGatePassReportVarietyAndFarmerItem[];
+
+/** Union of all possible nikasi gate pass report data shapes */
+export type NikasiGatePassReportData =
+  | NikasiGatePassReportDataFlat
+  | NikasiGatePassReportDataGrouped
+  | NikasiGatePassReportDataGroupedByVariety
+  | NikasiGatePassReportDataGroupedByVarietyAndFarmer;
 
 /** API response for GET /analytics/nikasi-gate-pass-report */
 export interface GetNikasiGatePassReportApiResponse {
   success: boolean;
-  data: NikasiGatePassReportDataGrouped | NikasiGatePassReportDataFlat;
+  data: NikasiGatePassReportData;
   message?: string;
 }
