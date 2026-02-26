@@ -686,7 +686,7 @@ function ReportSummaryPage({
                 key={col.key}
                 style={[
                   col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
-                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : [],
+                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : {},
                   { width: col.width },
                 ]}
               >
@@ -734,7 +734,7 @@ function ReportSummaryPage({
                 key={col.key}
                 style={[
                   col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
-                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : [],
+                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : {},
                   { width: col.width },
                 ]}
               >
@@ -782,7 +782,7 @@ function ReportSummaryPage({
                 key={col.key}
                 style={[
                   col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
-                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : [],
+                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : {},
                   { width: col.width },
                 ]}
               >

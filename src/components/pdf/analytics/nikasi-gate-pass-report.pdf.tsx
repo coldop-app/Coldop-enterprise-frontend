@@ -214,8 +214,8 @@ function computeNikasiReportSummary(
     .map(([farmerName, t]) => ({ farmerName, ...t }))
     .sort((a, b) => a.farmerName.localeCompare(b.farmerName));
   const sizeColumns = Array.from(sizeMap.keys()).sort((a, b) => {
-    const ai = GRADING_SIZES.indexOf(a);
-    const bi = GRADING_SIZES.indexOf(b);
+    const ai = GRADING_SIZES.indexOf(a as (typeof GRADING_SIZES)[number]);
+    const bi = GRADING_SIZES.indexOf(b as (typeof GRADING_SIZES)[number]);
     if (ai >= 0 && bi >= 0) return ai - bi;
     if (ai >= 0) return -1;
     if (bi >= 0) return 1;
