@@ -99,6 +99,49 @@ const styles = StyleSheet.create({
   totalCellText: {
     fontWeight: 700,
   },
+  summarySection: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 2,
+    padding: 4,
+    backgroundColor: '#f5f5f5',
+  },
+  summaryTitle: {
+    fontSize: 6,
+    fontWeight: 700,
+    marginBottom: 3,
+    color: '#333',
+  },
+  summaryTable: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    marginBottom: 2,
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#e8e8e8',
+    borderBottomWidth: 1,
+    borderColor: BORDER,
+    paddingVertical: 1,
+    paddingHorizontal: 1,
+  },
+  summaryDataRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderColor: BORDER,
+    paddingVertical: 1,
+    paddingHorizontal: 1,
+  },
+  summaryCell: {
+    fontSize: 3.5,
+    paddingHorizontal: 1,
+    borderRightWidth: 0.5,
+    borderColor: BORDER,
+  },
+  summaryCellLast: {
+    borderRightWidth: 0,
+  },
 });
 
 function formatGgpValue(value: number | string | undefined): string {
@@ -162,6 +205,49 @@ function getSizesWithQuantities(rows: StockLedgerRow[]): string[] {
   return GRADING_SIZES.filter((size) =>
     rows.some((row) => getSizeQty(row, size) > 0)
   );
+}
+
+/** Variety-wise aggregate: variety name and total bags */
+interface VarietySummaryRow {
+  variety: string;
+  total: number;
+}
+
+/** Size-wise aggregate: size label and total bags */
+interface SizeSummaryRow {
+  size: string;
+  total: number;
+}
+
+function computeGradingTableSummary(
+  rows: StockLedgerRow[],
+  sizesWithQty: string[]
+): {
+  byVariety: VarietySummaryRow[];
+  bySize: SizeSummaryRow[];
+  grandTotal: number;
+} {
+  const varietyMap = new Map<string, number>();
+  const sizeMap = new Map<string, number>();
+  let grandTotal = 0;
+  for (const row of rows) {
+    const variety = row.variety != null && String(row.variety).trim() !== '' ? String(row.variety).trim() : '—';
+    const rowTotal = getRowTotal(row);
+    grandTotal += rowTotal;
+    varietyMap.set(variety, (varietyMap.get(variety) ?? 0) + rowTotal);
+    for (const size of sizesWithQty) {
+      const qty = getSizeQty(row, size);
+      sizeMap.set(size, (sizeMap.get(size) ?? 0) + qty);
+    }
+  }
+  const byVariety: VarietySummaryRow[] = Array.from(varietyMap.entries())
+    .map(([variety, total]) => ({ variety, total }))
+    .sort((a, b) => a.variety.localeCompare(b.variety));
+  const bySize: SizeSummaryRow[] = sizesWithQty.map((size) => ({
+    size: SIZE_HEADER_LABELS[size] ?? size,
+    total: sizeMap.get(size) ?? 0,
+  }));
+  return { byVariety, bySize, grandTotal };
 }
 
 export interface GradingGatePassTablePdfProps {
@@ -345,6 +431,78 @@ function GradingGatePassTablePdf({
         );
       })}
       <TotalRow rows={rowsWithGgp} sizesWithQty={sizesWithQty} />
+      <GradingTableSummarySection
+        farmerName={farmerName}
+        rows={rowsWithGgp}
+        sizesWithQty={sizesWithQty}
+      />
+    </View>
+  );
+}
+
+function GradingTableSummarySection({
+  farmerName,
+  rows,
+  sizesWithQty,
+}: {
+  farmerName: string;
+  rows: StockLedgerRow[];
+  sizesWithQty: string[];
+}) {
+  const { byVariety, bySize, grandTotal } = computeGradingTableSummary(
+    rows,
+    sizesWithQty
+  );
+  const nameWidth = 80;
+  const numWidth = 28;
+  return (
+    <View style={styles.summarySection}>
+      <Text style={styles.summaryTitle}>Report Summary</Text>
+      {/* Variety-wise */}
+      <View style={styles.summaryTable}>
+        <View style={styles.summaryHeaderRow}>
+          <Text style={[styles.summaryCell, { width: nameWidth }]}>Variety</Text>
+          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>Total Bags</Text>
+        </View>
+        {byVariety.map((r) => (
+          <View key={r.variety} style={styles.summaryDataRow}>
+            <Text style={[styles.summaryCell, { width: nameWidth }]}>{r.variety}</Text>
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>{r.total > 0 ? r.total.toLocaleString('en-IN') : '—'}</Text>
+          </View>
+        ))}
+        <View style={[styles.summaryDataRow, { backgroundColor: '#e8e8e8' }]}>
+          <Text style={[styles.summaryCell, styles.totalCellText, { width: nameWidth }]}>Total</Text>
+          <Text style={[styles.summaryCell, styles.summaryCellLast, styles.totalCellText, { width: numWidth }]}>{grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}</Text>
+        </View>
+      </View>
+      {/* Size-wise */}
+      <View style={[styles.summaryTable, { marginTop: 2 }]}>
+        <View style={styles.summaryHeaderRow}>
+          <Text style={[styles.summaryCell, { width: nameWidth }]}>Size</Text>
+          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>Total Bags</Text>
+        </View>
+        {bySize.map((r) => (
+          <View key={r.size} style={styles.summaryDataRow}>
+            <Text style={[styles.summaryCell, { width: nameWidth }]}>{r.size}</Text>
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>{r.total > 0 ? r.total.toLocaleString('en-IN') : '—'}</Text>
+          </View>
+        ))}
+        <View style={[styles.summaryDataRow, { backgroundColor: '#e8e8e8' }]}>
+          <Text style={[styles.summaryCell, styles.totalCellText, { width: nameWidth }]}>Total</Text>
+          <Text style={[styles.summaryCell, styles.summaryCellLast, styles.totalCellText, { width: numWidth }]}>{grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}</Text>
+        </View>
+      </View>
+      {/* Farmer-wise (single farmer) */}
+      <View style={[styles.summaryTable, { marginTop: 2 }]}>
+        <View style={styles.summaryHeaderRow}>
+          <Text style={[styles.summaryCell, { width: nameWidth }]}>Farmer</Text>
+          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>Total Bags</Text>
+        </View>
+        <View style={styles.summaryDataRow}>
+          <Text style={[styles.summaryCell, { width: nameWidth }]}>{farmerName}</Text>
+          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>{grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}</Text>
+        </View>
+      </View>
     </View>
   );
 }

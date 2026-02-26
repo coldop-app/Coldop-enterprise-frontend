@@ -89,6 +89,100 @@ function getNetWeightKg(
   return slip.grossWeightKg - slip.tareWeightKg;
 }
 
+function getFarmerNameFromPass(pass: IncomingGatePassWithLinkWithStatus): string {
+  return pass.farmerStorageLinkId?.farmerId?.name ?? '—';
+}
+
+/** Aggregate totals for summary rows */
+interface SummaryRowTotals {
+  bags: number;
+  gross: number;
+  tare: number;
+  net: number;
+  count: number;
+}
+
+/** Variety-wise summary row */
+interface VarietySummaryRow {
+  variety: string;
+  bags: number;
+  gross: number;
+  tare: number;
+  net: number;
+  count: number;
+}
+
+/** Farmer-wise summary row */
+interface FarmerSummaryRow {
+  farmerName: string;
+  bags: number;
+  gross: number;
+  tare: number;
+  net: number;
+  count: number;
+}
+
+/** Computed report summary from flat list of gate passes */
+interface IncomingReportSummary {
+  byVariety: VarietySummaryRow[];
+  byFarmer: FarmerSummaryRow[];
+  overall: SummaryRowTotals;
+}
+
+function computeReportSummary(
+  passes: IncomingGatePassWithLinkWithStatus[]
+): IncomingReportSummary {
+  const varietyMap = new Map<string, SummaryRowTotals>();
+  const farmerMap = new Map<string, SummaryRowTotals>();
+  let overall: SummaryRowTotals = { bags: 0, gross: 0, tare: 0, net: 0, count: 0 };
+
+  for (const pass of passes) {
+    const bags = pass.bagsReceived ?? 0;
+    const gross = pass.weightSlip?.grossWeightKg ?? 0;
+    const tare = pass.weightSlip?.tareWeightKg ?? 0;
+    const net = getNetWeightKg(pass) ?? 0;
+    const variety = pass.variety?.trim() || '—';
+    const farmerName = getFarmerNameFromPass(pass);
+
+    overall.bags += bags;
+    overall.gross += gross;
+    overall.tare += tare;
+    overall.net += net;
+    overall.count += 1;
+
+    const v = varietyMap.get(variety);
+    if (v) {
+      v.bags += bags;
+      v.gross += gross;
+      v.tare += tare;
+      v.net += net;
+      v.count += 1;
+    } else {
+      varietyMap.set(variety, { bags, gross, tare, net, count: 1 });
+    }
+
+    const f = farmerMap.get(farmerName);
+    if (f) {
+      f.bags += bags;
+      f.gross += gross;
+      f.tare += tare;
+      f.net += net;
+      f.count += 1;
+    } else {
+      farmerMap.set(farmerName, { bags, gross, tare, net, count: 1 });
+    }
+  }
+
+  const byVariety: VarietySummaryRow[] = Array.from(varietyMap.entries())
+    .map(([variety, t]) => ({ variety, ...t }))
+    .sort((a, b) => a.variety.localeCompare(b.variety));
+  const byFarmer: FarmerSummaryRow[] = Array.from(farmerMap.entries())
+    .map(([farmerName, t]) => ({ farmerName, ...t }))
+    .sort((a, b) => a.farmerName.localeCompare(b.farmerName));
+
+  return { byVariety, byFarmer, overall };
+}
+
 // Create styles (header matches Daily Report PDF)
 const styles = StyleSheet.create({
   page: {
@@ -196,6 +290,72 @@ const styles = StyleSheet.create({
   varietyHeaderTitle: {
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  summaryPage: {
+    backgroundColor: '#FEFDF8',
+    padding: 16,
+    paddingBottom: 80,
+    fontFamily: 'Helvetica',
+    fontSize: 8,
+  },
+  summarySection: {
+    marginTop: 14,
+  },
+  summarySectionFirst: {
+    marginTop: 0,
+  },
+  summaryTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    paddingBottom: 3,
+  },
+  summaryTable: {
+    borderWidth: 1,
+    borderColor: '#000',
+    width: '100%',
+    marginBottom: 4,
+  },
+  summaryTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#E0E0E0',
+    fontWeight: 'bold',
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    paddingVertical: 3,
+  },
+  summaryTableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#666',
+    paddingVertical: 2,
+  },
+  summaryTableRowTotal: {
+    flexDirection: 'row',
+    backgroundColor: '#D0D0D0',
+    fontWeight: 'bold',
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    paddingVertical: 3,
+  },
+  summaryCell: {
+    paddingHorizontal: 3,
+    fontSize: 7,
+    textAlign: 'center',
+    borderRightWidth: 0.5,
+    borderRightColor: '#666',
+  },
+  summaryCellLeft: {
+    paddingHorizontal: 3,
+    fontSize: 7,
+    textAlign: 'left',
+    borderRightWidth: 0.5,
+    borderRightColor: '#666',
+  },
+  summaryCellLast: {
+    borderRightWidth: 0,
   },
 });
 
@@ -488,6 +648,162 @@ function VarietyBlockHeader({ variety }: { variety: string }) {
   );
 }
 
+const SUMMARY_COLUMNS = [
+  { key: 'name', label: 'Variety / Farmer', width: '32%' },
+  { key: 'count', label: 'GP Count', width: '10%' },
+  { key: 'bags', label: 'Bags', width: '12%' },
+  { key: 'gross', label: 'Gross (kg)', width: '14%' },
+  { key: 'tare', label: 'Tare (kg)', width: '14%' },
+  { key: 'net', label: 'Net (kg)', width: '18%' },
+];
+
+function ReportSummaryPage({
+  companyName,
+  dateRangeLabel,
+  reportTitle,
+  summary,
+}: {
+  companyName: string;
+  dateRangeLabel: string;
+  reportTitle?: string;
+  summary: IncomingReportSummary;
+}) {
+  const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(2));
+  return (
+    <Page size="A4" style={styles.summaryPage}>
+      <ReportHeader
+        companyName={companyName}
+        dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle ? `${reportTitle} — Summary` : 'INCOMING GATE PASS REPORT — Summary'}
+      />
+      {/* Variety-wise summary */}
+      <View style={[styles.summarySection, styles.summarySectionFirst]}>
+        <Text style={styles.summaryTitle}>Variety-wise total</Text>
+        <View style={styles.summaryTable}>
+          <View style={styles.summaryTableHeader}>
+            {SUMMARY_COLUMNS.map((col, i) => (
+              <Text
+                key={col.key}
+                style={[
+                  col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
+                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : [],
+                  { width: col.width },
+                ]}
+              >
+                {col.key === 'name' ? 'Variety' : col.label}
+              </Text>
+            ))}
+          </View>
+          {summary.byVariety.length === 0 ? (
+            <View style={styles.summaryTableRow}>
+              <Text style={[styles.summaryCellLeft, styles.summaryCellLast, { width: '100%', paddingVertical: 4 }]}>
+                No data
+              </Text>
+            </View>
+          ) : (
+            <>
+              {summary.byVariety.map((row) => (
+                <View key={row.variety} style={styles.summaryTableRow}>
+                  <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>{row.variety}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{row.count}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{row.bags}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(row.gross)}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(row.tare)}</Text>
+                  <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(row.net)}</Text>
+                </View>
+              ))}
+              <View style={styles.summaryTableRowTotal}>
+                <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>Total</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{summary.overall.count}</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{summary.overall.bags}</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(summary.overall.gross)}</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(summary.overall.tare)}</Text>
+                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(summary.overall.net)}</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+      {/* Farmer-wise summary */}
+      <View style={styles.summarySection}>
+        <Text style={styles.summaryTitle}>Farmer-wise total</Text>
+        <View style={styles.summaryTable}>
+          <View style={styles.summaryTableHeader}>
+            {SUMMARY_COLUMNS.map((col, i) => (
+              <Text
+                key={col.key}
+                style={[
+                  col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
+                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : [],
+                  { width: col.width },
+                ]}
+              >
+                {col.key === 'name' ? 'Farmer' : col.label}
+              </Text>
+            ))}
+          </View>
+          {summary.byFarmer.length === 0 ? (
+            <View style={styles.summaryTableRow}>
+              <Text style={[styles.summaryCellLeft, styles.summaryCellLast, { width: '100%', paddingVertical: 4 }]}>
+                No data
+              </Text>
+            </View>
+          ) : (
+            <>
+              {summary.byFarmer.map((row) => (
+                <View key={row.farmerName} style={styles.summaryTableRow}>
+                  <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>{row.farmerName}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{row.count}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{row.bags}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(row.gross)}</Text>
+                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(row.tare)}</Text>
+                  <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(row.net)}</Text>
+                </View>
+              ))}
+              <View style={styles.summaryTableRowTotal}>
+                <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>Total</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{summary.overall.count}</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{summary.overall.bags}</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(summary.overall.gross)}</Text>
+                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(summary.overall.tare)}</Text>
+                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(summary.overall.net)}</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+      {/* Overall total */}
+      <View style={styles.summarySection}>
+        <Text style={styles.summaryTitle}>Overall total</Text>
+        <View style={styles.summaryTable}>
+          <View style={styles.summaryTableHeader}>
+            {SUMMARY_COLUMNS.map((col, i) => (
+              <Text
+                key={col.key}
+                style={[
+                  col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
+                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : [],
+                  { width: col.width },
+                ]}
+              >
+                {col.key === 'name' ? '' : col.label}
+              </Text>
+            ))}
+          </View>
+          <View style={styles.summaryTableRowTotal}>
+            <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>Total</Text>
+            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{summary.overall.count}</Text>
+            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{summary.overall.bags}</Text>
+            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(summary.overall.gross)}</Text>
+            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(summary.overall.tare)}</Text>
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(summary.overall.net)}</Text>
+          </View>
+        </View>
+      </View>
+    </Page>
+  );
+}
+
 function FlatTable({
   companyName,
   dateRangeLabel,
@@ -771,6 +1087,9 @@ export const IncomingGatePassReportPdf = ({
   reportTitle = 'INCOMING GATE PASS REPORT',
   data,
 }: IncomingGatePassReportPdfProps) => {
+  const flatPasses = getFlatGatePasses(data);
+  const summary = computeReportSummary(flatPasses);
+
   if (isGroupedByVarietyAndFarmer(data)) {
     let pageIndex = 0;
     return (
@@ -804,6 +1123,7 @@ export const IncomingGatePassReportPdf = ({
             ))
           )
         )}
+        <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
       </Document>
     );
   }
@@ -836,6 +1156,7 @@ export const IncomingGatePassReportPdf = ({
             />
           ))
         )}
+        <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
       </Document>
     );
   }
@@ -868,11 +1189,12 @@ export const IncomingGatePassReportPdf = ({
             />
           ))
         )}
+        <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
       </Document>
     );
   }
 
-  const rows = getFlatGatePasses(data);
+  const rows = flatPasses;
   return (
     <Document>
       <FlatTable
@@ -881,6 +1203,7 @@ export const IncomingGatePassReportPdf = ({
         reportTitle={reportTitle}
         rows={rows}
       />
+      <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
     </Document>
   );
 };

@@ -101,6 +101,147 @@ function isGroupedByFarmer(
   );
 }
 
+/** Get flat list of all storage gate passes from any data shape */
+function getFlatPasses(
+  data: StorageGatePassReportPdfData
+): StorageGatePassReportItem[] {
+  if (isGroupedByVarietyAndFarmer(data)) {
+    return data.flatMap((v) => v.farmers.flatMap((f) => f.gatePasses));
+  }
+  if (isGroupedByVarietyOnly(data)) {
+    return data.flatMap((v) => v.gatePasses);
+  }
+  if (isGroupedByFarmer(data)) {
+    return data.flatMap((g) => g.gatePasses);
+  }
+  return data as StorageGatePassReportDataFlat;
+}
+
+function getFarmerNameFromPass(pass: StorageGatePassReportItem): string {
+  return pass.farmerStorageLinkId?.farmerId?.name ?? '—';
+}
+
+/** Per-pass row total from orderDetails */
+function getPassTotalBags(pass: StorageGatePassReportItem): number {
+  return (pass.orderDetails ?? []).reduce(
+    (sum, od) => sum + (od.currentQuantity ?? od.initialQuantity ?? 0),
+    0
+  );
+}
+
+/** Per-size total for a pass */
+function getPassSizeQtys(pass: StorageGatePassReportItem): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const od of pass.orderDetails ?? []) {
+    const size = od.size;
+    const qty = od.currentQuantity ?? od.initialQuantity ?? 0;
+    if (size) out[size] = (out[size] ?? 0) + qty;
+  }
+  return out;
+}
+
+interface StorageSummaryRowTotals {
+  count: number;
+  bags: number;
+  bySize: Record<string, number>;
+}
+
+interface StorageVarietySummaryRow {
+  variety: string;
+  count: number;
+  bags: number;
+  bySize: Record<string, number>;
+}
+
+interface StorageFarmerSummaryRow {
+  farmerName: string;
+  count: number;
+  bags: number;
+  bySize: Record<string, number>;
+}
+
+interface StorageSizeSummaryRow {
+  size: string;
+  bags: number;
+}
+
+interface StorageReportSummary {
+  byVariety: StorageVarietySummaryRow[];
+  byFarmer: StorageFarmerSummaryRow[];
+  bySize: StorageSizeSummaryRow[];
+  overall: StorageSummaryRowTotals;
+}
+
+function computeStorageReportSummary(
+  passes: StorageGatePassReportItem[]
+): StorageReportSummary {
+  const varietyMap = new Map<string, StorageSummaryRowTotals>();
+  const farmerMap = new Map<string, StorageSummaryRowTotals>();
+  const sizeMap = new Map<string, number>();
+  let overall: StorageSummaryRowTotals = {
+    count: 0,
+    bags: 0,
+    bySize: {},
+  };
+
+  for (const pass of passes) {
+    const variety = pass.variety?.trim() || '—';
+    const farmerName = getFarmerNameFromPass(pass);
+    const bags = getPassTotalBags(pass);
+    const sizeQtys = getPassSizeQtys(pass);
+
+    overall.count += 1;
+    overall.bags += bags;
+    for (const [size, qty] of Object.entries(sizeQtys)) {
+      overall.bySize[size] = (overall.bySize[size] ?? 0) + qty;
+      sizeMap.set(size, (sizeMap.get(size) ?? 0) + qty);
+    }
+
+    const v = varietyMap.get(variety);
+    if (v) {
+      v.count += 1;
+      v.bags += bags;
+      for (const [size, qty] of Object.entries(sizeQtys)) {
+        v.bySize[size] = (v.bySize[size] ?? 0) + qty;
+      }
+    } else {
+      varietyMap.set(variety, { count: 1, bags, bySize: { ...sizeQtys } });
+    }
+
+    const f = farmerMap.get(farmerName);
+    if (f) {
+      f.count += 1;
+      f.bags += bags;
+      for (const [size, qty] of Object.entries(sizeQtys)) {
+        f.bySize[size] = (f.bySize[size] ?? 0) + qty;
+      }
+    } else {
+      farmerMap.set(farmerName, { count: 1, bags, bySize: { ...sizeQtys } });
+    }
+  }
+
+  const byVariety: StorageVarietySummaryRow[] = Array.from(varietyMap.entries())
+    .map(([variety, t]) => ({ variety, ...t }))
+    .sort((a, b) => a.variety.localeCompare(b.variety));
+  const byFarmer: StorageFarmerSummaryRow[] = Array.from(farmerMap.entries())
+    .map(([farmerName, t]) => ({ farmerName, ...t }))
+    .sort((a, b) => a.farmerName.localeCompare(b.farmerName));
+  const sizeColumns = Array.from(sizeMap.keys()).sort((a, b) => {
+    const ai = GRADING_SIZES.indexOf(a);
+    const bi = GRADING_SIZES.indexOf(b);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.localeCompare(b);
+  });
+  const bySize: StorageSizeSummaryRow[] = sizeColumns.map((size) => ({
+    size,
+    bags: sizeMap.get(size) ?? 0,
+  }));
+
+  return { byVariety, byFarmer, bySize, overall };
+}
+
 /** Get unique sizes from all passes in report order (GRADING_SIZES first). */
 function getSizeColumns(passes: StorageGatePassReportItem[]): string[] {
   const sizeSet = new Set<string>();
@@ -379,7 +520,199 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
   },
+  summaryPage: {
+    backgroundColor: '#FEFDF8',
+    padding: 16,
+    paddingBottom: 80,
+    fontFamily: 'Helvetica',
+    fontSize: 8,
+  },
+  summarySection: {
+    marginTop: 10,
+  },
+  summarySectionFirst: {
+    marginTop: 0,
+  },
+  summarySectionTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    paddingBottom: 2,
+  },
+  summaryTable: {
+    borderWidth: 1,
+    borderColor: '#000',
+    width: '100%',
+    marginBottom: 4,
+  },
+  summaryTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#E0E0E0',
+    fontWeight: 'bold',
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    paddingVertical: 2,
+  },
+  summaryTableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#666',
+    paddingVertical: 2,
+  },
+  summaryTableRowTotal: {
+    flexDirection: 'row',
+    backgroundColor: '#D0D0D0',
+    fontWeight: 'bold',
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    paddingVertical: 2,
+  },
+  summaryCell: {
+    paddingHorizontal: 3,
+    fontSize: 7,
+    textAlign: 'center',
+    borderRightWidth: 0.5,
+    borderRightColor: '#666',
+  },
+  summaryCellLeft: {
+    paddingHorizontal: 3,
+    fontSize: 7,
+    textAlign: 'left',
+    borderRightWidth: 0.5,
+    borderRightColor: '#666',
+  },
+  summaryCellLast: {
+    borderRightWidth: 0,
+  },
 });
+
+/* ------------------------------------------------------------------ */
+/* Summary page */
+/* ------------------------------------------------------------------ */
+
+function StorageReportSummaryPage({
+  companyName,
+  dateRangeLabel,
+  summary,
+}: {
+  companyName: string;
+  dateRangeLabel: string;
+  summary: StorageReportSummary;
+}) {
+  const fmt = (n: number) => (n === 0 ? '0' : String(n));
+  const nameW = '28%';
+  const numW = '8%';
+  const sizeCols = summary.bySize.map((s) => s.size);
+  const sizeW = sizeCols.length > 0 ? `${Math.max(6, 48 / sizeCols.length)}%` : '8%';
+
+  const renderSummaryTable = (
+    title: string,
+    nameLabel: string,
+    rows: { name: string; count: number; bags: number; bySize: Record<string, number> }[],
+    showTotal: boolean
+  ) => (
+    <View style={styles.summarySection}>
+      <Text style={styles.summarySectionTitle}>{title}</Text>
+      <View style={styles.summaryTable}>
+        <View style={styles.summaryTableHeader}>
+          <Text style={[styles.summaryCellLeft, { width: nameW }]}>{nameLabel}</Text>
+          <Text style={[styles.summaryCell, { width: numW }]}>GP Count</Text>
+          <Text style={[styles.summaryCell, { width: numW }]}>Bags</Text>
+          {sizeCols.map((col) => (
+            <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{col}</Text>
+          ))}
+          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>Total</Text>
+        </View>
+        {rows.length === 0 ? (
+          <View style={styles.summaryTableRow}>
+            <Text style={[styles.summaryCellLeft, styles.summaryCellLast, { width: '100%', paddingVertical: 4 }]}>No data</Text>
+          </View>
+        ) : (
+          <>
+            {rows.map((row) => (
+              <View key={row.name} style={styles.summaryTableRow}>
+                <Text style={[styles.summaryCellLeft, { width: nameW }]}>{row.name}</Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>{row.count}</Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>{fmt(row.bags)}</Text>
+                {sizeCols.map((col) => (
+                  <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{fmt(row.bySize[col] ?? 0)}</Text>
+                ))}
+                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>{fmt(row.bags)}</Text>
+              </View>
+            ))}
+            {showTotal && (
+              <View style={styles.summaryTableRowTotal}>
+                <Text style={[styles.summaryCellLeft, { width: nameW }]}>Total</Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>{summary.overall.count}</Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+                {sizeCols.map((col) => (
+                  <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{fmt(summary.overall.bySize[col] ?? 0)}</Text>
+                ))}
+                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <Page size="A4" orientation="landscape" style={styles.summaryPage}>
+      <View style={styles.header}>
+        <Text style={styles.companyName}>{companyName}</Text>
+        <Text style={styles.reportTitle}>STORAGE GATE PASS REPORT — Summary</Text>
+        <Text style={styles.dateRange}>{dateRangeLabel}</Text>
+      </View>
+      {renderSummaryTable('Variety-wise total', 'Variety', summary.byVariety.map((r) => ({ name: r.variety, count: r.count, bags: r.bags, bySize: r.bySize })), true)}
+      {renderSummaryTable('Farmer-wise total', 'Farmer', summary.byFarmer.map((r) => ({ name: r.farmerName, count: r.count, bags: r.bags, bySize: r.bySize })), true)}
+      <View style={styles.summarySection}>
+        <Text style={styles.summarySectionTitle}>Size-wise total</Text>
+        <View style={styles.summaryTable}>
+          <View style={styles.summaryTableHeader}>
+            <Text style={[styles.summaryCellLeft, { width: '70%' }]}>Size</Text>
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: '30%' }]}>Total Bags</Text>
+          </View>
+          {summary.bySize.map((row) => (
+            <View key={row.size} style={styles.summaryTableRow}>
+              <Text style={[styles.summaryCellLeft, { width: '70%' }]}>{row.size}</Text>
+              <Text style={[styles.summaryCell, styles.summaryCellLast, { width: '30%' }]}>{fmt(row.bags)}</Text>
+            </View>
+          ))}
+          <View style={styles.summaryTableRowTotal}>
+            <Text style={[styles.summaryCellLeft, { width: '70%' }]}>Total</Text>
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: '30%' }]}>{fmt(summary.overall.bags)}</Text>
+          </View>
+        </View>
+      </View>
+      <View style={[styles.summarySection, { marginTop: 8 }]}>
+        <Text style={styles.summarySectionTitle}>Overall total</Text>
+        <View style={styles.summaryTable}>
+          <View style={styles.summaryTableHeader}>
+            <Text style={[styles.summaryCellLeft, { width: nameW }]}>Total</Text>
+            <Text style={[styles.summaryCell, { width: numW }]}>GP Count</Text>
+            <Text style={[styles.summaryCell, { width: numW }]}>Bags</Text>
+            {sizeCols.map((col) => (
+              <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{col}</Text>
+            ))}
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>Total</Text>
+          </View>
+          <View style={styles.summaryTableRowTotal}>
+            <Text style={[styles.summaryCellLeft, { width: nameW }]}>—</Text>
+            <Text style={[styles.summaryCell, { width: numW }]}>{summary.overall.count}</Text>
+            <Text style={[styles.summaryCell, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+            {sizeCols.map((col) => (
+              <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{fmt(summary.overall.bySize[col] ?? 0)}</Text>
+            ))}
+            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+          </View>
+        </View>
+      </View>
+    </Page>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Table component */
@@ -650,6 +983,8 @@ export function StorageGatePassReportPdf({
   data,
 }: StorageGatePassReportPdfProps) {
   const company = companyName;
+  const flatPasses = getFlatPasses(data);
+  const summary = computeStorageReportSummary(flatPasses);
 
   if (isGroupedByVarietyAndFarmer(data)) {
     const totalPages = data.reduce((sum, v) => sum + v.farmers.length, 0);
@@ -687,6 +1022,7 @@ export function StorageGatePassReportPdf({
             ))
           )
         )}
+        <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
       </Document>
     );
   }
@@ -722,6 +1058,7 @@ export function StorageGatePassReportPdf({
             </Page>
           ))
         )}
+        <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
       </Document>
     );
   }
@@ -757,11 +1094,10 @@ export function StorageGatePassReportPdf({
             </Page>
           ))
         )}
+        <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
       </Document>
     );
   }
-
-  const flatPasses = data as StorageGatePassReportDataFlat;
 
   return (
     <Document>
@@ -773,6 +1109,7 @@ export function StorageGatePassReportPdf({
           totalPages={1}
         />
       </Page>
+      <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
     </Document>
   );
 }
