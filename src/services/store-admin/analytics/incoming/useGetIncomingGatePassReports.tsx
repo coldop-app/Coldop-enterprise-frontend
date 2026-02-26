@@ -3,8 +3,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetIncomingGatePassReportApiResponse,
-  IncomingGatePassReportDataFlat,
-  IncomingGatePassReportDataGrouped,
+  IncomingGatePassReportData,
 } from '@/types/analytics';
 
 /** Query key prefix for incoming gate pass report */
@@ -16,14 +15,16 @@ export const incomingGatePassReportKeys = {
 export interface GetIncomingGatePassReportParams {
   dateFrom?: string;
   dateTo?: string;
-  /** When true, response is grouped by farmer; when false, flat list of gate passes */
+  /** When true, response is grouped by farmer */
   groupByFarmer?: boolean;
+  /** When true, response is grouped by variety (optionally nested by farmer if groupByFarmer is also true) */
+  groupByVariety?: boolean;
 }
 
 /** Fetcher used by queryOptions and prefetch */
 async function fetchIncomingGatePassReport(
   params: GetIncomingGatePassReportParams
-): Promise<IncomingGatePassReportDataGrouped | IncomingGatePassReportDataFlat> {
+): Promise<IncomingGatePassReportData> {
   const { data } =
     await storeAdminAxiosClient.get<GetIncomingGatePassReportApiResponse>(
       '/analytics/incoming-gate-pass-report',
@@ -32,6 +33,7 @@ async function fetchIncomingGatePassReport(
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
           groupByFarmer: params.groupByFarmer,
+          groupByVariety: params.groupByVariety,
         },
       }
     );

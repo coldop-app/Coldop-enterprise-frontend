@@ -1,19 +1,25 @@
 import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
 import type {
   IncomingGatePassReportDataFlatWithStatus,
+  IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus,
+  IncomingGatePassReportDataGroupedByVarietyWithStatus,
   IncomingGatePassReportDataGroupedWithStatus,
   IncomingGatePassReportGroupedItemWithStatus,
   IncomingGatePassWithLinkWithStatus,
 } from '@/types/analytics';
+
+export type IncomingGatePassReportPdfData =
+  | IncomingGatePassReportDataFlatWithStatus
+  | IncomingGatePassReportDataGroupedWithStatus
+  | IncomingGatePassReportDataGroupedByVarietyWithStatus
+  | IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus;
 
 export interface IncomingGatePassReportPdfProps {
   companyName?: string;
   dateRangeLabel: string;
   /** When provided (e.g. for ungraded report), used as the report title in the PDF header. Defaults to "INCOMING GATE PASS REPORT". */
   reportTitle?: string;
-  data:
-    | IncomingGatePassReportDataGroupedWithStatus
-    | IncomingGatePassReportDataFlatWithStatus;
+  data: IncomingGatePassReportPdfData;
 }
 
 function formatPdfDate(iso: string): string {
@@ -25,20 +31,50 @@ function formatPdfDate(iso: string): string {
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
 }
 
-function isGrouped(
-  data:
-    | IncomingGatePassReportDataGroupedWithStatus
-    | IncomingGatePassReportDataFlatWithStatus
+function isGroupedByVarietyAndFarmer(
+  data: IncomingGatePassReportPdfData
+): data is IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'farmers' in data[0]
+  );
+}
+
+function isGroupedByVarietyOnly(
+  data: IncomingGatePassReportPdfData
+): data is IncomingGatePassReportDataGroupedByVarietyWithStatus {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'gatePasses' in data[0] &&
+    !('farmers' in data[0])
+  );
+}
+
+function isGroupedByFarmer(
+  data: IncomingGatePassReportPdfData
 ): data is IncomingGatePassReportDataGroupedWithStatus {
-  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'farmer' in data[0] &&
+    'gatePasses' in data[0]
+  );
 }
 
 function getFlatGatePasses(
-  data:
-    | IncomingGatePassReportDataGroupedWithStatus
-    | IncomingGatePassReportDataFlatWithStatus
+  data: IncomingGatePassReportPdfData
 ): IncomingGatePassWithLinkWithStatus[] {
-  if (isGrouped(data)) {
+  if (isGroupedByVarietyAndFarmer(data)) {
+    return data.flatMap((v) => v.farmers.flatMap((f) => f.gatePasses));
+  }
+  if (isGroupedByVarietyOnly(data)) {
+    return data.flatMap((v) => v.gatePasses);
+  }
+  if (isGroupedByFarmer(data)) {
     return data.flatMap((item) => item.gatePasses);
   }
   return data as IncomingGatePassReportDataFlatWithStatus;
@@ -143,6 +179,23 @@ const styles = StyleSheet.create({
   farmerHeaderRow: {
     fontSize: 8,
     marginBottom: 2,
+  },
+  varietySection: {
+    marginTop: 14,
+  },
+  varietySectionFirst: {
+    marginTop: 0,
+  },
+  varietyHeader: {
+    backgroundColor: '#D0E8D0',
+    borderWidth: 1,
+    borderColor: '#000',
+    padding: 6,
+    marginBottom: 6,
+  },
+  varietyHeaderTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
   },
 });
 
@@ -427,6 +480,14 @@ function FarmerBlockHeader({
   );
 }
 
+function VarietyBlockHeader({ variety }: { variety: string }) {
+  return (
+    <View style={styles.varietyHeader}>
+      <Text style={styles.varietyHeaderTitle}>Variety: {variety}</Text>
+    </View>
+  );
+}
+
 function FlatTable({
   companyName,
   dateRangeLabel,
@@ -556,6 +617,153 @@ function GroupedTablePage({
   );
 }
 
+function GroupedByVarietyTablePage({
+  companyName,
+  dateRangeLabel,
+  reportTitle,
+  varietyItem,
+  isFirstPage,
+}: {
+  companyName: string;
+  dateRangeLabel: string;
+  reportTitle?: string;
+  varietyItem: IncomingGatePassReportDataGroupedByVarietyWithStatus[number];
+  isFirstPage: boolean;
+}) {
+  const { variety, gatePasses } = varietyItem;
+  return (
+    <Page size="A4" style={styles.page}>
+      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
+      <View
+        style={[
+          styles.varietySection,
+          ...(isFirstPage ? [styles.varietySectionFirst] : []),
+        ]}
+      >
+        <VarietyBlockHeader variety={variety} />
+        <View style={styles.tableContainer}>
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              {COLUMNS.map((col, i) => (
+                <Text
+                  key={col.key}
+                  style={[
+                    col.align === 'left' ? styles.cellLeft : styles.cell,
+                    ...(i === COLUMNS.length - 1 ? [styles.cellLast] : []),
+                    { width: col.width },
+                  ]}
+                >
+                  {col.label}
+                </Text>
+              ))}
+            </View>
+            {gatePasses.length === 0 ? (
+              <View style={styles.tableRow}>
+                <Text
+                  style={[
+                    styles.cellLeft,
+                    styles.cellLast,
+                    { width: '100%', paddingVertical: 8 },
+                  ]}
+                >
+                  No gate passes for this variety.
+                </Text>
+              </View>
+            ) : (
+              gatePasses.map((pass) => (
+                <GatePassTableRow
+                  key={pass._id}
+                  pass={pass}
+                  columns={COLUMNS}
+                  includeFarmerName
+                />
+              ))
+            )}
+          </View>
+        </View>
+      </View>
+    </Page>
+  );
+}
+
+function GroupedByVarietyAndFarmerTablePage({
+  companyName,
+  dateRangeLabel,
+  reportTitle,
+  varietyLabel,
+  group,
+  showVarietyHeader,
+  isFirstPage,
+}: {
+  companyName: string;
+  dateRangeLabel: string;
+  reportTitle?: string;
+  varietyLabel: string;
+  group: IncomingGatePassReportGroupedItemWithStatus;
+  showVarietyHeader: boolean;
+  isFirstPage: boolean;
+}) {
+  const { farmer, gatePasses } = group;
+  return (
+    <Page size="A4" style={styles.page}>
+      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
+      <View
+        style={[
+          styles.farmerSection,
+          ...(isFirstPage ? [styles.farmerSectionFirst] : []),
+        ]}
+      >
+        {showVarietyHeader && (
+          <VarietyBlockHeader variety={varietyLabel} />
+        )}
+        <FarmerBlockHeader farmer={farmer} />
+        <View style={styles.tableContainer}>
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              {COLUMNS_GROUPED.map((col, i) => (
+                <Text
+                  key={col.key}
+                  style={[
+                    col.align === 'left' ? styles.cellLeft : styles.cell,
+                    ...(i === COLUMNS_GROUPED.length - 1
+                      ? [styles.cellLast]
+                      : []),
+                    { width: col.width },
+                  ]}
+                >
+                  {col.label}
+                </Text>
+              ))}
+            </View>
+            {gatePasses.length === 0 ? (
+              <View style={styles.tableRow}>
+                <Text
+                  style={[
+                    styles.cellLeft,
+                    styles.cellLast,
+                    { width: '100%', paddingVertical: 8 },
+                  ]}
+                >
+                  No gate passes for this farmer.
+                </Text>
+              </View>
+            ) : (
+              gatePasses.map((pass) => (
+                <GatePassTableRow
+                  key={pass._id}
+                  pass={pass}
+                  columns={COLUMNS_GROUPED}
+                  includeFarmerName={false}
+                />
+              ))
+            )}
+          </View>
+        </View>
+      </View>
+    </Page>
+  );
+}
+
 // Create Document Component
 export const IncomingGatePassReportPdf = ({
   companyName = 'Cold Storage',
@@ -563,7 +771,76 @@ export const IncomingGatePassReportPdf = ({
   reportTitle = 'INCOMING GATE PASS REPORT',
   data,
 }: IncomingGatePassReportPdfProps) => {
-  if (isGrouped(data)) {
+  if (isGroupedByVarietyAndFarmer(data)) {
+    let pageIndex = 0;
+    return (
+      <Document>
+        {data.length === 0 ? (
+          <Page size="A4" style={styles.page}>
+            <ReportHeader
+              companyName={companyName}
+              dateRangeLabel={dateRangeLabel}
+              reportTitle={reportTitle}
+            />
+            <View style={styles.tableContainer}>
+              <Text style={[styles.cellLeft, { paddingVertical: 8 }]}>
+                No incoming gate pass data for this period.
+              </Text>
+            </View>
+          </Page>
+        ) : (
+          data.flatMap((varietyItem) =>
+            varietyItem.farmers.map((group, farmerIndex) => (
+              <GroupedByVarietyAndFarmerTablePage
+                key={`${varietyItem.variety}-${group.farmer._id}`}
+                companyName={companyName}
+                dateRangeLabel={dateRangeLabel}
+                reportTitle={reportTitle}
+                varietyLabel={varietyItem.variety}
+                group={group}
+                showVarietyHeader={farmerIndex === 0}
+                isFirstPage={pageIndex++ === 0}
+              />
+            ))
+          )
+        )}
+      </Document>
+    );
+  }
+
+  if (isGroupedByVarietyOnly(data)) {
+    return (
+      <Document>
+        {data.length === 0 ? (
+          <Page size="A4" style={styles.page}>
+            <ReportHeader
+              companyName={companyName}
+              dateRangeLabel={dateRangeLabel}
+              reportTitle={reportTitle}
+            />
+            <View style={styles.tableContainer}>
+              <Text style={[styles.cellLeft, { paddingVertical: 8 }]}>
+                No incoming gate pass data for this period.
+              </Text>
+            </View>
+          </Page>
+        ) : (
+          data.map((varietyItem, index) => (
+            <GroupedByVarietyTablePage
+              key={varietyItem.variety}
+              companyName={companyName}
+              dateRangeLabel={dateRangeLabel}
+              reportTitle={reportTitle}
+              varietyItem={varietyItem}
+              isFirstPage={index === 0}
+            />
+          ))
+        )}
+      </Document>
+    );
+  }
+
+  if (isGroupedByFarmer(data)) {
     return (
       <Document>
         {data.length === 0 ? (

@@ -74,6 +74,7 @@ export function GetReportsDialog({
   const [fromDate, setFromDate] = useState(defaultDateString);
   const [toDate, setToDate] = useState(defaultDateString);
   const [groupByFarmer, setGroupByFarmer] = useState(false);
+  const [groupByVariety, setGroupByVariety] = useState(false);
   const [submittedParams, setSubmittedParams] = useState<
     | GetIncomingGatePassReportParams
     | GetGradingGatePassReportParams
@@ -221,12 +222,16 @@ export function GetReportsDialog({
       dateFrom,
       dateTo,
       groupByFarmer,
+      ...(isIncoming || isUngraded ? { groupByVariety } : {}),
     };
 
     const sameParams =
       submittedParams?.dateFrom === dateFrom &&
       submittedParams?.dateTo === dateTo &&
-      submittedParams?.groupByFarmer === groupByFarmer;
+      submittedParams?.groupByFarmer === groupByFarmer &&
+      (reportType !== 'incoming' && reportType !== 'ungraded'
+        ? true
+        : submittedParams?.groupByVariety === groupByVariety);
 
     userTriggeredFetchRef.current = true;
     toast.loading('Fetching reports…', { id: 'get-reports' });
@@ -249,6 +254,7 @@ export function GetReportsDialog({
     setFromDate(defaultDateString);
     setToDate(defaultDateString);
     setGroupByFarmer(false);
+    setGroupByVariety(false);
     setSubmittedParams(null);
   };
 
@@ -459,19 +465,57 @@ export function GetReportsDialog({
             onChange={setToDate}
           />
 
-          <div className="flex items-center gap-2 pt-1">
-            <Checkbox
-              id="reports-group-by-farmers"
-              checked={groupByFarmer}
-              onCheckedChange={(checked) => setGroupByFarmer(checked === true)}
-            />
-            <Label
-              htmlFor="reports-group-by-farmers"
-              className="font-custom cursor-pointer text-sm font-normal"
-            >
-              Group by farmers
-            </Label>
-          </div>
+          {(isIncoming || isUngraded) && (
+            <>
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox
+                  id="reports-group-by-farmers"
+                  checked={groupByFarmer}
+                  onCheckedChange={(checked) =>
+                    setGroupByFarmer(checked === true)
+                  }
+                />
+                <Label
+                  htmlFor="reports-group-by-farmers"
+                  className="font-custom cursor-pointer text-sm font-normal"
+                >
+                  Group by farmers
+                </Label>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox
+                  id="reports-group-by-variety"
+                  checked={groupByVariety}
+                  onCheckedChange={(checked) =>
+                    setGroupByVariety(checked === true)
+                  }
+                />
+                <Label
+                  htmlFor="reports-group-by-variety"
+                  className="font-custom cursor-pointer text-sm font-normal"
+                >
+                  Group by variety
+                </Label>
+              </div>
+            </>
+          )}
+          {(isGrading || isStored || isDispatch) && (
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="reports-group-by-farmers-other"
+                checked={groupByFarmer}
+                onCheckedChange={(checked) =>
+                  setGroupByFarmer(checked === true)
+                }
+              />
+              <Label
+                htmlFor="reports-group-by-farmers-other"
+                className="font-custom cursor-pointer text-sm font-normal"
+              >
+                Group by farmers
+              </Label>
+            </div>
+          )}
 
           {reportType !== 'incoming' &&
             reportType !== 'ungraded' &&

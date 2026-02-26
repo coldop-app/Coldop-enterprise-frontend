@@ -48,12 +48,32 @@ export interface IncomingGatePassReportGroupedItem {
   gatePasses: IncomingGatePassWithLink[];
 }
 
-/** Data shape when groupByFarmer=true */
+/** Data shape when groupByFarmer=true, groupByVariety=false */
 export type IncomingGatePassReportDataGrouped =
   IncomingGatePassReportGroupedItem[];
 
-/** Data shape when groupByFarmer=false */
+/** Data shape when groupByFarmer=false, groupByVariety=false */
 export type IncomingGatePassReportDataFlat = IncomingGatePassWithLink[];
+
+/** Single group when groupByVariety=true, groupByFarmer=false */
+export interface IncomingGatePassReportVarietyGroupItem {
+  variety: string;
+  gatePasses: IncomingGatePassWithLink[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=false */
+export type IncomingGatePassReportDataGroupedByVariety =
+  IncomingGatePassReportVarietyGroupItem[];
+
+/** Single group when groupByVariety=true, groupByFarmer=true */
+export interface IncomingGatePassReportVarietyAndFarmerItem {
+  variety: string;
+  farmers: IncomingGatePassReportGroupedItem[];
+}
+
+/** Data shape when groupByVariety=true, groupByFarmer=true */
+export type IncomingGatePassReportDataGroupedByVarietyAndFarmer =
+  IncomingGatePassReportVarietyAndFarmerItem[];
 
 /** Incoming gate pass with grading status (Graded if referenced by a grading gate pass) */
 export type IncomingGatePassWithLinkWithStatus = IncomingGatePassWithLink & {
@@ -71,10 +91,42 @@ export type IncomingGatePassReportDataGroupedWithStatus =
 export type IncomingGatePassReportDataFlatWithStatus =
   IncomingGatePassWithLinkWithStatus[];
 
+/** Variety-only group with grading status */
+export interface IncomingGatePassReportVarietyGroupItemWithStatus {
+  variety: string;
+  gatePasses: IncomingGatePassWithLinkWithStatus[];
+}
+
+export type IncomingGatePassReportDataGroupedByVarietyWithStatus =
+  IncomingGatePassReportVarietyGroupItemWithStatus[];
+
+/** Variety + farmer group with grading status */
+export interface IncomingGatePassReportVarietyAndFarmerItemWithStatus {
+  variety: string;
+  farmers: IncomingGatePassReportGroupedItemWithStatus[];
+}
+
+export type IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus =
+  IncomingGatePassReportVarietyAndFarmerItemWithStatus[];
+
+/** Union of all possible incoming gate pass report data shapes */
+export type IncomingGatePassReportData =
+  | IncomingGatePassReportDataFlat
+  | IncomingGatePassReportDataGrouped
+  | IncomingGatePassReportDataGroupedByVariety
+  | IncomingGatePassReportDataGroupedByVarietyAndFarmer;
+
+/** Union of all possible incoming gate pass report data shapes with grading status */
+export type IncomingGatePassReportDataWithStatus =
+  | IncomingGatePassReportDataFlatWithStatus
+  | IncomingGatePassReportDataGroupedWithStatus
+  | IncomingGatePassReportDataGroupedByVarietyWithStatus
+  | IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus;
+
 /** API response for GET /analytics/incoming-gate-pass-report */
 export interface GetIncomingGatePassReportApiResponse {
   success: boolean;
-  data: IncomingGatePassReportDataGrouped | IncomingGatePassReportDataFlat;
+  data: IncomingGatePassReportData;
   message?: string;
 }
 

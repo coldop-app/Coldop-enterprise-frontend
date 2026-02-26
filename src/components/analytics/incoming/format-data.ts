@@ -4,7 +4,12 @@ import type {
   IncomingGatePassReportDataFlat,
   IncomingGatePassReportDataFlatWithStatus,
   IncomingGatePassReportDataGrouped,
+  IncomingGatePassReportDataGroupedByVariety,
+  IncomingGatePassReportDataGroupedByVarietyAndFarmer,
+  IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus,
+  IncomingGatePassReportDataGroupedByVarietyWithStatus,
   IncomingGatePassReportDataGroupedWithStatus,
+  IncomingGatePassReportDataWithStatus,
 } from '@/types/analytics';
 
 function isGradingGrouped(
@@ -48,9 +53,49 @@ function getGradedIncomingGatePassIds(
 }
 
 function isIncomingGrouped(
-  data: IncomingGatePassReportDataGrouped | IncomingGatePassReportDataFlat
+  data:
+    | IncomingGatePassReportDataGrouped
+    | IncomingGatePassReportDataFlat
+    | IncomingGatePassReportDataGroupedByVariety
+    | IncomingGatePassReportDataGroupedByVarietyAndFarmer
 ): data is IncomingGatePassReportDataGrouped {
-  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'farmer' in data[0] &&
+    'gatePasses' in data[0]
+  );
+}
+
+function isIncomingGroupedByVariety(
+  data:
+    | IncomingGatePassReportDataGrouped
+    | IncomingGatePassReportDataFlat
+    | IncomingGatePassReportDataGroupedByVariety
+    | IncomingGatePassReportDataGroupedByVarietyAndFarmer
+): data is IncomingGatePassReportDataGroupedByVariety {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'gatePasses' in data[0] &&
+    !('farmers' in data[0])
+  );
+}
+
+function isIncomingGroupedByVarietyAndFarmer(
+  data:
+    | IncomingGatePassReportDataGrouped
+    | IncomingGatePassReportDataFlat
+    | IncomingGatePassReportDataGroupedByVariety
+    | IncomingGatePassReportDataGroupedByVarietyAndFarmer
+): data is IncomingGatePassReportDataGroupedByVarietyAndFarmer {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'farmers' in data[0]
+  );
 }
 
 /**
@@ -60,11 +105,15 @@ function isIncomingGrouped(
 export function addGradingStatusToIncomingReport(
   incomingData:
     | IncomingGatePassReportDataGrouped
-    | IncomingGatePassReportDataFlat,
+    | IncomingGatePassReportDataFlat
+    | IncomingGatePassReportDataGroupedByVariety
+    | IncomingGatePassReportDataGroupedByVarietyAndFarmer,
   gradingData: GradingGatePassReportDataGrouped | GradingGatePassReportDataFlat
 ):
   | IncomingGatePassReportDataGroupedWithStatus
-  | IncomingGatePassReportDataFlatWithStatus {
+  | IncomingGatePassReportDataFlatWithStatus
+  | IncomingGatePassReportDataGroupedByVarietyWithStatus
+  | IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus {
   const gradedIds = getGradedIncomingGatePassIds(gradingData);
 
   const withStatus = (
@@ -74,6 +123,21 @@ export function addGradingStatusToIncomingReport(
     gradingStatus: gradedIds.has(pass._id) ? 'Graded' : 'Ungraded',
   });
 
+  if (isIncomingGroupedByVarietyAndFarmer(incomingData)) {
+    return incomingData.map((item) => ({
+      variety: item.variety,
+      farmers: item.farmers.map((f) => ({
+        farmer: f.farmer,
+        gatePasses: f.gatePasses.map(withStatus),
+      })),
+    }));
+  }
+  if (isIncomingGroupedByVariety(incomingData)) {
+    return incomingData.map((item) => ({
+      variety: item.variety,
+      gatePasses: item.gatePasses.map(withStatus),
+    }));
+  }
   if (isIncomingGrouped(incomingData)) {
     return incomingData.map((group) => ({
       farmer: group.farmer,
@@ -84,11 +148,37 @@ export function addGradingStatusToIncomingReport(
 }
 
 function isGroupedWithStatus(
-  data:
-    | IncomingGatePassReportDataGroupedWithStatus
-    | IncomingGatePassReportDataFlatWithStatus
+  data: IncomingGatePassReportDataWithStatus
 ): data is IncomingGatePassReportDataGroupedWithStatus {
-  return Array.isArray(data) && data.length > 0 && 'gatePasses' in data[0];
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'farmer' in data[0] &&
+    'gatePasses' in data[0]
+  );
+}
+
+function isGroupedByVarietyWithStatus(
+  data: IncomingGatePassReportDataWithStatus
+): data is IncomingGatePassReportDataGroupedByVarietyWithStatus {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'gatePasses' in data[0] &&
+    !('farmers' in data[0])
+  );
+}
+
+function isGroupedByVarietyAndFarmerWithStatus(
+  data: IncomingGatePassReportDataWithStatus
+): data is IncomingGatePassReportDataGroupedByVarietyAndFarmerWithStatus {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    'variety' in data[0] &&
+    'farmers' in data[0]
+  );
 }
 
 /**
@@ -96,12 +186,29 @@ function isGroupedWithStatus(
  * Preserves grouped vs flat shape.
  */
 export function filterIncomingReportToUngraded(
-  data:
-    | IncomingGatePassReportDataGroupedWithStatus
-    | IncomingGatePassReportDataFlatWithStatus
-):
-  | IncomingGatePassReportDataGroupedWithStatus
-  | IncomingGatePassReportDataFlatWithStatus {
+  data: IncomingGatePassReportDataWithStatus
+): IncomingGatePassReportDataWithStatus {
+  if (isGroupedByVarietyAndFarmerWithStatus(data)) {
+    return data
+      .map((item) => ({
+        variety: item.variety,
+        farmers: item.farmers
+          .map((f) => ({
+            farmer: f.farmer,
+            gatePasses: f.gatePasses.filter((p) => p.gradingStatus === 'Ungraded'),
+          }))
+          .filter((f) => f.gatePasses.length > 0),
+      }))
+      .filter((item) => item.farmers.length > 0);
+  }
+  if (isGroupedByVarietyWithStatus(data)) {
+    return data
+      .map((item) => ({
+        variety: item.variety,
+        gatePasses: item.gatePasses.filter((p) => p.gradingStatus === 'Ungraded'),
+      }))
+      .filter((item) => item.gatePasses.length > 0);
+  }
   if (isGroupedWithStatus(data)) {
     const filtered = data
       .map((group) => ({
