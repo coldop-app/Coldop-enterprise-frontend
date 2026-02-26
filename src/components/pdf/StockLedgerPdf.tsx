@@ -57,6 +57,7 @@ const LEFT_BLOCK_WIDTH =
   COL_WIDTHS.gradingGatePassNo +
   COL_WIDTHS.manualGradingGatePassNo +
   COL_WIDTHS.date +
+  COL_WIDTHS.gradingGatePassDate +
   COL_WIDTHS.store +
   COL_WIDTHS.variety +
   COL_WIDTHS.truckNumber +
@@ -153,61 +154,67 @@ const styles = StyleSheet.create({
   dataRowMiddleBlock: {
     flexShrink: 0,
   },
-  /** Block: Wt Received After Grading (row span 2, like left block). */
+  /** Block: Wt Received After Grading (row span 2). Top-aligned. No left border (last size column draws it). Own right border so content aligns with column edge. */
   dataRowWtReceivedBlock: {
     flexDirection: 'column',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     minHeight: ROW_HEIGHT * 2,
     width: COL_WIDTHS.wtReceivedAfterGrading,
     flexShrink: 0,
-    borderLeftWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 1,
     borderColor: BORDER,
   },
-  /** Block: Less Bardana after grading (2 sub-rows: JUTE row value, LENO row value). */
+  /** Block: Less Bardana after grading (2 sub-rows). No left border. Own right border for content alignment. */
   dataRowLessBardanaBlock: {
     width: COL_WIDTHS.lessBardanaAfterGrading,
     flexShrink: 0,
-    borderLeftWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 1,
     borderColor: BORDER,
   },
-  /** Block: Actual wt of Potato (row span 2) = Wt Rec. After Gr. - Less Bard. after grading. */
+  /** Block: Actual wt of Potato (row span 2). No left border. Own right border for content alignment. */
   dataRowActualWtOfPotatoBlock: {
     flexDirection: 'column',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     minHeight: ROW_HEIGHT * 2,
     width: COL_WIDTHS.actualWtOfPotato,
     flexShrink: 0,
-    borderLeftWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 1,
     borderColor: BORDER,
   },
-  /** Block: Weight Shortage (row span 2) = Actual Weight (incoming) - Actual wt of Potato. */
+  /** Block: Weight Shortage (row span 2). No left border. Own right border for content alignment. */
   dataRowWeightShortageBlock: {
     flexDirection: 'column',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     minHeight: ROW_HEIGHT * 2,
     width: COL_WIDTHS.weightShortage,
     flexShrink: 0,
-    borderLeftWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 1,
     borderColor: BORDER,
   },
-  /** Block: Shortage % (row span 2) = (Weight Shortage / Actual Weight incoming) × 100. */
+  /** Block: Shortage % (row span 2). No left border. Own right border for content alignment. */
   dataRowWeightShortagePercentBlock: {
     flexDirection: 'column',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     minHeight: ROW_HEIGHT * 2,
     width: COL_WIDTHS.weightShortagePercent,
     flexShrink: 0,
-    borderLeftWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 1,
     borderColor: BORDER,
   },
-  /** Block: Amount Payable (row span 2) = sum over sizes of bags × (wt per bag − bag wt) × buy-back rate. */
+  /** Block: Amount Payable (row span 2). No left border. Own right border for content alignment (same as other grading columns). */
   dataRowAmountPayableBlock: {
     flexDirection: 'column',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     minHeight: ROW_HEIGHT * 2,
     width: COL_WIDTHS.amountPayable,
     flexShrink: 0,
-    borderLeftWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 1,
     borderColor: BORDER,
   },
   /** Single sub-row for TYPE + size columns (JUTE or LENO). */
@@ -250,8 +257,17 @@ const styles = StyleSheet.create({
   headerCellLast: {
     borderRightWidth: 0,
   },
+  /** Right border of Actual (incoming) column: subtle black line before Post Gr. / grading section */
+  cellDividerAfterIncoming: {
+    borderRightColor: '#000000',
+  },
   cellCenter: {
     textAlign: 'center',
+  },
+  /** Center text within full column width so data aligns with centered headers */
+  cellTextFullWidthCenter: {
+    textAlign: 'center',
+    alignSelf: 'stretch',
   },
   cellRight: {
     textAlign: 'right',
@@ -259,6 +275,7 @@ const styles = StyleSheet.create({
   /** Wrapper for size cell content (quantity + weight line) to keep center-aligned block */
   sizeCellContent: {
     alignItems: 'center',
+    alignSelf: 'stretch',
   },
   /** Second line in size cell: weight per bag in brackets */
   sizeCellSub: {
@@ -298,7 +315,9 @@ function TableHeader({
   return (
     <View style={styles.headerRow}>
       <View style={[styles.headerCell, { width: COL_WIDTHS.gpNo }]}>
-        <Text style={styles.cellCenter}>Gp No</Text>
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+          System Incoming GP No
+        </Text>
       </View>
       <View
         style={[
@@ -306,12 +325,14 @@ function TableHeader({
           { width: COL_WIDTHS.manualIncomingVoucherNo },
         ]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Manual No</Text>
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Incoming GP No</Text>
       </View>
       <View
         style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassNo }]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>GGP No</Text>
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+          System Grading GP NO
+        </Text>
       </View>
       <View
         style={[
@@ -319,10 +340,19 @@ function TableHeader({
           { width: COL_WIDTHS.manualGradingGatePassNo },
         ]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Manual GGP</Text>
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Grading Gp No</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.date }]}>
-        <Text style={styles.cellCenter}>Date</Text>
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+          Incoming gate pass date
+        </Text>
+      </View>
+      <View
+        style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassDate }]}
+      >
+        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+          Grading gate pass date
+        </Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.store }]}>
         <Text style={styles.cellCenter}>Store</Text>
@@ -331,41 +361,47 @@ function TableHeader({
         <Text style={styles.cellCenter}>Variety</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.truckNumber }]}>
-        <Text style={styles.cellCenter}>Truck</Text>
+        <Text style={styles.cellCenter}>Truck Number</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.bagsReceived }]}>
-        <Text style={styles.cellCenter}>Bags Rec.</Text>
+        <Text style={styles.cellCenter}>Bags Received</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.weightSlipNo }]}>
-        <Text style={styles.cellCenter}>Slip No.</Text>
+        <Text style={styles.cellCenter}>Weight Slip No.</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.grossWeight }]}>
-        <Text style={styles.cellCenter}>Gross</Text>
+        <Text style={styles.cellCenter}>Gross Weight</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.tareWeight }]}>
-        <Text style={styles.cellCenter}>Tare</Text>
+        <Text style={styles.cellCenter}>Tare Weight</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.netWeight }]}>
-        <Text style={styles.cellCenter}>Net</Text>
+        <Text style={styles.cellCenter}>Net Weight</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.lessBardana }]}>
-        <Text style={styles.cellCenter}>Less Bard.</Text>
+        <Text style={styles.cellCenter}>Less Bard Weight @0.700 g</Text>
       </View>
-      <View style={[styles.headerCell, { width: COL_WIDTHS.actualWeight }]}>
-        <Text style={styles.cellCenter}>Actual</Text>
+      <View
+        style={[
+          styles.headerCell,
+          styles.cellDividerAfterIncoming,
+          { width: COL_WIDTHS.actualWeight },
+        ]}
+      >
+        <Text style={styles.cellCenter}>Actual Weight of Potato</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.postGradingBags }]}>
-        <Text style={styles.cellCenter}>Post Gr.</Text>
+        <Text style={styles.cellCenter}>Number of Bags Post Grading</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.bagType }]}>
-        <Text style={styles.cellCenter}>Type</Text>
+        <Text style={styles.cellTextFullWidthCenter}>Type</Text>
       </View>
       {sizesWithQuantities.map((size) => (
         <View
           key={size}
           style={[styles.headerCell, { width: COL_WIDTHS.sizeColumn }]}
         >
-          <Text style={styles.cellCenter}>
+          <Text style={styles.cellTextFullWidthCenter}>
             {SIZE_HEADER_LABELS[size] ?? size}
           </Text>
         </View>
@@ -376,8 +412,8 @@ function TableHeader({
           { width: COL_WIDTHS.wtReceivedAfterGrading },
         ]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
-          Wt Rec. After Gr.
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+          Weight Received After Grading
         </Text>
       </View>
       <View
@@ -386,22 +422,26 @@ function TableHeader({
           { width: COL_WIDTHS.lessBardanaAfterGrading },
         ]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Less Bard.</Text>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+          Less Bard Weight
+        </Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.actualWtOfPotato }]}>
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
-          Actual wt of Potato
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+          Actual wt of Graded Potato
         </Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.weightShortage }]}>
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
           Weight Shortage
         </Text>
       </View>
       <View
         style={[styles.headerCell, { width: COL_WIDTHS.weightShortagePercent }]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Shortage %</Text>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+          Shortage %
+        </Text>
       </View>
       {includeAmountPayable && (
         <View
@@ -411,7 +451,7 @@ function TableHeader({
             { width: COL_WIDTHS.amountPayable },
           ]}
         >
-          <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+          <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
             Amount Payable
           </Text>
         </View>
@@ -545,6 +585,11 @@ function TotalRow({
       <View style={[styles.totalCell, { width: COL_WIDTHS.date }]}>
         <Text />
       </View>
+      <View
+        style={[styles.totalCell, { width: COL_WIDTHS.gradingGatePassDate }]}
+      >
+        <Text />
+      </View>
       <View style={[styles.totalCell, { width: COL_WIDTHS.store }]}>
         <Text />
       </View>
@@ -582,7 +627,13 @@ function TotalRow({
           {totals.totalLessBardanaKg.toLocaleString('en-IN')}
         </Text>
       </View>
-      <View style={[styles.totalCell, { width: COL_WIDTHS.actualWeight }]}>
+      <View
+        style={[
+          styles.totalCell,
+          styles.cellDividerAfterIncoming,
+          { width: COL_WIDTHS.actualWeight },
+        ]}
+      >
         <Text style={boldCenter}>
           {totals.totalActualWeightKg.toLocaleString('en-IN')}
         </Text>
@@ -600,7 +651,7 @@ function TotalRow({
           key={size}
           style={[styles.totalCell, { width: COL_WIDTHS.sizeColumn }]}
         >
-          <Text style={boldCenter}>
+          <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
             {totals.totalSizeBags[size] > 0
               ? totals.totalSizeBags[size].toLocaleString('en-IN')
               : ''}
@@ -610,7 +661,7 @@ function TotalRow({
       <View
         style={[styles.totalCell, { width: COL_WIDTHS.wtReceivedAfterGrading }]}
       >
-        <Text style={boldCenter}>
+        <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
           {totals.totalWtReceivedAfterGrading > 0
             ? totals.totalWtReceivedAfterGrading.toLocaleString('en-IN')
             : ''}
@@ -622,21 +673,21 @@ function TotalRow({
           { width: COL_WIDTHS.lessBardanaAfterGrading },
         ]}
       >
-        <Text style={boldCenter}>
+        <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
           {totals.totalLessBardanaAfterGrading > 0
             ? totals.totalLessBardanaAfterGrading.toLocaleString('en-IN')
             : ''}
         </Text>
       </View>
       <View style={[styles.totalCell, { width: COL_WIDTHS.actualWtOfPotato }]}>
-        <Text style={boldCenter}>
+        <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
           {totals.totalActualWtOfPotato > 0
             ? totals.totalActualWtOfPotato.toLocaleString('en-IN')
             : ''}
         </Text>
       </View>
       <View style={[styles.totalCell, { width: COL_WIDTHS.weightShortage }]}>
-        <Text style={boldCenter}>
+        <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
           {totals.totalWeightShortage !== 0
             ? totals.totalWeightShortage.toLocaleString('en-IN')
             : ''}
@@ -645,7 +696,7 @@ function TotalRow({
       <View
         style={[styles.totalCell, { width: COL_WIDTHS.weightShortagePercent }]}
       >
-        <Text style={boldCenter}>
+        <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
           {totals.totalWeightShortagePercent != null &&
           !Number.isNaN(totals.totalWeightShortagePercent)
             ? `${totals.totalWeightShortagePercent.toFixed(1)}%`
@@ -660,7 +711,7 @@ function TotalRow({
             { width: COL_WIDTHS.amountPayable },
           ]}
         >
-          <Text style={boldCenter}>
+          <Text style={[styles.cellTextFullWidthCenter, styles.totalCellText]}>
             {totals.totalAmountPayable > 0
               ? totals.totalAmountPayable.toLocaleString('en-IN', {
                   minimumFractionDigits: 2,
@@ -763,6 +814,14 @@ function DataRow({
       <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
         <Text style={styles.cellCenter}>{dateStr}</Text>
       </View>
+      <View style={[styles.cell, { width: COL_WIDTHS.gradingGatePassDate }]}>
+        <Text style={styles.cellCenter}>
+          {row.gradingGatePassDate != null &&
+          String(row.gradingGatePassDate).trim() !== ''
+            ? formatVoucherDate(row.gradingGatePassDate)
+            : '—'}
+        </Text>
+      </View>
       <View style={[styles.cell, { width: COL_WIDTHS.store }]}>
         <Text style={styles.cellCenter}>{row.store}</Text>
       </View>
@@ -794,7 +853,13 @@ function DataRow({
           {lessBardanaKg.toLocaleString('en-IN')}
         </Text>
       </View>
-      <View style={[styles.cell, { width: COL_WIDTHS.actualWeight }]}>
+      <View
+        style={[
+          styles.cell,
+          styles.cellDividerAfterIncoming,
+          { width: COL_WIDTHS.actualWeight },
+        ]}
+      >
         <Text style={styles.cellCenter}>{formatWeight(actualWeightKg)}</Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.postGradingBags }]}>
@@ -814,7 +879,7 @@ function DataRow({
   ) => (
     <>
       <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
-        <Text style={styles.cellCenter}>{bagType}</Text>
+        <Text style={styles.cellTextFullWidthCenter}>{bagType}</Text>
       </View>
       {sizesWithQuantities.map((size) => {
         const value = sizeBags?.[size];
@@ -828,13 +893,18 @@ function DataRow({
             <View style={[styles.cellCenter, styles.sizeCellContent]}>
               {showQty && (
                 <>
-                  <Text style={styles.cellCenter}>
+                  <Text style={styles.cellTextFullWidthCenter}>
                     {value.toLocaleString('en-IN')}
                   </Text>
                   {weightKg != null &&
                     !Number.isNaN(weightKg) &&
                     weightKg > 0 && (
-                      <Text style={[styles.cellCenter, styles.sizeCellSub]}>
+                      <Text
+                        style={[
+                          styles.cellTextFullWidthCenter,
+                          styles.sizeCellSub,
+                        ]}
+                      >
                         ({weightKg})
                       </Text>
                     )}
@@ -881,7 +951,7 @@ function DataRow({
               },
             ]}
           >
-            <Text style={styles.cellCenter}>
+            <Text style={styles.cellTextFullWidthCenter}>
               {wtReceivedAfterGrading > 0
                 ? wtReceivedAfterGrading.toLocaleString('en-IN')
                 : '—'}
@@ -900,7 +970,7 @@ function DataRow({
                 },
               ]}
             >
-              <Text style={styles.cellCenter}>
+              <Text style={styles.cellTextFullWidthCenter}>
                 {lessBardanaJute > 0
                   ? lessBardanaJute.toLocaleString('en-IN')
                   : '—'}
@@ -924,7 +994,7 @@ function DataRow({
                 },
               ]}
             >
-              <Text style={styles.cellCenter}>
+              <Text style={styles.cellTextFullWidthCenter}>
                 {lessBardanaLeno > 0
                   ? lessBardanaLeno.toLocaleString('en-IN')
                   : '—'}
@@ -943,7 +1013,7 @@ function DataRow({
               },
             ]}
           >
-            <Text style={styles.cellCenter}>
+            <Text style={styles.cellTextFullWidthCenter}>
               {actualWtOfPotato > 0
                 ? actualWtOfPotato.toLocaleString('en-IN')
                 : '—'}
@@ -961,7 +1031,7 @@ function DataRow({
               },
             ]}
           >
-            <Text style={styles.cellCenter}>
+            <Text style={styles.cellTextFullWidthCenter}>
               {weightShortage != null && !Number.isNaN(weightShortage)
                 ? weightShortage.toLocaleString('en-IN')
                 : '—'}
@@ -979,7 +1049,7 @@ function DataRow({
               },
             ]}
           >
-            <Text style={styles.cellCenter}>
+            <Text style={styles.cellTextFullWidthCenter}>
               {weightShortagePercent != null &&
               !Number.isNaN(weightShortagePercent)
                 ? `${weightShortagePercent.toFixed(1)}%`
@@ -999,7 +1069,7 @@ function DataRow({
                 },
               ]}
             >
-              <Text style={styles.cellCenter}>
+              <Text style={styles.cellTextFullWidthCenter}>
                 {amountPayable > 0
                   ? amountPayable.toLocaleString('en-IN', {
                       minimumFractionDigits: 2,
@@ -1018,7 +1088,7 @@ function DataRow({
     <View style={styles.dataRow}>
       {leftCells}
       <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
-        <Text style={styles.cellCenter}>{row.bagType ?? '—'}</Text>
+        <Text style={styles.cellTextFullWidthCenter}>{row.bagType ?? '—'}</Text>
       </View>
       {sizesWithQuantities.map((size) => {
         const value = row.sizeBags?.[size];
@@ -1032,13 +1102,18 @@ function DataRow({
             <View style={[styles.cellCenter, styles.sizeCellContent]}>
               {showQty && (
                 <>
-                  <Text style={styles.cellCenter}>
+                  <Text style={styles.cellTextFullWidthCenter}>
                     {value.toLocaleString('en-IN')}
                   </Text>
                   {weightKg != null &&
                     !Number.isNaN(weightKg) &&
                     weightKg > 0 && (
-                      <Text style={[styles.cellCenter, styles.sizeCellSub]}>
+                      <Text
+                        style={[
+                          styles.cellTextFullWidthCenter,
+                          styles.sizeCellSub,
+                        ]}
+                      >
                         ({weightKg})
                       </Text>
                     )}
@@ -1049,7 +1124,7 @@ function DataRow({
         );
       })}
       <View style={[styles.cell, { width: COL_WIDTHS.wtReceivedAfterGrading }]}>
-        <Text style={styles.cellCenter}>
+        <Text style={styles.cellTextFullWidthCenter}>
           {wtReceivedAfterGrading > 0
             ? wtReceivedAfterGrading.toLocaleString('en-IN')
             : '—'}
@@ -1058,28 +1133,28 @@ function DataRow({
       <View
         style={[styles.cell, { width: COL_WIDTHS.lessBardanaAfterGrading }]}
       >
-        <Text style={styles.cellCenter}>
+        <Text style={styles.cellTextFullWidthCenter}>
           {lessBardanaJute + lessBardanaLeno > 0
             ? (lessBardanaJute + lessBardanaLeno).toLocaleString('en-IN')
             : '—'}
         </Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.actualWtOfPotato }]}>
-        <Text style={styles.cellCenter}>
+        <Text style={styles.cellTextFullWidthCenter}>
           {actualWtOfPotato > 0
             ? actualWtOfPotato.toLocaleString('en-IN')
             : '—'}
         </Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.weightShortage }]}>
-        <Text style={styles.cellCenter}>
+        <Text style={styles.cellTextFullWidthCenter}>
           {weightShortage != null && !Number.isNaN(weightShortage)
             ? weightShortage.toLocaleString('en-IN')
             : '—'}
         </Text>
       </View>
       <View style={[styles.cell, { width: COL_WIDTHS.weightShortagePercent }]}>
-        <Text style={styles.cellCenter}>
+        <Text style={styles.cellTextFullWidthCenter}>
           {weightShortagePercent != null && !Number.isNaN(weightShortagePercent)
             ? `${weightShortagePercent.toFixed(1)}%`
             : '—'}
@@ -1093,7 +1168,7 @@ function DataRow({
             { width: COL_WIDTHS.amountPayable },
           ]}
         >
-          <Text style={styles.cellCenter}>
+          <Text style={styles.cellTextFullWidthCenter}>
             {amountPayable > 0
               ? amountPayable.toLocaleString('en-IN', {
                   minimumFractionDigits: 2,

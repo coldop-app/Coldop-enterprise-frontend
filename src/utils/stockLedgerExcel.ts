@@ -38,31 +38,32 @@ function getSizesWithQuantities(rows: StockLedgerRow[]): string[] {
   );
 }
 
-/** Build header row matching PDF table columns (only size columns that have quantities). */
+/** Build header row matching StockLedgerPdf.tsx table columns (only size columns that have quantities). */
 function getHeaders(sizesWithQuantities: string[]): string[] {
   const sizeLabels = sizesWithQuantities.map((s) => SIZE_HEADER_LABELS[s] ?? s);
   return [
-    'Gp No',
-    'Manual No',
-    'GGP No',
-    'Manual GGP',
-    'Date',
+    'System Incoming GP No',
+    'Incoming GP No',
+    'System Grading GP NO',
+    'Grading Gp No',
+    'Incoming gate pass date',
+    'Grading gate pass date',
     'Store',
     'Variety',
-    'Truck',
-    'Bags Rec.',
-    'Slip No.',
-    'Gross',
-    'Tare',
-    'Net',
-    'Less Bard.',
-    'Actual',
-    'Post Gr.',
+    'Truck Number',
+    'Bags Received',
+    'Weight Slip No.',
+    'Gross Weight',
+    'Tare Weight',
+    'Net Weight',
+    'Less Bard Weight @0.700 g',
+    'Actual Weight of Potato',
+    'Number of Bags Post Grading',
     'Type',
     ...sizeLabels,
-    'Wt Rec. After Gr.',
-    'Less Bard.',
-    'Actual wt of Potato',
+    'Weight Received After Grading',
+    'Less Bard Weight',
+    'Actual wt of Graded Potato',
     'Weight Shortage',
     'Shortage %',
     'Amount Payable',
@@ -102,6 +103,11 @@ function getSizeBagsLeno(
 /** Build left-block cells (Gp No through Post Gr.) — shared when bifurcated. */
 function leftBlockCells(row: StockLedgerRow): (string | number)[] {
   const dateStr = formatVoucherDate(row.date);
+  const gradingDateStr =
+    row.gradingGatePassDate != null &&
+    String(row.gradingGatePassDate).trim() !== ''
+      ? formatVoucherDate(row.gradingGatePassDate)
+      : '—';
   const truckStr =
     row.truckNumber != null && String(row.truckNumber).trim() !== ''
       ? String(row.truckNumber)
@@ -136,6 +142,7 @@ function leftBlockCells(row: StockLedgerRow): (string | number)[] {
     ggpNoStr,
     manualGgpStr,
     dateStr,
+    gradingDateStr,
     row.store,
     varietyStr,
     truckStr,
@@ -625,13 +632,13 @@ function buildGradingGatePassSheetData(
   const result: (string | number)[][] = [['Grading Gate Pass Table'], []];
 
   const headerRow: (string | number)[] = [
-    'Incoming GP',
-    'Manual GP',
-    'GGP No',
-    'Manual GGP',
+    'System Incoming GP No',
+    'Incoming GP No',
+    'System Grading GP No',
+    'Grading GP Number',
     'Farmer Name',
     'Variety',
-    'Date',
+    'Grading Date',
   ];
   for (const size of sizesWithQty) {
     headerRow.push(SIZE_HEADER_LABELS[size] ?? size, 'Wt in Kg', 'Bag Type');
@@ -642,9 +649,12 @@ function buildGradingGatePassSheetData(
   for (const row of rowsWithGgp) {
     const rowTotal = getRowTotal(row);
     const dateStr =
-      row.date != null && String(row.date).trim() !== ''
-        ? formatVoucherDate(row.date)
-        : '—';
+      row.gradingGatePassDate != null &&
+      String(row.gradingGatePassDate).trim() !== ''
+        ? formatVoucherDate(row.gradingGatePassDate)
+        : row.date != null && String(row.date).trim() !== ''
+          ? formatVoucherDate(row.date)
+          : '—';
     const varietyStr =
       row.variety != null && String(row.variety).trim() !== ''
         ? String(row.variety).trim()
@@ -746,6 +756,7 @@ function buildTotalRow(
 
   return [
     'Total',
+    '',
     '',
     '',
     '',

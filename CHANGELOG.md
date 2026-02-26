@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-02-26
+
+### Added
+- Stock Ledger: separate **Grading gate pass date** column (in addition to incoming gate pass date); data sourced from first grading pass on farmer detail page
+- Stock Ledger types: `gradingGatePassDate` on `StockLedgerRow`; column width and labels in `stockLedgerColumnWidths`
+
+### Changed
+- Stock Ledger PDF: clearer column headers (e.g. "System Incoming GP No", "Incoming gate pass date", "Grading gate pass date", "Actual Weight of Potato", "Weight Received After Grading", "Less Bard Weight @0.700 g"); grading block layout (right borders, top-aligned content); visual divider after Actual Weight column
+- Stock Ledger Excel: headers aligned with PDF; grading gate pass date column and value in left block; grading gate pass sheet uses "System Incoming GP No", "Grading GP Number", "Grading Date" and prefers `gradingGatePassDate` with fallback to `date`
+- Grading gate pass table PDF: headers aligned ("System Incoming GP No", "Incoming GP No", "System Grading GP No", "Grading GP Number", "Grading Date"); date cell uses `gradingGatePassDate` with fallback to `date`
+- Farmer detail (people): stock ledger row building passes `gradingGatePassDate` from first grading pass
+
 ## [0.14.0] - 2026-02-26
 
 ### Added

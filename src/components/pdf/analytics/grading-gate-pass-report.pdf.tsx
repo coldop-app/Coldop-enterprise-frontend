@@ -146,13 +146,20 @@ function gradingReportItemToStockLedgerRow(
   const hasJute = Object.values(sizeBagsJute).some((v) => v > 0);
   const hasLeno = Object.values(sizeBagsLeno).some((v) => v > 0);
 
+  const inc = pass.incomingGatePassId;
+  const incomingDate =
+    inc && 'date' in inc && typeof (inc as { date?: string }).date === 'string'
+      ? (inc as { date: string }).date
+      : undefined;
+
   return {
     serialNo,
-    date: pass.date,
+    date: incomingDate,
     incomingGatePassNo: getIncomingGatePassNo(pass),
     manualIncomingVoucherNo: getManualIncomingNo(pass),
     gradingGatePassNo: pass.gatePassNo,
     manualGradingGatePassNo: pass.manualGatePassNumber,
+    gradingGatePassDate: pass.date,
     store: getFarmerName(pass),
     truckNumber: getTruckNumber(pass),
     bagsReceived,

@@ -9,6 +9,8 @@ export interface StockLedgerRow {
   gradingGatePassNo?: number | string;
   /** Manual gate pass number(s) from grading voucher(s) (displayed in table). */
   manualGradingGatePassNo?: number | string;
+  /** Grading gate pass date (displayed in table when available). */
+  gradingGatePassDate?: string;
   store: string;
   truckNumber: string | number | undefined;
   bagsReceived: number;

@@ -284,6 +284,9 @@ function PeopleDetailPage() {
               .join(', ')
           : undefined;
 
+      /** Grading gate pass date from first grading pass (when available). */
+      const gradingGatePassDate = gradingPasses[0]?.date;
+
       return {
         serialNo: index + 1,
         date: inc.date,
@@ -291,6 +294,7 @@ function PeopleDetailPage() {
         manualIncomingVoucherNo: inc.manualGatePassNumber,
         gradingGatePassNo,
         manualGradingGatePassNo,
+        gradingGatePassDate,
         store: 'JICSPL- Bazpur',
         truckNumber: inc.truckNumber,
         bagsReceived: bags,

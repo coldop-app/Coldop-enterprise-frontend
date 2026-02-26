@@ -192,7 +192,7 @@ function GradingGatePassTablePdf({
         <View
           style={[styles.headerCell, { width: COL_WIDTHS.incomingGatePassNo }]}
         >
-          <Text style={styles.cellCenter}>Incoming GP</Text>
+          <Text style={styles.cellCenter}>System Incoming GP No</Text>
         </View>
         <View
           style={[
@@ -200,12 +200,12 @@ function GradingGatePassTablePdf({
             { width: COL_WIDTHS.manualIncomingVoucherNo },
           ]}
         >
-          <Text style={styles.cellCenter}>Manual GP</Text>
+          <Text style={styles.cellCenter}>Incoming GP No</Text>
         </View>
         <View
           style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassNo }]}
         >
-          <Text style={styles.cellCenter}>GGP No</Text>
+          <Text style={styles.cellCenter}>System Grading GP No</Text>
         </View>
         <View
           style={[
@@ -213,7 +213,7 @@ function GradingGatePassTablePdf({
             { width: COL_WIDTHS.manualGradingGatePassNo },
           ]}
         >
-          <Text style={styles.cellCenter}>Manual GGP</Text>
+          <Text style={styles.cellCenter}>Grading GP Number</Text>
         </View>
         <View style={[styles.headerCell, { width: COL_WIDTHS.farmerName }]}>
           <Text style={styles.cellCenter}>Farmer Name</Text>
@@ -222,7 +222,7 @@ function GradingGatePassTablePdf({
           <Text style={styles.cellCenter}>Variety</Text>
         </View>
         <View style={[styles.headerCell, { width: COL_WIDTHS.date }]}>
-          <Text style={styles.cellCenter}>Date</Text>
+          <Text style={styles.cellCenter}>Grading Date</Text>
         </View>
         {sizesWithQty.map((size) => {
           const sizeLabel = SIZE_HEADER_LABELS[size] ?? size;
@@ -303,9 +303,12 @@ function GradingGatePassTablePdf({
             </View>
             <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
               <Text style={styles.cellCenter}>
-                {row.date != null && String(row.date).trim() !== ''
-                  ? formatVoucherDate(row.date)
-                  : '—'}
+                {row.gradingGatePassDate != null &&
+                String(row.gradingGatePassDate).trim() !== ''
+                  ? formatVoucherDate(row.gradingGatePassDate)
+                  : row.date != null && String(row.date).trim() !== ''
+                    ? formatVoucherDate(row.date)
+                    : '—'}
               </Text>
             </View>
             {sizesWithQty.map((size) => {
