@@ -14,6 +14,7 @@ import { Route as ZustandIndexRouteImport } from './routes/zustand/index'
 import { Route as StoreAdminAuthenticatedRouteImport } from './routes/store-admin/_authenticated'
 import { Route as StoreAdminLoginIndexRouteImport } from './routes/store-admin/login/index'
 import { Route as StoreAdminAuthenticatedStorageIndexRouteImport } from './routes/store-admin/_authenticated/storage/index'
+import { Route as StoreAdminAuthenticatedSettingsIndexRouteImport } from './routes/store-admin/_authenticated/settings/index'
 import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes/store-admin/_authenticated/people/index'
 import { Route as StoreAdminAuthenticatedOutgoingIndexRouteImport } from './routes/store-admin/_authenticated/outgoing/index'
 import { Route as StoreAdminAuthenticatedNikasiIndexRouteImport } from './routes/store-admin/_authenticated/nikasi/index'
@@ -48,6 +49,12 @@ const StoreAdminAuthenticatedStorageIndexRoute =
   StoreAdminAuthenticatedStorageIndexRouteImport.update({
     id: '/storage/',
     path: '/storage/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedSettingsIndexRoute =
+  StoreAdminAuthenticatedSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedPeopleIndexRoute =
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/nikasi/': typeof StoreAdminAuthenticatedNikasiIndexRoute
   '/store-admin/outgoing/': typeof StoreAdminAuthenticatedOutgoingIndexRoute
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
+  '/store-admin/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/store-admin/nikasi': typeof StoreAdminAuthenticatedNikasiIndexRoute
   '/store-admin/outgoing': typeof StoreAdminAuthenticatedOutgoingIndexRoute
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
+  '/store-admin/settings': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/storage': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
@@ -151,6 +160,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/nikasi/': typeof StoreAdminAuthenticatedNikasiIndexRoute
   '/store-admin/_authenticated/outgoing/': typeof StoreAdminAuthenticatedOutgoingIndexRoute
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
+  '/store-admin/_authenticated/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/_authenticated/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/store-admin/nikasi/'
     | '/store-admin/outgoing/'
     | '/store-admin/people/'
+    | '/store-admin/settings/'
     | '/store-admin/storage/'
     | '/store-admin/people/$farmerStorageLinkId/'
   fileRoutesByTo: FileRoutesByTo
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/store-admin/nikasi'
     | '/store-admin/outgoing'
     | '/store-admin/people'
+    | '/store-admin/settings'
     | '/store-admin/storage'
     | '/store-admin/people/$farmerStorageLinkId'
   id:
@@ -201,6 +213,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/nikasi/'
     | '/store-admin/_authenticated/outgoing/'
     | '/store-admin/_authenticated/people/'
+    | '/store-admin/_authenticated/settings/'
     | '/store-admin/_authenticated/storage/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
   fileRoutesById: FileRoutesById
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/storage'
       fullPath: '/store-admin/storage/'
       preLoaderRoute: typeof StoreAdminAuthenticatedStorageIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/settings/': {
+      id: '/store-admin/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/store-admin/settings/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedSettingsIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/people/': {
@@ -324,6 +344,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedNikasiIndexRoute: typeof StoreAdminAuthenticatedNikasiIndexRoute
   StoreAdminAuthenticatedOutgoingIndexRoute: typeof StoreAdminAuthenticatedOutgoingIndexRoute
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
+  StoreAdminAuthenticatedSettingsIndexRoute: typeof StoreAdminAuthenticatedSettingsIndexRoute
   StoreAdminAuthenticatedStorageIndexRoute: typeof StoreAdminAuthenticatedStorageIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
@@ -346,6 +367,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedOutgoingIndexRoute,
     StoreAdminAuthenticatedPeopleIndexRoute:
       StoreAdminAuthenticatedPeopleIndexRoute,
+    StoreAdminAuthenticatedSettingsIndexRoute:
+      StoreAdminAuthenticatedSettingsIndexRoute,
     StoreAdminAuthenticatedStorageIndexRoute:
       StoreAdminAuthenticatedStorageIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute:

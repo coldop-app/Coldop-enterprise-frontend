@@ -69,9 +69,27 @@ const LEFT_BLOCK_WIDTH =
   COL_WIDTHS.actualWeight +
   COL_WIDTHS.postGradingBags;
 
-/** Total width of middle block (Type + size columns only; bifurcation ends here). */
-const MIDDLE_BLOCK_WIDTH =
-  COL_WIDTHS.bagType + GRADING_SIZES.length * COL_WIDTHS.sizeColumn;
+/** Base width of middle block (Type + size columns). Computed dynamically from sizesWithQuantities. */
+function getMiddleBlockWidth(sizesWithQuantities: string[]): number {
+  return (
+    COL_WIDTHS.bagType + sizesWithQuantities.length * COL_WIDTHS.sizeColumn
+  );
+}
+
+/** Sizes that have at least one bag across all rows (order preserved from GRADING_SIZES). */
+function getSizesWithQuantities(rows: StockLedgerRow[]): string[] {
+  return GRADING_SIZES.filter((size) =>
+    rows.some((row) => {
+      const hasSplit = row.sizeBagsJute != null || row.sizeBagsLeno != null;
+      if (hasSplit) {
+        return (
+          (row.sizeBagsJute?.[size] ?? 0) + (row.sizeBagsLeno?.[size] ?? 0) > 0
+        );
+      }
+      return (row.sizeBags?.[size] ?? 0) > 0;
+    })
+  );
+}
 
 const styles = StyleSheet.create({
   page: {
@@ -131,9 +149,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexShrink: 0,
   },
-  /** Middle block (Type + size columns) - bifurcation; fixed width for alignment. */
+  /** Middle block (Type + size columns) - bifurcation; width set inline from sizesWithQuantities. */
   dataRowMiddleBlock: {
-    width: MIDDLE_BLOCK_WIDTH,
     flexShrink: 0,
   },
   /** Block: Wt Received After Grading (row span 2, like left block). */
@@ -272,8 +289,10 @@ const styles = StyleSheet.create({
 });
 
 function TableHeader({
+  sizesWithQuantities,
   includeAmountPayable = true,
 }: {
+  sizesWithQuantities: string[];
   includeAmountPayable?: boolean;
 }) {
   return (
@@ -341,7 +360,7 @@ function TableHeader({
       <View style={[styles.headerCell, { width: COL_WIDTHS.bagType }]}>
         <Text style={styles.cellCenter}>Type</Text>
       </View>
-      {GRADING_SIZES.map((size) => (
+      {sizesWithQuantities.map((size) => (
         <View
           key={size}
           style={[styles.headerCell, { width: COL_WIDTHS.sizeColumn }]}
@@ -490,9 +509,11 @@ function computeTotals(rows: StockLedgerRow[]) {
 
 function TotalRow({
   rows,
+  sizesWithQuantities,
   includeAmountPayable = true,
 }: {
   rows: StockLedgerRow[];
+  sizesWithQuantities: string[];
   includeAmountPayable?: boolean;
 }) {
   const totals = computeTotals(rows);
@@ -574,7 +595,7 @@ function TotalRow({
       <View style={[styles.totalCell, { width: COL_WIDTHS.bagType }]}>
         <Text />
       </View>
-      {GRADING_SIZES.map((size) => (
+      {sizesWithQuantities.map((size) => (
         <View
           key={size}
           style={[styles.totalCell, { width: COL_WIDTHS.sizeColumn }]}
@@ -675,9 +696,13 @@ function getSizeBagsLeno(
 
 function DataRow({
   row,
+  sizesWithQuantities,
+  middleBlockWidth,
   includeAmountPayable = true,
 }: {
   row: StockLedgerRow;
+  sizesWithQuantities: string[];
+  middleBlockWidth: number;
   includeAmountPayable?: boolean;
 }) {
   const dateStr = formatVoucherDate(row.date);
@@ -791,7 +816,7 @@ function DataRow({
       <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
         <Text style={styles.cellCenter}>{bagType}</Text>
       </View>
-      {GRADING_SIZES.map((size) => {
+      {sizesWithQuantities.map((size) => {
         const value = sizeBags?.[size];
         const weightKg = sizeWeightPerBag?.[size];
         const showQty = value != null && value > 0;
@@ -837,7 +862,7 @@ function DataRow({
         <View style={styles.dataRowLeftBlock}>
           <View style={styles.dataRowLeftBlockRow}>{leftCells}</View>
         </View>
-        <View style={styles.dataRowMiddleBlock}>
+        <View style={[styles.dataRowMiddleBlock, { width: middleBlockWidth }]}>
           <View style={styles.dataSubRow}>
             {typeAndSizeCells('JUTE', sizeBagsJute, row.sizeWeightPerBagJute)}
           </View>
@@ -995,7 +1020,7 @@ function DataRow({
       <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
         <Text style={styles.cellCenter}>{row.bagType ?? '—'}</Text>
       </View>
-      {GRADING_SIZES.map((size) => {
+      {sizesWithQuantities.map((size) => {
         const value = row.sizeBags?.[size];
         const weightKg = row.sizeWeightPerBag?.[size];
         const showQty = value != null && value > 0;
@@ -1115,21 +1140,29 @@ export function StockLedgerMainTableOnly({
   includeAmountPayable?: boolean;
 }) {
   const sortedRows = sortRowsByGatePassNo(rows);
+  const sizesWithQuantities = getSizesWithQuantities(sortedRows);
+  const middleBlockWidth = getMiddleBlockWidth(sizesWithQuantities);
   return (
     <>
       <View style={styles.titleRow}>
         <Text style={styles.titleText}>{title}</Text>
       </View>
-      <TableHeader includeAmountPayable={includeAmountPayable} />
+      <TableHeader
+        sizesWithQuantities={sizesWithQuantities}
+        includeAmountPayable={includeAmountPayable}
+      />
       {sortedRows.map((row, index) => (
         <DataRow
           key={`${row.incomingGatePassNo}-${index}`}
           row={row}
+          sizesWithQuantities={sizesWithQuantities}
+          middleBlockWidth={middleBlockWidth}
           includeAmountPayable={includeAmountPayable}
         />
       ))}
       <TotalRow
         rows={sortedRows}
+        sizesWithQuantities={sizesWithQuantities}
         includeAmountPayable={includeAmountPayable}
       />
     </>

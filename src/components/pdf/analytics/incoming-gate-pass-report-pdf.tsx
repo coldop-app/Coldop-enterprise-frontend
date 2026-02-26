@@ -9,6 +9,8 @@ import type {
 export interface IncomingGatePassReportPdfProps {
   companyName?: string;
   dateRangeLabel: string;
+  /** When provided (e.g. for ungraded report), used as the report title in the PDF header. Defaults to "INCOMING GATE PASS REPORT". */
+  reportTitle?: string;
   data:
     | IncomingGatePassReportDataGroupedWithStatus
     | IncomingGatePassReportDataFlatWithStatus;
@@ -394,14 +396,16 @@ function GatePassTableRow({
 function ReportHeader({
   companyName,
   dateRangeLabel,
+  reportTitle = 'INCOMING GATE PASS REPORT',
 }: {
   companyName: string;
   dateRangeLabel: string;
+  reportTitle?: string;
 }) {
   return (
     <View style={styles.header}>
       <Text style={styles.companyName}>{companyName}</Text>
-      <Text style={styles.reportTitle}>INCOMING GATE PASS REPORT</Text>
+      <Text style={styles.reportTitle}>{reportTitle}</Text>
       <Text style={styles.dateRange}>{dateRangeLabel}</Text>
     </View>
   );
@@ -426,15 +430,17 @@ function FarmerBlockHeader({
 function FlatTable({
   companyName,
   dateRangeLabel,
+  reportTitle,
   rows,
 }: {
   companyName: string;
   dateRangeLabel: string;
+  reportTitle?: string;
   rows: IncomingGatePassWithLinkWithStatus[];
 }) {
   return (
     <Page size="A4" style={styles.page}>
-      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} />
+      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
       <View style={styles.tableContainer}>
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
@@ -482,18 +488,20 @@ function FlatTable({
 function GroupedTablePage({
   companyName,
   dateRangeLabel,
+  reportTitle,
   group,
   isFirstPage,
 }: {
   companyName: string;
   dateRangeLabel: string;
+  reportTitle?: string;
   group: IncomingGatePassReportGroupedItemWithStatus;
   isFirstPage: boolean;
 }) {
   const { farmer, gatePasses } = group;
   return (
     <Page size="A4" style={styles.page}>
-      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} />
+      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
       <View
         style={[
           styles.farmerSection,
@@ -552,6 +560,7 @@ function GroupedTablePage({
 export const IncomingGatePassReportPdf = ({
   companyName = 'Cold Storage',
   dateRangeLabel,
+  reportTitle = 'INCOMING GATE PASS REPORT',
   data,
 }: IncomingGatePassReportPdfProps) => {
   if (isGrouped(data)) {
@@ -562,6 +571,7 @@ export const IncomingGatePassReportPdf = ({
             <ReportHeader
               companyName={companyName}
               dateRangeLabel={dateRangeLabel}
+              reportTitle={reportTitle}
             />
             <View style={styles.tableContainer}>
               <Text style={[styles.cellLeft, { paddingVertical: 8 }]}>
@@ -575,6 +585,7 @@ export const IncomingGatePassReportPdf = ({
               key={group.farmer._id}
               companyName={companyName}
               dateRangeLabel={dateRangeLabel}
+              reportTitle={reportTitle}
               group={group}
               isFirstPage={index === 0}
             />
@@ -590,6 +601,7 @@ export const IncomingGatePassReportPdf = ({
       <FlatTable
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle}
         rows={rows}
       />
     </Document>

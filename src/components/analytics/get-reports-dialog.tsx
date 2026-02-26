@@ -374,6 +374,9 @@ export function GetReportsDialog({
         <IncomingGatePassReportPdf
           companyName={companyName}
           dateRangeLabel={dateRangeLabel}
+          reportTitle={
+            reportType === 'ungraded' ? 'Ungraded Bags Report' : undefined
+          }
           data={dataToRender}
         />
       ).toBlob();

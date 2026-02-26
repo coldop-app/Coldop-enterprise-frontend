@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-02-26
+
+### Added
+- Store admin Settings route (`/store-admin/settings/`) with placeholder screen
+- Get Reports: Ungraded report PDF uses custom title "Ungraded Bags Report" via optional `reportTitle` on incoming gate pass report PDF
+
+### Changed
+- Stock Ledger PDF: dynamic size columns — only size columns that have quantities across rows are shown; `getSizesWithQuantities`, `getMiddleBlockWidth`; TableHeader, TotalRow, DataRow accept `sizesWithQuantities` / `middleBlockWidth`
+- Stock Ledger Excel: aligned with PDF — uses shared calculation modules (`incomingVoucherCalculations`, `gradingVoucherCalculations`), `stockLedgerTypes`; dynamic size columns; bifurcated rows (JUTE/LENO sub-rows per ledger row when post-grading split); `getSizeBagsJute`/`getSizeBagsLeno`, `rowToExcelRows`
+- Incoming gate pass report PDF: optional `reportTitle` prop for custom report title (e.g. Ungraded Bags Report)
+
 ## [0.13.0] - 2026-02-23
 
 ### Added
