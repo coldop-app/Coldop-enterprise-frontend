@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState } from 'react';
+import { memo, useMemo, useRef, useState, useEffect } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import * as z from 'zod';
@@ -28,6 +28,7 @@ import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import { useCreateBulkStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useCreateBulkStorageGatePasses';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 
@@ -41,12 +42,25 @@ import {
   StorageSummarySheet,
   type StorageSummaryFormValues,
 } from '@/components/forms/storage/summary-sheet';
+import { Plus, Trash2 } from 'lucide-react';
 
 const DEFAULT_LOCATION = { chamber: '', floor: '', row: '' };
 type LocationEntry = { chamber: string; floor: string; row: string };
 type FieldErrors = Array<{ message?: string } | undefined>;
 
 const DIRECT_PASS_ID = '_direct';
+const EXTRA_ROW_KEY_PREFIX = 'extra:';
+
+/** When logged-in user's coldStorageId matches this, farmer is fixed to FIXED_FARMER_STORAGE_LINK_ID */
+const FIXED_FARMER_COLD_STORAGE_ID = '69807e772cfeef6ed3342e78';
+const FIXED_FARMER_STORAGE_LINK_ID = '69a3da68ea67b19be4c0e86c';
+
+export type ExtraQuantityRow = {
+  id: string;
+  size: string;
+  quantity: number;
+  bagType: string;
+};
 
 const defaultSizeQuantities = Object.fromEntries(
   GRADING_SIZES.map((s) => [s, 0])
@@ -63,6 +77,14 @@ const formSchema = z
     variety: z.string().min(1, 'Please select a variety'),
     sizeQuantities: z.record(z.string(), z.number().min(0)),
     sizeBagTypes: z.record(z.string(), z.string()),
+    extraQuantityRows: z.array(
+      z.object({
+        id: z.string(),
+        size: z.string(),
+        quantity: z.number().min(0),
+        bagType: z.string(),
+      })
+    ),
     locationBySize: z.record(
       z.string(),
       z.object({
@@ -75,11 +97,25 @@ const formSchema = z
   })
   .refine(
     (data) => {
-      const withQty = Object.entries(data.sizeQuantities).filter(
+      const fixedWithQty = Object.entries(data.sizeQuantities).filter(
         ([, qty]) => (qty ?? 0) > 0
       );
-      return withQty.every(([size]) => {
+      const fixedOk = fixedWithQty.every(([size]) => {
         const loc = data.locationBySize?.[size];
+        return (
+          loc &&
+          loc.chamber?.trim() !== '' &&
+          loc.floor?.trim() !== '' &&
+          loc.row?.trim() !== ''
+        );
+      });
+      if (!fixedOk) return false;
+      const extraWithQty = (data.extraQuantityRows ?? []).filter(
+        (row) => (row.quantity ?? 0) > 0
+      );
+      return extraWithQty.every((row) => {
+        const key = `${EXTRA_ROW_KEY_PREFIX}${row.id}`;
+        const loc = data.locationBySize?.[key];
         return (
           loc &&
           loc.chamber?.trim() !== '' &&
@@ -96,11 +132,15 @@ const formSchema = z
   )
   .refine(
     (data) => {
-      const total = Object.values(data.sizeQuantities).reduce(
+      const fixedTotal = Object.values(data.sizeQuantities).reduce(
         (sum, qty) => sum + (qty ?? 0),
         0
       );
-      return total > 0;
+      const extraTotal = (data.extraQuantityRows ?? []).reduce(
+        (sum, row) => sum + (row.quantity ?? 0),
+        0
+      );
+      return fixedTotal + extraTotal > 0;
     },
     {
       message: 'Please enter at least one quantity.',
@@ -112,6 +152,11 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
   farmerStorageLinkId: initialFarmerStorageLinkId,
 }: StorageGatePassFormProps) {
   const navigate = useNavigate();
+  const coldStorageId = useStore(
+    (s) => s.coldStorage?._id ?? s.admin?.coldStorageId
+  );
+  const isFixedFarmerMode = coldStorageId === FIXED_FARMER_COLD_STORAGE_ID;
+
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('storage-gate-pass');
   const {
@@ -140,11 +185,14 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
   const form = useForm({
     defaultValues: {
       manualGatePassNumber: undefined as number | undefined,
-      farmerStorageLinkId: initialFarmerStorageLinkId ?? '',
+      farmerStorageLinkId: isFixedFarmerMode
+        ? FIXED_FARMER_STORAGE_LINK_ID
+        : (initialFarmerStorageLinkId ?? ''),
       date: formatDate(new Date()),
       variety: '',
       sizeQuantities: defaultSizeQuantities,
       sizeBagTypes: defaultSizeBagTypes,
+      extraQuantityRows: [] as ExtraQuantityRow[],
       locationBySize: {} as Record<string, LocationEntry>,
       remarks: '',
     },
@@ -161,7 +209,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
 
       if (!voucherNumber) return;
 
-      const bagSizes = (
+      const bagSizesFromFixed = (
         Object.entries(value.sizeQuantities) as [string, number][]
       )
         .filter(([, qty]) => (qty ?? 0) > 0)
@@ -178,6 +226,22 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
             row: loc.row.trim(),
           };
         });
+      const bagSizesFromExtra = (value.extraQuantityRows ?? [])
+        .filter((row) => (row.quantity ?? 0) > 0)
+        .map((row) => {
+          const key = `${EXTRA_ROW_KEY_PREFIX}${row.id}`;
+          const loc = value.locationBySize[key] ?? { ...DEFAULT_LOCATION };
+          return {
+            size: row.size,
+            bagType: row.bagType ?? 'JUTE',
+            currentQuantity: row.quantity,
+            initialQuantity: row.quantity,
+            chamber: loc.chamber.trim(),
+            floor: loc.floor.trim(),
+            row: loc.row.trim(),
+          };
+        });
+      const bagSizes = [...bagSizesFromFixed, ...bagSizesFromExtra];
 
       createBulkStorageGatePasses(
         {
@@ -204,14 +268,20 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
     },
   });
 
+  useEffect(() => {
+    if (isFixedFarmerMode) {
+      form.setFieldValue('farmerStorageLinkId', FIXED_FARMER_STORAGE_LINK_ID);
+    }
+  }, [isFixedFarmerMode, form]);
+
   const voucherNumberDisplay =
     voucherNumber != null ? `#${voucherNumber}` : null;
   const gatePassNo = voucherNumber ?? 0;
 
   const formValues = form.state.values;
   const summaryFormValues: StorageSummaryFormValues = useMemo(() => {
-    const allocations = (
-      Object.entries(formValues.sizeQuantities) as [string, number][]
+    const fixedAllocations = (
+      Object.entries(formValues.sizeQuantities ?? {}) as [string, number][]
     )
       .filter(([, qty]) => (qty ?? 0) > 0)
       .map(([size]) => {
@@ -227,6 +297,20 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
           row: loc.row,
         };
       });
+    const extraAllocations = (formValues.extraQuantityRows ?? [])
+      .filter((row) => (row.quantity ?? 0) > 0)
+      .map((row) => {
+        const key = `${EXTRA_ROW_KEY_PREFIX}${row.id}`;
+        const loc = formValues.locationBySize?.[key] ?? { ...DEFAULT_LOCATION };
+        return {
+          size: row.size,
+          quantityToAllocate: row.quantity ?? 0,
+          chamber: loc.chamber,
+          floor: loc.floor,
+          row: loc.row,
+        };
+      });
+    const allocations = [...fixedAllocations, ...extraAllocations];
     return {
       passes: [
         {
@@ -246,6 +330,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
     };
   }, [
     formValues.sizeQuantities,
+    formValues.extraQuantityRows,
     formValues.locationBySize,
     formValues.date,
     formValues.variety,
@@ -258,20 +343,25 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
   };
 
   const handleNextOrReview = () => {
+    const values = form.state.values;
     if (step === 1) {
-      if (!formValues.farmerStorageLinkId?.trim()) {
+      if (!values.farmerStorageLinkId?.trim()) {
         toast.error('Please select a farmer.');
         return;
       }
-      if (!formValues.variety?.trim()) {
+      if (!values.variety?.trim()) {
         toast.error('Please select a variety.');
         return;
       }
-      const total = Object.values(formValues.sizeQuantities).reduce(
+      const fixedTotal = Object.values(values.sizeQuantities ?? {}).reduce(
         (s, q) => s + (q ?? 0),
         0
       );
-      if (total === 0) {
+      const extraTotal = (values.extraQuantityRows ?? []).reduce(
+        (s, row) => s + (row.quantity ?? 0),
+        0
+      );
+      if (fixedTotal + extraTotal === 0) {
         toast.error('Please enter at least one quantity.');
         return;
       }
@@ -365,6 +455,9 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                     field.state.value && String(field.state.value).trim()
                   );
                   const isInvalid = invalidFromValidation && !hasValue;
+                  const displayValue = isFixedFarmerMode
+                    ? FIXED_FARMER_STORAGE_LINK_ID
+                    : field.state.value;
                   return (
                     <Field data-invalid={isInvalid}>
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -374,25 +467,35 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                             className="font-custom mb-2 block text-base font-semibold"
                           >
                             Enter Account Name (search and select)
+                            {isFixedFarmerMode && (
+                              <span className="font-custom text-muted-foreground ml-1 font-normal">
+                                (fixed for this store)
+                              </span>
+                            )}
                           </FieldLabel>
                           <SearchSelector
                             id="storage-farmer-select"
                             options={farmerOptions}
                             placeholder="Search or Create Farmer"
                             searchPlaceholder="Search by name, account number, or mobile..."
-                            onSelect={(value) => field.handleChange(value)}
-                            value={field.state.value}
+                            onSelect={(value) =>
+                              !isFixedFarmerMode && field.handleChange(value)
+                            }
+                            value={displayValue}
                             loading={isLoadingFarmers}
                             loadingMessage="Loading farmers..."
                             emptyMessage="No farmers found"
                             className="w-full"
                             buttonClassName="w-full justify-between"
+                            disabled={isFixedFarmerMode}
                           />
                         </div>
-                        <AddFarmerModal
-                          links={farmerLinks ?? []}
-                          onFarmerAdded={handleFarmerAdded}
-                        />
+                        {!isFixedFarmerMode && (
+                          <AddFarmerModal
+                            links={farmerLinks ?? []}
+                            onFarmerAdded={handleFarmerAdded}
+                          />
+                        )}
                       </div>
                       {isInvalid && (
                         <FieldError
@@ -465,12 +568,62 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                       variety: state.values.variety,
                       sizeBagTypes:
                         state.values.sizeBagTypes ?? defaultSizeBagTypes,
+                      extraQuantityRows: state.values.extraQuantityRows ?? [],
                     })}
                   >
-                    {({ variety, sizeBagTypes }) => {
+                    {({ variety, sizeBagTypes, extraQuantityRows }) => {
                       const sizeQuantities =
                         field.state.value ?? defaultSizeQuantities;
                       const quantitiesDisabled = !variety?.trim();
+                      const fixedTotal = GRADING_SIZES.reduce(
+                        (sum, size) => sum + (sizeQuantities[size] ?? 0),
+                        0
+                      );
+                      const extraTotal = extraQuantityRows.reduce(
+                        (sum, row) => sum + (row.quantity ?? 0),
+                        0
+                      );
+                      const totalQty = fixedTotal + extraTotal;
+
+                      const addExtraRow = () => {
+                        const next: ExtraQuantityRow[] = [
+                          ...extraQuantityRows,
+                          {
+                            id: crypto.randomUUID(),
+                            size: GRADING_SIZES[0] ?? '',
+                            quantity: 0,
+                            bagType: 'JUTE',
+                          },
+                        ];
+                        form.setFieldValue(
+                          'extraQuantityRows' as never,
+                          next as never
+                        );
+                      };
+
+                      const updateExtraRow = (
+                        id: string,
+                        updates: Partial<ExtraQuantityRow>
+                      ) => {
+                        const next = extraQuantityRows.map((row) =>
+                          row.id === id ? { ...row, ...updates } : row
+                        );
+                        form.setFieldValue(
+                          'extraQuantityRows' as never,
+                          next as never
+                        );
+                      };
+
+                      const removeExtraRow = (id: string) => {
+                        const next = extraQuantityRows.filter(
+                          (row) => row.id !== id
+                        );
+                        form.setFieldValue(
+                          'extraQuantityRows' as never,
+                          next as never
+                        );
+                      };
+
                       return (
                         <Card className="overflow-hidden">
                           <CardHeader className="space-y-1.5 pb-4">
@@ -480,7 +633,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                             <CardDescription className="font-custom text-muted-foreground text-sm">
                               {quantitiesDisabled
                                 ? 'Please select a variety first to enter quantities.'
-                                : 'Enter quantity and bag type for each size.'}
+                                : 'Enter quantity and bag type for each size. Add extra size rows to track bags at multiple locations.'}
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
@@ -554,16 +707,98 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                                 </div>
                               );
                             })}
+                            {extraQuantityRows.map((row) => {
+                              const displayValue =
+                                row.quantity === 0 ? '' : String(row.quantity);
+                              return (
+                                <div
+                                  key={row.id}
+                                  className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                                >
+                                  <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-row">
+                                    <select
+                                      aria-label="Select size"
+                                      disabled={quantitiesDisabled}
+                                      value={row.size}
+                                      onChange={(e) =>
+                                        updateExtraRow(row.id, {
+                                          size: e.target.value,
+                                        })
+                                      }
+                                      className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-32"
+                                    >
+                                      {GRADING_SIZES.map((s) => (
+                                        <option key={s} value={s}>
+                                          {s}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      aria-label={`Bag type for ${row.size}`}
+                                      disabled={quantitiesDisabled}
+                                      value={row.bagType ?? 'JUTE'}
+                                      onChange={(e) =>
+                                        updateExtraRow(row.id, {
+                                          bagType: e.target.value,
+                                        })
+                                      }
+                                      className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-24 shrink-0 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {BAG_TYPES.map((opt) => (
+                                        <option key={opt} value={opt}>
+                                          {opt}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-muted-foreground hover:text-destructive shrink-0"
+                                      onClick={() => removeExtraRow(row.id)}
+                                      aria-label={`Remove ${row.size || 'size'} row`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    placeholder="Qty"
+                                    disabled={quantitiesDisabled}
+                                    value={displayValue}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const num =
+                                        raw === ''
+                                          ? 0
+                                          : Math.max(0, parseInt(raw, 10) || 0);
+                                      updateExtraRow(row.id, { quantity: num });
+                                    }}
+                                    onWheel={(e) => e.currentTarget.blur()}
+                                    className="w-full [appearance:textfield] sm:w-24 sm:text-right [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  />
+                                </div>
+                              );
+                            })}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addExtraRow}
+                              disabled={quantitiesDisabled}
+                              className="font-custom w-full sm:w-auto"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Size
+                            </Button>
                             <Separator className="my-4" />
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <span className="font-custom text-foreground text-base font-normal">
                                 Total
                               </span>
                               <span className="font-custom text-foreground text-base font-medium sm:text-right">
-                                {Object.values(sizeQuantities).reduce(
-                                  (s, q) => s + (q ?? 0),
-                                  0
-                                )}
+                                {totalQty}
                               </span>
                             </div>
                           </CardContent>
@@ -584,9 +819,10 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                   <form.Subscribe
                     selector={(state) => ({
                       sizeQuantities: state.values.sizeQuantities,
+                      extraQuantityRows: state.values.extraQuantityRows ?? [],
                     })}
                   >
-                    {({ sizeQuantities }) => {
+                    {({ sizeQuantities, extraQuantityRows }) => {
                       const fixedWithQty = GRADING_SIZES.filter(
                         (size) => (sizeQuantities[size] ?? 0) > 0
                       ).map((size) => ({
@@ -594,8 +830,15 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                         sizeLabel: size,
                         quantity: sizeQuantities[size] ?? 0,
                       }));
+                      const extraWithQty = (extraQuantityRows ?? [])
+                        .filter((row) => (row.quantity ?? 0) > 0)
+                        .map((row) => ({
+                          key: `${EXTRA_ROW_KEY_PREFIX}${row.id}`,
+                          sizeLabel: row.size,
+                          quantity: row.quantity ?? 0,
+                        }));
                       const locationBySize = field.state.value ?? {};
-                      const locationRows = fixedWithQty;
+                      const locationRows = [...fixedWithQty, ...extraWithQty];
 
                       const clearAllLocations = () => {
                         const next: Record<string, LocationEntry> = {};
@@ -653,7 +896,8 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                                 </CardTitle>
                                 <CardDescription className="font-custom text-muted-foreground text-sm">
                                   Assign chamber, floor and row for each size
-                                  that has a quantity.
+                                  (including extra size rows) that has a
+                                  quantity.
                                 </CardDescription>
                               </div>
                               <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -828,17 +1072,25 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
             )}
           </div>
           <form.Subscribe
-            selector={(state) => ({
-              farmerStorageLinkId: state.values.farmerStorageLinkId,
-              variety: state.values.variety,
-              sizeQuantities: state.values.sizeQuantities,
-            })}
-          >
-            {({ farmerStorageLinkId, variety, sizeQuantities }) => {
-              const totalQty = Object.values(sizeQuantities ?? {}).reduce(
+            selector={(state) => {
+              const sq = state.values.sizeQuantities ?? {};
+              const eq = state.values.extraQuantityRows ?? [];
+              const fixedQty = Object.values(sq).reduce(
                 (s, q) => s + (q ?? 0),
                 0
               );
+              const extraQty = eq.reduce(
+                (s, row) => s + (row.quantity ?? 0),
+                0
+              );
+              return {
+                farmerStorageLinkId: state.values.farmerStorageLinkId,
+                variety: state.values.variety,
+                totalQty: fixedQty + extraQty,
+              };
+            }}
+          >
+            {({ farmerStorageLinkId, variety, totalQty }) => {
               const canProceedFromStep1 =
                 Boolean(farmerStorageLinkId?.trim()) &&
                 Boolean(variety?.trim()) &&

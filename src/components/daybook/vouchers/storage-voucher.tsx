@@ -30,18 +30,19 @@ const StorageVoucher = memo(function StorageVoucher({
   const farmerAccount =
     farmerAccountProp ?? voucher.farmerStorageLinkId?.accountNumber;
 
-  const bagSizes = voucher.bagSizes ?? [];
+  const bagSizes = useMemo(() => voucher.bagSizes ?? [], [voucher.bagSizes]);
   const bags = totalBagsFromBagSizes(bagSizes);
 
   const { totalQty, totalInitial } = useMemo(() => {
+    const sizes = voucher.bagSizes ?? [];
     let qty = 0;
     let initial = 0;
-    for (const b of bagSizes) {
+    for (const b of sizes) {
       qty += b.currentQuantity ?? 0;
       initial += b.initialQuantity ?? 0;
     }
     return { totalQty: qty, totalInitial: initial };
-  }, [bagSizes]);
+  }, [voucher.bagSizes]);
 
   return (
     <Card className="border-border/40 hover:border-primary/30 overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
