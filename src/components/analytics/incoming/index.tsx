@@ -1,16 +1,30 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
+import TopFarmersChart from './TopFarmersChart';
+import VarietyDistributionChart from './VarietyDistributionChart';
+import IncomingTrendAnalysisChart from './IncomingTrendAnalysisChart';
+
+export interface IncomingDateParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
 
 export interface IncomingGatePassAnalyticsScreenProps {
   queryResult: UseQueryResult<IncomingGatePassWithLink[], Error>;
+  dateParams?: IncomingDateParams;
 }
 
 export default function IncomingGatePassAnalyticsScreen({
   queryResult: _queryResult,
+  dateParams = {},
 }: IncomingGatePassAnalyticsScreenProps) {
   return (
-    <div className="font-custom text-center py-12 text-gray-600">
-      Show Incoming Analytics Here after discussion
+    <div className="font-custom space-y-6">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <TopFarmersChart dateParams={dateParams} />
+        <VarietyDistributionChart dateParams={dateParams} />
+      </div>
+      <IncomingTrendAnalysisChart dateParams={dateParams} />
     </div>
   );
 }

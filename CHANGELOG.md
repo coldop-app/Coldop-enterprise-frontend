@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-03-01
+
+### Added
+- Analytics Incoming: **Incoming trend analysis chart** — daily and monthly bag trends (GET `/analytics/daily-monthly-trend`) with date range support
+- Analytics Incoming: **Top farmers chart** — top farmers by bags (GET `/analytics/top-farmers-by-bags`) with date params
+- Analytics Incoming: **Variety distribution chart** — variety breakdown (GET `/analytics/variety-distribution`) with date params
+- Services: `useGetIncomingTrendAnalysis`, `useGetIncomingVarietyBreakdown`, `useGetTopFarmers` and query options for incoming analytics charts
+- UI: Chart component (`@/components/ui/chart`) for recharts-based visualizations
+- Types: `TopFarmersChartItem`, `TopFarmersByBagsData`, `VarietyDistributionChartItem`, `VarietyDistributionData`, `DailyTrendChartItem`, `MonthlyTrendChartItem`, `DailyMonthlyTrendData` and related API response types in analytics types
+
+### Changed
+- Analytics Incoming tab: layout now includes Top Farmers and Variety Distribution charts in a grid, plus full-width Incoming Trend Analysis chart
+- Card component: updates for chart integration
+
 ## [0.16.0] - 2026-02-26
 
 ### Added

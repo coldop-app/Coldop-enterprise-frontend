@@ -379,3 +379,73 @@ export interface GetNikasiGatePassReportApiResponse {
   data: NikasiGatePassReportData;
   message?: string;
 }
+
+// --- Top farmers by bags (GET /analytics/top-farmers-by-bags) ---
+
+/** Single farmer entry in GET /analytics/top-farmers-by-bags chartData */
+export interface TopFarmersChartItem {
+  name: string;
+  bags: number;
+  farmerId: string;
+  accountNumber: number;
+}
+
+/** Data shape for GET /analytics/top-farmers-by-bags */
+export interface TopFarmersByBagsData {
+  chartData: TopFarmersChartItem[];
+}
+
+/** API response for GET /analytics/top-farmers-by-bags */
+export interface GetTopFarmersByBagsApiResponse {
+  success: boolean;
+  data: TopFarmersByBagsData;
+  message?: string;
+}
+
+// --- Variety distribution (GET /analytics/variety-distribution) ---
+
+/** Single variety entry in GET /analytics/variety-distribution chartData */
+export interface VarietyDistributionChartItem {
+  name: string;
+  value: number;
+}
+
+/** Data shape for GET /analytics/variety-distribution */
+export interface VarietyDistributionData {
+  chartData: VarietyDistributionChartItem[];
+}
+
+/** API response for GET /analytics/variety-distribution */
+export interface GetVarietyDistributionApiResponse {
+  success: boolean;
+  data: VarietyDistributionData;
+  message?: string;
+}
+
+// --- Daily/monthly trend (GET /analytics/daily-monthly-trend) ---
+
+/** Single daily entry in GET /analytics/daily-monthly-trend daily.chartData */
+export interface DailyTrendChartItem {
+  date: string;
+  bags: number;
+}
+
+/** Single monthly entry in GET /analytics/daily-monthly-trend monthly.chartData */
+export interface MonthlyTrendChartItem {
+  month: string;
+  monthLabel: string;
+  bags: number;
+}
+
+/** Data shape for GET /analytics/daily-monthly-trend */
+export interface DailyMonthlyTrendData {
+  daily: { chartData: DailyTrendChartItem[] };
+  monthly: { chartData: MonthlyTrendChartItem[] };
+}
+
+/** API response for GET /analytics/daily-monthly-trend */
+export interface GetDailyMonthlyTrendApiResponse {
+  success: boolean;
+  data: DailyMonthlyTrendData;
+  message?: string;
+}

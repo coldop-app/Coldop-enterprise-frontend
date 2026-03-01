@@ -203,7 +203,10 @@ const AnalyticsPage = () => {
           </TabsList>
           <div className="p-4">
             <TabsContent value="incoming" className="mt-0 outline-none">
-              <IncomingGatePassAnalyticsScreen queryResult={incomingQuery} />
+              <IncomingGatePassAnalyticsScreen
+                queryResult={incomingQuery}
+                dateParams={appliedDateParams}
+              />
             </TabsContent>
             <TabsContent value="grading" className="mt-0 outline-none">
               <GradingGatePassAnalyticsScreen queryResult={gradingQuery} />
