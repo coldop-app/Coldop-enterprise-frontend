@@ -62,37 +62,51 @@ export interface IncomingGatePassLinkedByAdmin {
   name: string;
 }
 
-/** Farmer storage link as returned in GET /incoming-gate-pass response */
+/** Farmer storage link as returned in GET /incoming-gate-pass response (populated) */
 export interface IncomingGatePassFarmerStorageLink {
   _id: string;
   farmerId: FarmerStorageLinkFarmer;
-  coldStorageId: string;
   linkedById: IncomingGatePassLinkedByAdmin;
   accountNumber: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
-  notes?: string;
+}
+
+/** Single bag size entry on an incoming gate pass (GET /incoming-gate-pass) */
+export interface IncomingGatePassBagSize {
+  size: string;
+  currentQuantity: number;
+  initialQuantity: number;
+  bagType: string;
+  chamber: string;
+  floor: string;
+  row: string;
 }
 
 /** Incoming gate pass as returned by GET /incoming-gate-pass (with populated farmerStorageLinkId) */
 export interface IncomingGatePassWithLink {
   _id: string;
   farmerStorageLinkId: IncomingGatePassFarmerStorageLink;
+  createdBy: string;
   gatePassNo: number;
-  manualGatePassNumber?: number;
   date: string;
   variety: string;
-  truckNumber: string;
-  bagsReceived: number;
-  weightSlip?: IncomingGatePassWeightSlip;
-  status: string;
-  gradingSummary: IncomingGatePassGradingSummary;
+  bagSizes: IncomingGatePassBagSize[];
+  editHistory: unknown[];
   remarks?: string;
   createdAt: string;
   updatedAt: string;
   __v: number;
+  /** @deprecated Use bagSizes (e.g. sum of initialQuantity) when present. Kept for backward compatibility. */
+  bagsReceived?: number;
+  /** @deprecated Not present in current API. Kept for backward compatibility. */
+  weightSlip?: IncomingGatePassWeightSlip;
+  /** @deprecated Not present in current API. Kept for backward compatibility. */
+  truckNumber?: string;
+  /** @deprecated Not present in current API. Kept for backward compatibility. */
+  manualGatePassNumber?: number;
+  /** @deprecated Not present in current API. Kept for backward compatibility. */
+  status?: string;
+  /** @deprecated Not present in current API. Kept for backward compatibility. */
+  gradingSummary?: IncomingGatePassGradingSummary;
 }
 
 /** API response for GET /incoming-gate-pass */

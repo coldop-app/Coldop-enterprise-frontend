@@ -17,8 +17,10 @@ export { DetailRow } from './detail-row';
 
 export {
   totalBagsFromOrderDetails,
+  totalBagsFromBagSizes,
   type IncomingVoucherData,
   type PassVoucherData,
   type VoucherFarmerInfo,
   type OrderDetailRow,
+  type StorageBagSizeRow,
 } from './types';

@@ -108,3 +108,22 @@ export function totalBagsFromOrderDetails(
     0
   );
 }
+
+/** Bag size row shape (e.g. storage gate pass bagSizes from API) */
+export interface StorageBagSizeRow {
+  size?: string;
+  currentQuantity?: number;
+  initialQuantity?: number;
+  bagType?: string;
+  chamber?: string;
+  floor?: string;
+  row?: string;
+}
+
+/** Sum bags from bagSizes (currentQuantity) */
+export function totalBagsFromBagSizes(
+  bagSizes: StorageBagSizeRow[] | undefined
+): number {
+  if (!bagSizes?.length) return 0;
+  return bagSizes.reduce((sum, b) => sum + (b.currentQuantity ?? 0), 0);
+}

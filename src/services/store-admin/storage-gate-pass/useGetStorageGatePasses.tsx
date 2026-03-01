@@ -3,7 +3,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetStorageGatePassesApiResponse,
-  StorageGatePass,
+  StorageGatePassWithLink,
 } from '@/types/storage-gate-pass';
 
 /** Query key prefix for storage gate pass – use for invalidation */
@@ -32,7 +32,7 @@ function getFetchErrorMessage(
 }
 
 /** Fetcher used by queryOptions and prefetch */
-async function fetchStorageGatePasses(): Promise<StorageGatePass[]> {
+async function fetchStorageGatePasses(): Promise<StorageGatePassWithLink[]> {
   try {
     const { data } = await storeAdminAxiosClient.get<
       GetStorageGatePassesApiResponse | GetStorageGatePassesError

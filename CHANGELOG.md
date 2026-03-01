@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-03-01
+
+### Added
+- Daybook Storage tab: **live storage vouchers** — fetches storage gate passes via `useGetStorageGatePasses`, renders `StorageVoucher` per pass with loading and empty states
+- Daybook voucher types: `StorageBagSizeRow` and `totalBagsFromBagSizes` for bag-sizes–based storage display
+- Storage gate pass types: `StorageGatePassWithLink`, `StorageGatePassFarmerStorageLink`, `StorageGatePassBagSize`, `StorageGatePassLinkedByAdmin` for GET response shape
+- Incoming gate pass types: `IncomingGatePassBagSize`; `IncomingGatePassWithLink` extended with `bagSizes`, `createdBy`, `editHistory`
+
+### Changed
+- Storage voucher component: uses `StorageGatePassWithLink` and `bagSizes` instead of legacy `orderDetails`; farmer name/account from `voucher.farmerStorageLinkId` when not passed as props; Farmer Details section shows address and mobile when available; location table columns (Size, Bag Type, Chamber, Floor, Row, Current Qty, Initial Qty); removed "Grading refs" and weight-per-bag from total row
+- Daybook Storage tab: placeholder replaced with `StorageTabContent` (real data)
+- `useGetStorageGatePasses`: returns `StorageGatePassWithLink[]`; API response type updated
+- `useCreateStorageGatePass`: success toast uses static message
+- Incoming gate pass types: `IncomingGatePassFarmerStorageLink` simplified; deprecated `bagsReceived`, `weightSlip`, `truckNumber`, `manualGatePassNumber`, `status`, `gradingSummary` on `IncomingGatePassWithLink` (kept for backward compatibility)
+
 ## [0.18.0] - 2026-03-01
 
 ### Added

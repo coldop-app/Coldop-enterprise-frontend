@@ -49,6 +49,7 @@ import {
   EmptyMedia,
 } from '@/components/ui/empty';
 import { useGetDaybook } from '@/services/store-admin/grading-gate-pass/useGetDaybook';
+import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
 import type { DaybookEntry, DaybookGatePassType } from '@/types/daybook';
 import {
   JUTE_BAG_WEIGHT,
@@ -58,6 +59,7 @@ import EntrySummariesBar from './EntrySummariesBar';
 import {
   IncomingVoucher,
   GradingVoucher,
+  StorageVoucher,
   totalBagsFromOrderDetails,
   type IncomingVoucherData,
   type PassVoucherData,
@@ -273,6 +275,73 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
 });
 
 export { DaybookEntryCard };
+
+/** Storage tab: fetches storage gate passes and renders voucher list */
+const StorageTabContent = memo(function StorageTabContent() {
+  const { data: storagePasses, isLoading } = useGetStorageGatePasses();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {[...Array(3)].map((_, i) => (
+          <Card key={i} className="overflow-hidden p-0">
+            <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-16 rounded-md" />
+              </div>
+              <Skeleton className="mt-2 h-3 w-32" />
+            </div>
+            <div className="space-y-2 border-b px-4 py-3">
+              <div className="flex gap-4">
+                {[...Array(4)].map((__, j) => (
+                  <Skeleton key={j} className="h-4 w-14" />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 p-4">
+              <Skeleton className="h-8 w-16 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (!storagePasses?.length) {
+    return (
+      <Card>
+        <CardContent className="py-8 pt-6">
+          <Empty className="font-custom">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Package className="size-6" />
+              </EmptyMedia>
+              <EmptyTitle>No storage vouchers yet</EmptyTitle>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                asChild
+              >
+                <Link to="/store-admin/storage">Add Storage voucher</Link>
+              </Button>
+            </EmptyContent>
+          </Empty>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {storagePasses.map((pass) => (
+        <StorageVoucher key={pass._id} voucher={pass} />
+      ))}
+    </div>
+  );
+});
 
 const LIMIT_OPTIONS = [10, 25, 50, 100] as const;
 
@@ -775,15 +844,7 @@ const DaybookPage = memo(function DaybookPage() {
                   addButtonTo="/store-admin/storage"
                   addButtonIcon={<Package className="h-4 w-4 shrink-0" />}
                 />
-                <Card>
-                  <CardContent className="font-custom text-muted-foreground py-8">
-                    <p className="text-center">
-                      Storage vouchers and related content will be shown here.
-                      Use the search and sort options above to filter results
-                      when data is available.
-                    </p>
-                  </CardContent>
-                </Card>
+                <StorageTabContent />
               </div>
             </TabsContent>
 

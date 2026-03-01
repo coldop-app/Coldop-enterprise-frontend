@@ -1,3 +1,4 @@
+import type { FarmerStorageLinkFarmer } from '@/types/farmer';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 /** Single allocation for a grading gate pass when creating a storage gate pass (legacy / summary display) */
@@ -83,10 +84,52 @@ export interface StorageGatePass {
   createdBy?: string;
 }
 
+/** Admin user who linked the farmer–storage pair in GET /storage-gate-pass response */
+export interface StorageGatePassLinkedByAdmin {
+  _id: string;
+  name: string;
+}
+
+/** Farmer storage link as returned in GET /storage-gate-pass response (populated) */
+export interface StorageGatePassFarmerStorageLink {
+  _id: string;
+  farmerId: FarmerStorageLinkFarmer;
+  linkedById: StorageGatePassLinkedByAdmin;
+  accountNumber: number;
+}
+
+/** Single bag size entry on a storage gate pass (GET /storage-gate-pass) */
+export interface StorageGatePassBagSize {
+  size: string;
+  currentQuantity: number;
+  initialQuantity: number;
+  bagType: string;
+  chamber: string;
+  floor: string;
+  row: string;
+}
+
+/** Storage gate pass as returned by GET /storage-gate-pass (with populated farmerStorageLinkId) */
+export interface StorageGatePassWithLink {
+  _id: string;
+  farmerStorageLinkId: StorageGatePassFarmerStorageLink;
+  createdBy: string;
+  gatePassNo: number;
+  date: string;
+  variety: string;
+  bagSizes: StorageGatePassBagSize[];
+  editHistory: unknown[];
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+  manualGatePassNumber?: number;
+}
+
 /** API response for GET /storage-gate-pass */
 export interface GetStorageGatePassesApiResponse {
   success: boolean;
-  data: StorageGatePass[];
+  data: StorageGatePassWithLink[];
   message?: string;
 }
 
