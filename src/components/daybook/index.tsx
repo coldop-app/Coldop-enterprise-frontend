@@ -58,9 +58,6 @@ import EntrySummariesBar from './EntrySummariesBar';
 import {
   IncomingVoucher,
   GradingVoucher,
-  StorageVoucher,
-  NikasiVoucher,
-  OutgoingVoucher,
   totalBagsFromOrderDetails,
   type IncomingVoucherData,
   type PassVoucherData,
@@ -70,7 +67,7 @@ interface DaybookEntryCardProps {
   entry: DaybookEntry;
 }
 
-const PIPELINE_STAGES = 5; // Incoming → Grading → Storage → Nikasi → Outgoing
+const PIPELINE_STAGES = 2; // Incoming → Grading
 
 /** Get farmerStorageLinkId from incoming (id string or populated object with _id) */
 function getFarmerStorageLinkId(
@@ -83,15 +80,11 @@ function getFarmerStorageLinkId(
   return undefined;
 }
 
-/** Progress = (number of steps achieved / total steps) * 100. Counts only steps that actually have vouchers (e.g. Incoming + Grading + Nikasi with no Storage = 3 steps = 60%). */
+/** Progress = (number of steps achieved / total steps) * 100. Counts Incoming and Grading only. */
 function getPipelineProgress(entry: DaybookEntry): number {
   const hasIncoming = 1; // Incoming is always present when we have an entry
   const hasGrading = (entry.gradingPasses?.length ?? 0) > 0 ? 1 : 0;
-  const hasStorage = (entry.storagePasses?.length ?? 0) > 0 ? 1 : 0;
-  const hasNikasi = (entry.nikasiPasses?.length ?? 0) > 0 ? 1 : 0;
-  const hasOutgoing = (entry.outgoingPasses?.length ?? 0) > 0 ? 1 : 0;
-  const completedStages =
-    hasIncoming + hasGrading + hasStorage + hasNikasi + hasOutgoing;
+  const completedStages = hasIncoming + hasGrading;
   return Math.round((completedStages / PIPELINE_STAGES) * 100);
 }
 
@@ -187,21 +180,6 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
           variety,
         }
       : undefined;
-  const firstGradingPass = entry.gradingPasses?.[0] as
-    | PassVoucherData
-    | undefined;
-  const storageSearch = farmerStorageLinkId
-    ? {
-        farmerStorageLinkId,
-        ...(firstGradingPass?._id && { gradingPassId: firstGradingPass._id }),
-      }
-    : undefined;
-  const nikasiSearch = farmerStorageLinkId
-    ? {
-        farmerStorageLinkId,
-        ...(firstGradingPass?._id && { gradingPassId: firstGradingPass._id }),
-      }
-    : undefined;
 
   return (
     <Card className="overflow-hidden p-0">
@@ -232,27 +210,6 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
           >
             <span className="sm:hidden">Gra</span>
             <span className="hidden sm:inline">Grading</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="storage"
-            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
-          >
-            <span className="sm:hidden">Sto</span>
-            <span className="hidden sm:inline">Storage</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="nikasi"
-            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
-          >
-            <span className="sm:hidden">Dis</span>
-            <span className="hidden sm:inline">Dispatch</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="outgoing"
-            className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
-          >
-            <span className="sm:hidden">Out</span>
-            <span className="hidden sm:inline">Outgoing</span>
           </TabsTrigger>
         </TabsList>
         <div className="p-0">
@@ -309,103 +266,6 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
               </Empty>
             )}
           </TabsContent>
-          <TabsContent value="storage" className="mt-0 outline-none">
-            {entry.storagePasses.length > 0 ? (
-              <div className="space-y-4">
-                {(entry.storagePasses as PassVoucherData[]).map((pass) => (
-                  <StorageVoucher
-                    key={pass._id ?? String(pass.gatePassNo)}
-                    voucher={pass}
-                    farmerName={farmerName}
-                    farmerAccount={farmerAccount}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Empty className="font-custom py-6">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Package className="size-6" />
-                  </EmptyMedia>
-                  <EmptyTitle>No Storage voucher is present</EmptyTitle>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                    asChild
-                  >
-                    <Link to="/store-admin/storage" search={storageSearch}>
-                      Add Storage voucher
-                    </Link>
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            )}
-          </TabsContent>
-          <TabsContent value="nikasi" className="mt-0 outline-none">
-            {entry.nikasiPasses.length > 0 ? (
-              <div className="space-y-4">
-                {(entry.nikasiPasses as PassVoucherData[]).map((pass) => (
-                  <NikasiVoucher
-                    key={pass._id ?? String(pass.gatePassNo)}
-                    voucher={pass}
-                    farmerName={farmerName}
-                    farmerAccount={farmerAccount}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Empty className="font-custom py-6">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Truck className="size-6" />
-                  </EmptyMedia>
-                  <EmptyTitle>No Dispatch voucher is present</EmptyTitle>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                    asChild
-                  >
-                    <Link to="/store-admin/nikasi" search={nikasiSearch}>
-                      Add Dispatch voucher
-                    </Link>
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            )}
-          </TabsContent>
-          <TabsContent value="outgoing" className="mt-0 outline-none">
-            {entry.outgoingPasses.length > 0 ? (
-              <div className="space-y-4">
-                {(entry.outgoingPasses as PassVoucherData[]).map((pass) => (
-                  <OutgoingVoucher
-                    key={pass._id ?? String(pass.gatePassNo)}
-                    voucher={pass}
-                    farmerName={farmerName}
-                    farmerAccount={farmerAccount}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Empty className="font-custom py-6">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <ArrowRightFromLine className="size-6" />
-                  </EmptyMedia>
-                  <EmptyTitle>No Outgoing voucher is present</EmptyTitle>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                    asChild
-                  >
-                    <Link to="/store-admin/outgoing">Add Outgoing voucher</Link>
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            )}
-          </TabsContent>
         </div>
       </Tabs>
     </Card>
@@ -423,10 +283,87 @@ const GATE_PASS_TYPE_OPTIONS: {
 }[] = [
   { value: 'incoming', label: 'Incoming', shortLabel: 'Inc' },
   { value: 'grading', label: 'Grading', shortLabel: 'Gra' },
-  { value: 'storage', label: 'Storage', shortLabel: 'Sto' },
-  { value: 'nikasi', label: 'Dispatch', shortLabel: 'Dis' },
-  { value: 'outgoing', label: 'Outgoing', shortLabel: 'Out' },
 ];
+
+interface TabToolbarSimpleProps {
+  addButtonLabel: string;
+  addButtonTo: string;
+  addButtonIcon: React.ReactNode;
+}
+
+/** Toolbar with search + sort by only (no filter). Used for Storage, Dispatch, Outgoing tabs. */
+const TabToolbarSimple = memo(function TabToolbarSimple({
+  addButtonLabel,
+  addButtonTo,
+  addButtonIcon,
+}: TabToolbarSimpleProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<'Date' | 'Voucher Number'>('Date');
+  return (
+    <Item
+      variant="outline"
+      size="sm"
+      className="flex-col items-stretch gap-4 rounded-xl"
+    >
+      <div className="relative w-full">
+        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+        <Input
+          placeholder="Search by voucher number, date..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
+        />
+      </div>
+      <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
+            >
+              <span className="hidden sm:inline">Sort by: </span>
+              <span className="sm:hidden">Sort: </span>
+              {sortBy === 'Voucher Number' ? (
+                <span className="truncate">Voucher No.</span>
+              ) : (
+                sortBy
+              )}
+              <span className="font-custom text-muted-foreground hidden sm:inline">
+                {' '}
+                · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+              </span>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="font-custom">
+            <DropdownMenuItem onClick={() => setSortBy('Date')}>
+              Date
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortBy('Voucher Number')}>
+              Voucher Number
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortOrder('asc')}>
+              Ascending
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortOrder('desc')}>
+              Descending
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          className="font-custom h-10 w-full shrink-0 gap-2 sm:w-auto"
+          asChild
+        >
+          <Link to={addButtonTo}>
+            {addButtonIcon}
+            {addButtonLabel}
+          </Link>
+        </Button>
+      </ItemFooter>
+    </Item>
+  );
+});
 
 const DaybookPage = memo(function DaybookPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -540,252 +477,357 @@ const DaybookPage = memo(function DaybookPage() {
             </ItemHeader>
           </Item>
 
-          {/* Search + sort + add */}
-          <Item
-            variant="outline"
-            size="sm"
-            className="flex-col items-stretch gap-4 rounded-xl"
-          >
-            <div className="relative w-full">
-              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-              <Input
-                placeholder="Search by voucher number, date..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
-              />
-            </div>
-            <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex w-full flex-col gap-3 sm:flex-1 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-4">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
-                    >
-                      <span className="hidden sm:inline">Sort by: </span>
-                      <span className="sm:hidden">Sort: </span>
-                      {sortBy === 'Voucher Number' ? (
-                        <span className="truncate">Voucher No.</span>
-                      ) : (
-                        sortBy
-                      )}
-                      <span className="font-custom text-muted-foreground hidden sm:inline">
-                        {' '}
-                        · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                      </span>
-                      <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="font-custom">
-                    <DropdownMenuItem onClick={() => setSortBy('Date')}>
-                      Date
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setSortBy('Voucher Number')}
-                    >
-                      Voucher Number
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSortOrder('asc');
-                        setPage(1);
-                      }}
-                    >
-                      Ascending
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSortOrder('desc');
-                        setPage(1);
-                      }}
-                    >
-                      Descending
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
-                    >
-                      <span className="hidden sm:inline">Filter: </span>
-                      <span className="sm:hidden">Type: </span>
-                      {gatePassType.length === 0 ? (
-                        'All'
-                      ) : gatePassType.length === 1 ? (
-                        (GATE_PASS_TYPE_OPTIONS.find(
-                          (o) => o.value === gatePassType[0]
-                        )?.label ?? 'All')
-                      ) : (
-                        <span className="truncate">
-                          {gatePassType.length} types
-                        </span>
-                      )}
-                      <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="font-custom">
-                    {GATE_PASS_TYPE_OPTIONS.map((opt) => (
-                      <DropdownMenuCheckboxItem
-                        key={opt.value}
-                        checked={gatePassType.includes(opt.value)}
-                        onCheckedChange={() => toggleGatePassType(opt.value)}
-                      >
-                        {opt.label}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <Button
-                className="font-custom h-10 w-full shrink-0 sm:w-auto"
-                asChild
+          <Tabs defaultValue="incoming-grading" className="w-full">
+            <TabsList className="font-custom mb-4 flex h-auto w-full flex-nowrap overflow-x-auto rounded-xl">
+              <TabsTrigger
+                value="incoming-grading"
+                className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
               >
-                <Link to="/store-admin/incoming">
-                  <ArrowUpFromLine className="h-4 w-4 shrink-0" />
-                  Add Incoming
-                </Link>
-              </Button>
-            </ItemFooter>
-          </Item>
+                <span className="sm:hidden">Inc & Gra</span>
+                <span className="hidden sm:inline">Incoming & Grading</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="storage"
+                className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+              >
+                Storage
+              </TabsTrigger>
+              <TabsTrigger
+                value="dispatch"
+                className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+              >
+                Dispatch
+              </TabsTrigger>
+              <TabsTrigger
+                value="outgoing"
+                className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+              >
+                Outgoing
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="incoming-grading" className="mt-0 outline-none">
+              {/* Search + sort + filter + Add Incoming */}
+              <Item
+                variant="outline"
+                size="sm"
+                className="flex-col items-stretch gap-4 rounded-xl"
+              >
+                <div className="relative w-full">
+                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                  <Input
+                    placeholder="Search by voucher number, date..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
+                  />
+                </div>
+                <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex w-full flex-col gap-3 sm:flex-1 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
+                        >
+                          <span className="hidden sm:inline">Sort by: </span>
+                          <span className="sm:hidden">Sort: </span>
+                          {sortBy === 'Voucher Number' ? (
+                            <span className="truncate">Voucher No.</span>
+                          ) : (
+                            sortBy
+                          )}
+                          <span className="font-custom text-muted-foreground hidden sm:inline">
+                            {' '}
+                            · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                          </span>
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className="font-custom"
+                      >
+                        <DropdownMenuItem onClick={() => setSortBy('Date')}>
+                          Date
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setSortBy('Voucher Number')}
+                        >
+                          Voucher Number
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSortOrder('asc');
+                            setPage(1);
+                          }}
+                        >
+                          Ascending
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSortOrder('desc');
+                            setPage(1);
+                          }}
+                        >
+                          Descending
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
+                        >
+                          <span className="hidden sm:inline">Filter: </span>
+                          <span className="sm:hidden">Type: </span>
+                          {gatePassType.length === 0 ? (
+                            'All'
+                          ) : gatePassType.length === 1 ? (
+                            (GATE_PASS_TYPE_OPTIONS.find(
+                              (o) => o.value === gatePassType[0]
+                            )?.label ?? 'All')
+                          ) : (
+                            <span className="truncate">
+                              {gatePassType.length} types
+                            </span>
+                          )}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className="font-custom"
+                      >
+                        {GATE_PASS_TYPE_OPTIONS.map((opt) => (
+                          <DropdownMenuCheckboxItem
+                            key={opt.value}
+                            checked={gatePassType.includes(opt.value)}
+                            onCheckedChange={() =>
+                              toggleGatePassType(opt.value)
+                            }
+                          >
+                            {opt.label}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <Button
+                    className="font-custom h-10 w-full shrink-0 sm:w-auto"
+                    asChild
+                  >
+                    <Link to="/store-admin/incoming">
+                      <ArrowUpFromLine className="h-4 w-4 shrink-0" />
+                      Add Incoming
+                    </Link>
+                  </Button>
+                </ItemFooter>
+              </Item>
+
+              {/* List: one tabbed card per daybook entry */}
+              <div className="mt-4 sm:mt-6">
+                {isLoading ? (
+                  <div className="space-y-6">
+                    {[...Array(3)].map((_, i) => (
+                      <Card key={i} className="overflow-hidden p-0">
+                        <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-4 w-8" />
+                          </div>
+                          <Skeleton className="mt-1.5 h-2 w-full rounded-full" />
+                        </div>
+                        <div className="space-y-2 border-b px-4 py-3">
+                          <div className="flex gap-4">
+                            {[...Array(2)].map((__, j) => (
+                              <Skeleton key={j} className="h-4 w-14" />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <div className="flex gap-2">
+                            {[...Array(2)].map((__, j) => (
+                              <Skeleton
+                                key={j}
+                                className="h-9 flex-1 rounded-lg"
+                              />
+                            ))}
+                          </div>
+                          <div className="mt-4 space-y-3">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-[80%]" />
+                            <Skeleton className="h-4 w-3/4" />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : filteredAndSortedEntries.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 pt-6 text-center">
+                      <p className="font-custom text-muted-foreground">
+                        No vouchers yet.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {filteredAndSortedEntries.map((entry, idx) => (
+                      <DaybookEntryCard
+                        key={
+                          (entry.incoming as { _id?: string })?._id ??
+                          entry.farmer?._id ??
+                          `entry-${idx}`
+                        }
+                        entry={entry}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination footer */}
+                {!isLoading && daybookData != null && (
+                  <Item
+                    variant="outline"
+                    size="sm"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3"
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="font-custom focus-visible:ring-primary rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        >
+                          {limit} per page
+                          <ChevronDown className="ml-1.5 h-4 w-4 shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {LIMIT_OPTIONS.map((n) => (
+                          <DropdownMenuItem
+                            key={n}
+                            onClick={() => setLimitAndResetPage(n)}
+                          >
+                            {n} per page
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Pagination>
+                      <PaginationContent className="gap-1">
+                        <PaginationItem>
+                          <PaginationPrevious
+                            href="#"
+                            className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
+                            aria-disabled={!hasPrev}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (hasPrev) setPage((p) => Math.max(1, p - 1));
+                            }}
+                            style={
+                              !hasPrev
+                                ? { pointerEvents: 'none', opacity: 0.5 }
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationLink
+                            isActive
+                            href="#"
+                            className="font-custom cursor-default"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            {page} / {totalPages}
+                          </PaginationLink>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
+                            aria-disabled={!hasNext}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (hasNext)
+                                setPage((p) => Math.min(totalPages, p + 1));
+                            }}
+                            style={
+                              !hasNext
+                                ? { pointerEvents: 'none', opacity: 0.5 }
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </Item>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="storage" className="mt-0 outline-none">
+              <div className="space-y-4">
+                <TabToolbarSimple
+                  addButtonLabel="Add Storage"
+                  addButtonTo="/store-admin/storage"
+                  addButtonIcon={<Package className="h-4 w-4 shrink-0" />}
+                />
+                <Card>
+                  <CardContent className="font-custom text-muted-foreground py-8">
+                    <p className="text-center">
+                      Storage vouchers and related content will be shown here.
+                      Use the search and sort options above to filter results
+                      when data is available.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="dispatch" className="mt-0 outline-none">
+              <div className="space-y-4">
+                <TabToolbarSimple
+                  addButtonLabel="Add Dispatch"
+                  addButtonTo="/store-admin/nikasi"
+                  addButtonIcon={<Truck className="h-4 w-4 shrink-0" />}
+                />
+                <Card>
+                  <CardContent className="font-custom text-muted-foreground py-8">
+                    <p className="text-center">
+                      Dispatch (nikasi) vouchers and related content will be
+                      shown here. Use the search and sort options above to
+                      filter results when data is available.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="outgoing" className="mt-0 outline-none">
+              <div className="space-y-4">
+                <TabToolbarSimple
+                  addButtonLabel="Add Outgoing"
+                  addButtonTo="/store-admin/outgoing"
+                  addButtonIcon={
+                    <ArrowRightFromLine className="h-4 w-4 shrink-0" />
+                  }
+                />
+                <Card>
+                  <CardContent className="font-custom text-muted-foreground py-8">
+                    <p className="text-center">
+                      Outgoing vouchers and related content will be shown here.
+                      Use the search and sort options above to filter results
+                      when data is available.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
-
-        {/* List: one tabbed card per daybook entry */}
-        {isLoading ? (
-          <div className="space-y-6">
-            {[...Array(3)].map((_, i) => (
-              <Card key={i} className="overflow-hidden p-0">
-                <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-8" />
-                  </div>
-                  <Skeleton className="mt-1.5 h-2 w-full rounded-full" />
-                </div>
-                <div className="space-y-2 border-b px-4 py-3">
-                  <div className="flex gap-4">
-                    {[...Array(4)].map((__, j) => (
-                      <Skeleton key={j} className="h-4 w-14" />
-                    ))}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex gap-2">
-                    {[...Array(5)].map((__, j) => (
-                      <Skeleton key={j} className="h-9 flex-1 rounded-lg" />
-                    ))}
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-[80%]" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        ) : filteredAndSortedEntries.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 pt-6 text-center">
-              <p className="font-custom text-muted-foreground">
-                No vouchers yet.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {filteredAndSortedEntries.map((entry, idx) => (
-              <DaybookEntryCard
-                key={
-                  (entry.incoming as { _id?: string })?._id ??
-                  entry.farmer?._id ??
-                  `entry-${idx}`
-                }
-                entry={entry}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Pagination footer */}
-        {!isLoading && daybookData != null && (
-          <Item
-            variant="outline"
-            size="sm"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3"
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom focus-visible:ring-primary rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                >
-                  {limit} per page
-                  <ChevronDown className="ml-1.5 h-4 w-4 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {LIMIT_OPTIONS.map((n) => (
-                  <DropdownMenuItem
-                    key={n}
-                    onClick={() => setLimitAndResetPage(n)}
-                  >
-                    {n} per page
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Pagination>
-              <PaginationContent className="gap-1">
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
-                    aria-disabled={!hasPrev}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (hasPrev) setPage((p) => Math.max(1, p - 1));
-                    }}
-                    style={
-                      !hasPrev
-                        ? { pointerEvents: 'none', opacity: 0.5 }
-                        : undefined
-                    }
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink
-                    isActive
-                    href="#"
-                    className="font-custom cursor-default"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    {page} / {totalPages}
-                  </PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
-                    aria-disabled={!hasNext}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (hasNext) setPage((p) => Math.min(totalPages, p + 1));
-                    }}
-                    style={
-                      !hasNext
-                        ? { pointerEvents: 'none', opacity: 0.5 }
-                        : undefined
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </Item>
-        )}
       </div>
     </main>
   );

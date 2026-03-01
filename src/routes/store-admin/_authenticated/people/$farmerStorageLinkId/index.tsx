@@ -80,9 +80,6 @@ const GATE_PASS_TYPE_OPTIONS_PAGE: {
 }[] = [
   { value: 'incoming', label: 'Incoming', shortLabel: 'Inc' },
   { value: 'grading', label: 'Grading', shortLabel: 'Gra' },
-  { value: 'storage', label: 'Storage', shortLabel: 'Sto' },
-  { value: 'nikasi', label: 'Dispatch', shortLabel: 'Dis' },
-  { value: 'outgoing', label: 'Outgoing', shortLabel: 'Out' },
 ];
 
 function PeopleDetailPage() {
@@ -131,21 +128,6 @@ function PeopleDetailPage() {
         if (
           gatePassType.includes('grading') &&
           (entry.gradingPasses?.length ?? 0) > 0
-        )
-          return true;
-        if (
-          gatePassType.includes('storage') &&
-          (entry.storagePasses?.length ?? 0) > 0
-        )
-          return true;
-        if (
-          gatePassType.includes('nikasi') &&
-          (entry.nikasiPasses?.length ?? 0) > 0
-        )
-          return true;
-        if (
-          gatePassType.includes('outgoing') &&
-          (entry.outgoingPasses?.length ?? 0) > 0
         )
           return true;
         return false;

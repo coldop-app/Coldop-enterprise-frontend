@@ -1,11 +1,5 @@
 import { memo } from 'react';
-import {
-  ArrowUpFromLine,
-  Layers,
-  Warehouse,
-  Truck,
-  ArrowDownToLine,
-} from 'lucide-react';
+import { ArrowUpFromLine, Layers } from 'lucide-react';
 import type { DaybookEntrySummaries } from '@/types/daybook';
 
 interface EntrySummariesBarProps {
@@ -24,24 +18,6 @@ const STAGES = [
     short: 'Gra',
     label: 'Graded',
     icon: Layers,
-  },
-  {
-    key: 'totalBagsStored' as const,
-    short: 'Sto',
-    label: 'Stored',
-    icon: Warehouse,
-  },
-  {
-    key: 'totalBagsNikasi' as const,
-    short: 'Dis',
-    label: 'Dispatch',
-    icon: Truck,
-  },
-  {
-    key: 'totalBagsOutgoing' as const,
-    short: 'Out',
-    label: 'Outgoing',
-    icon: ArrowDownToLine,
   },
 ] as const;
 
