@@ -63,7 +63,8 @@ export function useCreateStorageGatePass() {
     },
 
     onSuccess: (data, variables) => {
-      if (data.success) {
+      const isSuccess = data.success !== false && data.data != null;
+      if (isSuccess) {
         toast.success(data.message ?? 'Storage gate pass created successfully');
         queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: storageGatePassKeys.all });

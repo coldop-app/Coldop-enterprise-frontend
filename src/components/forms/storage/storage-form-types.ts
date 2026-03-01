@@ -24,7 +24,8 @@ export function createDefaultPass(id: string): StoragePassState {
 }
 
 export interface StorageGatePassFormProps {
-  farmerStorageLinkId: string;
+  /** Optional initial farmer; when not provided, user selects in the form. */
+  farmerStorageLinkId?: string;
   /** When set, show only this grading pass. Kept for route compatibility. */
   gradingPassId?: string;
 }

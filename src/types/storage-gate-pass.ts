@@ -1,6 +1,6 @@
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
-/** Single allocation for a grading gate pass when creating a storage gate pass */
+/** Single allocation for a grading gate pass when creating a storage gate pass (legacy / summary display) */
 export interface CreateStorageGatePassAllocation {
   size: string;
   quantityToAllocate: number;
@@ -9,10 +9,21 @@ export interface CreateStorageGatePassAllocation {
   row: string;
 }
 
-/** Entry for one grading gate pass and its allocations in the create payload */
+/** Entry for one grading gate pass and its allocations (legacy / summary display) */
 export interface CreateStorageGatePassGradingEntry {
   gradingGatePassId: string;
   allocations: CreateStorageGatePassAllocation[];
+}
+
+/** One bag size entry in the create storage gate pass request body */
+export interface CreateStorageGatePassBagSize {
+  size: string;
+  bagType: string;
+  currentQuantity: number;
+  initialQuantity: number;
+  chamber: string;
+  floor: string;
+  row: string;
 }
 
 /** Request body for POST /storage-gate-pass */
@@ -21,9 +32,8 @@ export interface CreateStorageGatePassInput {
   gatePassNo: number;
   date: string;
   variety: string;
-  gradingGatePasses: CreateStorageGatePassGradingEntry[];
+  bagSizes: CreateStorageGatePassBagSize[];
   remarks?: string;
-  manualGatePassNumber?: number;
 }
 
 /** Incoming bag size snapshot as returned in grading gate pass snapshots */
@@ -93,15 +103,26 @@ export interface GetGroupedStorageGatePassesApiResponse {
   data: GroupedStorageGatePassGroup[];
 }
 
+/** Bag size as returned in created storage gate pass */
+export interface CreatedStorageGatePassBagSize {
+  size: string;
+  currentQuantity: number;
+  initialQuantity: number;
+  bagType: string;
+  chamber: string;
+  floor: string;
+  row: string;
+}
+
 /** Created storage gate pass as returned by POST /storage-gate-pass */
 export interface CreatedStorageGatePass {
   _id: string;
+  farmerStorageLinkId: string;
+  createdBy: string;
   gatePassNo: number;
-  gradingGatePassIds: string[];
-  gradingGatePassSnapshots: StorageGatePassGradingSnapshot[];
   date: string;
   variety: string;
-  orderDetails: StorageGatePassOrderDetail[];
+  bagSizes: CreatedStorageGatePassBagSize[];
   editHistory: unknown[];
   remarks: string;
   createdAt: string;
@@ -111,7 +132,7 @@ export interface CreatedStorageGatePass {
 
 /** API response for POST /storage-gate-pass */
 export interface CreateStorageGatePassApiResponse {
-  success: boolean;
+  success?: boolean;
   data: CreatedStorageGatePass | null;
   message?: string;
 }

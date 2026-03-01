@@ -20,12 +20,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { DatePicker } from '@/components/forms/date-picker';
-import { SearchSelector } from '@/components/forms/search-selector';
+import {
+  SearchSelector,
+  type Option,
+} from '@/components/forms/search-selector';
+import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
+import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import { useCreateBulkStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useCreateBulkStorageGatePasses';
 import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
-import type { CreateStorageGatePassGradingEntry } from '@/types/storage-gate-pass';
 
 import {
   POTATO_VARIETIES,
@@ -54,6 +58,7 @@ const defaultSizeBagTypes = Object.fromEntries(
 const formSchema = z
   .object({
     manualGatePassNumber: z.union([z.number(), z.undefined()]),
+    farmerStorageLinkId: z.string().min(1, 'Please select a farmer'),
     date: z.string().min(1, 'Date is required'),
     variety: z.string().min(1, 'Please select a variety'),
     sizeQuantities: z.record(z.string(), z.number().min(0)),
@@ -104,13 +109,29 @@ const formSchema = z
   );
 
 const StorageGatePassForm = memo(function StorageGatePassForm({
-  farmerStorageLinkId,
+  farmerStorageLinkId: initialFarmerStorageLinkId,
 }: StorageGatePassFormProps) {
   const navigate = useNavigate();
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('storage-gate-pass');
+  const {
+    data: farmerLinks,
+    isLoading: isLoadingFarmers,
+    refetch: refetchFarmers,
+  } = useGetAllFarmers();
   const { mutate: createBulkStorageGatePasses, isPending } =
     useCreateBulkStorageGatePasses();
+
+  const farmerOptions: Option<string>[] = useMemo(() => {
+    if (!farmerLinks) return [];
+    return farmerLinks
+      .filter((link) => link.isActive)
+      .map((link) => ({
+        value: link._id,
+        label: `${link.farmerId.name} (Account #${link.accountNumber})`,
+        searchableText: `${link.farmerId.name} ${link.accountNumber} ${link.farmerId.mobileNumber} ${link.farmerId.address}`,
+      }));
+  }, [farmerLinks]);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -119,6 +140,7 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
   const form = useForm({
     defaultValues: {
       manualGatePassNumber: undefined as number | undefined,
+      farmerStorageLinkId: initialFarmerStorageLinkId ?? '',
       date: formatDate(new Date()),
       variety: '',
       sizeQuantities: defaultSizeQuantities,
@@ -139,47 +161,34 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
 
       if (!voucherNumber) return;
 
-      const manualNum =
-        value.manualGatePassNumber != null && value.manualGatePassNumber > 0
-          ? value.manualGatePassNumber
-          : undefined;
-
-      const allocations = (
+      const bagSizes = (
         Object.entries(value.sizeQuantities) as [string, number][]
       )
         .filter(([, qty]) => (qty ?? 0) > 0)
-        .map(([size, quantityToAllocate]) => {
+        .map(([size, qty]) => {
           const loc = value.locationBySize[size] ?? { ...DEFAULT_LOCATION };
+          const quantity = qty ?? 0;
           return {
             size,
-            quantityToAllocate,
+            bagType: value.sizeBagTypes[size] ?? 'JUTE',
+            currentQuantity: quantity,
+            initialQuantity: quantity,
             chamber: loc.chamber.trim(),
             floor: loc.floor.trim(),
             row: loc.row.trim(),
           };
         });
 
-      const gradingGatePasses: CreateStorageGatePassGradingEntry[] =
-        allocations.length > 0
-          ? [
-              {
-                gradingGatePassId: DIRECT_PASS_ID,
-                allocations,
-              },
-            ]
-          : [];
-
       createBulkStorageGatePasses(
         {
           passes: [
             {
-              farmerStorageLinkId,
+              farmerStorageLinkId: value.farmerStorageLinkId,
               gatePassNo: voucherNumber,
               date: formatDateToISO(value.date),
               variety: value.variety.trim(),
-              gradingGatePasses,
+              bagSizes,
               remarks: value.remarks?.trim() || undefined,
-              ...(manualNum != null ? { manualGatePassNumber: manualNum } : {}),
             },
           ],
         },
@@ -244,8 +253,16 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
     voucherNumber,
   ]);
 
+  const handleFarmerAdded = () => {
+    refetchFarmers();
+  };
+
   const handleNextOrReview = () => {
     if (step === 1) {
+      if (!formValues.farmerStorageLinkId?.trim()) {
+        toast.error('Please select a farmer.');
+        return;
+      }
       if (!formValues.variety?.trim()) {
         toast.error('Please select a variety.');
         return;
@@ -330,6 +347,61 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
                     />
                   </Field>
                 )}
+              />
+
+              {/* Farmer Selection */}
+              <form.Field
+                name="farmerStorageLinkId"
+                children={(field) => {
+                  const hasSubmitError = Boolean(
+                    field.state.meta.errorMap &&
+                    'onSubmit' in field.state.meta.errorMap &&
+                    field.state.meta.errorMap.onSubmit
+                  );
+                  const invalidFromValidation =
+                    hasSubmitError ||
+                    (field.state.meta.isTouched && !field.state.meta.isValid);
+                  const hasValue = Boolean(
+                    field.state.value && String(field.state.value).trim()
+                  );
+                  const isInvalid = invalidFromValidation && !hasValue;
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          <FieldLabel
+                            htmlFor="storage-farmer-select"
+                            className="font-custom mb-2 block text-base font-semibold"
+                          >
+                            Enter Account Name (search and select)
+                          </FieldLabel>
+                          <SearchSelector
+                            id="storage-farmer-select"
+                            options={farmerOptions}
+                            placeholder="Search or Create Farmer"
+                            searchPlaceholder="Search by name, account number, or mobile..."
+                            onSelect={(value) => field.handleChange(value)}
+                            value={field.state.value}
+                            loading={isLoadingFarmers}
+                            loadingMessage="Loading farmers..."
+                            emptyMessage="No farmers found"
+                            className="w-full"
+                            buttonClassName="w-full justify-between"
+                          />
+                        </div>
+                        <AddFarmerModal
+                          links={farmerLinks ?? []}
+                          onFarmerAdded={handleFarmerAdded}
+                        />
+                      </div>
+                      {isInvalid && (
+                        <FieldError
+                          errors={field.state.meta.errors as FieldErrors}
+                        />
+                      )}
+                    </Field>
+                  );
+                }}
               />
 
               <form.Field
@@ -755,15 +827,35 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
               </Button>
             )}
           </div>
-          <Button
-            type="submit"
-            variant="default"
-            size="lg"
-            className="font-custom px-8 font-bold"
-            disabled={step === 2 ? false : !formValues.variety?.trim()}
+          <form.Subscribe
+            selector={(state) => ({
+              farmerStorageLinkId: state.values.farmerStorageLinkId,
+              variety: state.values.variety,
+              sizeQuantities: state.values.sizeQuantities,
+            })}
           >
-            {step === 1 ? 'Next' : 'Review'}
-          </Button>
+            {({ farmerStorageLinkId, variety, sizeQuantities }) => {
+              const totalQty = Object.values(sizeQuantities ?? {}).reduce(
+                (s, q) => s + (q ?? 0),
+                0
+              );
+              const canProceedFromStep1 =
+                Boolean(farmerStorageLinkId?.trim()) &&
+                Boolean(variety?.trim()) &&
+                totalQty > 0;
+              return (
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="lg"
+                  className="font-custom px-8 font-bold"
+                  disabled={step === 2 ? false : !canProceedFromStep1}
+                >
+                  {step === 1 ? 'Next' : 'Review'}
+                </Button>
+              );
+            }}
+          </form.Subscribe>
         </div>
       </form>
 

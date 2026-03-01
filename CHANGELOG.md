@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-03-01
+
+### Added
+- Storage form: **farmer selection** in-step — optional `farmerStorageLinkId` prop; when not provided, step 1 includes SearchSelector for "Enter Account Name" and AddFarmerModal to search/create farmers
+- Storage form: validation for farmer (required when not pre-set) before proceeding to step 2
+- Types: `CreateStorageGatePassBagSize`, `CreatedStorageGatePassBagSize` for bag-size–based storage API; `CreatedStorageGatePass` extended with `farmerStorageLinkId`, `createdBy`, `bagSizes`
+
+### Changed
+- Storage gate pass API: create payload now uses `bagSizes` (size, bagType, currentQuantity, initialQuantity, chamber, floor, row) instead of `gradingGatePasses`; `manualGatePassNumber` removed from request body
+- Storage form: builds and submits `bagSizes` from size quantities and location; farmer comes from form field when not passed as prop
+- Storage route: no longer passes hardcoded `farmerStorageLinkId`; form used without initial farmer so user selects in form
+- `useCreateStorageGatePass` / bulk: success handling uses `data.success !== false && data.data != null` for robustness; `CreateStorageGatePassApiResponse.success` optional
+- Types: `CreateStorageGatePassInput` and `CreatedStorageGatePass` aligned with new bag-sizes API shape; legacy allocation types retained for summary/display
+
 ## [0.17.0] - 2026-03-01
 
 ### Added
