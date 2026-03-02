@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-03-02
+
+### Added
+- Daybook Dispatch tab: **live nikasi vouchers** — fetches dispatch gate passes via `useGetNikasiGatePasses`, renders `NikasiVoucher` per pass with loading and empty states; "Add Dispatch voucher" CTA when empty
+- Nikasi voucher: **dispatch variant** — `variant="dispatch"` uses red accent (dot, gate pass number, border hover) for Daybook Dispatch tab; default remains green
+- Nikasi voucher: **direct allocation display** — when voucher has `bagSize` (single-pass API), shows "Quantities by size" table (Size, Variety, Quantity Issued) instead of grading-ref breakdown
+- Daybook voucher types: `NikasiBagSizeRow`, `totalBagsFromNikasiBagSizes` for bag-sizes–based nikasi display
+
+### Changed
+- Daybook Dispatch tab: placeholder replaced with `DispatchTabContent` (real data)
+- Nikasi voucher: supports both `bagSize` (new single-pass shape) and legacy `orderDetails`; totals and table layout adapt; Ref column dot and total row use variant accent
+- Nikasi gate pass types: list/GET response shape extended for `bagSize` where applicable
+
 ## [0.20.0] - 2026-03-02
 
 ### Added

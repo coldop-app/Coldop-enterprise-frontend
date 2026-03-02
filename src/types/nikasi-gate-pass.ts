@@ -117,18 +117,32 @@ export interface NikasiGradingGatePassInList {
   __v: number;
 }
 
+/** Bag size entry in GET /nikasi-gate-pass response (new API shape) */
+export interface NikasiGatePassBagSizeItem {
+  size: string;
+  variety: string;
+  quantityIssued: number;
+}
+
 /** Nikasi gate pass as returned by GET /nikasi-gate-pass */
 export interface NikasiGatePass {
   _id: string;
   gatePassNo: number;
-  gradingGatePassIds: NikasiGradingGatePassInList[];
-  gradingGatePassSnapshots: NikasiGatePassGradingSnapshot[];
+  /** Legacy list shape: grading gate pass refs */
+  gradingGatePassIds?: NikasiGradingGatePassInList[];
+  /** Legacy list shape: snapshots */
+  gradingGatePassSnapshots?: NikasiGatePassGradingSnapshot[];
   date: string;
-  variety: string;
+  variety?: string;
   from: string;
   toField: string;
-  orderDetails: NikasiGatePassOrderDetail[];
+  /** Legacy list shape; omit when using bagSize */
+  orderDetails?: NikasiGatePassOrderDetail[];
+  /** New list shape: size/variety/quantityIssued per row */
+  bagSize?: NikasiGatePassBagSizeItem[];
   remarks?: string;
+  netWeight?: number;
+  averageWeightPerBag?: number;
   createdAt: string;
   updatedAt: string;
   __v: number;

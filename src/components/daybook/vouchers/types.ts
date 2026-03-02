@@ -73,6 +73,13 @@ export interface OrderDetailRow {
   quantityAvailable?: number;
 }
 
+/** One bag size row from GET /nikasi-gate-pass (new list API shape) */
+export interface NikasiBagSizeRow {
+  size?: string;
+  variety?: string;
+  quantityIssued?: number;
+}
+
 /** Shape of grading/storage/nikasi/outgoing pass from daybook API */
 export interface PassVoucherData {
   _id?: string;
@@ -81,6 +88,8 @@ export interface PassVoucherData {
   date?: string;
   variety?: string;
   orderDetails?: OrderDetailRow[];
+  /** Nikasi list API: size/variety/quantityIssued per row */
+  bagSize?: NikasiBagSizeRow[];
   from?: string;
   toField?: string;
   allocationStatus?: string;
@@ -126,4 +135,12 @@ export function totalBagsFromBagSizes(
 ): number {
   if (!bagSizes?.length) return 0;
   return bagSizes.reduce((sum, b) => sum + (b.currentQuantity ?? 0), 0);
+}
+
+/** Sum bags from nikasi bagSize (quantityIssued) – new GET /nikasi-gate-pass list shape */
+export function totalBagsFromNikasiBagSizes(
+  bagSize: NikasiBagSizeRow[] | undefined
+): number {
+  if (!bagSize?.length) return 0;
+  return bagSize.reduce((sum, b) => sum + (b.quantityIssued ?? 0), 0);
 }

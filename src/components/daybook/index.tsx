@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/empty';
 import { useGetDaybook } from '@/services/store-admin/grading-gate-pass/useGetDaybook';
 import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
+import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
 import type { DaybookEntry, DaybookGatePassType } from '@/types/daybook';
 import {
   JUTE_BAG_WEIGHT,
@@ -60,6 +61,7 @@ import {
   IncomingVoucher,
   GradingVoucher,
   StorageVoucher,
+  NikasiVoucher,
   totalBagsFromOrderDetails,
   type IncomingVoucherData,
   type PassVoucherData,
@@ -338,6 +340,77 @@ const StorageTabContent = memo(function StorageTabContent() {
     <div className="space-y-6">
       {storagePasses.map((pass) => (
         <StorageVoucher key={pass._id} voucher={pass} />
+      ))}
+    </div>
+  );
+});
+
+/** Dispatch tab: fetches nikasi gate passes and renders voucher list (red accent) */
+const DispatchTabContent = memo(function DispatchTabContent() {
+  const { data: nikasiPasses, isLoading } = useGetNikasiGatePasses();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {[...Array(3)].map((_, i) => (
+          <Card key={i} className="overflow-hidden p-0">
+            <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-16 rounded-md" />
+              </div>
+              <Skeleton className="mt-2 h-3 w-32" />
+            </div>
+            <div className="space-y-2 border-b px-4 py-3">
+              <div className="flex gap-4">
+                {[...Array(4)].map((__, j) => (
+                  <Skeleton key={j} className="h-4 w-14" />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 p-4">
+              <Skeleton className="h-8 w-16 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (!nikasiPasses?.length) {
+    return (
+      <Card>
+        <CardContent className="py-8 pt-6">
+          <Empty className="font-custom">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Truck className="size-6" />
+              </EmptyMedia>
+              <EmptyTitle>No dispatch vouchers yet</EmptyTitle>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                asChild
+              >
+                <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
+              </Button>
+            </EmptyContent>
+          </Empty>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {nikasiPasses.map((pass, idx) => (
+        <NikasiVoucher
+          key={pass._id ?? `nikasi-${pass.gatePassNo ?? idx}`}
+          voucher={pass as PassVoucherData}
+          variant="dispatch"
+        />
       ))}
     </div>
   );
@@ -855,15 +928,7 @@ const DaybookPage = memo(function DaybookPage() {
                   addButtonTo="/store-admin/nikasi"
                   addButtonIcon={<Truck className="h-4 w-4 shrink-0" />}
                 />
-                <Card>
-                  <CardContent className="font-custom text-muted-foreground py-8">
-                    <p className="text-center">
-                      Dispatch (nikasi) vouchers and related content will be
-                      shown here. Use the search and sort options above to
-                      filter results when data is available.
-                    </p>
-                  </CardContent>
-                </Card>
+                <DispatchTabContent />
               </div>
             </TabsContent>
 
