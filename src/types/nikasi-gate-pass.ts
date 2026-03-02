@@ -3,17 +3,11 @@ import type {
   GradingGatePassOrderDetail,
 } from './grading-gate-pass';
 
-/** Allocation for a grading gate pass in the create nikasi request */
-export interface CreateNikasiGatePassAllocation {
+/** One bag size entry in the create nikasi request */
+export interface CreateNikasiGatePassBagSize {
   size: string;
-  quantityToAllocate: number;
-}
-
-/** Grading gate pass entry in the create nikasi request */
-export interface CreateNikasiGatePassGradingEntry {
-  gradingGatePassId: string;
   variety: string;
-  allocations: CreateNikasiGatePassAllocation[];
+  quantityIssued: number;
 }
 
 /** Request body for POST /nikasi-gate-pass */
@@ -23,9 +17,24 @@ export interface CreateNikasiGatePassInput {
   date: string;
   from: string;
   toField: string;
-  gradingGatePasses: CreateNikasiGatePassGradingEntry[];
-  remarks?: string;
+  bagSizes: CreateNikasiGatePassBagSize[];
   manualGatePassNumber?: number;
+  remarks?: string;
+  netWeight?: number;
+  averageWeightPerBag?: number;
+}
+
+/** @deprecated Use CreateNikasiGatePassBagSize and CreateNikasiGatePassInput (bagSizes) */
+export interface CreateNikasiGatePassAllocation {
+  size: string;
+  quantityToAllocate: number;
+}
+
+/** @deprecated Bulk API used gradingGatePasses; single create uses bagSizes */
+export interface CreateNikasiGatePassGradingEntry {
+  gradingGatePassId: string;
+  variety: string;
+  allocations: CreateNikasiGatePassAllocation[];
 }
 
 /** Incoming bag size snapshot in created nikasi gate pass */

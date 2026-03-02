@@ -1,4 +1,10 @@
-import { Fragment, memo, useMemo, useState, useCallback } from 'react';
+import {
+  memo,
+  useMemo,
+  useState,
+  useCallback,
+  type KeyboardEvent,
+} from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
@@ -11,440 +17,231 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { DatePicker } from '@/components/forms/date-picker';
-import { SearchSelector } from '@/components/forms/search-selector';
+import {
+  SearchSelector,
+  type Option,
+} from '@/components/forms/search-selector';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
-import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
-import { useCreateBulkNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useCreateBulkNikasiGatePasses';
+import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
+import { useCreateNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useCreateNikasiGatePass';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
-import { formatDate, formatDateToISO } from '@/lib/helpers';
-import type { GradingGatePass } from '@/types/grading-gate-pass';
-import type { CreateNikasiGatePassGradingEntry } from '@/types/nikasi-gate-pass';
+import { formatDate, formatDateToYYYYMMDD } from '@/lib/helpers';
 import {
-  ArrowDown,
-  ArrowUp,
-  Calendar,
-  ChevronRight,
-  Columns,
-  Trash2,
-  User,
-} from 'lucide-react';
-import { QuantityRemoveDialog } from '@/components/forms/storage/quantity-remove-dialog';
-import { GradingGatePassCell } from '@/components/forms/storage/grading-gate-pass-cell';
-import {
-  getUniqueSizes,
-  getUniqueVarieties,
-  getOrderDetailForSize,
-  groupPassesByFarmer,
-  groupPassesByDate,
-  toDisplayGroups,
-  toDisplayGroupsFromDate,
-} from '@/components/forms/storage/storage-form-utils';
+  GRADING_SIZES,
+  BAG_TYPES,
+  POTATO_VARIETIES,
+} from '@/components/forms/grading/constants';
 import {
   NikasiSummarySheet,
-  type NikasiSummaryGradingEntry,
   type NikasiSummaryFormValues,
 } from './summary-sheet';
+import { ChevronRight } from 'lucide-react';
 
-type RemovedQuantities = Record<string, Record<string, number>>;
+const defaultSizeQuantities = Object.fromEntries(
+  GRADING_SIZES.map((s) => [s, 0])
+) as Record<string, number>;
+const defaultSizeBagTypes = Object.fromEntries(
+  GRADING_SIZES.map((s) => [s, 'JUTE'])
+) as Record<string, string>;
+const defaultSizeVarieties = Object.fromEntries(
+  GRADING_SIZES.map((s) => [s, ''])
+) as Record<string, string>;
 
-/** State for one nikasi pass in the bulk form */
-export interface NikasiPassState {
-  id: string;
-  from: string;
-  toField: string;
-  date: string;
-  remarks: string;
-  removedQuantities: RemovedQuantities;
+const numberInputClassName =
+  'font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
+function preventArrowKeys(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
 }
 
-function createDefaultPass(id: string): NikasiPassState {
-  return {
-    id,
-    from: '',
-    toField: '',
-    date: formatDate(new Date()),
-    remarks: '',
-    removedQuantities: {},
-  };
-}
+/** When coldStorageId matches this, farmer is fixed to FIXED_FARMER_STORAGE_LINK_ID */
+const FIXED_FARMER_COLD_STORAGE_ID = '69807e772cfeef6ed3342e78';
+const FIXED_FARMER_STORAGE_LINK_ID = '69a3da68ea67b19be4c0e86c';
 
 export interface NikasiGatePassFormProps {
+  /** Initial farmer from route (e.g. from Daybook); used when not in fixed-farmer mode */
   farmerStorageLinkId: string;
-  /** Ignored – all grading gate passes are shown. Kept for route/search compatibility. */
   gradingPassId?: string;
 }
 
 const NikasiGatePassForm = memo(function NikasiGatePassForm({
-  farmerStorageLinkId,
+  farmerStorageLinkId: initialFarmerStorageLinkId,
 }: NikasiGatePassFormProps) {
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('nikasi-gate-pass');
-  const { data: allGradingPasses = [], isLoading: isLoadingPasses } =
-    useGetGradingGatePasses();
-
   const navigate = useNavigate();
-  const { mutate: createBulkNikasiGatePasses, isPending } =
-    useCreateBulkNikasiGatePasses();
+  const { mutate: createNikasiGatePass, isPending } = useCreateNikasiGatePass();
+  const coldStorageId = useStore(
+    (s) => s.coldStorage?._id ?? s.admin?.coldStorageId
+  );
+  const isFixedFarmerMode = coldStorageId === FIXED_FARMER_COLD_STORAGE_ID;
+  const { data: farmerLinks, isLoading: isLoadingFarmers } = useGetAllFarmers();
 
-  const varieties = useMemo(
-    () => getUniqueVarieties(allGradingPasses),
-    [allGradingPasses]
+  const farmerOptions: Option<string>[] = useMemo(() => {
+    if (!farmerLinks) return [];
+    return farmerLinks
+      .filter((link) => link.isActive)
+      .map((link) => ({
+        value: link._id,
+        label: `${link.farmerId.name} (Account #${link.accountNumber})`,
+        searchableText: `${link.farmerId.name} ${link.accountNumber} ${link.farmerId.mobileNumber} ${link.farmerId.address}`,
+      }));
+  }, [farmerLinks]);
+
+  const [farmerStorageLinkId, setFarmerStorageLinkId] = useState(
+    () => initialFarmerStorageLinkId ?? ''
   );
 
-  const [varietyFilter, setVarietyFilter] = useState<string>('');
-  const [voucherSort, setVoucherSort] = useState<'asc' | 'desc'>('asc');
-  const [groupBy, setGroupBy] = useState<'farmer' | 'date'>('farmer');
+  const effectiveFarmerStorageLinkId = isFixedFarmerMode
+    ? FIXED_FARMER_STORAGE_LINK_ID
+    : farmerStorageLinkId;
+
+  const [manualGatePassNumber, setManualGatePassNumber] = useState<
+    number | undefined
+  >(undefined);
+  const [from, setFrom] = useState('');
+  const [toField, setToField] = useState('');
+  const [date, setDate] = useState(formatDate(new Date()));
+  const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
+    defaultSizeQuantities
+  );
+  const [sizeBagTypes, setSizeBagTypes] =
+    useState<Record<string, string>>(defaultSizeBagTypes);
+  const [sizeVarieties, setSizeVarieties] =
+    useState<Record<string, string>>(defaultSizeVarieties);
+  const [netWeight, setNetWeight] = useState<number | undefined>(undefined);
+  const [averageWeightPerBag, setAverageWeightPerBag] = useState<
+    number | undefined
+  >(undefined);
+  const [remarks, setRemarks] = useState('');
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
 
-  const filteredAndSortedPasses = useMemo(() => {
-    let list = allGradingPasses;
-    if (varietyFilter.trim()) {
-      list = list.filter((p) => p.variety?.trim() === varietyFilter);
-    }
-    return [...list].sort((a, b) => {
-      const na = a.gatePassNo ?? 0;
-      const nb = b.gatePassNo ?? 0;
-      return voucherSort === 'asc' ? na - nb : nb - na;
-    });
-  }, [allGradingPasses, varietyFilter, voucherSort]);
-
-  const displayGroups = useMemo(() => {
-    if (groupBy === 'farmer') {
-      return toDisplayGroups(
-        groupPassesByFarmer(filteredAndSortedPasses, voucherSort)
-      );
-    }
-    return toDisplayGroupsFromDate(
-      groupPassesByDate(filteredAndSortedPasses, voucherSort)
-    );
-  }, [filteredAndSortedPasses, voucherSort, groupBy]);
-
-  const [passes, setPasses] = useState<NikasiPassState[]>(() => [
-    createDefaultPass(`pass-${Date.now()}`),
-  ]);
-  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    () => new Set()
-  );
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogNikasiPassId, setDialogNikasiPassId] = useState<string | null>(
-    null
-  );
-  const [dialogPassId, setDialogPassId] = useState<string | null>(null);
-  const [dialogSize, setDialogSize] = useState<string | null>(null);
-  const [quantityInput, setQuantityInput] = useState('');
-  const [quantityError, setQuantityError] = useState('');
-  const [dialogMaxQuantity, setDialogMaxQuantity] = useState(0);
-
-  const tableSizes = useMemo(
-    () => getUniqueSizes(filteredAndSortedPasses),
-    [filteredAndSortedPasses]
-  );
-
-  const visibleSizes = useMemo(() => {
-    if (visibleColumns.size === 0 && tableSizes.length > 0) return tableSizes;
-    return tableSizes.filter((s) => visibleColumns.has(s));
-  }, [tableSizes, visibleColumns]);
-
-  const updatePass = useCallback(
-    (passId: string, patch: Partial<Omit<NikasiPassState, 'id'>>) => {
-      setPasses((prev) =>
-        prev.map((p) => (p.id === passId ? { ...p, ...patch } : p))
-      );
-    },
-    []
-  );
-
-  const removePass = useCallback((passId: string) => {
-    setPasses((prev) =>
-      prev.length > 1 ? prev.filter((p) => p.id !== passId) : prev
-    );
-  }, []);
-
-  const setRemoved = useCallback(
-    (
-      nikasiPassId: string,
-      gradingPassId: string,
-      size: string,
-      quantity: number
-    ) => {
-      setPasses((prev) =>
-        prev.map((p) => {
-          if (p.id !== nikasiPassId) return p;
-          const next = { ...p.removedQuantities };
-          const passEntry = { ...(next[gradingPassId] ?? {}) };
-          if (quantity <= 0) {
-            delete passEntry[size];
-          } else {
-            passEntry[size] = quantity;
-          }
-          if (Object.keys(passEntry).length === 0) delete next[gradingPassId];
-          else next[gradingPassId] = passEntry;
-          return { ...p, removedQuantities: next };
-        })
-      );
-    },
-    []
-  );
-
-  const openDialog = useCallback(
-    (nikasiPassId: string, gradingPass: GradingGatePass, size: string) => {
-      const detail = getOrderDetailForSize(gradingPass, size);
-      if (!detail || detail.currentQuantity <= 0) return;
-      const pass = passes.find((p) => p.id === nikasiPassId);
-      const existing = pass?.removedQuantities[gradingPass._id]?.[size] ?? 0;
-      setDialogNikasiPassId(nikasiPassId);
-      setDialogPassId(gradingPass._id);
-      setDialogSize(size);
-      setQuantityInput(existing > 0 ? String(existing) : '');
-      setQuantityError('');
-      setDialogMaxQuantity(detail.currentQuantity);
-      setDialogOpen(true);
-    },
-    [passes]
-  );
-
-  const validateQuantity = useCallback(
-    (input: string): string => {
-      if (!input.trim()) return 'Quantity is required';
-      const parsed = parseFloat(input);
-      if (Number.isNaN(parsed)) return 'Enter a valid number';
-      if (parsed < 0) return 'Quantity cannot be negative';
-      if (parsed > dialogMaxQuantity)
-        return `Quantity cannot exceed ${dialogMaxQuantity.toFixed(1)}`;
-      return '';
-    },
-    [dialogMaxQuantity]
-  );
-
-  const handleQuantityInputChange = useCallback(
-    (value: string) => {
-      setQuantityInput(value);
-      setQuantityError(validateQuantity(value));
-    },
-    [validateQuantity]
-  );
-
-  const handleQuantitySubmit = useCallback(() => {
-    const err = validateQuantity(quantityInput);
-    if (err) {
-      setQuantityError(err);
-      return;
-    }
-    const qty = parseFloat(quantityInput);
-    if (dialogNikasiPassId && dialogPassId && dialogSize)
-      setRemoved(dialogNikasiPassId, dialogPassId, dialogSize, qty);
-    setDialogOpen(false);
-    setDialogNikasiPassId(null);
-    setDialogPassId(null);
-    setDialogSize(null);
-  }, [
-    quantityInput,
-    dialogNikasiPassId,
-    dialogPassId,
-    dialogSize,
-    setRemoved,
-    validateQuantity,
-  ]);
-
-  const handleQuantityRemove = useCallback(() => {
-    if (dialogNikasiPassId && dialogPassId && dialogSize)
-      setRemoved(dialogNikasiPassId, dialogPassId, dialogSize, 0);
-    setDialogOpen(false);
-    setDialogNikasiPassId(null);
-    setDialogPassId(null);
-    setDialogSize(null);
-  }, [dialogNikasiPassId, dialogPassId, dialogSize, setRemoved]);
-
-  const handleDialogClose = useCallback(() => {
-    setDialogOpen(false);
-    setDialogNikasiPassId(null);
-    setDialogPassId(null);
-    setDialogSize(null);
-  }, []);
-
-  const handleColumnToggle = useCallback((size: string) => {
-    setVisibleColumns((prev) => {
-      const next = new Set(prev);
-      if (next.has(size)) next.delete(size);
-      else next.add(size);
-      return next;
-    });
-  }, []);
-
-  const handleOrderToggle = useCallback((passId: string) => {
-    setSelectedOrders((prev) => {
-      const next = new Set(prev);
-      if (next.has(passId)) next.delete(passId);
-      else next.add(passId);
-      return next;
-    });
-  }, []);
-
-  const hasAnyQuantity = useMemo(
-    () =>
-      passes.some((p) =>
-        Object.values(p.removedQuantities).some((sizes) =>
-          Object.values(sizes).some((q) => q > 0)
-        )
-      ),
-    [passes]
-  );
-
-  const handleNext = useCallback(() => {
-    if (!hasAnyQuantity) return;
-    setIsSummarySheetOpen(true);
-  }, [hasAnyQuantity]);
-
   const voucherNumberDisplay =
-    voucherNumber != null
-      ? passes.length === 1
-        ? `#${voucherNumber}`
-        : `#${voucherNumber}–#${voucherNumber + passes.length - 1}`
-      : null;
+    voucherNumber != null ? `#${voucherNumber}` : null;
   const gatePassNo = voucherNumber ?? 0;
 
+  const totalQty = useMemo(
+    () => Object.values(sizeQuantities).reduce((sum, q) => sum + (q ?? 0), 0),
+    [sizeQuantities]
+  );
+
   const summaryFormValues = useMemo((): NikasiSummaryFormValues => {
-    const passSummaries: NikasiSummaryFormValues['passes'] = passes.map(
-      (pass) => {
-        const gradingGatePasses: NikasiSummaryGradingEntry[] = Object.entries(
-          pass.removedQuantities
-        )
-          .filter(([_, sizes]) => Object.values(sizes).some((q) => q > 0))
-          .map(([gradingGatePassId, sizes]) => {
-            const gp = filteredAndSortedPasses.find(
-              (p) => p._id === gradingGatePassId
-            );
-            return {
-              gradingGatePassId,
-              variety: gp?.variety?.trim() ?? '',
-              gatePassNo: gp?.gatePassNo,
-              date: gp?.date,
-              allocations: Object.entries(sizes)
-                .filter(([_, qty]) => qty > 0)
-                .map(([size, quantityToAllocate]) => {
-                  const detail = gp ? getOrderDetailForSize(gp, size) : null;
-                  return {
-                    size,
-                    quantityToAllocate,
-                    availableQuantity: detail?.currentQuantity ?? 0,
-                  };
-                }),
-            };
-          });
-        return {
-          date: pass.date,
-          from: pass.from,
-          toField: pass.toField,
-          remarks: pass.remarks,
-          gradingGatePasses,
-        };
-      }
-    );
-    return { passes: passSummaries };
-  }, [passes, filteredAndSortedPasses]);
+    const allocations = (Object.entries(sizeQuantities) as [string, number][])
+      .filter(([, qty]) => (qty ?? 0) > 0)
+      .map(([size, quantityToAllocate]) => ({
+        size,
+        quantityToAllocate,
+        availableQuantity: quantityToAllocate,
+      }));
+    return {
+      passes: [
+        {
+          date,
+          from,
+          toField,
+          remarks,
+          gradingGatePasses: [
+            {
+              gradingGatePassId: '_direct',
+              variety:
+                Object.values(sizeVarieties)
+                  .find((v) => v?.trim())
+                  ?.trim() || '—',
+              allocations,
+            },
+          ],
+        },
+      ],
+    };
+  }, [date, from, toField, remarks, sizeQuantities, sizeVarieties]);
 
   const handleSubmit = useCallback(() => {
-    if (!voucherNumber) return;
-    const apiPasses = passes.map((pass, index) => {
-      const gradingGatePasses: CreateNikasiGatePassGradingEntry[] =
-        Object.entries(pass.removedQuantities)
-          .filter(([_, sizes]) => Object.values(sizes).some((q) => q > 0))
-          .map(([gradingGatePassId, sizes]) => {
-            const gp = filteredAndSortedPasses.find(
-              (p) => p._id === gradingGatePassId
-            );
-            return {
-              gradingGatePassId,
-              variety: gp?.variety?.trim() ?? '',
-              allocations: Object.entries(sizes)
-                .filter(([_, qty]) => qty > 0)
-                .map(([size, quantityToAllocate]) => ({
-                  size,
-                  quantityToAllocate,
-                })),
-            };
-          });
-      return {
-        farmerStorageLinkId,
-        gatePassNo: voucherNumber + index,
-        date: formatDateToISO(pass.date),
-        from: pass.from.trim(),
-        toField: pass.toField.trim(),
-        gradingGatePasses,
-        remarks: pass.remarks.trim() || undefined,
-      };
-    });
-    const passesWithAllocations = apiPasses.filter((p) =>
-      p.gradingGatePasses.some((g) =>
-        g.allocations.some((a) => a.quantityToAllocate > 0)
-      )
-    );
-    if (passesWithAllocations.length === 0) return;
-    createBulkNikasiGatePasses(
-      { passes: passesWithAllocations },
+    if (!effectiveFarmerStorageLinkId?.trim()) {
+      toast.error('Please select a farmer account.');
+      return;
+    }
+    if (voucherNumber == null) return;
+    const bagSizes = (Object.entries(sizeQuantities) as [string, number][])
+      .filter(([, qty]) => (qty ?? 0) > 0)
+      .map(([size, quantityIssued]) => ({
+        size,
+        variety: (sizeVarieties[size] ?? '').trim() || 'Potato',
+        quantityIssued: quantityIssued ?? 0,
+      }));
+    if (bagSizes.length === 0) {
+      toast.error('Please enter at least one quantity.');
+      return;
+    }
+
+    const gatePassNoToUse =
+      manualGatePassNumber != null ? manualGatePassNumber : voucherNumber;
+
+    createNikasiGatePass(
+      {
+        farmerStorageLinkId: effectiveFarmerStorageLinkId,
+        gatePassNo: gatePassNoToUse,
+        date: formatDateToYYYYMMDD(date),
+        from: from.trim(),
+        toField: toField.trim(),
+        bagSizes,
+        manualGatePassNumber:
+          manualGatePassNumber != null ? manualGatePassNumber : undefined,
+        remarks: remarks.trim() || undefined,
+        netWeight: netWeight != null ? netWeight : undefined,
+        averageWeightPerBag:
+          averageWeightPerBag != null ? averageWeightPerBag : undefined,
+      },
       {
         onSuccess: () => {
-          setPasses([createDefaultPass(`pass-${Date.now()}`)]);
           setIsSummarySheetOpen(false);
           navigate({ to: '/store-admin/daybook' });
         },
       }
     );
   }, [
-    passes,
     voucherNumber,
-    farmerStorageLinkId,
-    filteredAndSortedPasses,
-    createBulkNikasiGatePasses,
+    manualGatePassNumber,
+    effectiveFarmerStorageLinkId,
+    date,
+    from,
+    toField,
+    sizeQuantities,
+    sizeVarieties,
+    remarks,
+    netWeight,
+    averageWeightPerBag,
+    createNikasiGatePass,
     navigate,
   ]);
 
-  const hasGradingData = allGradingPasses.length > 0;
-  const hasFilteredData =
-    filteredAndSortedPasses.length > 0 && tableSizes.length > 0;
-  const currentDialogPass = passes.find((p) => p.id === dialogNikasiPassId);
-  const hasExistingQuantity =
-    dialogNikasiPassId != null &&
-    dialogPassId != null &&
-    dialogSize != null &&
-    (currentDialogPass?.removedQuantities[dialogPassId]?.[dialogSize] ?? 0) > 0;
+  const handleReview = useCallback(() => {
+    setIsSummarySheetOpen(true);
+  }, []);
 
-  const isFormValid = passes.every(
-    (p) =>
-      (p.from ?? '').trim() !== '' &&
-      (p.toField ?? '').trim() !== '' &&
-      (p.date ?? '').trim() !== ''
-  );
+  const resetForm = useCallback(() => {
+    if (!isFixedFarmerMode) {
+      setFarmerStorageLinkId(initialFarmerStorageLinkId ?? '');
+    }
+    setManualGatePassNumber(undefined);
+    setFrom('');
+    setToField('');
+    setDate(formatDate(new Date()));
+    setSizeQuantities({ ...defaultSizeQuantities });
+    setSizeBagTypes({ ...defaultSizeBagTypes });
+    setSizeVarieties({ ...defaultSizeVarieties });
+    setNetWeight(undefined);
+    setAverageWeightPerBag(undefined);
+    setRemarks('');
+  }, [isFixedFarmerMode, initialFarmerStorageLinkId]);
 
   return (
-    <main className="font-custom mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-12">
+    <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
       <div className="mb-8 space-y-4">
-        <h1 className="font-custom text-3xl font-bold text-[#333] sm:text-4xl dark:text-white">
+        <h1 className="font-custom text-foreground text-3xl font-bold sm:text-4xl">
           Create Nikasi Gate Pass
         </h1>
-
         {isLoadingVoucher ? (
           <div className="bg-primary/20 inline-block rounded-full px-4 py-1.5">
             <span className="font-custom text-primary text-sm font-medium">
@@ -464,397 +261,293 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          handleNext();
+          handleReview();
         }}
         className="space-y-6"
       >
         <FieldGroup className="space-y-6">
-          {passes.map((pass, passIndex) => (
-            <Card key={pass.id} className="relative">
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
-                  <CardTitle className="font-custom text-xl">
-                    Pass {passIndex + 1} — Gate pass details
-                  </CardTitle>
-                  <CardDescription className="font-custom text-muted-foreground text-sm">
-                    From, To, Date and allocations for this nikasi gate pass.
-                  </CardDescription>
-                </div>
-                {passes.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="font-custom text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => removePass(pass.id)}
-                    aria-label={`Remove pass ${passIndex + 1}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <Field>
-                    <FieldLabel
-                      htmlFor={`nikasi-from-${pass.id}`}
-                      className="font-custom text-sm"
-                    >
-                      From
-                    </FieldLabel>
-                    <Input
-                      id={`nikasi-from-${pass.id}`}
-                      value={pass.from}
-                      onChange={(e) =>
-                        updatePass(pass.id, { from: e.target.value })
-                      }
-                      placeholder="e.g. Warehouse A"
-                      className="font-custom"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel
-                      htmlFor={`nikasi-to-${pass.id}`}
-                      className="font-custom text-sm"
-                    >
-                      To
-                    </FieldLabel>
-                    <Input
-                      id={`nikasi-to-${pass.id}`}
-                      value={pass.toField}
-                      onChange={(e) =>
-                        updatePass(pass.id, { toField: e.target.value })
-                      }
-                      placeholder="e.g. Location B"
-                      className="font-custom"
-                    />
-                  </Field>
-                  <Field>
-                    <DatePicker
-                      value={pass.date}
-                      onChange={(value) =>
-                        updatePass(pass.id, { date: value ?? '' })
-                      }
-                      label="Date"
-                      id={`nikasi-date-${pass.id}`}
-                    />
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel
-                    htmlFor={`nikasi-remarks-${pass.id}`}
-                    className="font-custom text-sm"
-                  >
-                    Remarks
-                  </FieldLabel>
-                  <textarea
-                    id={`nikasi-remarks-${pass.id}`}
-                    value={pass.remarks}
-                    onChange={(e) =>
-                      updatePass(pass.id, { remarks: e.target.value })
-                    }
-                    placeholder="Max 500 characters"
-                    maxLength={500}
-                    rows={2}
-                    className="border-input bg-background ring-offset-background focus-visible:ring-primary font-custom flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </Field>
+          <Field>
+            <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+              Manual Gate Pass Number
+              <span className="font-custom text-muted-foreground ml-1 font-normal">
+                (optional)
+              </span>
+            </FieldLabel>
+            <Input
+              type="number"
+              min={0}
+              value={manualGatePassNumber ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setManualGatePassNumber(undefined);
+                  return;
+                }
+                const parsed = parseInt(raw, 10);
+                setManualGatePassNumber(
+                  Number.isNaN(parsed) ? undefined : parsed
+                );
+              }}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={preventArrowKeys}
+              placeholder="e.g. 101"
+              className={numberInputClassName}
+            />
+          </Field>
 
-                {/* Grading gate passes filters — above the table (once, in first pass) */}
-                {passIndex === 0 && (
-                  <div className="space-y-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h3 className="font-custom text-foreground text-lg font-semibold">
-                          Grading Gate Passes
-                        </h3>
-                        <p className="font-custom text-muted-foreground text-sm">
-                          {hasGradingData
-                            ? 'Select variety (or All Varieties), then sort and group vouchers. Allocate quantities in each pass card below.'
-                            : 'Load grading gate passes to see orders.'}
-                        </p>
-                      </div>
-                      {hasGradingData && tableSizes.length > 0 && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="font-custom gap-2"
-                            >
-                              <Columns className="h-4 w-4" />
-                              Columns
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel className="font-custom">
-                              Toggle Columns
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {tableSizes.map((size) => (
-                              <DropdownMenuCheckboxItem
-                                key={size}
-                                checked={visibleColumns.has(size)}
-                                onCheckedChange={() => handleColumnToggle(size)}
-                                className="font-custom"
-                              >
-                                {size}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+          <Field>
+            <FieldLabel
+              htmlFor="nikasi-farmer-select"
+              className="font-custom mb-2 block text-base font-semibold"
+            >
+              {isFixedFarmerMode
+                ? 'Farmer (fixed for this store)'
+                : 'Enter Account Name (search and select)'}
+            </FieldLabel>
+            {isFixedFarmerMode ? (
+              <p className="font-custom text-muted-foreground text-sm">
+                Farmer account is fixed for this store.
+              </p>
+            ) : (
+              <SearchSelector
+                id="nikasi-farmer-select"
+                options={farmerOptions}
+                placeholder="Search or select farmer"
+                searchPlaceholder="Search by name, account number, or mobile..."
+                value={farmerStorageLinkId}
+                onSelect={(value) => setFarmerStorageLinkId(value ?? '')}
+                loading={isLoadingFarmers}
+                loadingMessage="Loading farmers..."
+                emptyMessage="No farmers found"
+                className="w-full"
+                buttonClassName="w-full justify-between"
+              />
+            )}
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel
+                htmlFor="nikasi-from"
+                className="font-custom mb-2 block text-base font-semibold"
+              >
+                From
+              </FieldLabel>
+              <Input
+                id="nikasi-from"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                placeholder="e.g. Warehouse A"
+                className="font-custom"
+              />
+            </Field>
+            <Field>
+              <FieldLabel
+                htmlFor="nikasi-to"
+                className="font-custom mb-2 block text-base font-semibold"
+              >
+                To
+              </FieldLabel>
+              <Input
+                id="nikasi-to"
+                value={toField}
+                onChange={(e) => setToField(e.target.value)}
+                placeholder="e.g. Location B"
+                className="font-custom"
+              />
+            </Field>
+          </div>
+
+          <Field>
+            <DatePicker
+              value={date}
+              onChange={(value) => setDate(value ?? '')}
+              label="Date"
+              id="nikasi-date"
+            />
+          </Field>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="space-y-1.5 pb-4">
+              <CardTitle className="font-custom text-foreground text-xl font-semibold">
+                Enter Quantities
+              </CardTitle>
+              <CardDescription className="font-custom text-muted-foreground text-sm">
+                Enter quantity and bag type for each size.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {GRADING_SIZES.map((size) => {
+                const value = sizeQuantities[size] ?? 0;
+                const displayValue = value === 0 ? '' : String(value);
+                const bagType = sizeBagTypes[size] ?? 'JUTE';
+                const variety = sizeVarieties[size] ?? '';
+                return (
+                  <div
+                    key={size}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                  >
+                    <label
+                      htmlFor={`nikasi-qty-${size}`}
+                      className="font-custom text-foreground text-base font-normal"
+                    >
+                      {size}
+                    </label>
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:min-w-0 sm:flex-nowrap">
+                      <Input
+                        id={`nikasi-qty-${size}`}
+                        type="number"
+                        min={0}
+                        placeholder="Qty"
+                        value={displayValue}
+                        onChange={(e) => {
+                          const next = { ...sizeQuantities };
+                          const raw = e.target.value;
+                          const num =
+                            raw === ''
+                              ? 0
+                              : Math.max(0, parseInt(raw, 10) || 0);
+                          next[size] = num;
+                          setSizeQuantities(next);
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onKeyDown={preventArrowKeys}
+                        className={`w-full sm:w-24 ${numberInputClassName}`}
+                      />
+                      <select
+                        aria-label={`Bag type for ${size}`}
+                        value={bagType}
+                        onChange={(e) => {
+                          setSizeBagTypes((prev) => ({
+                            ...prev,
+                            [size]: e.target.value,
+                          }));
+                        }}
+                        className="border-input bg-background focus-visible:ring-primary font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:w-28"
+                      >
+                        {BAG_TYPES.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <SearchSelector
+                        id={`nikasi-variety-${size}`}
+                        options={POTATO_VARIETIES}
+                        placeholder="Variety"
+                        searchPlaceholder="Search variety..."
+                        value={variety}
+                        onSelect={(v) =>
+                          setSizeVarieties((prev) => ({
+                            ...prev,
+                            [size]: v ?? '',
+                          }))
+                        }
+                        buttonClassName="font-custom h-9 w-full sm:w-28"
+                      />
                     </div>
-                    {hasGradingData && (
-                      <div className="border-border/60 bg-muted/30 flex flex-wrap items-end gap-x-5 gap-y-4 rounded-xl border px-4 py-4 shadow-sm">
-                        <div className="flex flex-col gap-2">
-                          <label
-                            htmlFor="nikasi-grading-variety-filter"
-                            className="font-custom text-muted-foreground text-xs leading-none font-medium"
-                          >
-                            Variety
-                          </label>
-                          <SearchSelector
-                            id="nikasi-grading-variety-filter"
-                            options={[
-                              { value: '', label: 'All Varieties' },
-                              ...varieties.map((v) => ({ value: v, label: v })),
-                            ]}
-                            placeholder="All Varieties"
-                            onSelect={(value) => setVarietyFilter(value ?? '')}
-                            value={varietyFilter}
-                            buttonClassName="font-custom h-10 w-[160px] sm:w-[180px]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <span className="font-custom text-muted-foreground text-xs leading-none font-medium">
-                            Sort by voucher
-                          </span>
-                          <div className="flex h-10 items-center gap-1.5">
-                            <Button
-                              type="button"
-                              variant={
-                                voucherSort === 'asc' ? 'default' : 'outline'
-                              }
-                              size="sm"
-                              className="font-custom h-10 gap-1.5 px-3"
-                              onClick={() => setVoucherSort('asc')}
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                              Ascending
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={
-                                voucherSort === 'desc' ? 'default' : 'outline'
-                              }
-                              size="sm"
-                              className="font-custom h-10 gap-1.5 px-3"
-                              onClick={() => setVoucherSort('desc')}
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                              Descending
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <span className="font-custom text-muted-foreground text-xs leading-none font-medium">
-                            Group by
-                          </span>
-                          <div className="flex h-10 items-center gap-1.5">
-                            <Button
-                              type="button"
-                              variant={
-                                groupBy === 'farmer' ? 'default' : 'outline'
-                              }
-                              size="sm"
-                              className="font-custom h-10 gap-1.5 px-3"
-                              onClick={() => setGroupBy('farmer')}
-                            >
-                              <User className="h-4 w-4" />
-                              Farmer
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={
-                                groupBy === 'date' ? 'default' : 'outline'
-                              }
-                              size="sm"
-                              className="font-custom h-10 gap-1.5 px-3"
-                              onClick={() => setGroupBy('date')}
-                            >
-                              <Calendar className="h-4 w-4" />
-                              Date
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <p className="font-custom text-muted-foreground text-sm">
-                      Filter and column options apply to the allocation tables
-                      in each pass below.
-                    </p>
                   </div>
-                )}
+                );
+              })}
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="font-custom text-foreground text-base font-normal">
+                  Total
+                </span>
+                <span className="font-custom text-foreground text-base font-medium sm:text-right">
+                  {totalQty}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
-                {/* Grading table for this pass */}
-                <div className="border-border/40 rounded-md border pt-2">
-                  <p className="font-custom text-muted-foreground mb-2 px-2 text-xs font-medium">
-                    Allocate from grading gate passes for this pass
-                  </p>
-                  {!isLoadingPasses &&
-                    hasGradingData &&
-                    hasFilteredData &&
-                    visibleSizes.length > 0 && (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="hover:bg-transparent">
-                              <TableHead className="font-custom text-foreground/80 w-[120px] font-medium">
-                                R. Voucher
-                              </TableHead>
-                              {visibleSizes.map((size) => (
-                                <TableHead
-                                  key={size}
-                                  className="font-custom text-foreground/80 font-medium"
-                                >
-                                  {size}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {displayGroups.map((group) => (
-                              <Fragment key={group.groupKey}>
-                                <TableRow className="border-border/60 bg-muted/40 hover:bg-muted/40">
-                                  <TableCell
-                                    colSpan={visibleSizes.length + 1}
-                                    className="font-custom text-primary py-2.5 font-semibold"
-                                  >
-                                    {group.groupLabel}
-                                  </TableCell>
-                                </TableRow>
-                                {group.passes.map((gp) => (
-                                  <TableRow
-                                    key={gp._id}
-                                    className="border-border/40 hover:bg-transparent"
-                                  >
-                                    <TableCell className="py-3">
-                                      <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center gap-2.5">
-                                          <Checkbox
-                                            checked={selectedOrders.has(gp._id)}
-                                            onCheckedChange={() =>
-                                              handleOrderToggle(gp._id)
-                                            }
-                                            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                                          />
-                                          <span className="font-custom text-foreground/90 font-medium">
-                                            #{gp.gatePassNo}
-                                          </span>
-                                        </div>
-                                        {gp.incomingGatePassId?.truckNumber && (
-                                          <span className="font-custom text-muted-foreground pl-7 text-xs">
-                                            {gp.incomingGatePassId.truckNumber}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                    {visibleSizes.map((size) => {
-                                      const detail = getOrderDetailForSize(
-                                        gp,
-                                        size
-                                      );
-                                      const removed =
-                                        pass.removedQuantities[gp._id]?.[
-                                          size
-                                        ] ?? 0;
-                                      if (!detail) {
-                                        return (
-                                          <TableCell
-                                            key={size}
-                                            className="py-1"
-                                          >
-                                            <div className="bg-muted/30 border-border/40 h-[58px] w-[70px] rounded-md border" />
-                                          </TableCell>
-                                        );
-                                      }
-                                      return (
-                                        <TableCell key={size} className="py-1">
-                                          <GradingGatePassCell
-                                            variety={gp.variety}
-                                            currentQuantity={
-                                              detail.currentQuantity
-                                            }
-                                            initialQuantity={
-                                              detail.initialQuantity
-                                            }
-                                            removedQuantity={removed}
-                                            onClick={() =>
-                                              openDialog(pass.id, gp, size)
-                                            }
-                                            onQuickRemove={() => {
-                                              setRemoved(
-                                                pass.id,
-                                                gp._id,
-                                                size,
-                                                0
-                                              );
-                                            }}
-                                            disabled={
-                                              detail.currentQuantity <= 0
-                                            }
-                                          />
-                                        </TableCell>
-                                      );
-                                    })}
-                                  </TableRow>
-                                ))}
-                              </Fragment>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  {!isLoadingPasses &&
-                    hasGradingData &&
-                    !hasFilteredData &&
-                    (varietyFilter.trim() === '' ? (
-                      <p className="font-custom text-muted-foreground py-4 text-center text-sm">
-                        No grading gate passes available.
-                      </p>
-                    ) : (
-                      <p className="font-custom text-muted-foreground py-4 text-center text-sm">
-                        No passes match the selected variety or no order
-                        details.
-                      </p>
-                    ))}
-                  {!isLoadingPasses && !hasGradingData && (
-                    <p className="font-custom text-muted-foreground py-4 text-center text-sm">
-                      No grading gate passes available.
-                    </p>
-                  )}
-                  {isLoadingPasses && (
-                    <p className="font-custom text-muted-foreground py-4 text-center text-sm">
-                      Loading...
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel
+                htmlFor="nikasi-net-weight"
+                className="font-custom mb-2 block text-base font-semibold"
+              >
+                Net Weight
+                <span className="font-custom text-muted-foreground ml-1 font-normal">
+                  (optional)
+                </span>
+              </FieldLabel>
+              <Input
+                id="nikasi-net-weight"
+                type="number"
+                min={0}
+                step="any"
+                value={netWeight ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setNetWeight(undefined);
+                    return;
+                  }
+                  const parsed = parseFloat(raw);
+                  setNetWeight(Number.isNaN(parsed) ? undefined : parsed);
+                }}
+                onWheel={(e) => e.currentTarget.blur()}
+                onKeyDown={preventArrowKeys}
+                placeholder="e.g. 100.5"
+                className={numberInputClassName}
+              />
+            </Field>
+            <Field>
+              <FieldLabel
+                htmlFor="nikasi-avg-weight-per-bag"
+                className="font-custom mb-2 block text-base font-semibold"
+              >
+                Average Weight per Bag
+                <span className="font-custom text-muted-foreground ml-1 font-normal">
+                  (optional)
+                </span>
+              </FieldLabel>
+              <Input
+                id="nikasi-avg-weight-per-bag"
+                type="number"
+                min={0}
+                step="any"
+                value={averageWeightPerBag ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setAverageWeightPerBag(undefined);
+                    return;
+                  }
+                  const parsed = parseFloat(raw);
+                  setAverageWeightPerBag(
+                    Number.isNaN(parsed) ? undefined : parsed
+                  );
+                }}
+                onWheel={(e) => e.currentTarget.blur()}
+                onKeyDown={preventArrowKeys}
+                placeholder="e.g. 50"
+                className={numberInputClassName}
+              />
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+              Remarks
+            </FieldLabel>
+            <textarea
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              className="border-input bg-background text-foreground font-custom placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:ring-offset-background w-full rounded-md border p-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              rows={4}
+              placeholder="Optional remarks"
+              maxLength={500}
+            />
+          </Field>
         </FieldGroup>
 
-        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end sm:gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
           <Button
             type="button"
             variant="outline"
-            className="font-custom order-2 w-full sm:order-1 sm:w-auto"
-            onClick={() => {
-              setPasses([createDefaultPass(`pass-${Date.now()}`)]);
-              toast.info('Form reset');
-            }}
+            onClick={resetForm}
+            className="font-custom"
           >
             Reset
           </Button>
@@ -862,15 +555,9 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
             type="submit"
             variant="default"
             size="lg"
-            className="font-custom order-1 w-full px-8 font-bold sm:order-2 sm:w-auto"
-            disabled={
-              isLoadingVoucher ||
-              voucherNumber == null ||
-              !hasAnyQuantity ||
-              !isFormValid
-            }
+            className="font-custom px-8 font-bold"
           >
-            Next: Review summary
+            Review
             <ChevronRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -885,19 +572,6 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
         isLoadingVoucher={isLoadingVoucher}
         gatePassNo={gatePassNo}
         onSubmit={handleSubmit}
-      />
-
-      <QuantityRemoveDialog
-        open={dialogOpen}
-        onOpenChange={(open) => !open && handleDialogClose()}
-        quantityInput={quantityInput}
-        quantityError={quantityError}
-        maxQuantity={dialogMaxQuantity}
-        hasExistingQuantity={!!hasExistingQuantity}
-        onQuantityInputChange={handleQuantityInputChange}
-        onQuantitySubmit={handleQuantitySubmit}
-        onQuantityRemove={handleQuantityRemove}
-        onClose={handleDialogClose}
       />
     </main>
   );

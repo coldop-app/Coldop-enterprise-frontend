@@ -210,9 +210,12 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                   </div>
 
                   <h3 className="font-custom mt-3 mb-2 px-4 text-sm font-semibold text-zinc-300">
-                    Grading gate passes
+                    {gradingGatePasses.some((e) => e.gradingGatePassId === '_direct')
+                      ? 'Allocation'
+                      : 'Grading gate passes'}
                   </h3>
                   {gradingGatePasses.map((entry) => {
+                    const isDirect = entry.gradingGatePassId === '_direct';
                     const displayDate = entry.date
                       ? formatDateLong(entry.date)
                       : formatDateLong(date);
@@ -224,12 +227,16 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-600/50 px-3 py-3 sm:px-4">
                           <div>
                             <p className="font-custom text-base font-bold text-white">
-                              Gate Pass #{entry.gatePassNo ?? '—'}
+                              {isDirect
+                                ? 'Quantities by size'
+                                : `Gate Pass #${entry.gatePassNo ?? '—'}`}
                             </p>
-                            <p className="font-custom mt-0.5 text-xs text-zinc-400">
-                              {displayDate}
-                              {entry.variety ? ` · ${entry.variety}` : ''}
-                            </p>
+                            {!isDirect && (
+                              <p className="font-custom mt-0.5 text-xs text-zinc-400">
+                                {displayDate}
+                                {entry.variety ? ` · ${entry.variety}` : ''}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="px-3 py-2 sm:px-4">
