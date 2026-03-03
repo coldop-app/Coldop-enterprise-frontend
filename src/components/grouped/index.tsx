@@ -123,7 +123,7 @@ function NikasiGroupCard({ group }: { group: GroupedNikasiGatePassGroup }) {
           </TableHeader>
           <TableBody>
             {group.passes.map((pass) => {
-              const totalBags = pass.orderDetails.reduce(
+              const totalBags = (pass.orderDetails ?? []).reduce(
                 (sum, o) => sum + (o.quantityIssued ?? 0),
                 0
               );
