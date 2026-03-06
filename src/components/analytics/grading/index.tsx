@@ -1,15 +1,15 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { GradingGatePass } from '@/types/grading-gate-pass';
+import type { GetGradingGatePassesResult } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 
 export interface GradingGatePassAnalyticsScreenProps {
-  queryResult: UseQueryResult<GradingGatePass[], Error>;
+  queryResult: UseQueryResult<GetGradingGatePassesResult, Error>;
 }
 
 export default function GradingGatePassAnalyticsScreen({
   queryResult: _queryResult,
 }: GradingGatePassAnalyticsScreenProps) {
   return (
-    <div className="font-custom text-center py-12 text-gray-600">
+    <div className="font-custom py-12 text-center text-gray-600">
       Show Grading Analytics Here after discussion
     </div>
   );

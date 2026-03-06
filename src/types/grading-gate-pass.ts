@@ -32,7 +32,7 @@ export interface GradingGatePassIncomingGradingSummary {
   totalGradedBags: number;
 }
 
-/** Incoming gate pass as nested in GET /grading-gate-pass response */
+/** Incoming gate pass as nested in GET /grading-gate-pass response (legacy single ref) */
 export interface GradingGatePassIncomingGatePass {
   _id: string;
   farmerStorageLinkId: GradingGatePassFarmerStorageLink;
@@ -48,6 +48,37 @@ export interface GradingGatePassIncomingGatePass {
   __v: number;
 }
 
+/** Farmer storage link as returned in grading pass incomingGatePassIds[].farmerStorageLinkId (subset) */
+export interface GradingGatePassIncomingRefLink {
+  _id: string;
+  farmerId: FarmerStorageLinkFarmer;
+  linkedById: GradingGatePassLinkedBy;
+  accountNumber: number;
+}
+
+/** Incoming gate pass as nested in grading pass incomingGatePassIds[] (list API) */
+export interface GradingGatePassIncomingRef {
+  _id: string;
+  farmerStorageLinkId:
+    | GradingGatePassIncomingRefLink
+    | GradingGatePassFarmerStorageLink;
+  gatePassNo: number;
+  manualGatePassNumber?: number;
+  date: string;
+  variety: string;
+  location?: string;
+  truckNumber?: string;
+  bagsReceived?: number;
+  weightSlip?: {
+    slipNumber?: string;
+    grossWeightKg?: number;
+    tareWeightKg?: number;
+  };
+  status?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Single order detail row in a grading gate pass */
 export interface GradingGatePassOrderDetail {
   size: string;
@@ -57,14 +88,14 @@ export interface GradingGatePassOrderDetail {
   weightPerBagKg: number;
 }
 
-/** Grading gate pass as returned by GET /grading-gate-pass */
+/** Grading gate pass as returned by GET /grading-gate-pass (list API) */
 export interface GradingGatePass {
   _id: string;
-  /** Present when fetched via GET /grading-gate-pass/farmer-storage-link/:id */
-  farmerStorageLinkId?: string;
-  incomingGatePassId: GradingGatePassIncomingGatePass;
-  gradedById: GradingGatePassGradedBy;
+  farmerStorageLinkId: string;
+  incomingGatePassIds: GradingGatePassIncomingRef[];
+  createdBy: GradingGatePassGradedBy;
   gatePassNo: number;
+  manualGatePassNumber?: number;
   date: string;
   variety: string;
   orderDetails: GradingGatePassOrderDetail[];
@@ -75,10 +106,21 @@ export interface GradingGatePass {
   __v: number;
 }
 
+/** Pagination as returned by GET /grading-gate-pass */
+export interface GradingGatePassPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 /** API response for GET /grading-gate-pass */
 export interface GetGradingGatePassesApiResponse {
   success: boolean;
   data: GradingGatePass[];
+  pagination: GradingGatePassPagination;
   message?: string;
 }
 
@@ -94,8 +136,7 @@ export interface CreateGradingGatePassOrderDetail {
 /** Request body for POST /grading-gate-pass */
 export interface CreateGradingGatePassInput {
   farmerStorageLinkId: string;
-  incomingGatePassId: string;
-  gradedById: string;
+  incomingGatePassIds: string[];
   gatePassNo: number;
   date: string;
   variety: string;
@@ -103,6 +144,7 @@ export interface CreateGradingGatePassInput {
   allocationStatus: string;
   remarks?: string;
   manualGatePassNumber?: number;
+  grader?: string;
 }
 
 /** Created grading gate pass as returned by POST /grading-gate-pass (refs as IDs) */

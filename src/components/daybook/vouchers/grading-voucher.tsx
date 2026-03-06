@@ -1,5 +1,4 @@
 import { memo, useMemo, useState } from 'react';
-import { Link } from '@tanstack/react-router';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -11,8 +10,6 @@ import {
   User,
   Package,
   Layers,
-  PackagePlus,
-  Truck,
   AlertTriangle,
   Calculator,
 } from 'lucide-react';
@@ -45,7 +42,7 @@ const GradingVoucher = memo(function GradingVoucher({
   voucher,
   farmerName,
   farmerAccount,
-  farmerStorageLinkId,
+  farmerStorageLinkId: _farmerStorageLinkId,
   wastageKg,
   wastagePercent,
   incomingNetKg,
@@ -214,44 +211,6 @@ const GradingVoucher = memo(function GradingVoucher({
                 </>
               )}
             </Button>
-            {farmerStorageLinkId && voucher._id && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom h-9 min-h-9 gap-1.5 px-3 text-xs sm:h-8 sm:min-h-0"
-                  asChild
-                >
-                  <Link
-                    to="/store-admin/storage"
-                    search={{
-                      farmerStorageLinkId,
-                      gradingPassId: voucher._id,
-                    }}
-                  >
-                    <PackagePlus className="h-3.5 w-3.5 shrink-0" />
-                    Store
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom h-9 min-h-9 gap-1.5 px-3 text-xs sm:h-8 sm:min-h-0"
-                  asChild
-                >
-                  <Link
-                    to="/store-admin/nikasi"
-                    search={{
-                      farmerStorageLinkId,
-                      gradingPassId: voucher._id,
-                    }}
-                  >
-                    <Truck className="h-3.5 w-3.5 shrink-0" />
-                    Dispatch
-                  </Link>
-                </Button>
-              </>
-            )}
             {isAdmin && (
               <Button
                 variant="outline"

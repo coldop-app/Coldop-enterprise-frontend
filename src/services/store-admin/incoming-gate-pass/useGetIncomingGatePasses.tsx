@@ -7,10 +7,17 @@ import type {
 } from '@/types/incoming-gate-pass';
 import { incomingGatePassKeys } from './useCreateIncomingGatePass';
 
-/** Params for fetching incoming gate passes (date range in YYYY-MM-DD) */
+/** Status value for filtering ungraded incoming gate passes (API expects this exact string) */
+export const INCOMING_GATE_PASS_STATUS_NOT_GRADED = 'NOT_GRADED';
+
+/** Params for fetching incoming gate passes (date range in YYYY-MM-DD). Example: ?page=1&limit=50&sortOrder=desc&status=NOT_GRADED&dateFrom=2025-01-01&dateTo=2025-03-31 */
 export interface GetIncomingGatePassesParams {
   dateFrom?: string;
   dateTo?: string;
+  page?: number;
+  limit?: number;
+  sortOrder?: 'asc' | 'desc';
+  status?: string;
 }
 
 /** Fetcher used by queryOptions and prefetch */
@@ -20,7 +27,16 @@ async function fetchIncomingGatePasses(
   const { data } =
     await storeAdminAxiosClient.get<GetIncomingGatePassesApiResponse>(
       '/incoming-gate-pass',
-      { params: { dateFrom: params.dateFrom, dateTo: params.dateTo } }
+      {
+        params: {
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+          page: params.page,
+          limit: params.limit,
+          sortOrder: params.sortOrder,
+          status: params.status,
+        },
+      }
     );
 
   if (!data.success || data.data == null) {

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-03-07
+
+### Added
+- Daybook: **tabbed layout** — Incoming, Grading, Storage, Dispatch, Outgoing tabs with shared `TabSummaryBar`, `TabToolbarSimple`, `LIMIT_OPTIONS`, and `IncomingStatusFilter` in `tabs/` (`IncomingTab`, `GradingTab`, `StorageTab`, `DispatchTab`, `OutgoingTab`)
+- Daybook: **DaybookEntryCard** component for consistent entry display across tabs
+- Grading form: **GradingFormStep1** — dedicated step for farmer and variety selection (Step 1) with incoming gate pass selection
+- Grading gate pass list API: **pagination** — `GetGradingGatePassesParams` (page, limit, sortOrder, dateFrom, dateTo); `useGetGradingGatePasses` returns `data` and `pagination` (`GradingGatePassPagination`)
+- Incoming gate pass list API: **status filter** — `GetIncomingGatePassesParams.status` (e.g. `NOT_GRADED`, `GRADED`) for filtering by grading status; `incomingGatePassesQueryOptions` exported for reuse
+- Types: `GradingGatePassPagination`, `GetGradingGatePassesResult`; grading gate pass GET response and list types updated for pagination
+
+### Changed
+- Daybook: refactored from single view to tabbed content; Incoming tab uses status filter (all / ungraded / graded) and pagination; Grading tab uses `useGetGradingGatePasses` with page, limit, sortOrder
+- Grading form: step-based flow using `GradingFormStep1` for step 1; constants and summary sheet aligned with step flow
+- Grading voucher: layout and content updates
+- Analytics grading and grading route: wiring for updated services and types
+- Route tree: updates for grading and daybook
+
 ## [0.22.0] - 2026-03-06
 
 ### Added

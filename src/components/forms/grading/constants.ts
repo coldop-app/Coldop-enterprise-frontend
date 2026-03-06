@@ -30,6 +30,16 @@ export const GRADING_SIZES = [
 export type GradingSize = (typeof GRADING_SIZES)[number];
 
 /** =====================================================
+ *  GRADER OPTIONS (dropdown for grading form)
+ *  ===================================================== */
+
+export const GRADER_OPTIONS = [
+  'Shiva grader',
+  'Rama Jandu',
+  'JICS Rama Jandu',
+] as const;
+
+/** =====================================================
  *  BAG CONFIG
  *  ===================================================== */
 

@@ -9,7 +9,7 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 
-import { FileText, Calendar, Package, Loader2 } from 'lucide-react';
+import { FileText, Calendar, Package, Loader2, User } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
 /*                                   Types                                    */
@@ -25,6 +25,7 @@ export interface GradingSummaryFormValues {
   }>;
   remarks?: string;
   manualGatePassNumber?: number;
+  grader?: string;
 }
 
 export interface GradingSummarySheetProps {
@@ -154,6 +155,13 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
               value={formValues.date}
               icon={Calendar}
             />
+            {formValues.grader?.trim() && (
+              <SummaryMetaRow
+                label="Grader"
+                value={formValues.grader}
+                icon={User}
+              />
+            )}
           </div>
 
           {/* Varieties & Quantities section (image style) */}

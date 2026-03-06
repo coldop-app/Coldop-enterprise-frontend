@@ -38,7 +38,8 @@ export function getOrderDetailForSize(
 export function getFarmerStorageLinkId(pass: GradingGatePass): string {
   if (typeof pass.farmerStorageLinkId === 'string')
     return pass.farmerStorageLinkId;
-  const nested = pass.incomingGatePassId?.farmerStorageLinkId;
+  const firstRef = pass.incomingGatePassIds?.[0];
+  const nested = firstRef?.farmerStorageLinkId;
   if (nested && typeof nested === 'object' && '_id' in nested)
     return (nested as { _id: string })._id;
   return pass._id;
@@ -46,7 +47,8 @@ export function getFarmerStorageLinkId(pass: GradingGatePass): string {
 
 /** Get farmer name from a pass (when incoming ref is populated) */
 export function getFarmerName(pass: GradingGatePass): string {
-  const nested = pass.incomingGatePassId?.farmerStorageLinkId;
+  const firstRef = pass.incomingGatePassIds?.[0];
+  const nested = firstRef?.farmerStorageLinkId;
   if (nested && typeof nested === 'object' && 'farmerId' in nested) {
     const farmer = (nested as { farmerId?: { name?: string } }).farmerId;
     if (farmer?.name) return farmer.name;
