@@ -16,6 +16,7 @@ import {
   User,
   Calendar,
   Package,
+  MapPin,
   Truck,
   Layers,
   Loader2,
@@ -33,6 +34,7 @@ interface SummarySheetProps {
   formValues: {
     date: string;
     variety: string;
+    location: string;
     truckNumber: string;
     bagsReceived: number;
     weightSlip?: {
@@ -150,6 +152,12 @@ export const SummarySheet = memo(function SummarySheet({
               label="Variety"
               value={formValues.variety}
               icon={Package}
+            />
+
+            <SummaryRow
+              label="Location"
+              value={formValues.location}
+              icon={MapPin}
             />
 
             <SummaryRow

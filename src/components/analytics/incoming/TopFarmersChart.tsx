@@ -63,13 +63,13 @@ const TopFarmersChart = memo(function TopFarmersChart({
 
   if (isLoading) {
     return (
-      <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm">
+      <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold sm:text-lg">
             Top Farmers
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Top 5 farmers by current quantity in storage
+            Top 5 farmers with most bags received during incoming.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,7 +81,7 @@ const TopFarmersChart = memo(function TopFarmersChart({
 
   if (isError) {
     return (
-      <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm">
+      <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold sm:text-lg">
             Top Farmers
@@ -92,7 +92,9 @@ const TopFarmersChart = memo(function TopFarmersChart({
         </CardHeader>
         <CardContent>
           <p className="font-custom text-destructive text-sm">
-            {error instanceof Error ? error.message : 'Failed to load top farmers.'}
+            {error instanceof Error
+              ? error.message
+              : 'Failed to load top farmers.'}
           </p>
           <Button
             variant="default"
@@ -110,7 +112,7 @@ const TopFarmersChart = memo(function TopFarmersChart({
 
   if (seriesData.length === 0) {
     return (
-      <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm">
+      <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold sm:text-lg">
             Top Farmers
@@ -129,7 +131,7 @@ const TopFarmersChart = memo(function TopFarmersChart({
   }
 
   return (
-    <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold sm:text-lg">
           Top Farmers
@@ -182,11 +184,7 @@ const TopFarmersChart = memo(function TopFarmersChart({
                   />
                 }
               />
-              <Bar
-                dataKey="bags"
-                fill="var(--chart-1)"
-                radius={[0, 4, 4, 0]}
-              />
+              <Bar dataKey="bags" fill="var(--chart-1)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ChartContainer>
         </div>

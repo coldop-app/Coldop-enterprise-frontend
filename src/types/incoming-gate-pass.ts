@@ -19,6 +19,7 @@ export interface CreateIncomingGatePassInput {
   gatePassNo: number;
   date: string; // ISO date string
   variety: string;
+  location: string;
   truckNumber: string;
   bagsReceived: number;
   weightSlip?: IncomingGatePassWeightSlip;

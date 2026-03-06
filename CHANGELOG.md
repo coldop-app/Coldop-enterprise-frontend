@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-03-06
+
+### Added
+- Analytics Reports: **dedicated reports route** (`/store-admin/analytics/reports`) with search param `report` for type (incoming, ungraded, grading, stored, dispatch, outgoing)
+- Analytics Reports: **report table components** per type — `IncomingReportTable`, `UngradedReportTable`, `GradingReportTable`, `StorageReportsTable`, `DispatchReportTable`, `OutgoingReportTable`; lazy-loaded screen with `ReportsScreen` switching by report type
+- Incoming report: **data table** with columns (GP No, Manual, Date, Farmer, Truck, Variety, Bags, Gross/Tare/Net, Remarks, etc.), `columns.tsx` and `DataTable` in `incoming-report/`
+- Analytics types: `AnalyticsReportType` for report type union used by reports route and overview links
+
+### Changed
+- Analytics overview: stat cards link to reports screen with `report` search (e.g. "Get Reports" → `/store-admin/analytics/reports?report=incoming`); grading card links to grading report
+- Route tree and analytics overview wiring for reports navigation
+
 ## [0.21.0] - 2026-03-02
 
 ### Added

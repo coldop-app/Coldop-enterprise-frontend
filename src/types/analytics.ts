@@ -33,6 +33,15 @@ export interface GetAnalyticsOverviewApiResponse {
   message?: string;
 }
 
+/** Report type for analytics/reports route (from overview cards) */
+export type AnalyticsReportType =
+  | 'incoming'
+  | 'ungraded'
+  | 'grading'
+  | 'stored'
+  | 'dispatch'
+  | 'outgoing';
+
 /** Farmer as returned in GET /analytics/incoming-gate-pass-report when groupByFarmer=true */
 export interface IncomingGatePassReportFarmer {
   _id: string;

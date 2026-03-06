@@ -68,14 +68,14 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
 
   if (isLoading) {
     return (
-      <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm">
+      <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-            <PieChartIcon className="h-5 w-5 text-primary" />
+            <PieChartIcon className="text-primary h-5 w-5" />
             Variety Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by potato variety (current stock)
+            Percentage breakdown by potato variety
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -87,7 +87,7 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
 
   if (isError) {
     return (
-      <Card className="font-custom border-destructive/30 min-w-0 w-full overflow-hidden rounded-xl bg-destructive/5">
+      <Card className="font-custom border-destructive/30 bg-destructive/5 w-full min-w-0 overflow-hidden rounded-xl">
         <CardHeader>
           <CardTitle className="text-destructive">
             Failed to load variety distribution
@@ -112,10 +112,10 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
 
   if (pieData.length === 0) {
     return (
-      <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm">
+      <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-            <PieChartIcon className="h-5 w-5 text-primary" />
+            <PieChartIcon className="text-primary h-5 w-5" />
             Variety Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
@@ -132,14 +132,14 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
   }
 
   return (
-    <Card className="font-custom border-border min-w-0 w-full overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <PieChartIcon className="h-5 w-5 text-primary" />
+          <PieChartIcon className="text-primary h-5 w-5" />
           Variety Distribution
         </CardTitle>
         <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Percentage breakdown by potato variety (current stock)
+          Percentage breakdown by potato variety
         </CardDescription>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
@@ -192,7 +192,7 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
                   style={{ backgroundColor: item.fill }}
                   aria-hidden
                 />
-                <span className="min-w-0 text-foreground">
+                <span className="text-foreground min-w-0">
                   {item.name}: {item.value.toLocaleString('en-IN')} bags (
                   {item.percentage.toFixed(1)}%)
                 </span>

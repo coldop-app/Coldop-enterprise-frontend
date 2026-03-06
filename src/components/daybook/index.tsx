@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -40,7 +39,6 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Empty,
   EmptyHeader,
@@ -48,10 +46,7 @@ import {
   EmptyContent,
   EmptyMedia,
 } from '@/components/ui/empty';
-import { useGetDaybook } from '@/services/store-admin/grading-gate-pass/useGetDaybook';
-import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
-import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
-import type { DaybookEntry, DaybookGatePassType } from '@/types/daybook';
+import type { DaybookEntry } from '@/types/daybook';
 import {
   JUTE_BAG_WEIGHT,
   LENO_BAG_WEIGHT,
@@ -60,8 +55,6 @@ import EntrySummariesBar from './EntrySummariesBar';
 import {
   IncomingVoucher,
   GradingVoucher,
-  StorageVoucher,
-  NikasiVoucher,
   totalBagsFromOrderDetails,
   type IncomingVoucherData,
   type PassVoucherData,
@@ -69,6 +62,8 @@ import {
 
 interface DaybookEntryCardProps {
   entry: DaybookEntry;
+  /** When parent tab is Incoming vs Grading, card opens on that sub-tab */
+  defaultSubTab?: 'incoming' | 'grading';
 }
 
 const PIPELINE_STAGES = 2; // Incoming → Grading
@@ -94,6 +89,7 @@ function getPipelineProgress(entry: DaybookEntry): number {
 
 const DaybookEntryCard = memo(function DaybookEntryCard({
   entry,
+  defaultSubTab = 'incoming',
 }: DaybookEntryCardProps) {
   const incoming = entry.incoming as IncomingVoucherData | undefined;
   const farmer = entry.farmer;
@@ -199,7 +195,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
         <Progress value={progressValue} className="mt-1.5 h-2" />
       </div>
       <EntrySummariesBar summaries={summariesWithNikasi} />
-      <Tabs defaultValue="incoming" className="w-full">
+      <Tabs defaultValue={defaultSubTab} className="w-full">
         <TabsList className="font-custom flex h-auto w-full flex-nowrap overflow-x-auto">
           <TabsTrigger
             value="incoming"
@@ -278,154 +274,107 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
 
 export { DaybookEntryCard };
 
-/** Storage tab: fetches storage gate passes and renders voucher list */
+/** Storage tab: renders voucher list (data provided by parent) */
 const StorageTabContent = memo(function StorageTabContent() {
-  const { data: storagePasses, isLoading } = useGetStorageGatePasses();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="overflow-hidden p-0">
-            <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-5 w-16 rounded-md" />
-              </div>
-              <Skeleton className="mt-2 h-3 w-32" />
-            </div>
-            <div className="space-y-2 border-b px-4 py-3">
-              <div className="flex gap-4">
-                {[...Array(4)].map((__, j) => (
-                  <Skeleton key={j} className="h-4 w-14" />
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2 p-4">
-              <Skeleton className="h-8 w-16 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (!storagePasses?.length) {
-    return (
-      <Card>
-        <CardContent className="py-8 pt-6">
-          <Empty className="font-custom">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Package className="size-6" />
-              </EmptyMedia>
-              <EmptyTitle>No storage vouchers yet</EmptyTitle>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                asChild
-              >
-                <Link to="/store-admin/storage">Add Storage voucher</Link>
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {storagePasses.map((pass) => (
-        <StorageVoucher key={pass._id} voucher={pass} />
-      ))}
-    </div>
+    <Card>
+      <CardContent className="py-8 pt-6">
+        <Empty className="font-custom">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Package className="size-6" />
+            </EmptyMedia>
+            <EmptyTitle>No storage vouchers yet</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+              asChild
+            >
+              <Link to="/store-admin/storage">Add Storage voucher</Link>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      </CardContent>
+    </Card>
   );
 });
 
-/** Dispatch tab: fetches nikasi gate passes and renders voucher list (red accent) */
+/** Dispatch tab: renders voucher list (data provided by parent) */
 const DispatchTabContent = memo(function DispatchTabContent() {
-  const { data: nikasiPasses, isLoading } = useGetNikasiGatePasses();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="overflow-hidden p-0">
-            <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-5 w-16 rounded-md" />
-              </div>
-              <Skeleton className="mt-2 h-3 w-32" />
-            </div>
-            <div className="space-y-2 border-b px-4 py-3">
-              <div className="flex gap-4">
-                {[...Array(4)].map((__, j) => (
-                  <Skeleton key={j} className="h-4 w-14" />
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2 p-4">
-              <Skeleton className="h-8 w-16 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (!nikasiPasses?.length) {
-    return (
-      <Card>
-        <CardContent className="py-8 pt-6">
-          <Empty className="font-custom">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Truck className="size-6" />
-              </EmptyMedia>
-              <EmptyTitle>No dispatch vouchers yet</EmptyTitle>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                asChild
-              >
-                <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {nikasiPasses.map((pass, idx) => (
-        <NikasiVoucher
-          key={pass._id ?? `nikasi-${pass.gatePassNo ?? idx}`}
-          voucher={pass as PassVoucherData}
-          variant="dispatch"
-        />
-      ))}
-    </div>
+    <Card>
+      <CardContent className="py-8 pt-6">
+        <Empty className="font-custom">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Truck className="size-6" />
+            </EmptyMedia>
+            <EmptyTitle>No dispatch vouchers yet</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+              asChild
+            >
+              <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
+            </Button>
+          </EmptyContent>
+        </Empty>
+      </CardContent>
+    </Card>
   );
 });
 
 const LIMIT_OPTIONS = [10, 25, 50, 100] as const;
 
-const GATE_PASS_TYPE_OPTIONS: {
-  value: DaybookGatePassType;
-  label: string;
-  shortLabel: string;
-}[] = [
-  { value: 'incoming', label: 'Incoming', shortLabel: 'Inc' },
-  { value: 'grading', label: 'Grading', shortLabel: 'Gra' },
-];
+interface TabSummaryBarProps {
+  count: number;
+  icon: React.ReactNode;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}
+
+/** Bar shown below the tab label: "X vouchers" + Refresh button. One per tab. */
+const TabSummaryBar = memo(function TabSummaryBar({
+  count,
+  icon,
+  onRefresh,
+  isRefreshing = false,
+}: TabSummaryBarProps) {
+  return (
+    <Item variant="outline" size="sm" className="rounded-xl shadow-sm">
+      <ItemHeader className="h-full">
+        <div className="flex items-center gap-3">
+          <ItemMedia variant="icon" className="rounded-lg">
+            {icon}
+          </ItemMedia>
+          <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
+            {count} {count === 1 ? 'voucher' : 'vouchers'}
+          </ItemTitle>
+        </div>
+        <ItemActions>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isRefreshing}
+            onClick={() => onRefresh?.()}
+            className="font-custom h-8 gap-2 rounded-lg px-3"
+          >
+            <RefreshCw
+              className={`h-4 w-4 shrink-0 ${
+                isRefreshing ? 'animate-spin' : ''
+              }`}
+            />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+        </ItemActions>
+      </ItemHeader>
+    </Item>
+  );
+});
+
+type IncomingStatusFilter = 'all' | 'graded' | 'ungraded';
 
 interface TabToolbarSimpleProps {
   addButtonLabel: string;
@@ -507,126 +456,82 @@ const TabToolbarSimple = memo(function TabToolbarSimple({
   );
 });
 
+/** Get sortable date from daybook entry (incoming date). */
+function getEntryDate(entry: DaybookEntry): number {
+  const inc = entry.incoming as { date?: string };
+  return inc?.date ? new Date(inc.date).getTime() : 0;
+}
+
 const DaybookPage = memo(function DaybookPage() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [sortBy, setSortBy] = useState<'Date' | 'Voucher Number'>('Date');
-  const [gatePassType, setGatePassType] = useState<DaybookGatePassType[]>([]);
+  const [statusFilter, setStatusFilter] = useState<IncomingStatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const toggleGatePassType = useCallback((type: DaybookGatePassType) => {
-    setGatePassType((prev) => {
-      const next = prev.includes(type)
-        ? prev.filter((t) => t !== type)
-        : [...prev, type].sort(
-            (a, b) =>
-              GATE_PASS_TYPE_OPTIONS.findIndex((o) => o.value === a) -
-              GATE_PASS_TYPE_OPTIONS.findIndex((o) => o.value === b)
-          );
-      return next;
-    });
-    setPage(1);
-  }, []);
-
-  const queryParams = useMemo(
-    () => ({
-      page,
-      limit,
-      sortOrder,
-      gatePassType: gatePassType.length > 0 ? gatePassType : undefined,
-    }),
-    [page, limit, sortOrder, gatePassType]
-  );
-
-  const {
-    data: daybookData,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useGetDaybook(queryParams);
-
-  const daybook = useMemo(
-    () => daybookData?.daybook ?? [],
-    [daybookData?.daybook]
-  );
-  const pagination = daybookData?.pagination;
+  const daybook: DaybookEntry[] = [];
 
   const setLimitAndResetPage = useCallback((newLimit: number) => {
     setLimit(newLimit);
     setPage(1);
   }, []);
 
-  const filteredAndSortedEntries: DaybookEntry[] = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    if (!normalizedQuery) return daybook;
-    return daybook.filter((entry) => {
-      const inc = entry.incoming as {
-        gatePassNo?: number;
-        date?: string;
-        farmerStorageLinkId?: { farmerId?: { name?: string } };
-      };
-      const farmerName =
-        inc.farmerStorageLinkId?.farmerId?.name?.toLowerCase() ?? '';
-      const voucherNo = String(inc.gatePassNo ?? '');
-      const date = inc.date
+  const sortedByDate = useMemo(() => {
+    const sorted = [...daybook].sort((a, b) => {
+      const dateA = getEntryDate(a);
+      const dateB = getEntryDate(b);
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+    return sorted;
+  }, [daybook, sortOrder]);
+
+  const filteredBySearch = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sortedByDate;
+    return sortedByDate.filter((entry) => {
+      const inc = entry.incoming as { gatePassNo?: number; date?: string };
+      const voucherNo = String(inc?.gatePassNo ?? '');
+      const dateStr = inc?.date
         ? new Date(inc.date).toLocaleDateString('en-IN')
         : '';
       return (
-        farmerName.includes(normalizedQuery) ||
-        voucherNo.includes(normalizedQuery) ||
-        date.includes(normalizedQuery)
+        voucherNo.toLowerCase().includes(q) || dateStr.toLowerCase().includes(q)
       );
     });
-  }, [daybook, searchQuery]);
+  }, [sortedByDate, searchQuery]);
 
-  const totalCount = pagination?.total ?? filteredAndSortedEntries.length;
-  const totalPages = pagination?.totalPages ?? 1;
-  const hasPrev = page > 1;
-  const hasNext = page < totalPages;
+  const incomingFilteredEntries: DaybookEntry[] = useMemo(() => {
+    if (statusFilter === 'all') return filteredBySearch;
+    return filteredBySearch.filter((entry) => {
+      const hasGrading = (entry.gradingPasses?.length ?? 0) > 0;
+      if (statusFilter === 'graded') return hasGrading;
+      return !hasGrading;
+    });
+  }, [filteredBySearch, statusFilter]);
+
+  const gradingFilteredEntries: DaybookEntry[] = filteredBySearch;
+
+  const totalPages = 1;
+  const hasPrev = false;
+  const hasNext = false;
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
       <div className="space-y-4 sm:space-y-6">
-        {/* Header: voucher count + refresh, then search + sort + add */}
         <div className="flex flex-col gap-4">
-          <Item variant="outline" size="sm" className="rounded-xl shadow-sm">
-            <ItemHeader className="h-full">
-              <div className="flex items-center gap-3">
-                <ItemMedia variant="icon" className="rounded-lg">
-                  <Receipt className="text-primary h-5 w-5" />
-                </ItemMedia>
-                <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-                  {totalCount} {totalCount === 1 ? 'voucher' : 'vouchers'}
-                </ItemTitle>
-              </div>
-              <ItemActions>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isFetching}
-                  onClick={() => refetch()}
-                  className="font-custom h-8 gap-2 rounded-lg px-3"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 shrink-0 ${
-                      isFetching ? 'animate-spin' : ''
-                    }`}
-                  />
-                  <span className="hidden sm:inline">Refresh</span>
-                </Button>
-              </ItemActions>
-            </ItemHeader>
-          </Item>
-
-          <Tabs defaultValue="incoming-grading" className="w-full">
+          <Tabs defaultValue="incoming" className="w-full">
             <TabsList className="font-custom mb-4 flex h-auto w-full flex-nowrap overflow-x-auto rounded-xl">
               <TabsTrigger
-                value="incoming-grading"
+                value="incoming"
                 className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
               >
-                <span className="sm:hidden">Inc & Gra</span>
-                <span className="hidden sm:inline">Incoming & Grading</span>
+                Incoming
+              </TabsTrigger>
+              <TabsTrigger
+                value="grading"
+                className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+              >
+                Grading
               </TabsTrigger>
               <TabsTrigger
                 value="storage"
@@ -648,8 +553,14 @@ const DaybookPage = memo(function DaybookPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="incoming-grading" className="mt-0 outline-none">
-              {/* Search + sort + filter + Add Incoming */}
+            <TabsContent
+              value="incoming"
+              className="mt-0 flex flex-col gap-4 outline-none"
+            >
+              <TabSummaryBar
+                count={incomingFilteredEntries.length}
+                icon={<Receipt className="text-primary h-5 w-5" />}
+              />
               <Item
                 variant="outline"
                 size="sm"
@@ -658,31 +569,24 @@ const DaybookPage = memo(function DaybookPage() {
                 <div className="relative w-full">
                   <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                   <Input
-                    placeholder="Search by voucher number, date..."
+                    placeholder="Search by gate pass number"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
                   />
                 </div>
                 <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex w-full flex-col gap-3 sm:flex-1 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-4">
+                  <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="outline"
                           className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
                         >
-                          <span className="hidden sm:inline">Sort by: </span>
-                          <span className="sm:hidden">Sort: </span>
-                          {sortBy === 'Voucher Number' ? (
-                            <span className="truncate">Voucher No.</span>
-                          ) : (
-                            sortBy
-                          )}
-                          <span className="font-custom text-muted-foreground hidden sm:inline">
-                            {' '}
-                            · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                          </span>
+                          Sort Order:{' '}
+                          {sortOrder === 'desc'
+                            ? 'Latest first'
+                            : 'Oldest first'}
                           <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -690,21 +594,13 @@ const DaybookPage = memo(function DaybookPage() {
                         align="start"
                         className="font-custom"
                       >
-                        <DropdownMenuItem onClick={() => setSortBy('Date')}>
-                          Date
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setSortBy('Voucher Number')}
-                        >
-                          Voucher Number
-                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
                             setSortOrder('asc');
                             setPage(1);
                           }}
                         >
-                          Ascending
+                          Oldest first
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -712,7 +608,7 @@ const DaybookPage = memo(function DaybookPage() {
                             setPage(1);
                           }}
                         >
-                          Descending
+                          Latest first
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -722,19 +618,12 @@ const DaybookPage = memo(function DaybookPage() {
                           variant="outline"
                           className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
                         >
-                          <span className="hidden sm:inline">Filter: </span>
-                          <span className="sm:hidden">Type: </span>
-                          {gatePassType.length === 0 ? (
-                            'All'
-                          ) : gatePassType.length === 1 ? (
-                            (GATE_PASS_TYPE_OPTIONS.find(
-                              (o) => o.value === gatePassType[0]
-                            )?.label ?? 'All')
-                          ) : (
-                            <span className="truncate">
-                              {gatePassType.length} types
-                            </span>
-                          )}
+                          Status:{' '}
+                          {statusFilter === 'all'
+                            ? 'All'
+                            : statusFilter === 'graded'
+                              ? 'Graded'
+                              : 'Ungraded'}
                           <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -742,22 +631,26 @@ const DaybookPage = memo(function DaybookPage() {
                         align="start"
                         className="font-custom"
                       >
-                        {GATE_PASS_TYPE_OPTIONS.map((opt) => (
-                          <DropdownMenuCheckboxItem
-                            key={opt.value}
-                            checked={gatePassType.includes(opt.value)}
-                            onCheckedChange={() =>
-                              toggleGatePassType(opt.value)
-                            }
-                          >
-                            {opt.label}
-                          </DropdownMenuCheckboxItem>
-                        ))}
+                        <DropdownMenuItem
+                          onClick={() => setStatusFilter('all')}
+                        >
+                          All
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setStatusFilter('graded')}
+                        >
+                          Graded
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setStatusFilter('ungraded')}
+                        >
+                          Ungraded
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                   <Button
-                    className="font-custom h-10 w-full shrink-0 sm:w-auto"
+                    className="font-custom h-10 w-full shrink-0 gap-2 sm:w-auto"
                     asChild
                   >
                     <Link to="/store-admin/incoming">
@@ -770,53 +663,32 @@ const DaybookPage = memo(function DaybookPage() {
 
               {/* List: one tabbed card per daybook entry */}
               <div className="mt-4 sm:mt-6">
-                {isLoading ? (
-                  <div className="space-y-6">
-                    {[...Array(3)].map((_, i) => (
-                      <Card key={i} className="overflow-hidden p-0">
-                        <div className="border-border bg-muted/30 px-3 py-2 sm:px-4 sm:py-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <Skeleton className="h-4 w-16" />
-                            <Skeleton className="h-4 w-8" />
-                          </div>
-                          <Skeleton className="mt-1.5 h-2 w-full rounded-full" />
-                        </div>
-                        <div className="space-y-2 border-b px-4 py-3">
-                          <div className="flex gap-4">
-                            {[...Array(2)].map((__, j) => (
-                              <Skeleton key={j} className="h-4 w-14" />
-                            ))}
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex gap-2">
-                            {[...Array(2)].map((__, j) => (
-                              <Skeleton
-                                key={j}
-                                className="h-9 flex-1 rounded-lg"
-                              />
-                            ))}
-                          </div>
-                          <div className="mt-4 space-y-3">
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-[80%]" />
-                            <Skeleton className="h-4 w-3/4" />
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : filteredAndSortedEntries.length === 0 ? (
+                {incomingFilteredEntries.length === 0 ? (
                   <Card>
-                    <CardContent className="py-8 pt-6 text-center">
-                      <p className="font-custom text-muted-foreground">
-                        No vouchers yet.
-                      </p>
+                    <CardContent className="py-8 pt-6">
+                      <Empty className="font-custom">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <ArrowUpFromLine className="size-6" />
+                          </EmptyMedia>
+                          <EmptyTitle>No incoming vouchers yet</EmptyTitle>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <Button
+                            className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                            asChild
+                          >
+                            <Link to="/store-admin/incoming">
+                              Add Incoming voucher
+                            </Link>
+                          </Button>
+                        </EmptyContent>
+                      </Empty>
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="space-y-6">
-                    {filteredAndSortedEntries.map((entry, idx) => (
+                    {incomingFilteredEntries.map((entry, idx) => (
                       <DaybookEntryCard
                         key={
                           (entry.incoming as { _id?: string })?._id ??
@@ -824,13 +696,14 @@ const DaybookPage = memo(function DaybookPage() {
                           `entry-${idx}`
                         }
                         entry={entry}
+                        defaultSubTab="incoming"
                       />
                     ))}
                   </div>
                 )}
 
                 {/* Pagination footer */}
-                {!isLoading && daybookData != null && (
+                {incomingFilteredEntries.length > 0 && (
                   <Item
                     variant="outline"
                     size="sm"
@@ -910,7 +783,201 @@ const DaybookPage = memo(function DaybookPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="storage" className="mt-0 outline-none">
+            <TabsContent
+              value="grading"
+              className="mt-0 flex flex-col gap-4 outline-none"
+            >
+              <TabSummaryBar
+                count={gradingFilteredEntries.length}
+                icon={<ClipboardList className="text-primary h-5 w-5" />}
+              />
+              <Item
+                variant="outline"
+                size="sm"
+                className="flex-col items-stretch gap-4 rounded-xl"
+              >
+                <div className="relative w-full">
+                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                  <Input
+                    placeholder="Search by gate pass number"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
+                  />
+                </div>
+                <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
+                      >
+                        Sort Order:{' '}
+                        {sortOrder === 'desc' ? 'Latest first' : 'Oldest first'}
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="font-custom">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortOrder('asc');
+                          setPage(1);
+                        }}
+                      >
+                        Oldest first
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortOrder('desc');
+                          setPage(1);
+                        }}
+                      >
+                        Latest first
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    className="font-custom h-10 w-full shrink-0 gap-2 sm:w-auto"
+                    asChild
+                  >
+                    <Link to="/store-admin/grading">
+                      <ClipboardList className="h-4 w-4 shrink-0" />
+                      Add Grading
+                    </Link>
+                  </Button>
+                </ItemFooter>
+              </Item>
+
+              {/* List: one tabbed card per daybook entry */}
+              <div className="mt-4 sm:mt-6">
+                {gradingFilteredEntries.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 pt-6">
+                      <Empty className="font-custom">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <ClipboardList className="size-6" />
+                          </EmptyMedia>
+                          <EmptyTitle>No grading vouchers yet</EmptyTitle>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <Button
+                            className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                            asChild
+                          >
+                            <Link to="/store-admin/grading">
+                              Add Grading voucher
+                            </Link>
+                          </Button>
+                        </EmptyContent>
+                      </Empty>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {gradingFilteredEntries.map((entry, idx) => (
+                      <DaybookEntryCard
+                        key={
+                          (entry.incoming as { _id?: string })?._id ??
+                          entry.farmer?._id ??
+                          `entry-${idx}`
+                        }
+                        entry={entry}
+                        defaultSubTab="grading"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination footer */}
+                {gradingFilteredEntries.length > 0 && (
+                  <Item
+                    variant="outline"
+                    size="sm"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3"
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="font-custom focus-visible:ring-primary rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        >
+                          {limit} per page
+                          <ChevronDown className="ml-1.5 h-4 w-4 shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {LIMIT_OPTIONS.map((n) => (
+                          <DropdownMenuItem
+                            key={n}
+                            onClick={() => setLimitAndResetPage(n)}
+                          >
+                            {n} per page
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Pagination>
+                      <PaginationContent className="gap-1">
+                        <PaginationItem>
+                          <PaginationPrevious
+                            href="#"
+                            className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
+                            aria-disabled={!hasPrev}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (hasPrev) setPage((p) => Math.max(1, p - 1));
+                            }}
+                            style={
+                              !hasPrev
+                                ? { pointerEvents: 'none', opacity: 0.5 }
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationLink
+                            isActive
+                            href="#"
+                            className="font-custom cursor-default"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            {page} / {totalPages}
+                          </PaginationLink>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
+                            aria-disabled={!hasNext}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (hasNext)
+                                setPage((p) => Math.min(totalPages, p + 1));
+                            }}
+                            style={
+                              !hasNext
+                                ? { pointerEvents: 'none', opacity: 0.5 }
+                                : undefined
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </Item>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent
+              value="storage"
+              className="mt-0 flex flex-col gap-4 outline-none"
+            >
+              <TabSummaryBar
+                count={0}
+                icon={<Package className="text-primary h-5 w-5" />}
+              />
               <div className="space-y-4">
                 <TabToolbarSimple
                   addButtonLabel="Add Storage"
@@ -921,7 +988,14 @@ const DaybookPage = memo(function DaybookPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="dispatch" className="mt-0 outline-none">
+            <TabsContent
+              value="dispatch"
+              className="mt-0 flex flex-col gap-4 outline-none"
+            >
+              <TabSummaryBar
+                count={0}
+                icon={<Truck className="text-primary h-5 w-5" />}
+              />
               <div className="space-y-4">
                 <TabToolbarSimple
                   addButtonLabel="Add Dispatch"
@@ -932,7 +1006,14 @@ const DaybookPage = memo(function DaybookPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="outgoing" className="mt-0 outline-none">
+            <TabsContent
+              value="outgoing"
+              className="mt-0 flex flex-col gap-4 outline-none"
+            >
+              <TabSummaryBar
+                count={0}
+                icon={<ArrowRightFromLine className="text-primary h-5 w-5" />}
+              />
               <div className="space-y-4">
                 <TabToolbarSimple
                   addButtonLabel="Add Outgoing"
@@ -942,12 +1023,25 @@ const DaybookPage = memo(function DaybookPage() {
                   }
                 />
                 <Card>
-                  <CardContent className="font-custom text-muted-foreground py-8">
-                    <p className="text-center">
-                      Outgoing vouchers and related content will be shown here.
-                      Use the search and sort options above to filter results
-                      when data is available.
-                    </p>
+                  <CardContent className="py-8 pt-6">
+                    <Empty className="font-custom">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <ArrowRightFromLine className="size-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No outgoing vouchers yet</EmptyTitle>
+                      </EmptyHeader>
+                      <EmptyContent>
+                        <Button
+                          className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                          asChild
+                        >
+                          <Link to="/store-admin/outgoing">
+                            Add Outgoing voucher
+                          </Link>
+                        </Button>
+                      </EmptyContent>
+                    </Empty>
                   </CardContent>
                 </Card>
               </div>
