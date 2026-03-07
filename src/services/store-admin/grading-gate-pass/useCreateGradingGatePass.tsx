@@ -54,7 +54,9 @@ export function useCreateGradingGatePass() {
         toast.success(data.message ?? 'Grading gate pass created successfully');
         queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
-        queryClient.invalidateQueries({ queryKey: gradingGatePassReportKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: gradingGatePassReportKeys.all,
+        });
       } else {
         toast.error(data.message ?? 'Failed to create grading gate pass');
       }

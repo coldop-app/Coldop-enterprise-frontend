@@ -11,15 +11,15 @@ const Hero = ({ data }: HeroProps) => {
   const { heading, description, ctaButtons, customerStats, heroImage } = data;
 
   return (
-    <section className="bg-secondary dark:bg-background/80 px-4 pb-16 pt-6 sm:px-8 sm:py-24">
+    <section className="bg-secondary dark:bg-background/80 px-4 pt-6 pb-16 sm:px-8 sm:py-24">
       <div className="mx-auto grid max-w-[75rem] grid-cols-1 items-center gap-8 py-8 sm:gap-12 md:gap-16 md:py-2 lg:grid-cols-2 lg:gap-24 xl:max-w-[81.25rem]">
         {/* LEFT */}
         <div className="text-center lg:text-left">
-          <h1 className="mb-8 font-custom text-[2.1rem] font-bold leading-[1.05] tracking-[-0.5px] text-[#333] dark:text-gray-100 xl:text-[3rem]">
+          <h1 className="font-custom mb-8 text-[2.1rem] leading-[1.05] font-bold tracking-[-0.5px] text-[#333] xl:text-[3rem] dark:text-gray-100">
             {heading}
           </h1>
 
-          <p className="mb-12 font-custom text-base font-normal leading-[1.6] text-gray-700 dark:text-gray-300 md:text-xl">
+          <p className="font-custom mb-12 text-base leading-[1.6] font-normal text-gray-700 md:text-xl dark:text-gray-300">
             {description}
           </p>
 
@@ -48,9 +48,9 @@ const Hero = ({ data }: HeroProps) => {
 
           {/* STATIC METRIC */}
           <div className="mt-8 flex items-center justify-center lg:mt-16 lg:justify-start">
-            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 sm:h-12 sm:w-12">
+            <div className="bg-primary/10 mr-4 flex h-10 w-10 items-center justify-center rounded-full sm:h-12 sm:w-12">
               <svg
-                className="h-5 w-5 text-primary sm:h-6 sm:w-6"
+                className="text-primary h-5 w-5 sm:h-6 sm:w-6"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -65,7 +65,7 @@ const Hero = ({ data }: HeroProps) => {
             </div>
 
             <div>
-              <p className="text-xl font-bold text-primary sm:text-2xl lg:text-3xl">
+              <p className="text-primary text-xl font-bold sm:text-2xl lg:text-3xl">
                 {customerStats.count}
               </p>
               <p className="text-xs font-medium text-gray-600 sm:text-sm lg:text-base">

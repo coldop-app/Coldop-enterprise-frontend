@@ -130,7 +130,9 @@ function getPassTotalBags(pass: StorageGatePassReportItem): number {
 }
 
 /** Per-size total for a pass */
-function getPassSizeQtys(pass: StorageGatePassReportItem): Record<string, number> {
+function getPassSizeQtys(
+  pass: StorageGatePassReportItem
+): Record<string, number> {
   const out: Record<string, number> = {};
   for (const od of pass.orderDetails ?? []) {
     const size = od.size;
@@ -178,7 +180,7 @@ function computeStorageReportSummary(
   const varietyMap = new Map<string, StorageSummaryRowTotals>();
   const farmerMap = new Map<string, StorageSummaryRowTotals>();
   const sizeMap = new Map<string, number>();
-  let overall: StorageSummaryRowTotals = {
+  const overall: StorageSummaryRowTotals = {
     count: 0,
     bags: 0,
     bySize: {},
@@ -605,52 +607,116 @@ function StorageReportSummaryPage({
   const nameW = '28%';
   const numW = '8%';
   const sizeCols = summary.bySize.map((s) => s.size);
-  const sizeW = sizeCols.length > 0 ? `${Math.max(6, 48 / sizeCols.length)}%` : '8%';
+  const sizeW =
+    sizeCols.length > 0 ? `${Math.max(6, 48 / sizeCols.length)}%` : '8%';
 
   const renderSummaryTable = (
     title: string,
     nameLabel: string,
-    rows: { name: string; count: number; bags: number; bySize: Record<string, number> }[],
+    rows: {
+      name: string;
+      count: number;
+      bags: number;
+      bySize: Record<string, number>;
+    }[],
     showTotal: boolean
   ) => (
     <View style={styles.summarySection}>
       <Text style={styles.summarySectionTitle}>{title}</Text>
       <View style={styles.summaryTable}>
         <View style={styles.summaryTableHeader}>
-          <Text style={[styles.summaryCellLeft, { width: nameW }]}>{nameLabel}</Text>
+          <Text style={[styles.summaryCellLeft, { width: nameW }]}>
+            {nameLabel}
+          </Text>
           <Text style={[styles.summaryCell, { width: numW }]}>GP Count</Text>
           <Text style={[styles.summaryCell, { width: numW }]}>Bags</Text>
           {sizeCols.map((col) => (
-            <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{col}</Text>
+            <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>
+              {col}
+            </Text>
           ))}
-          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>Total</Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              { width: numW },
+            ]}
+          >
+            Total
+          </Text>
         </View>
         {rows.length === 0 ? (
           <View style={styles.summaryTableRow}>
-            <Text style={[styles.summaryCellLeft, styles.summaryCellLast, { width: '100%', paddingVertical: 4 }]}>No data</Text>
+            <Text
+              style={[
+                styles.summaryCellLeft,
+                styles.summaryCellLast,
+                { width: '100%', paddingVertical: 4 },
+              ]}
+            >
+              No data
+            </Text>
           </View>
         ) : (
           <>
             {rows.map((row) => (
               <View key={row.name} style={styles.summaryTableRow}>
-                <Text style={[styles.summaryCellLeft, { width: nameW }]}>{row.name}</Text>
-                <Text style={[styles.summaryCell, { width: numW }]}>{row.count}</Text>
-                <Text style={[styles.summaryCell, { width: numW }]}>{fmt(row.bags)}</Text>
+                <Text style={[styles.summaryCellLeft, { width: nameW }]}>
+                  {row.name}
+                </Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>
+                  {row.count}
+                </Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>
+                  {fmt(row.bags)}
+                </Text>
                 {sizeCols.map((col) => (
-                  <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{fmt(row.bySize[col] ?? 0)}</Text>
+                  <Text
+                    key={col}
+                    style={[styles.summaryCell, { width: sizeW }]}
+                  >
+                    {fmt(row.bySize[col] ?? 0)}
+                  </Text>
                 ))}
-                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>{fmt(row.bags)}</Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    styles.summaryCellLast,
+                    { width: numW },
+                  ]}
+                >
+                  {fmt(row.bags)}
+                </Text>
               </View>
             ))}
             {showTotal && (
               <View style={styles.summaryTableRowTotal}>
-                <Text style={[styles.summaryCellLeft, { width: nameW }]}>Total</Text>
-                <Text style={[styles.summaryCell, { width: numW }]}>{summary.overall.count}</Text>
-                <Text style={[styles.summaryCell, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+                <Text style={[styles.summaryCellLeft, { width: nameW }]}>
+                  Total
+                </Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>
+                  {summary.overall.count}
+                </Text>
+                <Text style={[styles.summaryCell, { width: numW }]}>
+                  {fmt(summary.overall.bags)}
+                </Text>
                 {sizeCols.map((col) => (
-                  <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{fmt(summary.overall.bySize[col] ?? 0)}</Text>
+                  <Text
+                    key={col}
+                    style={[styles.summaryCell, { width: sizeW }]}
+                  >
+                    {fmt(summary.overall.bySize[col] ?? 0)}
+                  </Text>
                 ))}
-                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    styles.summaryCellLast,
+                    { width: numW },
+                  ]}
+                >
+                  {fmt(summary.overall.bags)}
+                </Text>
               </View>
             )}
           </>
@@ -663,27 +729,77 @@ function StorageReportSummaryPage({
     <Page size="A4" orientation="landscape" style={styles.summaryPage}>
       <View style={styles.header}>
         <Text style={styles.companyName}>{companyName}</Text>
-        <Text style={styles.reportTitle}>STORAGE GATE PASS REPORT — Summary</Text>
+        <Text style={styles.reportTitle}>
+          STORAGE GATE PASS REPORT — Summary
+        </Text>
         <Text style={styles.dateRange}>{dateRangeLabel}</Text>
       </View>
-      {renderSummaryTable('Variety-wise total', 'Variety', summary.byVariety.map((r) => ({ name: r.variety, count: r.count, bags: r.bags, bySize: r.bySize })), true)}
-      {renderSummaryTable('Farmer-wise total', 'Farmer', summary.byFarmer.map((r) => ({ name: r.farmerName, count: r.count, bags: r.bags, bySize: r.bySize })), true)}
+      {renderSummaryTable(
+        'Variety-wise total',
+        'Variety',
+        summary.byVariety.map((r) => ({
+          name: r.variety,
+          count: r.count,
+          bags: r.bags,
+          bySize: r.bySize,
+        })),
+        true
+      )}
+      {renderSummaryTable(
+        'Farmer-wise total',
+        'Farmer',
+        summary.byFarmer.map((r) => ({
+          name: r.farmerName,
+          count: r.count,
+          bags: r.bags,
+          bySize: r.bySize,
+        })),
+        true
+      )}
       <View style={styles.summarySection}>
         <Text style={styles.summarySectionTitle}>Size-wise total</Text>
         <View style={styles.summaryTable}>
           <View style={styles.summaryTableHeader}>
             <Text style={[styles.summaryCellLeft, { width: '70%' }]}>Size</Text>
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: '30%' }]}>Total Bags</Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: '30%' },
+              ]}
+            >
+              Total Bags
+            </Text>
           </View>
           {summary.bySize.map((row) => (
             <View key={row.size} style={styles.summaryTableRow}>
-              <Text style={[styles.summaryCellLeft, { width: '70%' }]}>{row.size}</Text>
-              <Text style={[styles.summaryCell, styles.summaryCellLast, { width: '30%' }]}>{fmt(row.bags)}</Text>
+              <Text style={[styles.summaryCellLeft, { width: '70%' }]}>
+                {row.size}
+              </Text>
+              <Text
+                style={[
+                  styles.summaryCell,
+                  styles.summaryCellLast,
+                  { width: '30%' },
+                ]}
+              >
+                {fmt(row.bags)}
+              </Text>
             </View>
           ))}
           <View style={styles.summaryTableRowTotal}>
-            <Text style={[styles.summaryCellLeft, { width: '70%' }]}>Total</Text>
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: '30%' }]}>{fmt(summary.overall.bags)}</Text>
+            <Text style={[styles.summaryCellLeft, { width: '70%' }]}>
+              Total
+            </Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: '30%' },
+              ]}
+            >
+              {fmt(summary.overall.bags)}
+            </Text>
           </View>
         </View>
       </View>
@@ -691,22 +807,48 @@ function StorageReportSummaryPage({
         <Text style={styles.summarySectionTitle}>Overall total</Text>
         <View style={styles.summaryTable}>
           <View style={styles.summaryTableHeader}>
-            <Text style={[styles.summaryCellLeft, { width: nameW }]}>Total</Text>
+            <Text style={[styles.summaryCellLeft, { width: nameW }]}>
+              Total
+            </Text>
             <Text style={[styles.summaryCell, { width: numW }]}>GP Count</Text>
             <Text style={[styles.summaryCell, { width: numW }]}>Bags</Text>
             {sizeCols.map((col) => (
-              <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{col}</Text>
+              <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>
+                {col}
+              </Text>
             ))}
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>Total</Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: numW },
+              ]}
+            >
+              Total
+            </Text>
           </View>
           <View style={styles.summaryTableRowTotal}>
             <Text style={[styles.summaryCellLeft, { width: nameW }]}>—</Text>
-            <Text style={[styles.summaryCell, { width: numW }]}>{summary.overall.count}</Text>
-            <Text style={[styles.summaryCell, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+            <Text style={[styles.summaryCell, { width: numW }]}>
+              {summary.overall.count}
+            </Text>
+            <Text style={[styles.summaryCell, { width: numW }]}>
+              {fmt(summary.overall.bags)}
+            </Text>
             {sizeCols.map((col) => (
-              <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>{fmt(summary.overall.bySize[col] ?? 0)}</Text>
+              <Text key={col} style={[styles.summaryCell, { width: sizeW }]}>
+                {fmt(summary.overall.bySize[col] ?? 0)}
+              </Text>
             ))}
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numW }]}>{fmt(summary.overall.bags)}</Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: numW },
+              ]}
+            >
+              {fmt(summary.overall.bags)}
+            </Text>
           </View>
         </View>
       </View>
@@ -1022,7 +1164,11 @@ export function StorageGatePassReportPdf({
             ))
           )
         )}
-        <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
+        <StorageReportSummaryPage
+          companyName={company}
+          dateRangeLabel={dateRangeLabel}
+          summary={summary}
+        />
       </Document>
     );
   }
@@ -1058,7 +1204,11 @@ export function StorageGatePassReportPdf({
             </Page>
           ))
         )}
-        <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
+        <StorageReportSummaryPage
+          companyName={company}
+          dateRangeLabel={dateRangeLabel}
+          summary={summary}
+        />
       </Document>
     );
   }
@@ -1094,7 +1244,11 @@ export function StorageGatePassReportPdf({
             </Page>
           ))
         )}
-        <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
+        <StorageReportSummaryPage
+          companyName={company}
+          dateRangeLabel={dateRangeLabel}
+          summary={summary}
+        />
       </Document>
     );
   }
@@ -1109,7 +1263,11 @@ export function StorageGatePassReportPdf({
           totalPages={1}
         />
       </Page>
-      <StorageReportSummaryPage companyName={company} dateRangeLabel={dateRangeLabel} summary={summary} />
+      <StorageReportSummaryPage
+        companyName={company}
+        dateRangeLabel={dateRangeLabel}
+        summary={summary}
+      />
     </Document>
   );
 }

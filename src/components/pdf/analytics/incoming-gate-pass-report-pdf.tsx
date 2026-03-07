@@ -89,7 +89,9 @@ function getNetWeightKg(
   return slip.grossWeightKg - slip.tareWeightKg;
 }
 
-function getFarmerNameFromPass(pass: IncomingGatePassWithLinkWithStatus): string {
+function getFarmerNameFromPass(
+  pass: IncomingGatePassWithLinkWithStatus
+): string {
   return pass.farmerStorageLinkId?.farmerId?.name ?? '—';
 }
 
@@ -134,7 +136,13 @@ function computeReportSummary(
 ): IncomingReportSummary {
   const varietyMap = new Map<string, SummaryRowTotals>();
   const farmerMap = new Map<string, SummaryRowTotals>();
-  let overall: SummaryRowTotals = { bags: 0, gross: 0, tare: 0, net: 0, count: 0 };
+  const overall: SummaryRowTotals = {
+    bags: 0,
+    gross: 0,
+    tare: 0,
+    net: 0,
+    count: 0,
+  };
 
   for (const pass of passes) {
     const bags = pass.bagsReceived ?? 0;
@@ -674,7 +682,11 @@ function ReportSummaryPage({
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
-        reportTitle={reportTitle ? `${reportTitle} — Summary` : 'INCOMING GATE PASS REPORT — Summary'}
+        reportTitle={
+          reportTitle
+            ? `${reportTitle} — Summary`
+            : 'INCOMING GATE PASS REPORT — Summary'
+        }
       />
       {/* Variety-wise summary */}
       <View style={[styles.summarySection, styles.summarySectionFirst]}>
@@ -685,8 +697,12 @@ function ReportSummaryPage({
               <Text
                 key={col.key}
                 style={[
-                  col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
-                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : {},
+                  col.key === 'name'
+                    ? styles.summaryCellLeft
+                    : styles.summaryCell,
+                  i === SUMMARY_COLUMNS.length - 1
+                    ? styles.summaryCellLast
+                    : {},
                   { width: col.width },
                 ]}
               >
@@ -696,7 +712,13 @@ function ReportSummaryPage({
           </View>
           {summary.byVariety.length === 0 ? (
             <View style={styles.summaryTableRow}>
-              <Text style={[styles.summaryCellLeft, styles.summaryCellLast, { width: '100%', paddingVertical: 4 }]}>
+              <Text
+                style={[
+                  styles.summaryCellLeft,
+                  styles.summaryCellLast,
+                  { width: '100%', paddingVertical: 4 },
+                ]}
+              >
                 No data
               </Text>
             </View>
@@ -704,21 +726,107 @@ function ReportSummaryPage({
             <>
               {summary.byVariety.map((row) => (
                 <View key={row.variety} style={styles.summaryTableRow}>
-                  <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>{row.variety}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{row.count}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{row.bags}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(row.gross)}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(row.tare)}</Text>
-                  <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(row.net)}</Text>
+                  <Text
+                    style={[
+                      styles.summaryCellLeft,
+                      { width: SUMMARY_COLUMNS[0].width },
+                    ]}
+                  >
+                    {row.variety}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[1].width },
+                    ]}
+                  >
+                    {row.count}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[2].width },
+                    ]}
+                  >
+                    {row.bags}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[3].width },
+                    ]}
+                  >
+                    {fmt(row.gross)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[4].width },
+                    ]}
+                  >
+                    {fmt(row.tare)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      styles.summaryCellLast,
+                      { width: SUMMARY_COLUMNS[5].width },
+                    ]}
+                  >
+                    {fmt(row.net)}
+                  </Text>
                 </View>
               ))}
               <View style={styles.summaryTableRowTotal}>
-                <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>Total</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{summary.overall.count}</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{summary.overall.bags}</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(summary.overall.gross)}</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(summary.overall.tare)}</Text>
-                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(summary.overall.net)}</Text>
+                <Text
+                  style={[
+                    styles.summaryCellLeft,
+                    { width: SUMMARY_COLUMNS[0].width },
+                  ]}
+                >
+                  Total
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[1].width },
+                  ]}
+                >
+                  {summary.overall.count}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[2].width },
+                  ]}
+                >
+                  {summary.overall.bags}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[3].width },
+                  ]}
+                >
+                  {fmt(summary.overall.gross)}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[4].width },
+                  ]}
+                >
+                  {fmt(summary.overall.tare)}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    styles.summaryCellLast,
+                    { width: SUMMARY_COLUMNS[5].width },
+                  ]}
+                >
+                  {fmt(summary.overall.net)}
+                </Text>
               </View>
             </>
           )}
@@ -733,8 +841,12 @@ function ReportSummaryPage({
               <Text
                 key={col.key}
                 style={[
-                  col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
-                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : {},
+                  col.key === 'name'
+                    ? styles.summaryCellLeft
+                    : styles.summaryCell,
+                  i === SUMMARY_COLUMNS.length - 1
+                    ? styles.summaryCellLast
+                    : {},
                   { width: col.width },
                 ]}
               >
@@ -744,7 +856,13 @@ function ReportSummaryPage({
           </View>
           {summary.byFarmer.length === 0 ? (
             <View style={styles.summaryTableRow}>
-              <Text style={[styles.summaryCellLeft, styles.summaryCellLast, { width: '100%', paddingVertical: 4 }]}>
+              <Text
+                style={[
+                  styles.summaryCellLeft,
+                  styles.summaryCellLast,
+                  { width: '100%', paddingVertical: 4 },
+                ]}
+              >
                 No data
               </Text>
             </View>
@@ -752,21 +870,107 @@ function ReportSummaryPage({
             <>
               {summary.byFarmer.map((row) => (
                 <View key={row.farmerName} style={styles.summaryTableRow}>
-                  <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>{row.farmerName}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{row.count}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{row.bags}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(row.gross)}</Text>
-                  <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(row.tare)}</Text>
-                  <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(row.net)}</Text>
+                  <Text
+                    style={[
+                      styles.summaryCellLeft,
+                      { width: SUMMARY_COLUMNS[0].width },
+                    ]}
+                  >
+                    {row.farmerName}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[1].width },
+                    ]}
+                  >
+                    {row.count}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[2].width },
+                    ]}
+                  >
+                    {row.bags}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[3].width },
+                    ]}
+                  >
+                    {fmt(row.gross)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      { width: SUMMARY_COLUMNS[4].width },
+                    ]}
+                  >
+                    {fmt(row.tare)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.summaryCell,
+                      styles.summaryCellLast,
+                      { width: SUMMARY_COLUMNS[5].width },
+                    ]}
+                  >
+                    {fmt(row.net)}
+                  </Text>
                 </View>
               ))}
               <View style={styles.summaryTableRowTotal}>
-                <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>Total</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{summary.overall.count}</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{summary.overall.bags}</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(summary.overall.gross)}</Text>
-                <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(summary.overall.tare)}</Text>
-                <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(summary.overall.net)}</Text>
+                <Text
+                  style={[
+                    styles.summaryCellLeft,
+                    { width: SUMMARY_COLUMNS[0].width },
+                  ]}
+                >
+                  Total
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[1].width },
+                  ]}
+                >
+                  {summary.overall.count}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[2].width },
+                  ]}
+                >
+                  {summary.overall.bags}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[3].width },
+                  ]}
+                >
+                  {fmt(summary.overall.gross)}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    { width: SUMMARY_COLUMNS[4].width },
+                  ]}
+                >
+                  {fmt(summary.overall.tare)}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryCell,
+                    styles.summaryCellLast,
+                    { width: SUMMARY_COLUMNS[5].width },
+                  ]}
+                >
+                  {fmt(summary.overall.net)}
+                </Text>
               </View>
             </>
           )}
@@ -781,8 +985,12 @@ function ReportSummaryPage({
               <Text
                 key={col.key}
                 style={[
-                  col.key === 'name' ? styles.summaryCellLeft : styles.summaryCell,
-                  i === SUMMARY_COLUMNS.length - 1 ? styles.summaryCellLast : {},
+                  col.key === 'name'
+                    ? styles.summaryCellLeft
+                    : styles.summaryCell,
+                  i === SUMMARY_COLUMNS.length - 1
+                    ? styles.summaryCellLast
+                    : {},
                   { width: col.width },
                 ]}
               >
@@ -791,12 +999,43 @@ function ReportSummaryPage({
             ))}
           </View>
           <View style={styles.summaryTableRowTotal}>
-            <Text style={[styles.summaryCellLeft, { width: SUMMARY_COLUMNS[0].width }]}>Total</Text>
-            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}>{summary.overall.count}</Text>
-            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}>{summary.overall.bags}</Text>
-            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}>{fmt(summary.overall.gross)}</Text>
-            <Text style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}>{fmt(summary.overall.tare)}</Text>
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: SUMMARY_COLUMNS[5].width }]}>{fmt(summary.overall.net)}</Text>
+            <Text
+              style={[
+                styles.summaryCellLeft,
+                { width: SUMMARY_COLUMNS[0].width },
+              ]}
+            >
+              Total
+            </Text>
+            <Text
+              style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}
+            >
+              {summary.overall.count}
+            </Text>
+            <Text
+              style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}
+            >
+              {summary.overall.bags}
+            </Text>
+            <Text
+              style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}
+            >
+              {fmt(summary.overall.gross)}
+            </Text>
+            <Text
+              style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}
+            >
+              {fmt(summary.overall.tare)}
+            </Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: SUMMARY_COLUMNS[5].width },
+              ]}
+            >
+              {fmt(summary.overall.net)}
+            </Text>
           </View>
         </View>
       </View>
@@ -817,7 +1056,11 @@ function FlatTable({
 }) {
   return (
     <Page size="A4" style={styles.page}>
-      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
+      <ReportHeader
+        companyName={companyName}
+        dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle}
+      />
       <View style={styles.tableContainer}>
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
@@ -878,7 +1121,11 @@ function GroupedTablePage({
   const { farmer, gatePasses } = group;
   return (
     <Page size="A4" style={styles.page}>
-      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
+      <ReportHeader
+        companyName={companyName}
+        dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle}
+      />
       <View
         style={[
           styles.farmerSection,
@@ -949,7 +1196,11 @@ function GroupedByVarietyTablePage({
   const { variety, gatePasses } = varietyItem;
   return (
     <Page size="A4" style={styles.page}>
-      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
+      <ReportHeader
+        companyName={companyName}
+        dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle}
+      />
       <View
         style={[
           styles.varietySection,
@@ -1022,16 +1273,18 @@ function GroupedByVarietyAndFarmerTablePage({
   const { farmer, gatePasses } = group;
   return (
     <Page size="A4" style={styles.page}>
-      <ReportHeader companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} />
+      <ReportHeader
+        companyName={companyName}
+        dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle}
+      />
       <View
         style={[
           styles.farmerSection,
           ...(isFirstPage ? [styles.farmerSectionFirst] : []),
         ]}
       >
-        {showVarietyHeader && (
-          <VarietyBlockHeader variety={varietyLabel} />
-        )}
+        {showVarietyHeader && <VarietyBlockHeader variety={varietyLabel} />}
         <FarmerBlockHeader farmer={farmer} />
         <View style={styles.tableContainer}>
           <View style={styles.table}>
@@ -1123,7 +1376,12 @@ export const IncomingGatePassReportPdf = ({
             ))
           )
         )}
-        <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
+        <ReportSummaryPage
+          companyName={companyName}
+          dateRangeLabel={dateRangeLabel}
+          reportTitle={reportTitle}
+          summary={summary}
+        />
       </Document>
     );
   }
@@ -1156,7 +1414,12 @@ export const IncomingGatePassReportPdf = ({
             />
           ))
         )}
-        <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
+        <ReportSummaryPage
+          companyName={companyName}
+          dateRangeLabel={dateRangeLabel}
+          reportTitle={reportTitle}
+          summary={summary}
+        />
       </Document>
     );
   }
@@ -1189,7 +1452,12 @@ export const IncomingGatePassReportPdf = ({
             />
           ))
         )}
-        <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
+        <ReportSummaryPage
+          companyName={companyName}
+          dateRangeLabel={dateRangeLabel}
+          reportTitle={reportTitle}
+          summary={summary}
+        />
       </Document>
     );
   }
@@ -1203,7 +1471,12 @@ export const IncomingGatePassReportPdf = ({
         reportTitle={reportTitle}
         rows={rows}
       />
-      <ReportSummaryPage companyName={companyName} dateRangeLabel={dateRangeLabel} reportTitle={reportTitle} summary={summary} />
+      <ReportSummaryPage
+        companyName={companyName}
+        dateRangeLabel={dateRangeLabel}
+        reportTitle={reportTitle}
+        summary={summary}
+      />
     </Document>
   );
 };

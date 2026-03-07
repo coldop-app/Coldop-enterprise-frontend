@@ -231,7 +231,10 @@ function computeGradingTableSummary(
   const sizeMap = new Map<string, number>();
   let grandTotal = 0;
   for (const row of rows) {
-    const variety = row.variety != null && String(row.variety).trim() !== '' ? String(row.variety).trim() : '—';
+    const variety =
+      row.variety != null && String(row.variety).trim() !== ''
+        ? String(row.variety).trim()
+        : '—';
     const rowTotal = getRowTotal(row);
     grandTotal += rowTotal;
     varietyMap.set(variety, (varietyMap.get(variety) ?? 0) + rowTotal);
@@ -461,46 +464,136 @@ function GradingTableSummarySection({
       {/* Variety-wise */}
       <View style={styles.summaryTable}>
         <View style={styles.summaryHeaderRow}>
-          <Text style={[styles.summaryCell, { width: nameWidth }]}>Variety</Text>
-          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>Total Bags</Text>
+          <Text style={[styles.summaryCell, { width: nameWidth }]}>
+            Variety
+          </Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              { width: numWidth },
+            ]}
+          >
+            Total Bags
+          </Text>
         </View>
         {byVariety.map((r) => (
           <View key={r.variety} style={styles.summaryDataRow}>
-            <Text style={[styles.summaryCell, { width: nameWidth }]}>{r.variety}</Text>
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>{r.total > 0 ? r.total.toLocaleString('en-IN') : '—'}</Text>
+            <Text style={[styles.summaryCell, { width: nameWidth }]}>
+              {r.variety}
+            </Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: numWidth },
+              ]}
+            >
+              {r.total > 0 ? r.total.toLocaleString('en-IN') : '—'}
+            </Text>
           </View>
         ))}
         <View style={[styles.summaryDataRow, { backgroundColor: '#e8e8e8' }]}>
-          <Text style={[styles.summaryCell, styles.totalCellText, { width: nameWidth }]}>Total</Text>
-          <Text style={[styles.summaryCell, styles.summaryCellLast, styles.totalCellText, { width: numWidth }]}>{grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}</Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.totalCellText,
+              { width: nameWidth },
+            ]}
+          >
+            Total
+          </Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              styles.totalCellText,
+              { width: numWidth },
+            ]}
+          >
+            {grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}
+          </Text>
         </View>
       </View>
       {/* Size-wise */}
       <View style={[styles.summaryTable, { marginTop: 2 }]}>
         <View style={styles.summaryHeaderRow}>
           <Text style={[styles.summaryCell, { width: nameWidth }]}>Size</Text>
-          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>Total Bags</Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              { width: numWidth },
+            ]}
+          >
+            Total Bags
+          </Text>
         </View>
         {bySize.map((r) => (
           <View key={r.size} style={styles.summaryDataRow}>
-            <Text style={[styles.summaryCell, { width: nameWidth }]}>{r.size}</Text>
-            <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>{r.total > 0 ? r.total.toLocaleString('en-IN') : '—'}</Text>
+            <Text style={[styles.summaryCell, { width: nameWidth }]}>
+              {r.size}
+            </Text>
+            <Text
+              style={[
+                styles.summaryCell,
+                styles.summaryCellLast,
+                { width: numWidth },
+              ]}
+            >
+              {r.total > 0 ? r.total.toLocaleString('en-IN') : '—'}
+            </Text>
           </View>
         ))}
         <View style={[styles.summaryDataRow, { backgroundColor: '#e8e8e8' }]}>
-          <Text style={[styles.summaryCell, styles.totalCellText, { width: nameWidth }]}>Total</Text>
-          <Text style={[styles.summaryCell, styles.summaryCellLast, styles.totalCellText, { width: numWidth }]}>{grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}</Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.totalCellText,
+              { width: nameWidth },
+            ]}
+          >
+            Total
+          </Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              styles.totalCellText,
+              { width: numWidth },
+            ]}
+          >
+            {grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}
+          </Text>
         </View>
       </View>
       {/* Farmer-wise (single farmer) */}
       <View style={[styles.summaryTable, { marginTop: 2 }]}>
         <View style={styles.summaryHeaderRow}>
           <Text style={[styles.summaryCell, { width: nameWidth }]}>Farmer</Text>
-          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>Total Bags</Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              { width: numWidth },
+            ]}
+          >
+            Total Bags
+          </Text>
         </View>
         <View style={styles.summaryDataRow}>
-          <Text style={[styles.summaryCell, { width: nameWidth }]}>{farmerName}</Text>
-          <Text style={[styles.summaryCell, styles.summaryCellLast, { width: numWidth }]}>{grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}</Text>
+          <Text style={[styles.summaryCell, { width: nameWidth }]}>
+            {farmerName}
+          </Text>
+          <Text
+            style={[
+              styles.summaryCell,
+              styles.summaryCellLast,
+              { width: numWidth },
+            ]}
+          >
+            {grandTotal > 0 ? grandTotal.toLocaleString('en-IN') : '—'}
+          </Text>
         </View>
       </View>
     </View>

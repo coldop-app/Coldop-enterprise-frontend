@@ -56,10 +56,7 @@ const UserMenuComponent = ({ admin, coldStorage }: UserMenuProps) => {
       </DropdownMenuItem>
 
       <DropdownMenuItem asChild>
-        <Link
-          to="/store-admin/grouped"
-          className="cursor-pointer outline-none"
-        >
+        <Link to="/store-admin/grouped" className="cursor-pointer outline-none">
           <LayoutList className="mr-2 h-4 w-4" />
           <span>Show Grouped</span>
         </Link>

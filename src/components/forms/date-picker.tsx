@@ -102,7 +102,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         {/* Calendar popover */}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 shrink-0"
+            >
               <CalendarIcon className="h-4 w-4" />
             </Button>
           </PopoverTrigger>

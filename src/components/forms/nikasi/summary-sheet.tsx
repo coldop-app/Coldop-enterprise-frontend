@@ -171,13 +171,7 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
 
           <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
             {passList.map((pass, passIndex) => {
-              const {
-                date,
-                from,
-                toField,
-                remarks,
-                gradingGatePasses,
-              } = pass;
+              const { date, from, toField, remarks, gradingGatePasses } = pass;
               const passBags = gradingGatePasses.reduce(
                 (sum, entry) =>
                   sum +
@@ -210,7 +204,9 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                   </div>
 
                   <h3 className="font-custom mt-3 mb-2 px-4 text-sm font-semibold text-zinc-300">
-                    {gradingGatePasses.some((e) => e.gradingGatePassId === '_direct')
+                    {gradingGatePasses.some(
+                      (e) => e.gradingGatePassId === '_direct'
+                    )
                       ? 'Allocation'
                       : 'Grading gate passes'}
                   </h3>

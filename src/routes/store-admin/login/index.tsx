@@ -29,29 +29,29 @@ function RouteComponent() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background relative overflow-hidden px-4 sm:px-0">
+    <div className="bg-background relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 sm:px-0">
       {/* Background pattern elements */}
-      <div className="absolute inset-0 w-full h-full">
-        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full bg-primary/5"></div>
-        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] rounded-full bg-primary/5"></div>
-        <div className="absolute top-1/4 left-1/3 w-64 h-64 rounded-full bg-primary/5"></div>
-        <div className="absolute bottom-1/4 right-1/3 w-48 h-48 rounded-full bg-primary/10"></div>
+      <div className="absolute inset-0 h-full w-full">
+        <div className="bg-primary/5 absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full"></div>
+        <div className="bg-primary/5 absolute -bottom-32 -left-32 h-[500px] w-[500px] rounded-full"></div>
+        <div className="bg-primary/5 absolute top-1/4 left-1/3 h-64 w-64 rounded-full"></div>
+        <div className="bg-primary/10 absolute right-1/3 bottom-1/4 h-48 w-48 rounded-full"></div>
 
         {/* Additional subtle pattern elements */}
-        <div className="absolute top-1/2 left-1/4 w-20 h-20 rounded-full bg-primary/5"></div>
-        <div className="absolute bottom-1/3 right-1/4 w-16 h-16 rounded-full bg-primary/5"></div>
-        <div className="absolute top-1/3 right-1/5 w-24 h-24 rounded-full bg-primary/5"></div>
+        <div className="bg-primary/5 absolute top-1/2 left-1/4 h-20 w-20 rounded-full"></div>
+        <div className="bg-primary/5 absolute right-1/4 bottom-1/3 h-16 w-16 rounded-full"></div>
+        <div className="bg-primary/5 absolute top-1/3 right-1/5 h-24 w-24 rounded-full"></div>
 
         {/* Decorative lines */}
-        <div className="absolute top-20 left-1/2 w-[300px] h-px bg-primary/10 -rotate-45"></div>
-        <div className="absolute bottom-20 right-1/2 w-[300px] h-px bg-primary/10 -rotate-45"></div>
+        <div className="bg-primary/10 absolute top-20 left-1/2 h-px w-[300px] -rotate-45"></div>
+        <div className="bg-primary/10 absolute right-1/2 bottom-20 h-px w-[300px] -rotate-45"></div>
       </div>
 
       {/* Logo - smaller on mobile */}
       <div className="fixed top-6 left-6 z-20">
         <Link
           to="/"
-          className="flex items-center transition-transform duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+          className="focus-visible:ring-primary flex items-center rounded transition-transform duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           <img
             src="/coldop-logo.webp"
@@ -62,7 +62,7 @@ function RouteComponent() {
       </div>
 
       {/* Form Container - full width on mobile */}
-      <div className="w-full sm:max-w-md z-10 py-8 sm:py-0">
+      <div className="z-10 w-full py-8 sm:max-w-md sm:py-0">
         <LoginForm onSubmit={handleSubmit} isLoading={isPending} />
       </div>
     </div>

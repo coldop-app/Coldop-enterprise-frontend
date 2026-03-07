@@ -229,7 +229,9 @@ export function filterIncomingReportToUngraded(
         farmers: item.farmers
           .map((f) => ({
             farmer: f.farmer,
-            gatePasses: f.gatePasses.filter((p) => p.gradingStatus === 'Ungraded'),
+            gatePasses: f.gatePasses.filter(
+              (p) => p.gradingStatus === 'Ungraded'
+            ),
           }))
           .filter((f) => f.gatePasses.length > 0),
       }))
@@ -239,7 +241,9 @@ export function filterIncomingReportToUngraded(
     return data
       .map((item) => ({
         variety: item.variety,
-        gatePasses: item.gatePasses.filter((p) => p.gradingStatus === 'Ungraded'),
+        gatePasses: item.gatePasses.filter(
+          (p) => p.gradingStatus === 'Ungraded'
+        ),
       }))
       .filter((item) => item.gatePasses.length > 0);
   }
@@ -247,7 +251,9 @@ export function filterIncomingReportToUngraded(
     const filtered = data
       .map((group) => ({
         farmer: group.farmer,
-        gatePasses: group.gatePasses.filter((p) => p.gradingStatus === 'Ungraded'),
+        gatePasses: group.gatePasses.filter(
+          (p) => p.gradingStatus === 'Ungraded'
+        ),
       }))
       .filter((group) => group.gatePasses.length > 0);
     return filtered;

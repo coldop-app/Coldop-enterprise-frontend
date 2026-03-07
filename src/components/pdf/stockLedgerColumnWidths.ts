@@ -33,9 +33,15 @@ export const STOCK_LEDGER_COL_WIDTHS = {
 /** Left columns (Gp No through Post Gr.) in display order for summary header row */
 export const STOCK_LEDGER_LEFT_HEADERS: { label: string; width: number }[] = [
   { label: 'GP NO', width: STOCK_LEDGER_COL_WIDTHS.gpNo },
-  { label: 'MANUAL NO', width: STOCK_LEDGER_COL_WIDTHS.manualIncomingVoucherNo },
+  {
+    label: 'MANUAL NO',
+    width: STOCK_LEDGER_COL_WIDTHS.manualIncomingVoucherNo,
+  },
   { label: 'GGP NO', width: STOCK_LEDGER_COL_WIDTHS.gradingGatePassNo },
-  { label: 'MANUAL GGP', width: STOCK_LEDGER_COL_WIDTHS.manualGradingGatePassNo },
+  {
+    label: 'MANUAL GGP',
+    width: STOCK_LEDGER_COL_WIDTHS.manualGradingGatePassNo,
+  },
   { label: 'INCOMING GATE PASS DATE', width: STOCK_LEDGER_COL_WIDTHS.date },
   {
     label: 'GRADING GATE PASS DATE',

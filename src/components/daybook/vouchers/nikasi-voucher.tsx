@@ -121,11 +121,7 @@ const NikasiVoucher = memo(function NikasiVoucher({
             <DetailRow label="Account" value={`#${farmerAccount}`} />
           )}
           {voucher.from != null && (
-            <DetailRow
-              label="From"
-              value={voucher.from}
-              icon={MapPin}
-            />
+            <DetailRow label="From" value={voucher.from} icon={MapPin} />
           )}
           {voucher.toField != null && voucher.toField !== '' && (
             <DetailRow label="To" value={voucher.toField} />

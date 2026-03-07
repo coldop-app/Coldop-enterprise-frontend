@@ -63,7 +63,7 @@ const GradingVoucherCalculationsDialog = memo(
   }: GradingVoucherCalculationsDialogProps) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="font-custom max-h-[90vh] flex flex-col overflow-hidden sm:max-w-lg">
+        <DialogContent className="font-custom flex max-h-[90vh] flex-col overflow-hidden sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-custom text-lg font-bold">
               Calculations — GGP #{gatePassNo ?? '—'}
@@ -98,10 +98,10 @@ const GradingVoucherCalculationsDialog = memo(
                 <h4 className="text-muted-foreground/80 mb-2 font-semibold">
                   Step 1: Total graded product weight (bag weight removed)
                 </h4>
-                <div className="bg-muted/30 rounded-lg p-3 space-y-3">
+                <div className="bg-muted/30 space-y-3 rounded-lg p-3">
                   <p className="text-muted-foreground text-xs">
-                    For each row: Line gross = Initial qty × Weight per bag (kg).
-                    Bag deduction = Initial qty × Bag weight (JUTE{' '}
+                    For each row: Line gross = Initial qty × Weight per bag
+                    (kg). Bag deduction = Initial qty × Bag weight (JUTE{' '}
                     {JUTE_BAG_WEIGHT} kg, LENO {LENO_BAG_WEIGHT} kg). Line
                     product = Line gross − Bag deduction.
                   </p>
@@ -123,7 +123,7 @@ const GradingVoucherCalculationsDialog = memo(
                       return (
                         <li
                           key={`${od.size}-${od.bagType}-${idx}`}
-                          className="font-mono space-y-0.5"
+                          className="space-y-0.5 font-mono"
                         >
                           Row {idx + 1} — {od.size ?? '—'} ({od.bagType ?? '—'}
                           ): Line gross = {qty} × {fmt(wt, 2)} ={' '}
@@ -135,7 +135,7 @@ const GradingVoucherCalculationsDialog = memo(
                       );
                     })}
                   </ul>
-                  <p className="text-muted-foreground border-t border-border/50 pt-2 text-xs">
+                  <p className="text-muted-foreground border-border/50 border-t pt-2 text-xs">
                     Totals:
                   </p>
                   <p className="font-mono text-xs">
@@ -161,7 +161,7 @@ const GradingVoucherCalculationsDialog = memo(
                   Step 2: Net weight and net product (bag weight removed)
                 </h4>
                 {incomingNetKg != null && incomingNetKg > 0 ? (
-                  <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div className="bg-muted/30 space-y-2 rounded-lg p-3">
                     <p className="text-muted-foreground text-xs">
                       Net weight (from weight slip) is total incoming weight. We
                       subtract the weight of incoming bags (all jute,{' '}
@@ -217,7 +217,7 @@ const GradingVoucherCalculationsDialog = memo(
                 {totalGradedWeightPercent !== undefined &&
                 incomingNetProductKg != null &&
                 incomingNetProductKg > 0 ? (
-                  <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div className="bg-muted/30 space-y-2 rounded-lg p-3">
                     <p className="text-muted-foreground text-xs">
                       Formula: Total graded weight % = (Total graded product ÷
                       Net product) × 100. This is the share of net product that
@@ -227,10 +227,7 @@ const GradingVoucherCalculationsDialog = memo(
                       Step 3a: Total graded product ÷ Net product ={' '}
                       {fmt(totalGradedWeightKg, 2)} ÷{' '}
                       {fmt(incomingNetProductKg, 2)} ={' '}
-                      {fmt(
-                        totalGradedWeightKg / incomingNetProductKg,
-                        4
-                      )}
+                      {fmt(totalGradedWeightKg / incomingNetProductKg, 4)}
                     </p>
                     <p className="font-mono text-xs">
                       Step 3b: × 100 = {fmt(totalGradedWeightPercent)}%
@@ -255,7 +252,7 @@ const GradingVoucherCalculationsDialog = memo(
                   Step 4: Wastage (entry-level, product only)
                 </h4>
                 {wastageKg !== undefined ? (
-                  <div className="border-destructive/30 bg-destructive/5 rounded-lg border p-3 space-y-2">
+                  <div className="border-destructive/30 bg-destructive/5 space-y-2 rounded-lg border p-3">
                     <p className="text-muted-foreground text-xs">
                       Wastage (kg) = Net product − Total graded product = [Net
                       weight − (incoming bags × 700 g)] − [Graded gross − (per
@@ -270,9 +267,8 @@ const GradingVoucherCalculationsDialog = memo(
                     incomingNetProductKg > 0 ? (
                       <p className="font-mono text-xs">
                         Wastage % = (Wastage kg ÷ Net product) × 100 = (
-                        {fmt(wastageKg, 2)} ÷{' '}
-                        {fmt(incomingNetProductKg, 2)}) × 100 ={' '}
-                        {fmt(wastagePercent)}% of net product
+                        {fmt(wastageKg, 2)} ÷ {fmt(incomingNetProductKg, 2)}) ×
+                        100 = {fmt(wastagePercent)}% of net product
                       </p>
                     ) : (
                       wastagePercent !== undefined && (
@@ -294,7 +290,7 @@ const GradingVoucherCalculationsDialog = memo(
                   Step 5: Graded % + Wastage %
                 </h4>
                 {percentSum != null ? (
-                  <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div className="bg-muted/30 space-y-2 rounded-lg p-3">
                     <p className="text-muted-foreground text-xs">
                       All net product is either graded output or wastage, so
                       Graded % + Wastage % (of net product) should equal 100%.
@@ -338,14 +334,13 @@ const GradingVoucherCalculationsDialog = memo(
                   <div
                     className={
                       hasDiscrepancy
-                        ? 'border-destructive bg-destructive/10 rounded-lg border-2 p-3 space-y-2'
-                        : 'bg-muted/30 rounded-lg p-3 space-y-2'
+                        ? 'border-destructive bg-destructive/10 space-y-2 rounded-lg border-2 p-3'
+                        : 'bg-muted/30 space-y-2 rounded-lg p-3'
                     }
                   >
                     <p className="text-muted-foreground text-xs">
-                      Discrepancy = 100 − (Graded % + Wastage %). If
-                      |sum − 100| is greater than 0.1%, the entry has a
-                      discrepancy.
+                      Discrepancy = 100 − (Graded % + Wastage %). If |sum − 100|
+                      is greater than 0.1%, the entry has a discrepancy.
                     </p>
                     <p className="font-mono text-xs">
                       Step 6a: Percent sum (from Step 5) = {fmt(percentSum)}%
@@ -358,8 +353,9 @@ const GradingVoucherCalculationsDialog = memo(
                     </p>
                     {hasDiscrepancy && discrepancyValue !== undefined ? (
                       <>
-                        <p className="font-medium text-destructive">
-                          Result: Discrepancy of {discrepancyValue >= 0 ? '+' : ''}
+                        <p className="text-destructive font-medium">
+                          Result: Discrepancy of{' '}
+                          {discrepancyValue >= 0 ? '+' : ''}
                           {fmt(discrepancyValue)}% — Graded % + Wastage % does
                           not equal 100% (within 0.1% tolerance).
                         </p>
@@ -371,8 +367,8 @@ const GradingVoucherCalculationsDialog = memo(
                       </>
                     ) : (
                       <p className="text-primary font-medium">
-                        Result: No discrepancy — Graded % + Wastage % equals 100%
-                        (within 0.1% tolerance).
+                        Result: No discrepancy — Graded % + Wastage % equals
+                        100% (within 0.1% tolerance).
                       </p>
                     )}
                   </div>

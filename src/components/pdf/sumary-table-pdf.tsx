@@ -39,8 +39,7 @@ function buildGroupedMap(rows: StockLedgerRow[]): Map<string, number> {
   };
   const weightKey = (w: number | undefined) =>
     w != null && !Number.isNaN(w) ? w.toFixed(2) : '0.00';
-  const varietyKey = (v: string | undefined) =>
-    (v ?? '').trim() || '';
+  const varietyKey = (v: string | undefined) => (v ?? '').trim() || '';
 
   for (const row of rows) {
     const variety = varietyKey(row.variety);
@@ -120,11 +119,8 @@ function getSummaryRows(map: Map<string, number>): SummaryRow[] {
  * 4. Rate = from BUY_BACK_COST as per size and variety (constants)
  * 5. Amount payable = (3) × (4)
  */
-function computeSummaryRightValuesForRow(
-  row: SummaryRow
-): SummaryRightValues {
-  const bagWt =
-    row.type === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
+function computeSummaryRightValuesForRow(row: SummaryRow): SummaryRightValues {
+  const bagWt = row.type === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
   const weightRecd = row.weightNum * row.count;
   const lessBardana = row.count * bagWt;
   const actualWt = weightRecd - lessBardana;

@@ -10,7 +10,9 @@ export const Route = createFileRoute('/store-admin/_authenticated/nikasi/')({
         ? search.farmerStorageLinkId
         : undefined,
     gradingPassId:
-      typeof search.gradingPassId === 'string' ? search.gradingPassId : undefined,
+      typeof search.gradingPassId === 'string'
+        ? search.gradingPassId
+        : undefined,
   }),
   component: NikasiFormPage,
 });
