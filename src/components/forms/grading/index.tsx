@@ -1,6 +1,7 @@
 import { Fragment, memo, useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
+import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,14 @@ import type { CreateGradingGatePassOrderDetail } from '@/types/grading-gate-pass
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 
 export interface SizeEntry {
+  size: string;
+  quantity: number;
+  bagType: string;
+  weightPerBagKg: number;
+}
+
+export interface ExtraSizeEntry {
+  id: string;
   size: string;
   quantity: number;
   bagType: string;
@@ -57,6 +66,15 @@ function buildFormSchema() {
     date: z.string().min(1, 'Date is required'),
     sizeEntries: z.array(
       z.object({
+        size: z.string(),
+        quantity: z.number().min(0, 'Must be 0 or more'),
+        bagType: z.enum(['JUTE', 'LENO']),
+        weightPerBagKg: z.number().min(0, 'Must be 0 or more'),
+      })
+    ),
+    extraSizeEntries: z.array(
+      z.object({
+        id: z.string(),
         size: z.string(),
         quantity: z.number().min(0, 'Must be 0 or more'),
         bagType: z.enum(['JUTE', 'LENO']),
@@ -120,6 +138,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     defaultValues: {
       date: formatDate(new Date()),
       sizeEntries: defaultSizeEntries,
+      extraSizeEntries: [] as ExtraSizeEntry[],
       remarks: '',
       manualGatePassNumber: undefined as number | undefined,
       grader: '',
@@ -147,7 +166,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
         return;
       }
 
-      const orderDetails: CreateGradingGatePassOrderDetail[] = value.sizeEntries
+      const fromFixed = value.sizeEntries
         .filter((row) => row.quantity > 0)
         .map((row) => ({
           size: row.size,
@@ -156,6 +175,19 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
           initialQuantity: row.quantity,
           weightPerBagKg: row.weightPerBagKg,
         }));
+      const fromExtra = (value.extraSizeEntries ?? [])
+        .filter((row) => row.quantity > 0)
+        .map((row) => ({
+          size: row.size,
+          bagType: row.bagType as 'JUTE' | 'LENO',
+          currentQuantity: row.quantity,
+          initialQuantity: row.quantity,
+          weightPerBagKg: row.weightPerBagKg,
+        }));
+      const orderDetails: CreateGradingGatePassOrderDetail[] = [
+        ...fromFixed,
+        ...fromExtra,
+      ];
 
       createGradingGatePass(
         {
@@ -175,6 +207,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
         {
           onSuccess: () => {
             form.reset();
+            form.setFieldValue('extraSizeEntries', []);
             setIncomingGatePassIds([]);
             setStep(1);
             setIsSummarySheetOpen(false);
@@ -498,6 +531,162 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
                       />
                     </Fragment>
                   ))}
+                  <form.Subscribe
+                    selector={(state) => state.values.extraSizeEntries ?? []}
+                  >
+                    {(extraSizeEntries) => {
+                      const addExtraRow = () => {
+                        const next: ExtraSizeEntry[] = [
+                          ...extraSizeEntries,
+                          {
+                            id: crypto.randomUUID(),
+                            size: GRADING_SIZES[0] ?? '',
+                            quantity: 0,
+                            bagType: 'JUTE',
+                            weightPerBagKg: 0,
+                          },
+                        ];
+                        form.setFieldValue('extraSizeEntries', next);
+                      };
+                      const updateExtraRow = (
+                        id: string,
+                        updates: Partial<ExtraSizeEntry>
+                      ) => {
+                        const next = extraSizeEntries.map((row) =>
+                          row.id === id ? { ...row, ...updates } : row
+                        );
+                        form.setFieldValue('extraSizeEntries', next);
+                      };
+                      const removeExtraRow = (id: string) => {
+                        form.setFieldValue(
+                          'extraSizeEntries',
+                          extraSizeEntries.filter((row) => row.id !== id)
+                        );
+                      };
+                      return (
+                        <>
+                          {extraSizeEntries.map((row) => (
+                            <Fragment key={row.id}>
+                              <select
+                                aria-label="Size"
+                                value={row.size}
+                                onChange={(e) =>
+                                  updateExtraRow(row.id, {
+                                    size: e.target.value,
+                                  })
+                                }
+                                className="border-input bg-background focus-visible:ring-primary font-custom col-span-1 h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                              >
+                                {GRADING_SIZES.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="min-w-0">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  placeholder="Qty"
+                                  value={row.quantity === 0 ? '' : row.quantity}
+                                  onBlur={() => {}}
+                                  {...numberInputProps}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '' || raw === '-') {
+                                      updateExtraRow(row.id, {
+                                        quantity: 0,
+                                      });
+                                      return;
+                                    }
+                                    const parsed = parseInt(raw, 10);
+                                    updateExtraRow(row.id, {
+                                      quantity: Number.isNaN(parsed)
+                                        ? 0
+                                        : parsed,
+                                    });
+                                  }}
+                                  className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <select
+                                  value={row.bagType}
+                                  onChange={(e) =>
+                                    updateExtraRow(row.id, {
+                                      bagType: e.target.value,
+                                    })
+                                  }
+                                  className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                >
+                                  {BAG_TYPES.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex min-w-0 items-center gap-1">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  placeholder="Wt"
+                                  value={
+                                    row.weightPerBagKg === 0 ||
+                                    row.weightPerBagKg === undefined
+                                      ? ''
+                                      : row.weightPerBagKg
+                                  }
+                                  onBlur={() => {}}
+                                  {...numberInputProps}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '' || raw === '-') {
+                                      updateExtraRow(row.id, {
+                                        weightPerBagKg: 0,
+                                      });
+                                      return;
+                                    }
+                                    const parsed = parseFloat(raw);
+                                    updateExtraRow(row.id, {
+                                      weightPerBagKg: Number.isNaN(parsed)
+                                        ? 0
+                                        : parsed,
+                                    });
+                                  }}
+                                  className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-muted-foreground hover:text-destructive shrink-0"
+                                  onClick={() => removeExtraRow(row.id)}
+                                  aria-label={`Remove ${row.size || 'size'} row`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </Fragment>
+                          ))}
+                          <div className="col-span-4 lg:col-span-4">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addExtraRow}
+                              className="font-custom"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Size
+                            </Button>
+                          </div>
+                        </>
+                      );
+                    }}
+                  </form.Subscribe>
                 </div>
 
                 <div className="space-y-4 md:hidden">
@@ -620,15 +809,207 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
                       </div>
                     </div>
                   ))}
+                  <form.Subscribe
+                    selector={(state) => state.values.extraSizeEntries ?? []}
+                  >
+                    {(extraSizeEntries) => {
+                      const addExtraRow = () => {
+                        const next: ExtraSizeEntry[] = [
+                          ...extraSizeEntries,
+                          {
+                            id: crypto.randomUUID(),
+                            size: GRADING_SIZES[0] ?? '',
+                            quantity: 0,
+                            bagType: 'JUTE',
+                            weightPerBagKg: 0,
+                          },
+                        ];
+                        form.setFieldValue('extraSizeEntries', next);
+                      };
+                      const updateExtraRow = (
+                        id: string,
+                        updates: Partial<ExtraSizeEntry>
+                      ) => {
+                        const next = extraSizeEntries.map((row) =>
+                          row.id === id ? { ...row, ...updates } : row
+                        );
+                        form.setFieldValue('extraSizeEntries', next);
+                      };
+                      const removeExtraRow = (id: string) => {
+                        form.setFieldValue(
+                          'extraSizeEntries',
+                          extraSizeEntries.filter((row) => row.id !== id)
+                        );
+                      };
+                      return (
+                        <>
+                          {extraSizeEntries.map((row) => (
+                            <div
+                              key={row.id}
+                              className="border-border/40 bg-muted/20 flex flex-col gap-4 rounded-lg border p-4"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <select
+                                  aria-label="Size"
+                                  value={row.size}
+                                  onChange={(e) =>
+                                    updateExtraRow(row.id, {
+                                      size: e.target.value,
+                                    })
+                                  }
+                                  className="border-input bg-background focus-visible:ring-primary font-custom flex-1 rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                >
+                                  {GRADING_SIZES.map((s) => (
+                                    <option key={s} value={s}>
+                                      {s}
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-muted-foreground hover:text-destructive shrink-0"
+                                  onClick={() => removeExtraRow(row.id)}
+                                  aria-label={`Remove ${row.size || 'size'} row`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <Field>
+                                  <label
+                                    htmlFor={`eq-qty-m-${row.id}`}
+                                    className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                                  >
+                                    Quantity
+                                  </label>
+                                  <Input
+                                    id={`eq-qty-m-${row.id}`}
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    placeholder="Qty"
+                                    value={
+                                      row.quantity === 0 ? '' : row.quantity
+                                    }
+                                    {...numberInputProps}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      if (raw === '' || raw === '-') {
+                                        updateExtraRow(row.id, {
+                                          quantity: 0,
+                                        });
+                                        return;
+                                      }
+                                      const parsed = parseInt(raw, 10);
+                                      updateExtraRow(row.id, {
+                                        quantity: Number.isNaN(parsed)
+                                          ? 0
+                                          : parsed,
+                                      });
+                                    }}
+                                    className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  />
+                                </Field>
+                                <Field>
+                                  <label
+                                    htmlFor={`eq-bag-m-${row.id}`}
+                                    className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                                  >
+                                    Bag Type
+                                  </label>
+                                  <select
+                                    id={`eq-bag-m-${row.id}`}
+                                    value={row.bagType}
+                                    onChange={(e) =>
+                                      updateExtraRow(row.id, {
+                                        bagType: e.target.value,
+                                      })
+                                    }
+                                    className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                  >
+                                    {BAG_TYPES.map((opt) => (
+                                      <option key={opt} value={opt}>
+                                        {opt}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </Field>
+                                <Field>
+                                  <label
+                                    htmlFor={`eq-wt-m-${row.id}`}
+                                    className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                                  >
+                                    Weight (kg)
+                                  </label>
+                                  <Input
+                                    id={`eq-wt-m-${row.id}`}
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    placeholder="Wt"
+                                    value={
+                                      row.weightPerBagKg === 0 ||
+                                      row.weightPerBagKg === undefined
+                                        ? ''
+                                        : row.weightPerBagKg
+                                    }
+                                    {...numberInputProps}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      if (raw === '' || raw === '-') {
+                                        updateExtraRow(row.id, {
+                                          weightPerBagKg: 0,
+                                        });
+                                        return;
+                                      }
+                                      const parsed = parseFloat(raw);
+                                      updateExtraRow(row.id, {
+                                        weightPerBagKg: Number.isNaN(parsed)
+                                          ? 0
+                                          : parsed,
+                                      });
+                                    }}
+                                    className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  />
+                                </Field>
+                              </div>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addExtraRow}
+                            className="font-custom w-full"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Size
+                          </Button>
+                        </>
+                      );
+                    }}
+                  </form.Subscribe>
                 </div>
               </div>
 
-              <form.Subscribe selector={(state) => state.values.sizeEntries}>
-                {(sizeEntries) => {
-                  const totalBagsEntered = (sizeEntries ?? []).reduce(
+              <form.Subscribe
+                selector={(state) => ({
+                  sizeEntries: state.values.sizeEntries ?? [],
+                  extraSizeEntries: state.values.extraSizeEntries ?? [],
+                })}
+              >
+                {({ sizeEntries, extraSizeEntries }) => {
+                  const fromFixed = (sizeEntries ?? []).reduce(
                     (sum, row) => sum + (row.quantity ?? 0),
                     0
                   );
+                  const fromExtra = (extraSizeEntries ?? []).reduce(
+                    (sum, row) => sum + (row.quantity ?? 0),
+                    0
+                  );
+                  const totalBagsEntered = fromFixed + fromExtra;
                   return (
                     <div className="border-border/60 bg-muted/30 flex items-center justify-between rounded-lg border px-4 py-2.5">
                       <span className="font-custom text-foreground text-sm font-semibold">
@@ -715,7 +1096,10 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
         variety={resolvedContext.variety}
         formValues={{
           date: form.state.values.date,
-          sizeEntries: form.state.values.sizeEntries,
+          sizeEntries: [
+            ...(form.state.values.sizeEntries ?? []),
+            ...(form.state.values.extraSizeEntries ?? []),
+          ],
           remarks: form.state.values.remarks,
           manualGatePassNumber: form.state.values.manualGatePassNumber,
           grader: form.state.values.grader,

@@ -196,9 +196,9 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
                     Quantity
                   </div>
                   {rowsWithQuantity.length > 0 ? (
-                    rowsWithQuantity.map((row) => (
+                    rowsWithQuantity.map((row, index) => (
                       <RowCells
-                        key={row.size}
+                        key={`${row.size}-${index}`}
                         size={row.size}
                         bagType={row.bagType}
                         quantity={row.quantity}
