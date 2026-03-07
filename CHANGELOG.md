@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-03-07
+
+### Added
+- Incoming report: **PDF export** — "View Report" button opens a PDF of the report table in a new tab; PDF honours table snapshot (visible columns, grouping, sorting) when available
+- Incoming report data table: **PDF snapshot** — `IncomingReportPdfSnapshot` type and `getPdfSnapshot()` ref API to capture visible columns, grouping, sorting, and row model for PDF generation
+- PDF: **IncomingReportTablePdf** component (`incoming-report-table-pdf.tsx`) for incoming report table PDF with optional snapshot support
+
+### Changed
+- Incoming report screen: added View Report button and PDF generation wired to table ref and snapshot; date range label and report title passed to PDF
+
 ## [0.25.0] - 2026-03-07
 
 ### Added

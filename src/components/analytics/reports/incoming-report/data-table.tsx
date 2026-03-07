@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
+import type { Row } from '@tanstack/table-core';
 import type { ColumnDef } from '@tanstack/table-core';
 import type { VisibilityState } from '@tanstack/table-core';
 import {
@@ -54,6 +55,28 @@ function toNum(value: unknown): number {
   return 0;
 }
 
+/** Snapshot of table state for PDF: visible columns, grouping, sorting, and row model (groups + leaves). */
+export interface IncomingReportPdfSnapshot<TData> {
+  visibleColumnIds: string[];
+  grouping: string[];
+  sorting: { id: string; desc: boolean }[];
+  rows: Array<
+    | {
+        type: 'group';
+        depth: number;
+        groupingColumnId: string;
+        groupingValue: unknown;
+        displayValue: string;
+        firstLeaf?: TData;
+      }
+    | { type: 'leaf'; row: TData }
+  >;
+}
+
+export interface IncomingReportDataTableRef<TData> {
+  getPdfSnapshot: () => IncomingReportPdfSnapshot<TData> | null;
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -88,11 +111,19 @@ function getColumnLabel(id: string): string {
   return COLUMN_LABELS[id] ?? id;
 }
 
-export function DataTable<TData, TValue>({
-  columns,
-  data,
-  totalColumnIds = [...TOTAL_COLUMN_IDS],
-}: DataTableProps<TData, TValue>) {
+function getFirstLeaf<TData>(row: Row<TData>): TData | undefined {
+  if (!row.getIsGrouped() || !row.subRows?.length) return row.original;
+  return getFirstLeaf(row.subRows[0]);
+}
+
+export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
+  {
+    columns,
+    data,
+    totalColumnIds = [...TOTAL_COLUMN_IDS],
+  }: DataTableProps<TData, TValue>,
+  ref: React.Ref<IncomingReportDataTableRef<TData>>
+) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [grouping, setGrouping] = useState<string[]>([]);
   const [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
@@ -165,6 +196,59 @@ export function DataTable<TData, TValue>({
   const removeFromGrouping = (columnId: string) => {
     setGrouping(groupedIds.filter((id) => id !== columnId));
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPdfSnapshot: (): IncomingReportPdfSnapshot<TData> | null => {
+        const state = table.getState();
+        const groupingIds = state.grouping ?? [];
+        const visibleColumnIds = table
+          .getAllColumns()
+          .filter((col) => col.getIsVisible())
+          .map((col) => col.id);
+        const rows: IncomingReportPdfSnapshot<TData>['rows'] = [];
+        // Use grouped row model and walk full tree so PDF includes all groups/leaves
+        // regardless of expanded state (getRowModel() only returns visible rows).
+        const groupedModel = table.getGroupedRowModel();
+        function walkRows(modelRows: Row<TData>[], depth: number): void {
+          for (const row of modelRows) {
+            if (row.getIsGrouped()) {
+              const groupingColumnId = groupingIds[depth];
+              const groupingValue = groupingColumnId
+                ? row.getValue(groupingColumnId)
+                : undefined;
+              const displayValue =
+                groupingValue != null && groupingValue !== ''
+                  ? String(groupingValue)
+                  : '—';
+              rows.push({
+                type: 'group',
+                depth,
+                groupingColumnId: groupingColumnId ?? '',
+                groupingValue,
+                displayValue,
+                firstLeaf: getFirstLeaf(row),
+              });
+              if (row.subRows?.length) {
+                walkRows(row.subRows, depth + 1);
+              }
+            } else {
+              rows.push({ type: 'leaf', row: row.original });
+            }
+          }
+        }
+        walkRows(groupedModel.rows, 0);
+        return {
+          visibleColumnIds,
+          grouping: groupingIds,
+          sorting: state.sorting ?? [],
+          rows,
+        };
+      },
+    }),
+    [table]
+  );
 
   return (
     <div className="space-y-4">
@@ -365,4 +449,8 @@ export function DataTable<TData, TValue>({
       </div>
     </div>
   );
-}
+}) as <TData, TValue>(
+  props: DataTableProps<TData, TValue> & {
+    ref?: React.Ref<IncomingReportDataTableRef<TData>>;
+  }
+) => React.ReactElement;

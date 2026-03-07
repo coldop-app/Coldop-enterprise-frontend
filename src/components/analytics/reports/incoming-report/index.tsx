@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   useGetIncomingGatePassReports,
@@ -8,7 +8,11 @@ import {
 } from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import { columns, type IncomingReportRow } from './columns';
-import { DataTable } from './data-table';
+import {
+  DataTable,
+  type IncomingReportDataTableRef,
+  type IncomingReportPdfSnapshot,
+} from './data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/forms/date-picker';
@@ -16,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { queryClient } from '@/lib/queryClient';
 import { toast } from 'sonner';
+import { FileDown } from 'lucide-react';
 
 /** API can return populated createdBy and optional weightSlip/bagsReceived etc. */
 type IncomingPass = IncomingGatePassWithLink & {
@@ -103,8 +108,10 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
 }
 
 const IncomingReportTable = () => {
+  const tableRef = useRef<IncomingReportDataTableRef<IncomingReportRow>>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [appliedRange, setAppliedRange] = useState<{
     dateFrom?: string;
     dateTo?: string;
@@ -154,6 +161,48 @@ const IncomingReportTable = () => {
     setToDate(undefined);
     setAppliedRange({});
     toast.success('Date filters cleared. Report updated.');
+  };
+
+  const getDateRangeLabel = () => {
+    if (appliedRange.dateFrom && appliedRange.dateTo) {
+      return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
+    }
+    if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
+    if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
+    return 'All dates';
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null =
+        tableRef.current?.getPdfSnapshot() ?? null;
+      const [{ pdf }, { IncomingReportTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/incoming-report-table-pdf'),
+      ]);
+      const blob = await pdf(
+        <IncomingReportTablePdf
+          companyName="Cold Storage"
+          dateRangeLabel={getDateRangeLabel()}
+          reportTitle="INCOMING REPORT"
+          rows={rows}
+          tableSnapshot={snapshot}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('PDF opened in new tab', {
+        description: 'Incoming report is ready to view or print.',
+      });
+    } catch {
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (isLoading) {
@@ -230,9 +279,20 @@ const IncomingReportTable = () => {
                 Clear
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              aria-label={isGeneratingPdf ? 'Generating PDF…' : 'View report'}
+            >
+              <FileDown className="font-custom mr-2 h-4 w-4" />
+              {isGeneratingPdf ? 'Generating…' : 'View Report'}
+            </Button>
           </div>
         </div>
-        <DataTable columns={columns} data={rows} />
+        <DataTable ref={tableRef} columns={columns} data={rows} />
       </div>
     </main>
   );
