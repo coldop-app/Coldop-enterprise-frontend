@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-03-07
+
+### Added
+- Analytics Incoming report: **date range filters** — From/To date pickers with Apply and Clear; report fetches with `dateFrom`/`dateTo` and toast feedback
+- Incoming report data table: **column sorting** — sortable headers (ascending/descending/clear) for Account No., Gate pass no., Manual GP no., and Date via dropdown menu
+- Incoming report data table: **footer totals row** — sums for Bags, Gross, Tare, and Net weight columns
+
+### Changed
+- Incoming report: wired to `incomingGatePassReportQueryOptions` for date-filtered fetches; Apply triggers refetch with selected range
+- Incoming report columns: `SortableHeader` and `GroupableSortableHeader` for sortable columns; Date column supports both grouping and sorting
+- Incoming report DataTable: `getSortedRowModel`, `sorting` state, optional `totalColumnIds` prop for footer totals
+
 ## [0.24.0] - 2026-03-07
 
 ### Added

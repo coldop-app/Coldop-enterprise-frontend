@@ -8,6 +8,7 @@ import {
   getCoreRowModel,
   getExpandedRowModel,
   getGroupedRowModel,
+  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 
@@ -30,15 +31,34 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import { GripVertical, Layers, Settings2, X } from 'lucide-react';
 
+const TOTAL_COLUMN_IDS = [
+  'bags',
+  'grossWeightKg',
+  'tareWeightKg',
+  'netWeightKg',
+] as const;
+
+function toNum(value: unknown): number {
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  /** Column ids to sum in the total row (e.g. bags, grossWeightKg, tareWeightKg, netWeightKg) */
+  totalColumnIds?: readonly string[];
 }
 
 /** Human-readable labels for column visibility toggle */
@@ -71,22 +91,25 @@ function getColumnLabel(id: string): string {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  totalColumnIds = [...TOTAL_COLUMN_IDS],
 }: DataTableProps<TData, TValue>) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [grouping, setGrouping] = useState<string[]>([]);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [groupByOpen, setGroupByOpen] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table's useReactTable returns functions that cannot be memoized
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getGroupedRowModel: getGroupedRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onGroupingChange: setGrouping,
+    onSortingChange: setSorting,
     onExpandedChange: (updater) =>
       setExpanded((prev) => {
         const next = typeof updater === 'function' ? updater(prev) : prev;
@@ -95,12 +118,23 @@ export function DataTable<TData, TValue>({
     state: {
       columnVisibility,
       grouping,
+      sorting,
       expanded,
     },
     groupedColumnMode: 'reorder',
   });
 
   const groupedIds = table.getState().grouping ?? [];
+  const totals = (() => {
+    const acc: Record<string, number> = {};
+    for (const id of totalColumnIds) acc[id] = 0;
+    for (const row of data as Record<string, unknown>[]) {
+      for (const id of totalColumnIds) {
+        acc[id] += toNum(row[id]);
+      }
+    }
+    return acc;
+  })();
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.setData('text/plain', String(index));
@@ -300,6 +334,33 @@ export function DataTable<TData, TValue>({
               </TableRow>
             )}
           </TableBody>
+          {data.length > 0 && totalColumnIds.length > 0 && (
+            <TableFooter>
+              <TableRow className="border-border bg-muted/60 font-custom font-bold">
+                {table.getHeaderGroups()[0]?.headers.map((header, idx) => {
+                  const columnId = header.column.id;
+                  const total = totals[columnId];
+                  const isTotalCol = total !== undefined;
+                  return (
+                    <TableCell
+                      key={header.id}
+                      className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
+                    >
+                      {idx === 0 ? (
+                        <span className="font-custom font-bold">Total</span>
+                      ) : isTotalCol ? (
+                        <div className="font-custom text-right font-bold">
+                          {total.toLocaleString()}
+                        </div>
+                      ) : (
+                        ''
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
     </div>

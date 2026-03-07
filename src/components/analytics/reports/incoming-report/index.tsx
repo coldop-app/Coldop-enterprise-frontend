@@ -1,13 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { useGetIncomingGatePassReports } from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
+import {
+  useGetIncomingGatePassReports,
+  incomingGatePassReportQueryOptions,
+} from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import { columns, type IncomingReportRow } from './columns';
 import { DataTable } from './data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { DatePicker } from '@/components/forms/date-picker';
+import { Button } from '@/components/ui/button';
+import { formatDateToYYYYMMDD } from '@/lib/helpers';
+import { queryClient } from '@/lib/queryClient';
+import { toast } from 'sonner';
 
 /** API can return populated createdBy and optional weightSlip/bagsReceived etc. */
 type IncomingPass = IncomingGatePassWithLink & {
@@ -95,9 +103,18 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
 }
 
 const IncomingReportTable = () => {
+  const [fromDate, setFromDate] = useState<string | undefined>();
+  const [toDate, setToDate] = useState<string | undefined>();
+  const [appliedRange, setAppliedRange] = useState<{
+    dateFrom?: string;
+    dateTo?: string;
+  }>({});
+
   const { data, isLoading, error } = useGetIncomingGatePassReports({
     groupByFarmer: false,
     groupByVariety: false,
+    dateFrom: appliedRange.dateFrom,
+    dateTo: appliedRange.dateTo,
   });
 
   const rows = useMemo((): IncomingReportRow[] => {
@@ -105,6 +122,39 @@ const IncomingReportTable = () => {
     const flat = Array.isArray(data) ? data : [];
     return mapGatePassesToRows(flat as IncomingPass[]);
   }, [data]);
+
+  const handleApplyDates = () => {
+    if (!fromDate && !toDate) return;
+    const params = {
+      groupByFarmer: false,
+      groupByVariety: false,
+      dateFrom: fromDate ? formatDateToYYYYMMDD(fromDate) : undefined,
+      dateTo: toDate ? formatDateToYYYYMMDD(toDate) : undefined,
+    };
+    const fetchPromise = queryClient.fetchQuery(
+      incomingGatePassReportQueryOptions(params)
+    );
+    toast.promise(fetchPromise, {
+      loading: 'Applying date filters…',
+      success: 'Date filters applied. Report updated.',
+      error: 'Failed to load report for the selected dates.',
+    });
+    fetchPromise
+      .then(() =>
+        setAppliedRange({
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+        })
+      )
+      .catch(() => {});
+  };
+
+  const handleClearDates = () => {
+    setFromDate(undefined);
+    setToDate(undefined);
+    setAppliedRange({});
+    toast.success('Date filters cleared. Report updated.');
+  };
 
   if (isLoading) {
     return (
@@ -141,9 +191,47 @@ const IncomingReportTable = () => {
   return (
     <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
       <div className="space-y-6">
-        <h2 className="font-custom text-2xl font-semibold text-[#333]">
-          Incoming Report
-        </h2>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="font-custom text-2xl font-semibold text-[#333]">
+            Incoming Report
+          </h2>
+          <div className="font-custom flex flex-wrap items-end gap-3">
+            <DatePicker
+              id="incoming-report-from"
+              label="From"
+              value={fromDate}
+              onChange={setFromDate}
+            />
+            <DatePicker
+              id="incoming-report-to"
+              label="To"
+              value={toDate}
+              onChange={setToDate}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              onClick={handleApplyDates}
+              disabled={!fromDate && !toDate}
+            >
+              Apply
+            </Button>
+            {(fromDate ||
+              toDate ||
+              appliedRange.dateFrom ||
+              appliedRange.dateTo) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                onClick={handleClearDates}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
         <DataTable columns={columns} data={rows} />
       </div>
     </main>

@@ -1,10 +1,11 @@
-/* eslint-disable react-refresh/only-export-components -- column defs + type exported for data-table */
+/* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { ColumnDef, CellContext } from '@tanstack/table-core';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, ChevronRight, MoreVertical } from 'lucide-react';
@@ -42,6 +43,159 @@ function GroupableHeader({
               ? `Ungroup by ${label}`
               : `Group by ${label}`}
           </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+type SortState = { id: string; desc: boolean }[];
+
+/** Reusable header with vertical 3-dot menu for sortable columns (Account No., Gate pass no., Manual GP no.) */
+function SortableHeader({
+  column,
+  table,
+  label,
+}: {
+  column: {
+    id: string;
+    getIsSorted: () => false | 'asc' | 'desc';
+    toggleSorting: (desc?: boolean) => void;
+  };
+  table: {
+    options: {
+      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
+    };
+  };
+  label: string;
+}) {
+  const isSorted = column.getIsSorted();
+  const columnId = column.id;
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span className="font-custom">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label={`${label} column options`}
+          >
+            <MoreVertical className="h-4 w-4 text-gray-600" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              column.toggleSorting(false);
+            }}
+          >
+            Sort ascending
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              column.toggleSorting(true);
+            }}
+          >
+            Sort descending
+          </DropdownMenuItem>
+          {isSorted && (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                table.options.onSortingChange?.((prev) =>
+                  prev.filter((s) => s.id !== columnId)
+                );
+              }}
+            >
+              Clear sort
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+/** Header with 3-dot menu for columns that support both grouping and sorting (e.g. Date) */
+function GroupableSortableHeader({
+  column,
+  table,
+  label,
+}: {
+  column: {
+    id: string;
+    getIsGrouped: () => boolean;
+    toggleGrouping: () => void;
+    getIsSorted: () => false | 'asc' | 'desc';
+    toggleSorting: (desc?: boolean) => void;
+  };
+  table: {
+    options: {
+      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
+    };
+  };
+  label: string;
+}) {
+  const isSorted = column.getIsSorted();
+  const columnId = column.id;
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-custom">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label={`${label} column options`}
+          >
+            <MoreVertical className="h-4 w-4 text-gray-600" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              column.toggleGrouping();
+            }}
+          >
+            {column.getIsGrouped()
+              ? `Ungroup by ${label}`
+              : `Group by ${label}`}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              column.toggleSorting(false);
+            }}
+          >
+            Sort ascending
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              column.toggleSorting(true);
+            }}
+          >
+            Sort descending
+          </DropdownMenuItem>
+          {isSorted && (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                table.options.onSortingChange?.((prev) =>
+                  prev.filter((s) => s.id !== columnId)
+                );
+              }}
+            >
+              Clear sort
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -126,7 +280,9 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
   },
   {
     accessorKey: 'accountNumber',
-    header: () => <div className="text-right">Account No.</div>,
+    header: ({ column, table }) => (
+      <SortableHeader column={column} table={table} label="Account No." />
+    ),
     cell: ({ row }) => (
       <div className="text-right">
         {row.getIsGrouped()
@@ -135,6 +291,7 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
       </div>
     ),
     aggregationFn: () => null,
+    enableSorting: true,
   },
   {
     accessorKey: 'farmerAddress',
@@ -152,17 +309,22 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
   },
   {
     accessorKey: 'gatePassNo',
-    header: () => <div className="text-right">Gate pass no.</div>,
+    header: ({ column, table }) => (
+      <SortableHeader column={column} table={table} label="Gate pass no." />
+    ),
     cell: ({ row }) => (
       <div className="text-right">
         {row.getIsGrouped() ? '—' : String(row.getValue('gatePassNo') ?? '—')}
       </div>
     ),
     aggregationFn: () => null,
+    enableSorting: true,
   },
   {
     accessorKey: 'manualGatePassNumber',
-    header: () => <div className="text-right">Manual GP no.</div>,
+    header: ({ column, table }) => (
+      <SortableHeader column={column} table={table} label="Manual GP no." />
+    ),
     cell: ({ row }) => (
       <div className="text-right">
         {row.getIsGrouped()
@@ -171,12 +333,16 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
       </div>
     ),
     aggregationFn: () => null,
+    enableSorting: true,
   },
   {
     accessorKey: 'date',
-    header: ({ column }) => <GroupableHeader column={column} label="Date" />,
+    header: ({ column, table }) => (
+      <GroupableSortableHeader column={column} table={table} label="Date" />
+    ),
     cell: GroupableCell,
     enableGrouping: true,
+    enableSorting: true,
   },
   {
     accessorKey: 'variety',
@@ -233,6 +399,8 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
   },
   {
     accessorKey: 'remarks',
-    header: 'Remarks',
+    header: ({ column }) => <GroupableHeader column={column} label="Remarks" />,
+    cell: GroupableCell,
+    enableGrouping: true,
   },
 ];
