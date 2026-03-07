@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-03-07
+
+### Added
+- Daybook Storage tab: **live storage vouchers** with pagination — `StorageTab` now receives `useGetStorageGatePasses` data; search (gate pass no, date, farmer name), sort order (asc/desc), limit selector, and pagination controls; renders `StorageVoucher` per pass with loading and empty states
+- Storage gate pass list API: **pagination** — `GetStorageGatePassesParams` (page, limit, sortOrder, dateFrom, dateTo); `useGetStorageGatePasses` returns `GetStorageGatePassesResult` with `data` and `pagination` (`StorageGatePassPagination`); query keys `storageGatePassKeys.lists()` and `storageGatePassKeys.list(params)`
+- Types: `StorageGatePassPagination`, `GetStorageGatePassesResult`; `GetStorageGatePassesApiResponse` extended with `pagination`; `GradingGatePass.grader` (optional); `IncomingGatePassWithLink.location` (optional)
+
+### Changed
+- Daybook: Storage tab wired to `useGetStorageGatePasses` with shared page/limit/sortOrder state; date range (year-to-date) passed to storage API
+- Grading voucher: layout and content updates
+- Incoming voucher: layout and content updates; voucher types adjustments
+- Grading voucher PDF: minor formatting
+- Route tree: updates for daybook/storage
+
 ## [0.23.0] - 2026-03-07
 
 ### Added

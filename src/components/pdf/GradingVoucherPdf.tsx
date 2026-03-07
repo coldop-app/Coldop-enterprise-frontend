@@ -381,7 +381,7 @@ export function GradingVoucherPdf({
               <Text style={styles.detailValue}>{bags}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Graded By:</Text>
+              <Text style={styles.detailLabel}>Grader:</Text>
               <Text style={styles.detailValue}>
                 {voucher.createdBy?.name ?? '—'}
               </Text>

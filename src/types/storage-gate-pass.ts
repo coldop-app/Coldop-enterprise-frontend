@@ -126,10 +126,21 @@ export interface StorageGatePassWithLink {
   manualGatePassNumber?: number;
 }
 
+/** Pagination as returned by GET /storage-gate-pass */
+export interface StorageGatePassPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 /** API response for GET /storage-gate-pass */
 export interface GetStorageGatePassesApiResponse {
   success: boolean;
   data: StorageGatePassWithLink[];
+  pagination: StorageGatePassPagination;
   message?: string;
 }
 

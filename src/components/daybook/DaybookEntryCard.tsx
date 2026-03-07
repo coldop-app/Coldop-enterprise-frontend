@@ -24,6 +24,7 @@ import {
   type IncomingVoucherData,
   type PassVoucherData,
 } from './vouchers';
+import type { IncomingGatePassRef } from './vouchers/grading-voucher';
 
 export interface DaybookEntryCardProps {
   entry: DaybookEntry;
@@ -173,7 +174,11 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
           <TabsContent value="grading" className="mt-0 outline-none">
             {entry.gradingPasses.length > 0 ? (
               <div className="space-y-4">
-                {(entry.gradingPasses as PassVoucherData[]).map((pass) => (
+                {(
+                  entry.gradingPasses as (PassVoucherData & {
+                    incomingGatePassIds?: IncomingGatePassRef[];
+                  })[]
+                ).map((pass) => (
                   <GradingVoucher
                     key={pass._id ?? String(pass.gatePassNo)}
                     voucher={pass}
@@ -184,6 +189,7 @@ const DaybookEntryCard = memo(function DaybookEntryCard({
                     wastagePercent={summariesWithNikasi.wastagePercent}
                     incomingNetKg={summariesWithNikasi.incomingNetKg}
                     incomingBagsCount={summariesWithNikasi.incomingBagsCount}
+                    incomingGatePassIds={pass.incomingGatePassIds}
                   />
                 ))}
               </div>

@@ -49,6 +49,7 @@ function toIncomingVoucherProps(pass: IncomingGatePassWithLink) {
     manualGatePassNumber: pass.manualGatePassNumber,
     date: pass.date,
     variety: pass.variety,
+    location: pass.location,
     truckNumber: pass.truckNumber,
     bagsReceived,
     status: pass.status,

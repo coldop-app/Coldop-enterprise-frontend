@@ -100,6 +100,8 @@ export interface GradingGatePass {
   variety: string;
   orderDetails: GradingGatePassOrderDetail[];
   allocationStatus: string;
+  /** Grader name when provided by API */
+  grader?: string;
   remarks?: string;
   createdAt: string;
   updatedAt: string;

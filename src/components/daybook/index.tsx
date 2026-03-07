@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useGetIncomingGatePasses } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
+import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
 import {
   IncomingTab,
   GradingTab,
@@ -56,6 +57,36 @@ const DaybookPage = memo(function DaybookPage() {
   const gradingTotalPages = gradingPagination?.totalPages ?? 1;
   const gradingHasPrev = gradingPagination?.hasPreviousPage ?? false;
   const gradingHasNext = gradingPagination?.hasNextPage ?? false;
+
+  const storageDateRange = useMemo(() => {
+    const now = new Date();
+    return {
+      dateFrom: `${now.getFullYear()}-01-01`,
+      dateTo: now.toISOString().slice(0, 10),
+    };
+  }, []);
+  const storageParams = useMemo(
+    () => ({
+      page,
+      limit,
+      sortOrder,
+      dateFrom: storageDateRange.dateFrom,
+      dateTo: storageDateRange.dateTo,
+    }),
+    [page, limit, sortOrder, storageDateRange]
+  );
+  const {
+    data: storageResult,
+    isLoading: storageLoading,
+    isError: storageError,
+    error: storageErrorDetail,
+  } = useGetStorageGatePasses(storageParams);
+
+  const storageGatePassData = storageResult?.data;
+  const storagePagination = storageResult?.pagination;
+  const storageTotalPages = storagePagination?.totalPages ?? 1;
+  const storageHasPrev = storagePagination?.hasPreviousPage ?? false;
+  const storageHasNext = storagePagination?.hasNextPage ?? false;
 
   const setLimitAndResetPage = useCallback((newLimit: number) => {
     setLimit(newLimit);
@@ -162,7 +193,26 @@ const DaybookPage = memo(function DaybookPage() {
               value="storage"
               className="mt-0 flex flex-col gap-4 outline-none"
             >
-              <StorageTab />
+              <StorageTab
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                sortOrder={sortOrder}
+                onSortOrderChange={(v: 'asc' | 'desc') => {
+                  setSortOrder(v);
+                  setPage(1);
+                }}
+                page={page}
+                onPageChange={setPage}
+                limit={limit}
+                onLimitChange={setLimitAndResetPage}
+                data={storageGatePassData}
+                isLoading={storageLoading}
+                isError={storageError}
+                error={storageErrorDetail}
+                totalPages={storageTotalPages}
+                hasPrev={storageHasPrev}
+                hasNext={storageHasNext}
+              />
             </TabsContent>
 
             <TabsContent

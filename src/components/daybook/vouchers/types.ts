@@ -12,6 +12,7 @@ export interface IncomingVoucherData {
   manualGatePassNumber?: number;
   date?: string;
   variety?: string;
+  location?: string;
   truckNumber?: string;
   bagsReceived?: number;
   status?: string;
@@ -94,8 +95,10 @@ export interface PassVoucherData {
   toField?: string;
   allocationStatus?: string;
   remarks?: string;
-  /** Grading: createdBy/gradedBy */
+  /** Grading: createdBy/gradedBy; grader name when from list API */
   createdBy?: { name?: string };
+  /** Grading list API: grader name (e.g. "Rama Jandu") */
+  grader?: string;
   /** Storage/Nikasi: linked grading pass refs (IDs as string[] from bulk API or objects from list API) */
   gradingGatePassIds?: Array<string | { _id?: string; gatePassNo?: number }>;
   /** Storage/Nikasi: full snapshots of grading passes material was taken from */

@@ -66,6 +66,7 @@ function toGradingVoucherProps(pass: GradingGatePass): GradingVoucherProps {
     variety: pass.variety,
     orderDetails: pass.orderDetails,
     allocationStatus: pass.allocationStatus,
+    grader: pass.grader,
     remarks: pass.remarks,
     createdBy:
       pass.createdBy != null && typeof pass.createdBy === 'object'
@@ -80,6 +81,7 @@ function toGradingVoucherProps(pass: GradingGatePass): GradingVoucherProps {
     farmerStorageLinkId: pass.farmerStorageLinkId,
     incomingNetKg,
     incomingBagsCount,
+    incomingGatePassIds: pass.incomingGatePassIds ?? [],
   };
 }
 
@@ -246,6 +248,7 @@ const GradingTab = memo(function GradingTab({
                   wastagePercent={props.wastagePercent}
                   incomingNetKg={props.incomingNetKg}
                   incomingBagsCount={props.incomingBagsCount}
+                  incomingGatePassIds={props.incomingGatePassIds}
                 />
               );
             })}

@@ -90,6 +90,7 @@ export interface IncomingGatePassWithLink {
   gatePassNo: number;
   date: string;
   variety: string;
+  location?: string;
   bagSizes: IncomingGatePassBagSize[];
   editHistory: unknown[];
   remarks?: string;

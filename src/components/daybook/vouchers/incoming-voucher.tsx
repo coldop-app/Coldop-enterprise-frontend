@@ -114,9 +114,14 @@ const IncomingVoucher = memo(function IncomingVoucher({
           </div>
         </CardHeader>
 
-        <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <DetailRow label="Farmer" value={farmerName ?? '—'} icon={User} />
           <DetailRow label="Account" value={`#${farmerAccount ?? '—'}`} />
+          <DetailRow
+            label="Location"
+            value={voucher.location ?? '—'}
+            icon={MapPin}
+          />
           <DetailRow
             label="Truck"
             value={voucher.truckNumber ?? '—'}
@@ -210,14 +215,13 @@ const IncomingVoucher = memo(function IncomingVoucher({
                     value={(voucher.status ?? '—').replace(/_/g, ' ')}
                   />
                   <DetailRow
-                    label="Bags Received"
-                    value={(voucher.bagsReceived ?? 0).toLocaleString('en-IN')}
+                    label="Location"
+                    value={voucher.location ?? '—'}
+                    icon={MapPin}
                   />
                   <DetailRow
-                    label="Graded Bags"
-                    value={(
-                      voucher.gradingSummary?.totalGradedBags ?? 0
-                    ).toLocaleString('en-IN')}
+                    label="Bags Received"
+                    value={(voucher.bagsReceived ?? 0).toLocaleString('en-IN')}
                   />
                   <DetailRow label="Created By" value={linkedBy?.name ?? '—'} />
                 </div>
