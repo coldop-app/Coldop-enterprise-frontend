@@ -95,6 +95,7 @@ export interface GradingTabProps {
   limit: number;
   onLimitChange: (limit: number) => void;
   data: GradingGatePass[] | undefined;
+  total: number;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
@@ -113,6 +114,7 @@ const GradingTab = memo(function GradingTab({
   limit,
   onLimitChange,
   data: gradingGatePassData,
+  total,
   isLoading: gradingLoading,
   isError: gradingError,
   error: gradingErrorDetail,
@@ -136,7 +138,7 @@ const GradingTab = memo(function GradingTab({
   return (
     <>
       <TabSummaryBar
-        count={gradingLoading ? 0 : (filteredBySearch?.length ?? 0)}
+        count={gradingLoading ? 0 : total}
         icon={<ClipboardList className="text-primary h-5 w-5" />}
       />
       <Item

@@ -100,9 +100,10 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     useGetReceiptVoucherNumber('grading-gate-pass');
   const { mutate: createGradingGatePass, isPending } =
     useCreateGradingGatePass();
-  const { data: incomingGatePassesList = [] } = useGetIncomingGatePasses({
+  const { data: incomingResult } = useGetIncomingGatePasses({
     limit: 500,
   });
+  const incomingGatePassesList = incomingResult?.data ?? [];
 
   const [step, setStep] = useState(1);
   const [incomingGatePassIds, setIncomingGatePassIds] = useState<string[]>(

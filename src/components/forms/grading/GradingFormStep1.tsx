@@ -56,7 +56,7 @@ export const GradingFormStep1 = memo(function GradingFormStep1({
   );
 
   const { dateFrom, dateTo } = getDefaultDateRange();
-  const { data: incomingGatePassesList = [], isLoading: isLoadingPasses } =
+  const { data: incomingResult, isLoading: isLoadingPasses } =
     useGetIncomingGatePasses({
       page: 1,
       limit: 50,
@@ -65,6 +65,7 @@ export const GradingFormStep1 = memo(function GradingFormStep1({
       dateFrom,
       dateTo,
     });
+  const incomingGatePassesList = incomingResult?.data ?? [];
 
   /** Farmer link IDs that have at least one ungraded incoming gate pass */
   const farmerLinkIdsWithPasses = useMemo(() => {

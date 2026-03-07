@@ -40,6 +40,7 @@ export interface StorageTabProps {
   limit: number;
   onLimitChange: (limit: number) => void;
   data: StorageGatePassWithLink[] | undefined;
+  total: number;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
@@ -58,6 +59,7 @@ const StorageTab = memo(function StorageTab({
   limit,
   onLimitChange,
   data: storageGatePassData,
+  total,
   isLoading: storageLoading,
   isError: storageError,
   error: storageErrorDetail,
@@ -87,7 +89,7 @@ const StorageTab = memo(function StorageTab({
   return (
     <>
       <TabSummaryBar
-        count={storageLoading ? 0 : (filteredBySearch?.length ?? 0)}
+        count={storageLoading ? 0 : total}
         icon={<Package className="text-primary h-5 w-5" />}
       />
       <Item

@@ -35,11 +35,14 @@ const DaybookPage = memo(function DaybookPage() {
     [page, limit, sortOrder, statusFilter]
   );
   const {
-    data: incomingGatePassData,
+    data: incomingResult,
     isLoading: incomingLoading,
     isError: incomingError,
     error: incomingErrorDetail,
   } = useGetIncomingGatePasses(incomingParams);
+
+  const incomingGatePassData = incomingResult?.data;
+  const incomingPagination = incomingResult?.pagination;
 
   const gradingParams = useMemo(
     () => ({ page, limit, sortOrder }),
@@ -93,9 +96,9 @@ const DaybookPage = memo(function DaybookPage() {
     setPage(1);
   }, []);
 
-  const incomingTotalPages = 1;
-  const incomingHasPrev = false;
-  const incomingHasNext = false;
+  const incomingTotalPages = incomingPagination?.totalPages ?? 1;
+  const incomingHasPrev = incomingPagination?.hasPreviousPage ?? false;
+  const incomingHasNext = incomingPagination?.hasNextPage ?? false;
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -154,6 +157,9 @@ const DaybookPage = memo(function DaybookPage() {
                 limit={limit}
                 onLimitChange={setLimitAndResetPage}
                 data={incomingGatePassData}
+                total={
+                  incomingPagination?.total ?? incomingGatePassData?.length ?? 0
+                }
                 isLoading={incomingLoading}
                 isError={incomingError}
                 error={incomingErrorDetail}
@@ -180,6 +186,7 @@ const DaybookPage = memo(function DaybookPage() {
                 limit={limit}
                 onLimitChange={setLimitAndResetPage}
                 data={gradingGatePassData}
+                total={gradingPagination?.total ?? 0}
                 isLoading={gradingLoading}
                 isError={gradingError}
                 error={gradingErrorDetail}
@@ -206,6 +213,7 @@ const DaybookPage = memo(function DaybookPage() {
                 limit={limit}
                 onLimitChange={setLimitAndResetPage}
                 data={storageGatePassData}
+                total={storagePagination?.total ?? 0}
                 isLoading={storageLoading}
                 isError={storageError}
                 error={storageErrorDetail}

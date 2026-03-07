@@ -3,6 +3,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetIncomingGatePassesApiResponse,
+  IncomingGatePassPagination,
   IncomingGatePassWithLink,
 } from '@/types/incoming-gate-pass';
 import { incomingGatePassKeys } from './useCreateIncomingGatePass';
@@ -20,10 +21,15 @@ export interface GetIncomingGatePassesParams {
   status?: string;
 }
 
+export interface GetIncomingGatePassesResult {
+  data: IncomingGatePassWithLink[];
+  pagination?: IncomingGatePassPagination;
+}
+
 /** Fetcher used by queryOptions and prefetch */
 async function fetchIncomingGatePasses(
   params: GetIncomingGatePassesParams
-): Promise<IncomingGatePassWithLink[]> {
+): Promise<GetIncomingGatePassesResult> {
   const { data } =
     await storeAdminAxiosClient.get<GetIncomingGatePassesApiResponse>(
       '/incoming-gate-pass',
@@ -43,7 +49,10 @@ async function fetchIncomingGatePasses(
     throw new Error(data.message ?? 'Failed to fetch incoming gate passes');
   }
 
-  return data.data;
+  return {
+    data: data.data,
+    pagination: data.pagination,
+  };
 }
 
 /** Query options – use with useQuery, prefetchQuery, or in loaders */

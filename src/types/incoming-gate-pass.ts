@@ -111,9 +111,20 @@ export interface IncomingGatePassWithLink {
   gradingSummary?: IncomingGatePassGradingSummary;
 }
 
+/** Pagination as returned by GET /incoming-gate-pass when present */
+export interface IncomingGatePassPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 /** API response for GET /incoming-gate-pass */
 export interface GetIncomingGatePassesApiResponse {
   success: boolean;
   data: IncomingGatePassWithLink[];
+  pagination?: IncomingGatePassPagination;
   message?: string;
 }

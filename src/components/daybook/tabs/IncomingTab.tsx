@@ -84,6 +84,7 @@ export interface IncomingTabProps {
   limit: number;
   onLimitChange: (limit: number) => void;
   data: IncomingGatePassWithLink[] | undefined;
+  total: number;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
@@ -104,6 +105,7 @@ const IncomingTab = memo(function IncomingTab({
   limit,
   onLimitChange,
   data: incomingGatePassData,
+  total,
   isLoading: incomingLoading,
   isError: incomingError,
   error: incomingErrorDetail,
@@ -114,7 +116,7 @@ const IncomingTab = memo(function IncomingTab({
   return (
     <>
       <TabSummaryBar
-        count={incomingLoading ? 0 : (incomingGatePassData?.length ?? 0)}
+        count={incomingLoading ? 0 : total}
         icon={<Receipt className="text-primary h-5 w-5" />}
       />
       <Item
