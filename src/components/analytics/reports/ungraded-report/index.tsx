@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   useGetIncomingGatePassReports,
@@ -84,6 +84,7 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
       farmerAddress: farmer?.address ?? '—',
       farmerMobile: farmer?.mobileNumber ?? '—',
       createdByName,
+      location: pass.location ?? '—',
       gatePassNo: pass.gatePassNo ?? '—',
       manualGatePassNumber: pass.manualGatePassNumber ?? '—',
       date: formatDate(pass.date),
@@ -105,6 +106,7 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
 const NOT_GRADED_STATUS = 'NOT_GRADED';
 
 const UngradedReportTable = () => {
+  const reportContentRef = useRef<HTMLDivElement>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
   const [appliedRange, setAppliedRange] = useState<{
@@ -130,6 +132,16 @@ const UngradedReportTable = () => {
 
   const handleApplyDates = () => {
     if (!fromDate && !toDate) return;
+    if (fromDate && toDate) {
+      const fromStr = formatDateToYYYYMMDD(fromDate);
+      const toStr = formatDateToYYYYMMDD(toDate);
+      if (toStr < fromStr) {
+        toast.error('Invalid date range', {
+          description: '"To" date must not be before "From" date.',
+        });
+        return;
+      }
+    }
     const params = {
       groupByFarmer: false,
       groupByVariety: false,
@@ -145,12 +157,15 @@ const UngradedReportTable = () => {
       error: 'Failed to load report for the selected dates.',
     });
     fetchPromise
-      .then(() =>
+      .then(() => {
         setAppliedRange({
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
-        })
-      )
+        });
+        requestAnimationFrame(() => {
+          reportContentRef.current?.focus({ preventScroll: true });
+        });
+      })
       .catch(() => {});
   };
 
@@ -195,49 +210,57 @@ const UngradedReportTable = () => {
 
   return (
     <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="font-custom text-2xl font-semibold text-[#333]">
-            Ungraded Report
-          </h2>
-          <div className="font-custom flex flex-wrap items-end gap-3">
-            <DatePicker
-              id="ungraded-report-from"
-              label="From"
-              value={fromDate}
-              onChange={setFromDate}
-            />
-            <DatePicker
-              id="ungraded-report-to"
-              label="To"
-              value={toDate}
-              onChange={setToDate}
-            />
-            <Button
-              variant="default"
-              size="sm"
-              className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-              onClick={handleApplyDates}
-              disabled={!fromDate && !toDate}
-            >
-              Apply
-            </Button>
-            {(fromDate ||
-              toDate ||
-              appliedRange.dateFrom ||
-              appliedRange.dateTo) && (
+      <div
+        ref={reportContentRef}
+        className="space-y-6"
+        tabIndex={-1}
+        aria-label="Ungraded report content"
+      >
+        <h2 className="font-custom text-2xl font-semibold text-[#333]">
+          Ungraded Report
+        </h2>
+        <DataTable
+          columns={columns}
+          data={rows}
+          toolbarLeftContent={
+            <>
+              <DatePicker
+                id="ungraded-report-from"
+                label="From"
+                value={fromDate}
+                onChange={setFromDate}
+              />
+              <DatePicker
+                id="ungraded-report-to"
+                label="To"
+                value={toDate}
+                onChange={setToDate}
+              />
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={handleClearDates}
+                className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                onClick={handleApplyDates}
+                disabled={!fromDate && !toDate}
               >
-                Clear
+                Apply
               </Button>
-            )}
-          </div>
-        </div>
-        <DataTable columns={columns} data={rows} />
+              {(fromDate ||
+                toDate ||
+                appliedRange.dateFrom ||
+                appliedRange.dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleClearDates}
+                >
+                  Clear
+                </Button>
+              )}
+            </>
+          }
+        />
       </div>
     </main>
   );

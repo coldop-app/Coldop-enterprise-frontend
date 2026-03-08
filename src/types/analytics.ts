@@ -158,7 +158,10 @@ export interface GradingGatePassReportIncomingSummary {
   truckNumber: string;
   bagsReceived: number;
   grossWeightKg?: number;
+  tareWeightKg?: number;
   netWeightKg?: number;
+  /** Incoming gate pass date (ISO string) */
+  date?: string;
 }
 
 /** Farmer storage link as returned on each gate pass in the report */

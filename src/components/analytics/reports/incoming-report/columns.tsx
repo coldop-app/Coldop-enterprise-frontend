@@ -249,6 +249,7 @@ export type IncomingReportRow = {
   farmerAddress: string;
   farmerMobile: string;
   createdByName: string;
+  location: string;
   gatePassNo: number | string;
   manualGatePassNumber: number | string;
   date: string;
@@ -306,6 +307,14 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
   {
     accessorKey: 'createdByName',
     header: 'Created by',
+  },
+  {
+    accessorKey: 'location',
+    header: ({ column }) => (
+      <GroupableHeader column={column} label="Location" />
+    ),
+    cell: GroupableCell,
+    enableGrouping: true,
   },
   {
     accessorKey: 'gatePassNo',

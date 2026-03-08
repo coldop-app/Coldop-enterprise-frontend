@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   useGetGradingGatePassReports,
@@ -106,6 +106,15 @@ function getIncomingManualNo(pass: GradingGatePassReportItem): number | string {
   return '—';
 }
 
+function getIncomingGatePassDate(pass: GradingGatePassReportItem): string {
+  const inc = pass.incomingGatePassId;
+  if (inc && typeof inc === 'object' && 'date' in inc) {
+    const dateStr = (inc as { date?: string }).date;
+    if (dateStr) return formatDate(dateStr);
+  }
+  return '—';
+}
+
 function getTruckNumber(pass: GradingGatePassReportItem): string {
   const inc = pass.incomingGatePassId;
   if (inc && typeof inc === 'object' && 'truckNumber' in inc) {
@@ -128,15 +137,21 @@ function getBagsReceived(pass: GradingGatePassReportItem): number {
   return 0;
 }
 
-function getGrossNet(pass: GradingGatePassReportItem): {
+function getGrossTareNet(pass: GradingGatePassReportItem): {
   grossWeightKg?: number;
+  tareWeightKg?: number;
   netWeightKg?: number;
 } {
   const inc = pass.incomingGatePassId;
   if (inc && typeof inc === 'object' && 'grossWeightKg' in inc) {
-    const s = inc as { grossWeightKg?: number; netWeightKg?: number };
+    const s = inc as {
+      grossWeightKg?: number;
+      tareWeightKg?: number;
+      netWeightKg?: number;
+    };
     return {
       grossWeightKg: s.grossWeightKg,
+      tareWeightKg: s.tareWeightKg,
       netWeightKg: s.netWeightKg,
     };
   }
@@ -149,7 +164,7 @@ function mapGradingPassesToRows(
 ): GradingReportRow[] {
   return passes.map((pass) => {
     const createdByName = pass.createdBy?.name ?? '—';
-    const { grossWeightKg, netWeightKg } = getGrossNet(pass);
+    const { grossWeightKg, tareWeightKg, netWeightKg } = getGrossTareNet(pass);
     const totalGradedBags = pass.orderDetails?.length
       ? pass.orderDetails.reduce(
           (sum, d) => sum + (d.initialQuantity ?? d.currentQuantity ?? 0),
@@ -168,11 +183,13 @@ function mapGradingPassesToRows(
       manualGatePassNumber: pass.manualGatePassNumber ?? '—',
       incomingGatePassNo: getIncomingGatePassNo(pass),
       incomingManualNo: getIncomingManualNo(pass),
+      incomingGatePassDate: getIncomingGatePassDate(pass),
       date: formatDate(pass.date),
       variety: pass.variety ?? '—',
       truckNumber: getTruckNumber(pass),
       bagsReceived: getBagsReceived(pass),
       grossWeightKg: grossWeightKg ?? '—',
+      tareWeightKg: tareWeightKg ?? '—',
       netWeightKg: netWeightKg ?? '—',
       totalGradedBags,
       grader: pass.grader ?? '—',
@@ -211,8 +228,20 @@ const GradingReportTable = () => {
     return mapGradingPassesToRows(flat);
   }, [data]);
 
+  const reportContentRef = useRef<HTMLDivElement>(null);
+
   const handleApplyDates = () => {
     if (!fromDate && !toDate) return;
+    if (fromDate && toDate) {
+      const fromStr = formatDateToYYYYMMDD(fromDate);
+      const toStr = formatDateToYYYYMMDD(toDate);
+      if (toStr < fromStr) {
+        toast.error('Invalid date range', {
+          description: '"To" date must not be before "From" date.',
+        });
+        return;
+      }
+    }
     const params = {
       groupByFarmer: false,
       groupByVariety: false,
@@ -228,12 +257,15 @@ const GradingReportTable = () => {
       error: 'Failed to load report for the selected dates.',
     });
     fetchPromise
-      .then(() =>
+      .then(() => {
         setAppliedRange({
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
-        })
-      )
+        });
+        requestAnimationFrame(() => {
+          reportContentRef.current?.focus({ preventScroll: true });
+        });
+      })
       .catch(() => {});
   };
 
@@ -278,49 +310,57 @@ const GradingReportTable = () => {
 
   return (
     <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="font-custom text-2xl font-semibold text-[#333]">
-            Grading Report
-          </h2>
-          <div className="font-custom flex flex-wrap items-end gap-3">
-            <DatePicker
-              id="grading-report-from"
-              label="From"
-              value={fromDate}
-              onChange={setFromDate}
-            />
-            <DatePicker
-              id="grading-report-to"
-              label="To"
-              value={toDate}
-              onChange={setToDate}
-            />
-            <Button
-              variant="default"
-              size="sm"
-              className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-              onClick={handleApplyDates}
-              disabled={!fromDate && !toDate}
-            >
-              Apply
-            </Button>
-            {(fromDate ||
-              toDate ||
-              appliedRange.dateFrom ||
-              appliedRange.dateTo) && (
+      <div
+        ref={reportContentRef}
+        className="space-y-6"
+        tabIndex={-1}
+        aria-label="Grading report content"
+      >
+        <h2 className="font-custom text-2xl font-semibold text-[#333]">
+          Grading Report
+        </h2>
+        <DataTable
+          columns={columns}
+          data={rows}
+          toolbarLeftContent={
+            <>
+              <DatePicker
+                id="grading-report-from"
+                label="From"
+                value={fromDate}
+                onChange={setFromDate}
+              />
+              <DatePicker
+                id="grading-report-to"
+                label="To"
+                value={toDate}
+                onChange={setToDate}
+              />
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={handleClearDates}
+                className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                onClick={handleApplyDates}
+                disabled={!fromDate && !toDate}
               >
-                Clear
+                Apply
               </Button>
-            )}
-          </div>
-        </div>
-        <DataTable columns={columns} data={rows} />
+              {(fromDate ||
+                toDate ||
+                appliedRange.dateFrom ||
+                appliedRange.dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleClearDates}
+                >
+                  Clear
+                </Button>
+              )}
+            </>
+          }
+        />
       </div>
     </main>
   );

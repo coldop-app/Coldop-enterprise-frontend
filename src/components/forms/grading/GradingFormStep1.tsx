@@ -59,7 +59,7 @@ export const GradingFormStep1 = memo(function GradingFormStep1({
   const { data: incomingResult, isLoading: isLoadingPasses } =
     useGetIncomingGatePasses({
       page: 1,
-      limit: 50,
+      limit: 1000,
       sortOrder: 'desc',
       status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
       dateFrom,

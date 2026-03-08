@@ -1,6 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { GetIncomingGatePassesResult } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
-import TopFarmersChart from './TopFarmersChart';
 import VarietyDistributionChart from './VarietyDistributionChart';
 import IncomingTrendAnalysisChart from './IncomingTrendAnalysisChart';
 
@@ -20,10 +19,7 @@ export default function IncomingGatePassAnalyticsScreen({
 }: IncomingGatePassAnalyticsScreenProps) {
   return (
     <div className="font-custom space-y-6">
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <TopFarmersChart dateParams={dateParams} />
-        <VarietyDistributionChart dateParams={dateParams} />
-      </div>
+      <VarietyDistributionChart dateParams={dateParams} />
       <IncomingTrendAnalysisChart dateParams={dateParams} />
     </div>
   );

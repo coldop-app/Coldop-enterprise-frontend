@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Item, ItemFooter } from '@/components/ui/item';
 import { GripVertical, Layers, Settings2, X } from 'lucide-react';
 
 const TOTAL_COLUMN_IDS = [
@@ -82,6 +83,10 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   /** Column ids to sum in the total row (e.g. bags, grossWeightKg, tareWeightKg, netWeightKg) */
   totalColumnIds?: readonly string[];
+  /** Optional content to render on the left side of the toolbar (filters, Group by, Columns) */
+  toolbarLeftContent?: React.ReactNode;
+  /** Optional content to render on the right side of the toolbar (e.g. primary action) */
+  toolbarRightContent?: React.ReactNode;
 }
 
 /** Human-readable labels for column visibility toggle */
@@ -91,6 +96,7 @@ const COLUMN_LABELS: Record<string, string> = {
   farmerAddress: 'Address',
   farmerMobile: 'Mobile',
   createdByName: 'Created by',
+  location: 'Location',
   gatePassNo: 'Gate pass no.',
   manualGatePassNumber: 'Manual GP no.',
   date: 'Date',
@@ -121,6 +127,8 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
     columns,
     data,
     totalColumnIds = [...TOTAL_COLUMN_IDS],
+    toolbarLeftContent,
+    toolbarRightContent,
   }: DataTableProps<TData, TValue>,
   ref: React.Ref<IncomingReportDataTableRef<TData>>
 ) {
@@ -208,9 +216,9 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
           .filter((col) => col.getIsVisible())
           .map((col) => col.id);
         const rows: IncomingReportPdfSnapshot<TData>['rows'] = [];
-        // Use grouped row model and walk full tree so PDF includes all groups/leaves
-        // regardless of expanded state (getRowModel() only returns visible rows).
-        const groupedModel = table.getGroupedRowModel();
+        // Use sorted row model so PDF honours the same order as the UI (grouped then sorted).
+        // Walk full tree so PDF includes all groups/leaves regardless of expanded state.
+        const sortedModel = table.getSortedRowModel();
         function walkRows(modelRows: Row<TData>[], depth: number): void {
           for (const row of modelRows) {
             if (row.getIsGrouped()) {
@@ -238,7 +246,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
             }
           }
         }
-        walkRows(groupedModel.rows, 0);
+        walkRows(sortedModel.rows, 0);
         return {
           visibleColumnIds,
           grouping: groupingIds,
@@ -252,109 +260,126 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
-        <Sheet open={groupByOpen} onOpenChange={setGroupByOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            >
-              <Layers className="mr-2 h-4 w-4" />
-              Group by
-            </Button>
-          </SheetTrigger>
-          <SheetContent
-            side="right"
-            className="font-custom border-border flex w-full flex-col sm:max-w-[280px]"
-          >
-            <SheetHeader className="border-border border-b pb-4">
-              <SheetTitle className="text-foreground">Group by</SheetTitle>
-              <SheetDescription>
-                Drag to reorder. Remove groups with the × button.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="flex flex-1 flex-col overflow-auto p-4">
-              {groupedIds.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  No groups applied. Use the 3-dot menu on a column header
-                  (Farmer, Address, Date, Variety, Status) to group by that
-                  column.
-                </p>
-              ) : (
-                <ul className="space-y-1">
-                  {groupedIds.map((columnId, index) => (
-                    <li
-                      key={columnId}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, index)}
-                      className={`border-border bg-card flex cursor-grab items-center gap-2 rounded-md border px-3 py-2 text-sm active:cursor-grabbing ${
-                        dragOverIndex === index
-                          ? 'border-primary bg-primary/10'
-                          : ''
-                      }`}
-                    >
-                      <GripVertical className="text-muted-foreground h-4 w-4 shrink-0" />
-                      <span className="text-foreground min-w-0 flex-1 truncate">
-                        {getColumnLabel(columnId)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive h-7 w-7 shrink-0"
-                        aria-label={`Remove ${getColumnLabel(columnId)} from groups`}
-                        onClick={() => removeFromGrouping(columnId)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {groupedIds.length > 0 && (
+      <Item
+        variant="outline"
+        size="sm"
+        className="flex-col items-stretch gap-4 rounded-xl"
+      >
+        <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:items-end">
+            {toolbarLeftContent}
+            <Sheet open={groupByOpen} onOpenChange={setGroupByOpen}>
+              <SheetTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="text-muted-foreground hover:text-foreground mt-4 h-7 text-xs"
-                  onClick={() => setGrouping([])}
+                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-9 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 >
-                  Clear all
+                  <Layers className="mr-2 h-4 w-4" />
+                  Group by
                 </Button>
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            >
-              <Settings2 className="mr-2 h-4 w-4" />
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[180px]">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  className="capitalize"
-                  checked={column.getIsVisible()}
-                  onCheckedChange={(value) => column.toggleVisibility(!!value)}
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="font-custom border-border flex w-full flex-col sm:max-w-[280px]"
+              >
+                <SheetHeader className="border-border border-b pb-4">
+                  <SheetTitle className="text-foreground">Group by</SheetTitle>
+                  <SheetDescription>
+                    Drag to reorder. Remove groups with the × button.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="flex flex-1 flex-col overflow-auto p-4">
+                  {groupedIds.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No groups applied. Use the 3-dot menu on a column header
+                      (Farmer, Address, Date, Variety, Status) to group by that
+                      column.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {groupedIds.map((columnId, index) => (
+                        <li
+                          key={columnId}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, index)}
+                          className={`border-border bg-card flex cursor-grab items-center gap-2 rounded-md border px-3 py-2 text-sm active:cursor-grabbing ${
+                            dragOverIndex === index
+                              ? 'border-primary bg-primary/10'
+                              : ''
+                          }`}
+                        >
+                          <GripVertical className="text-muted-foreground h-4 w-4 shrink-0" />
+                          <span className="text-foreground min-w-0 flex-1 truncate">
+                            {getColumnLabel(columnId)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive h-7 w-7 shrink-0"
+                            aria-label={`Remove ${getColumnLabel(columnId)} from groups`}
+                            onClick={() => removeFromGrouping(columnId)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {groupedIds.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-foreground mt-4 h-7 text-xs"
+                      onClick={() => setGrouping([])}
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-9 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 >
-                  {getColumnLabel(column.id)}
-                </DropdownMenuCheckboxItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {getColumnLabel(column.id)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {toolbarRightContent != null ? (
+            <div className="w-full shrink-0 sm:w-auto">
+              {toolbarRightContent}
+            </div>
+          ) : null}
+        </ItemFooter>
+      </Item>
       <div className="border-border bg-card font-custom overflow-hidden rounded-xl border text-sm shadow-sm">
         <Table>
           <TableHeader>

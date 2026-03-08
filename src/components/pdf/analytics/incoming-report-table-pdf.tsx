@@ -231,6 +231,7 @@ const ALL_COLUMNS: {
   { key: 'farmerAddress', label: 'Address', width: '9%', align: 'left' },
   { key: 'farmerMobile', label: 'Mobile', width: '6%', align: 'center' },
   { key: 'createdByName', label: 'Created by', width: '8%', align: 'left' },
+  { key: 'location', label: 'Location', width: '8%', align: 'left' },
   { key: 'gatePassNo', label: 'Gate pass no.', width: '5%', align: 'center' },
   {
     key: 'manualGatePassNumber',
@@ -517,6 +518,7 @@ const GROUP_LABELS: Record<string, string> = {
   farmerAddress: 'Address',
   farmerMobile: 'Mobile',
   createdByName: 'Created by',
+  location: 'Location',
   date: 'Date',
   variety: 'Variety',
   status: 'Status',
@@ -1008,7 +1010,7 @@ function ReportSummaryPage({
 export const IncomingReportTablePdf = ({
   companyName = 'Cold Storage',
   dateRangeLabel,
-  reportTitle = 'INCOMING REPORT',
+  reportTitle = 'Incoming Gate Pass Report',
   rows,
   tableSnapshot,
 }: IncomingReportTablePdfProps) => {

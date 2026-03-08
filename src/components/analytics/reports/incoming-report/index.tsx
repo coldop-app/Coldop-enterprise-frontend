@@ -19,6 +19,7 @@ import { DatePicker } from '@/components/forms/date-picker';
 import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { queryClient } from '@/lib/queryClient';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { FileDown } from 'lucide-react';
 
@@ -89,6 +90,7 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
       farmerAddress: farmer?.address ?? '—',
       farmerMobile: farmer?.mobileNumber ?? '—',
       createdByName,
+      location: pass.location ?? '—',
       gatePassNo: pass.gatePassNo ?? '—',
       manualGatePassNumber: pass.manualGatePassNumber ?? '—',
       date: formatDate(pass.date),
@@ -108,7 +110,9 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
 }
 
 const IncomingReportTable = () => {
+  const coldStorage = useStore((s) => s.coldStorage);
   const tableRef = useRef<IncomingReportDataTableRef<IncomingReportRow>>(null);
+  const reportContentRef = useRef<HTMLDivElement>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -132,6 +136,16 @@ const IncomingReportTable = () => {
 
   const handleApplyDates = () => {
     if (!fromDate && !toDate) return;
+    if (fromDate && toDate) {
+      const fromStr = formatDateToYYYYMMDD(fromDate);
+      const toStr = formatDateToYYYYMMDD(toDate);
+      if (toStr < fromStr) {
+        toast.error('Invalid date range', {
+          description: '"To" date must not be before "From" date.',
+        });
+        return;
+      }
+    }
     const params = {
       groupByFarmer: false,
       groupByVariety: false,
@@ -147,12 +161,16 @@ const IncomingReportTable = () => {
       error: 'Failed to load report for the selected dates.',
     });
     fetchPromise
-      .then(() =>
+      .then(() => {
         setAppliedRange({
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
-        })
-      )
+        });
+        // Return focus to the report so user can navigate without an extra click
+        requestAnimationFrame(() => {
+          reportContentRef.current?.focus({ preventScroll: true });
+        });
+      })
       .catch(() => {});
   };
 
@@ -183,9 +201,9 @@ const IncomingReportTable = () => {
       ]);
       const blob = await pdf(
         <IncomingReportTablePdf
-          companyName="Cold Storage"
+          companyName={coldStorage?.name ?? 'Cold Storage'}
           dateRangeLabel={getDateRangeLabel()}
-          reportTitle="INCOMING REPORT"
+          reportTitle="Incoming Gate Pass Report"
           rows={rows}
           tableSnapshot={snapshot}
         />
@@ -239,60 +257,75 @@ const IncomingReportTable = () => {
 
   return (
     <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="font-custom text-2xl font-semibold text-[#333]">
-            Incoming Report
-          </h2>
-          <div className="font-custom flex flex-wrap items-end gap-3">
-            <DatePicker
-              id="incoming-report-from"
-              label="From"
-              value={fromDate}
-              onChange={setFromDate}
-            />
-            <DatePicker
-              id="incoming-report-to"
-              label="To"
-              value={toDate}
-              onChange={setToDate}
-            />
-            <Button
-              variant="default"
-              size="sm"
-              className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-              onClick={handleApplyDates}
-              disabled={!fromDate && !toDate}
-            >
-              Apply
-            </Button>
-            {(fromDate ||
-              toDate ||
-              appliedRange.dateFrom ||
-              appliedRange.dateTo) && (
+      <div
+        ref={reportContentRef}
+        className="space-y-6"
+        tabIndex={-1}
+        aria-label="Incoming report content"
+      >
+        <h2 className="font-custom text-2xl font-semibold text-[#333]">
+          Incoming Report
+        </h2>
+        <DataTable
+          ref={tableRef}
+          columns={columns}
+          data={rows}
+          toolbarLeftContent={
+            <>
+              <DatePicker
+                id="incoming-report-from"
+                label="From"
+                value={fromDate}
+                onChange={setFromDate}
+              />
+              <DatePicker
+                id="incoming-report-to"
+                label="To"
+                value={toDate}
+                onChange={setToDate}
+              />
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={handleClearDates}
+                className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                onClick={handleApplyDates}
+                disabled={!fromDate && !toDate}
               >
-                Clear
+                Apply
               </Button>
-            )}
+              {(fromDate ||
+                toDate ||
+                appliedRange.dateFrom ||
+                appliedRange.dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleClearDates}
+                >
+                  Clear
+                </Button>
+              )}
+            </>
+          }
+          toolbarRightContent={
             <Button
-              variant="outline"
-              size="sm"
-              className="focus-visible:ring-primary h-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
               onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-              aria-label={isGeneratingPdf ? 'Generating PDF…' : 'View report'}
+              disabled={isGeneratingPdf || isLoading}
+              aria-label={
+                isGeneratingPdf
+                  ? 'Generating PDF…'
+                  : isLoading
+                    ? 'Loading report…'
+                    : 'View report'
+              }
             >
-              <FileDown className="font-custom mr-2 h-4 w-4" />
+              <FileDown className="h-4 w-4 shrink-0" />
               {isGeneratingPdf ? 'Generating…' : 'View Report'}
             </Button>
-          </div>
-        </div>
-        <DataTable ref={tableRef} columns={columns} data={rows} />
+          }
+        />
       </div>
     </main>
   );
