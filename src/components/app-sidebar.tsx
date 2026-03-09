@@ -60,7 +60,11 @@ const navigationItems: NavigationItem[] = [
     name: 'Analytics',
     href: '/store-admin/analytics',
     icon: BarChart3,
-    activePaths: ['/store-admin/analytics', '/store-admin/variety-breakdown'],
+    activePaths: [
+      '/store-admin/analytics',
+      '/store-admin/variety-breakdown',
+      '/store-admin/area-breakdown',
+    ],
   },
   {
     name: 'Settings',

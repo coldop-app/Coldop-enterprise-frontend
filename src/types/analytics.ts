@@ -519,3 +519,44 @@ export interface GetDailyMonthlyTrendApiResponse {
   data: DailyMonthlyTrendData;
   message?: string;
 }
+
+// --- Farmers stock by filters (GET /analytics/farmers-stock-by-filters) ---
+
+/** Farmer info in farmers-stock-by-filters response */
+export interface AreaBreakdownFarmer {
+  id: string;
+  name: string;
+  address: string;
+  mobileNumber: string;
+  accountNumber: number;
+}
+
+/** Size + stock in a variety */
+export interface AreaBreakdownSizeStock {
+  size: string;
+  stock: number;
+}
+
+/** Variety with sizes in a farmer entry */
+export interface AreaBreakdownVarietyItem {
+  variety: string;
+  sizes: AreaBreakdownSizeStock[];
+}
+
+/** Single farmer entry in farmers-stock-by-filters */
+export interface AreaBreakdownFarmerEntry {
+  farmer: AreaBreakdownFarmer;
+  varieties: AreaBreakdownVarietyItem[];
+}
+
+/** Data shape for GET /analytics/farmers-stock-by-filters */
+export interface FarmersStockByFiltersData {
+  farmers: AreaBreakdownFarmerEntry[];
+}
+
+/** API response for GET /analytics/farmers-stock-by-filters */
+export interface GetFarmersStockByFiltersApiResponse {
+  success: boolean;
+  data: FarmersStockByFiltersData;
+  message?: string;
+}
