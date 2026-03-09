@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-03-09
+
+### Added
+- Analytics Grading: **Area-wise analytics** — `AreaWiseAnalytics` component with table (areas × sizes), tabs "By Area" / "By Variety", date params, refresh; cell click navigates to area breakdown with `area`/`size`/`variety` search params
+- Analytics Grading: **Size distribution chart** — `SizeDistributionChart` pie charts for grading size-wise distribution per variety; date params and refresh
+- Store admin: **Area breakdown route** (`/store-admin/area-breakdown`) with search params `area`, `size`, `variety` for drill-down from area-wise table
+- Services: `useGetAreaWiseAnalytics`, `useGetGradingSizeWiseDistribution` and query options for area-wise and size distribution APIs
+- Types: `AreaWiseSizeItem`, `AreaWiseAreaItem`, `AreaWiseVarietyItem`, `AreaWiseSizeDistributionData`, `SizeDistributionSizeItem`, `SizeDistributionVarietyItem`, `SizeDistributionData` and related API response types in analytics
+
+### Changed
+- Analytics Grading screen: renders `SizeDistributionChart` and `AreaWiseAnalytics` with shared date params
+- Analytics page: Apply/Reset date filters now prefetch and invalidate area-wise and size distribution queries
+
 ## [0.26.0] - 2026-03-07
 
 ### Added

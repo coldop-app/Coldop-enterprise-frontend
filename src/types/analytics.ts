@@ -434,6 +434,64 @@ export interface GetVarietyDistributionApiResponse {
   message?: string;
 }
 
+// --- Size distribution (GET /analytics/size-distribution) ---
+
+/** Single size entry within a variety in GET /analytics/size-distribution */
+export interface SizeDistributionSizeItem {
+  name: string;
+  value: number;
+}
+
+/** Single variety entry in GET /analytics/size-distribution chartData */
+export interface SizeDistributionVarietyItem {
+  variety: string;
+  sizes: SizeDistributionSizeItem[];
+}
+
+/** Data shape for GET /analytics/size-distribution */
+export interface SizeDistributionData {
+  chartData: SizeDistributionVarietyItem[];
+}
+
+/** API response for GET /analytics/size-distribution */
+export interface GetSizeDistributionApiResponse {
+  success: boolean;
+  data: SizeDistributionData;
+  message?: string;
+}
+
+// --- Area-wise size distribution (GET /analytics/area-wise-size-distribution) ---
+
+/** Single size entry within an area in GET /analytics/area-wise-size-distribution */
+export interface AreaWiseSizeItem {
+  name: string;
+  value: number;
+}
+
+/** Single area entry within a variety */
+export interface AreaWiseAreaItem {
+  area: string;
+  sizes: AreaWiseSizeItem[];
+}
+
+/** Single variety entry in GET /analytics/area-wise-size-distribution chartData */
+export interface AreaWiseVarietyItem {
+  variety: string;
+  areas: AreaWiseAreaItem[];
+}
+
+/** Data shape for GET /analytics/area-wise-size-distribution */
+export interface AreaWiseSizeDistributionData {
+  chartData: AreaWiseVarietyItem[];
+}
+
+/** API response for GET /analytics/area-wise-size-distribution */
+export interface GetAreaWiseSizeDistributionApiResponse {
+  success: boolean;
+  data: AreaWiseSizeDistributionData;
+  message?: string;
+}
+
 // --- Daily/monthly trend (GET /analytics/daily-monthly-trend) ---
 
 /** Single daily entry in GET /analytics/daily-monthly-trend daily.chartData */

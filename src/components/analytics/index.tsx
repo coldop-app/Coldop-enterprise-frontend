@@ -20,6 +20,8 @@ import {
 } from '@/services/store-admin/analytics/useGetOverview';
 import { incomingGatePassesQueryOptions } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
+import { gradingSizeWiseDistributionQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetGradingSizeWiseDistribution';
+import { areaWiseAnalyticsQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetAreaWiseAnalytics';
 import Overview from './overview';
 import IncomingGatePassAnalyticsScreen from './incoming';
 import GradingGatePassAnalyticsScreen from './grading';
@@ -40,6 +42,10 @@ const AnalyticsPage = () => {
     const fetchPromise = Promise.all([
       queryClient.fetchQuery(analyticsOverviewQueryOptions(newParams)),
       queryClient.fetchQuery(incomingGatePassesQueryOptions(newParams)),
+      queryClient.fetchQuery(
+        gradingSizeWiseDistributionQueryOptions(newParams)
+      ),
+      queryClient.fetchQuery(areaWiseAnalyticsQueryOptions(newParams)),
     ]);
     toast.promise(fetchPromise, {
       loading: 'Applying date filters…',
@@ -58,12 +64,14 @@ const AnalyticsPage = () => {
   const incomingQuery = useQuery(
     incomingGatePassesQueryOptions(appliedDateParams)
   );
-  const gradingQuery = useGetGradingGatePasses();
+  const gradingQuery = useGetGradingGatePasses(appliedDateParams);
 
   const handleResetDates = async () => {
     const fetchPromise = Promise.all([
       queryClient.fetchQuery(analyticsOverviewQueryOptions({})),
       queryClient.fetchQuery(incomingGatePassesQueryOptions({})),
+      queryClient.fetchQuery(gradingSizeWiseDistributionQueryOptions({})),
+      queryClient.fetchQuery(areaWiseAnalyticsQueryOptions({})),
     ]);
     toast.promise(fetchPromise, {
       loading: 'Clearing date filters…',
@@ -209,7 +217,10 @@ const AnalyticsPage = () => {
               />
             </TabsContent>
             <TabsContent value="grading" className="mt-0 outline-none">
-              <GradingGatePassAnalyticsScreen queryResult={gradingQuery} />
+              <GradingGatePassAnalyticsScreen
+                queryResult={gradingQuery}
+                dateParams={appliedDateParams}
+              />
             </TabsContent>
             <TabsContent value="storage" className="mt-0 outline-none">
               <p className="font-custom text-sm leading-relaxed text-gray-600">
