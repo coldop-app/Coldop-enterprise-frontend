@@ -191,6 +191,13 @@ const IncomingReportTable = () => {
   };
 
   const handleDownloadPdf = async () => {
+    // Open window synchronously so mobile popup blockers allow it
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
     setIsGeneratingPdf(true);
     try {
       const snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null =
@@ -209,7 +216,11 @@ const IncomingReportTable = () => {
         />
       ).toBlob();
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       toast.success('PDF opened in new tab', {
         description: 'Incoming report is ready to view or print.',
