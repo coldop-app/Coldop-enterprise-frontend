@@ -9,6 +9,7 @@ import {
 import type { IncomingVoucherData } from '@/components/daybook/vouchers/types';
 import { formatVoucherDate } from '@/components/daybook/vouchers/format-date';
 import { useStore } from '@/stores/store';
+import { JUTE_BAG_WEIGHT } from '@/components/forms/grading/constants';
 
 /** Data passed from IncomingVoucher for PDF rendering */
 export interface IncomingVoucherPdfProps {
@@ -195,6 +196,8 @@ export function IncomingVoucherPdf({
   const netWeight =
     (voucher.weightSlip?.grossWeightKg ?? 0) -
     (voucher.weightSlip?.tareWeightKg ?? 0);
+  const bardanaKg = bags * JUTE_BAG_WEIGHT;
+  const netProductKg = netWeight - bardanaKg;
 
   return (
     <Document>
@@ -316,6 +319,20 @@ export function IncomingVoucherPdf({
                 <Text style={styles.detailLabel}>Net (kg):</Text>
                 <Text style={[styles.detailValue, { fontWeight: 700 }]}>
                   {netWeight.toLocaleString('en-IN')}
+                </Text>
+              </View>
+              <View style={styles.weightSlipRow}>
+                <Text style={styles.detailLabel}>
+                  Bardana ({bags} × {JUTE_BAG_WEIGHT} kg):
+                </Text>
+                <Text style={styles.detailValue}>
+                  {bardanaKg.toLocaleString('en-IN')}
+                </Text>
+              </View>
+              <View style={styles.weightSlipRow}>
+                <Text style={styles.detailLabel}>Net product (kg):</Text>
+                <Text style={[styles.detailValue, { fontWeight: 700 }]}>
+                  {netProductKg.toLocaleString('en-IN')}
                 </Text>
               </View>
             </View>

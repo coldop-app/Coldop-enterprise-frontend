@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-03-10
+
+### Added
+- Grading report: **Net product (kg)** column — incoming net weight minus bardana (bags × JUTE_BAG_WEIGHT), aligned with grading voucher logic
+- Grading report: **Total graded weight (kg)** and **Wastage (kg)** columns — total graded weight from order details; wastage = incoming net product − total graded weight with red highlight
+- Grading report: **Farmer** as first column with account number suffix (e.g. "Name #123"); column order and visibility refinements
+- Incoming voucher: **Bardana and net product (after bardana)** — weight slip section shows net weight, bardana (bags × JUTE_BAG_WEIGHT), and net weight after bardana
+- Incoming voucher PDF: **Bardana** and **Net product (kg)** rows in weight slip section
+
+### Changed
+- Grading report: row mapping uses `computeGradingOrderTotals` and `computeIncomingNetProductKg` for consistent net product and wastage; date format "do MMMM yyyy"; totals row includes net product, total graded weight, wastage
+- Grading report DataTable: `initialColumnVisibility` prop; column labels for visibility toggle
+- Incoming voucher and PDF: use shared `JUTE_BAG_WEIGHT` from grading constants for bardana calculation
+
 ## [0.28.0] - 2026-03-10
 
 ### Added

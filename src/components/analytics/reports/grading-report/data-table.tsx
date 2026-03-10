@@ -31,8 +31,11 @@ import { Settings2 } from 'lucide-react';
 const TOTAL_COLUMN_IDS = [
   'bagsReceived',
   'totalGradedBags',
+  'totalGradedWeightKg',
+  'wastageKg',
   'grossWeightKg',
   'netWeightKg',
+  'netProductKg',
 ] as const;
 
 function toNum(value: unknown): number {
@@ -49,6 +52,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   /** Column ids to sum in the total row */
   totalColumnIds?: readonly string[];
+  /** Initial column visibility state (column id -> visible). Omit or use {} for all visible. */
+  initialColumnVisibility?: VisibilityState;
   /** Optional content to render on the left side of the toolbar (filters, Columns) */
   toolbarLeftContent?: React.ReactNode;
   /** Optional content to render on the right side of the toolbar (e.g. primary action) */
@@ -58,7 +63,6 @@ interface DataTableProps<TData, TValue> {
 /** Human-readable labels for column visibility toggle */
 const COLUMN_LABELS: Record<string, string> = {
   farmerName: 'Farmer',
-  accountNumber: 'Account No.',
   farmerAddress: 'Address',
   farmerMobile: 'Mobile',
   createdByName: 'Created by',
@@ -74,7 +78,10 @@ const COLUMN_LABELS: Record<string, string> = {
   grossWeightKg: 'Gross (kg)',
   tareWeightKg: 'Tare (kg)',
   netWeightKg: 'Net (kg)',
+  netProductKg: 'Net product (kg)',
   totalGradedBags: 'Graded bags',
+  totalGradedWeightKg: 'Total graded weight (kg)',
+  wastageKg: 'Wastage (kg)',
   grader: 'Grader',
   remarks: 'Remarks',
 };
@@ -87,10 +94,13 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   totalColumnIds = [...TOTAL_COLUMN_IDS],
+  initialColumnVisibility,
   toolbarLeftContent,
   toolbarRightContent,
 }: DataTableProps<TData, TValue>) {
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () => initialColumnVisibility ?? {}
+  );
 
   const table = useReactTable({
     data,

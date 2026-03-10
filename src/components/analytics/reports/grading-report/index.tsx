@@ -13,6 +13,7 @@ import type {
 import type { GradingGatePassIncomingGatePass } from '@/types/grading-gate-pass';
 import { columns, type GradingReportRow } from './columns';
 import { DataTable } from './data-table';
+import type { VisibilityState } from '@tanstack/table-core';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/forms/date-picker';
@@ -20,12 +21,17 @@ import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { queryClient } from '@/lib/queryClient';
 import { toast } from 'sonner';
+import {
+  computeGradingOrderTotals,
+  computeIncomingNetProductKg,
+} from '@/components/daybook/vouchers/grading-voucher-calculations';
+import { JUTE_BAG_WEIGHT } from '@/components/forms/grading/constants';
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—';
   try {
     const d = parseISO(iso);
-    return format(d, 'yyyy-MM-dd');
+    return format(d, 'do MMMM yyyy');
   } catch {
     return iso;
   }
@@ -137,40 +143,90 @@ function getBagsReceived(pass: GradingGatePassReportItem): number {
   return 0;
 }
 
+/**
+ * Incoming net weight (kg) using same logic as grading voucher:
+ * - If grossWeightKg and tareWeightKg present (weight slip): net = gross − tare
+ * - Else if netWeightKg present: use it
+ * - Else undefined
+ */
+function getIncomingNetKg(pass: GradingGatePassReportItem): number | undefined {
+  const inc = pass.incomingGatePassId;
+  if (!inc || typeof inc !== 'object') return undefined;
+  const withWeight = inc as {
+    grossWeightKg?: number;
+    tareWeightKg?: number;
+    netWeightKg?: number;
+    weightSlip?: { grossWeightKg?: number; tareWeightKg?: number };
+  };
+  const gross =
+    withWeight.grossWeightKg ?? withWeight.weightSlip?.grossWeightKg;
+  const tare = withWeight.tareWeightKg ?? withWeight.weightSlip?.tareWeightKg;
+  if (gross != null && tare != null) return gross - tare;
+  if (withWeight.netWeightKg != null) return withWeight.netWeightKg;
+  return undefined;
+}
+
 function getGrossTareNet(pass: GradingGatePassReportItem): {
   grossWeightKg?: number;
   tareWeightKg?: number;
   netWeightKg?: number;
 } {
   const inc = pass.incomingGatePassId;
-  if (inc && typeof inc === 'object' && 'grossWeightKg' in inc) {
-    const s = inc as {
-      grossWeightKg?: number;
-      tareWeightKg?: number;
-      netWeightKg?: number;
-    };
-    return {
-      grossWeightKg: s.grossWeightKg,
-      tareWeightKg: s.tareWeightKg,
-      netWeightKg: s.netWeightKg,
-    };
-  }
-  return {};
+  if (!inc || typeof inc !== 'object') return {};
+  const withWeight = inc as {
+    grossWeightKg?: number;
+    tareWeightKg?: number;
+    netWeightKg?: number;
+    weightSlip?: { grossWeightKg?: number; tareWeightKg?: number };
+  };
+  const gross =
+    withWeight.grossWeightKg ?? withWeight.weightSlip?.grossWeightKg;
+  const tare = withWeight.tareWeightKg ?? withWeight.weightSlip?.tareWeightKg;
+  const netKg = getIncomingNetKg(pass);
+  return {
+    grossWeightKg: gross,
+    tareWeightKg: tare,
+    netWeightKg: netKg,
+  };
 }
 
-/** Map flat API response (grading gate passes) to table rows */
+/**
+ * Map flat API response to table rows using the same calculation flow as GradingVoucher:
+ * - effectiveIncomingNetKg from weight slip (gross − tare) or netWeightKg
+ * - effectiveIncomingNetProductKg = effectiveIncomingNetKg − (bags × JUTE_BAG_WEIGHT)
+ * - wastageKg = max(0, effectiveIncomingNetProductKg − totalGradedWeightKg)
+ */
 function mapGradingPassesToRows(
   passes: GradingGatePassReportItem[]
 ): GradingReportRow[] {
   return passes.map((pass) => {
     const createdByName = pass.createdBy?.name ?? '—';
-    const { grossWeightKg, tareWeightKg, netWeightKg } = getGrossTareNet(pass);
+    const { grossWeightKg, tareWeightKg } = getGrossTareNet(pass);
     const totalGradedBags = pass.orderDetails?.length
       ? pass.orderDetails.reduce(
           (sum, d) => sum + (d.initialQuantity ?? d.currentQuantity ?? 0),
           0
         )
       : 0;
+
+    const { totalGradedWeightKg } = computeGradingOrderTotals(
+      pass.orderDetails as Parameters<typeof computeGradingOrderTotals>[0]
+    );
+
+    const totalIncomingBags = getBagsReceived(pass);
+    const effectiveIncomingNetKg = getIncomingNetKg(pass);
+    const effectiveIncomingNetProductKg =
+      effectiveIncomingNetKg != null && totalIncomingBags != null
+        ? effectiveIncomingNetKg - totalIncomingBags * JUTE_BAG_WEIGHT
+        : computeIncomingNetProductKg(
+            effectiveIncomingNetKg,
+            totalIncomingBags
+          );
+
+    const wastageKg =
+      effectiveIncomingNetProductKg != null && effectiveIncomingNetProductKg > 0
+        ? Math.max(0, effectiveIncomingNetProductKg - totalGradedWeightKg)
+        : undefined;
 
     return {
       id: pass._id,
@@ -187,16 +243,48 @@ function mapGradingPassesToRows(
       date: formatDate(pass.date),
       variety: pass.variety ?? '—',
       truckNumber: getTruckNumber(pass),
-      bagsReceived: getBagsReceived(pass),
+      bagsReceived: totalIncomingBags,
       grossWeightKg: grossWeightKg ?? '—',
       tareWeightKg: tareWeightKg ?? '—',
-      netWeightKg: netWeightKg ?? '—',
+      netWeightKg: effectiveIncomingNetKg ?? '—',
+      netProductKg:
+        effectiveIncomingNetProductKg != null
+          ? effectiveIncomingNetProductKg
+          : '—',
       totalGradedBags,
+      totalGradedWeightKg,
+      wastageKg: wastageKg ?? '—',
       grader: pass.grader ?? '—',
       remarks: pass.remarks ?? '—',
     };
   });
 }
+
+/** Default column visibility: only incoming GP no., manual no., date, bags received, net weight */
+const GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  incomingGatePassNo: true,
+  incomingManualNo: true,
+  incomingGatePassDate: true,
+  bagsReceived: true,
+  netWeightKg: false,
+  netProductKg: true,
+  truckNumber: false,
+  grossWeightKg: false,
+  tareWeightKg: false,
+  gatePassNo: true,
+  manualGatePassNumber: true,
+  date: true,
+  variety: true,
+  totalGradedBags: true,
+  totalGradedWeightKg: true,
+  wastageKg: true,
+  grader: true,
+  remarks: false,
+  farmerName: true,
+  farmerAddress: false,
+  farmerMobile: false,
+  createdByName: false,
+};
 
 /** Check if API returned flat list (no grouping) */
 function isFlatGradingData(
@@ -322,6 +410,7 @@ const GradingReportTable = () => {
         <DataTable
           columns={columns}
           data={rows}
+          initialColumnVisibility={GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY}
           toolbarLeftContent={
             <>
               <DatePicker

@@ -17,6 +17,7 @@ import { DetailRow } from './detail-row';
 import { formatVoucherDate } from './format-date';
 import type { IncomingVoucherData } from './types';
 import type { VoucherFarmerInfo } from './types';
+import { JUTE_BAG_WEIGHT } from '@/components/forms/grading/constants';
 
 export interface IncomingVoucherProps extends VoucherFarmerInfo {
   voucher: IncomingVoucherData;
@@ -249,16 +250,35 @@ const IncomingVoucher = memo(function IncomingVoucher({
                         ).toLocaleString('en-IN')}
                       />
                     </div>
-                    <p className="text-muted-foreground mt-2 text-xs">
-                      Net weight:{' '}
-                      <span className="text-foreground font-semibold">
-                        {(
-                          (voucher.weightSlip.grossWeightKg ?? 0) -
-                          (voucher.weightSlip.tareWeightKg ?? 0)
-                        ).toLocaleString('en-IN')}{' '}
-                        kg
-                      </span>
-                    </p>
+                    {(() => {
+                      const gross = voucher.weightSlip.grossWeightKg ?? 0;
+                      const tare = voucher.weightSlip.tareWeightKg ?? 0;
+                      const netKg = gross - tare;
+                      const bardanaKg = bags * JUTE_BAG_WEIGHT;
+                      const netProductKg = netKg - bardanaKg;
+                      return (
+                        <div className="text-muted-foreground mt-2 space-y-1 text-xs">
+                          <p>
+                            Net weight:{' '}
+                            <span className="text-foreground font-semibold">
+                              {netKg.toLocaleString('en-IN')} kg
+                            </span>
+                          </p>
+                          <p>
+                            Bardana ({bags} bags × {JUTE_BAG_WEIGHT} kg):{' '}
+                            <span className="text-foreground font-medium">
+                              {bardanaKg.toLocaleString('en-IN')} kg
+                            </span>
+                          </p>
+                          <p>
+                            Net weight (after bardana):{' '}
+                            <span className="text-foreground font-semibold">
+                              {netProductKg.toLocaleString('en-IN')} kg
+                            </span>
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
