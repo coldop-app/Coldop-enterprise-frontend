@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Item, ItemFooter } from '@/components/ui/item';
 import { Settings2 } from 'lucide-react';
 
 const TOTAL_COLUMN_IDS = ['totalBags'] as const;
@@ -43,6 +44,12 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   /** Column ids to sum in the total row */
   totalColumnIds?: readonly string[];
+  /** Initial column visibility (column id -> visible). Omit or use {} for all visible. */
+  initialColumnVisibility?: VisibilityState;
+  /** Optional content to render on the left side of the toolbar (e.g. date filters, Apply) */
+  toolbarLeftContent?: React.ReactNode;
+  /** Optional content to render on the right side of the toolbar (e.g. View Report) */
+  toolbarRightContent?: React.ReactNode;
 }
 
 /** Human-readable labels for column visibility toggle */
@@ -61,6 +68,10 @@ const COLUMN_LABELS: Record<string, string> = {
 };
 
 function getColumnLabel(id: string): string {
+  if (id.startsWith('bags_')) {
+    const size = id.replace('bags_', '').replace(/-/g, '–');
+    return size || id;
+  }
   return COLUMN_LABELS[id] ?? id;
 }
 
@@ -68,8 +79,13 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   totalColumnIds = [...TOTAL_COLUMN_IDS],
+  initialColumnVisibility,
+  toolbarLeftContent,
+  toolbarRightContent,
 }: DataTableProps<TData, TValue>) {
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () => initialColumnVisibility ?? {}
+  );
 
   const table = useReactTable({
     data,
@@ -94,35 +110,51 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            >
-              <Settings2 className="mr-2 h-4 w-4" />
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[200px]">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  className="capitalize"
-                  checked={column.getIsVisible()}
-                  onCheckedChange={(value) => column.toggleVisibility(!!value)}
+      <Item
+        variant="outline"
+        size="sm"
+        className="flex-col items-stretch gap-4 rounded-xl"
+      >
+        <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:items-end">
+            {toolbarLeftContent}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-9 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 >
-                  {getColumnLabel(column.id)}
-                </DropdownMenuCheckboxItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {getColumnLabel(column.id)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {toolbarRightContent != null ? (
+            <div className="w-full shrink-0 sm:w-auto">
+              {toolbarRightContent}
+            </div>
+          ) : null}
+        </ItemFooter>
+      </Item>
       <div className="border-border bg-card font-custom overflow-hidden rounded-xl border text-sm shadow-sm">
         <Table>
           <TableHeader>

@@ -1,4 +1,10 @@
 import type { ColumnDef } from '@tanstack/table-core';
+import { GRADING_SIZES } from '@/components/forms/grading/constants';
+
+/** Stable column id for a size (used for accessorKey and total row). */
+export function getSizeColumnId(size: string): string {
+  return `bags_${size.replace(/–/g, '-')}`;
+}
 
 export type StorageReportRow = {
   id: string;
@@ -13,6 +19,8 @@ export type StorageReportRow = {
   variety: string;
   totalBags: number;
   remarks: string;
+  /** Flattened size columns: keys are getSizeColumnId(size), values are bag count for that size */
+  [key: string]: string | number | undefined;
 };
 
 function formatNum(value: number | string): string {
@@ -21,7 +29,8 @@ function formatNum(value: number | string): string {
   return n.toLocaleString();
 }
 
-export const columns: ColumnDef<StorageReportRow>[] = [
+/** Base columns (no size columns). */
+const baseColumns: ColumnDef<StorageReportRow>[] = [
   {
     accessorKey: 'farmerName',
     header: () => <span className="font-custom">Farmer</span>,
@@ -82,6 +91,48 @@ export const columns: ColumnDef<StorageReportRow>[] = [
       </div>
     ),
   },
+];
+
+/** Size columns to insert after totalBags. Only include sizes that have quantity in the data. */
+export function getSizeColumns(
+  sizesWithQuantity: readonly string[]
+): ColumnDef<StorageReportRow>[] {
+  return sizesWithQuantity.map((size) => {
+    const id = getSizeColumnId(size);
+    return {
+      id,
+      accessorKey: id,
+      header: () => <div className="font-custom text-right">{size}</div>,
+      cell: ({ row }) => (
+        <div className="text-right font-medium">
+          {formatNum((row.getValue(id) as number) ?? 0)}
+        </div>
+      ),
+    };
+  });
+}
+
+/** All GRADING_SIZES in display order (for computing which sizes have quantity). */
+export const ALL_GRADING_SIZES = [...GRADING_SIZES];
+
+/** Build full columns: base + size columns (only those with quantity) + remarks. */
+export function getStorageReportColumns(
+  sizesWithQuantity: readonly string[]
+): ColumnDef<StorageReportRow>[] {
+  const sizeCols = getSizeColumns(sizesWithQuantity);
+  return [
+    ...baseColumns,
+    ...sizeCols,
+    {
+      accessorKey: 'remarks',
+      header: () => <span className="font-custom">Remarks</span>,
+    },
+  ];
+}
+
+/** Legacy default columns (no size columns) for backwards compatibility. */
+export const columns: ColumnDef<StorageReportRow>[] = [
+  ...baseColumns,
   {
     accessorKey: 'remarks',
     header: () => <span className="font-custom">Remarks</span>,
