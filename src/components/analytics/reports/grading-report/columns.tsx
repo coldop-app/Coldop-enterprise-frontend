@@ -1,4 +1,206 @@
-import type { ColumnDef } from '@tanstack/table-core';
+/* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
+import type { ColumnDef, CellContext } from '@tanstack/table-core';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, ChevronRight, MoreVertical } from 'lucide-react';
+
+/** Reusable header with vertical 3-dot menu for groupable columns */
+function GroupableHeader({
+  column,
+  label,
+}: {
+  column: { getIsGrouped: () => boolean; toggleGrouping: () => void };
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-custom">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label={`${label} column options`}
+          >
+            <MoreVertical className="h-4 w-4 text-gray-600" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={() => column.toggleGrouping()}>
+            {column.getIsGrouped()
+              ? `Ungroup by ${label}`
+              : `Group by ${label}`}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+type SortState = { id: string; desc: boolean }[];
+
+/** Header with 3-dot menu for columns that support both grouping and sorting (e.g. Date) */
+function GroupableSortableHeader({
+  column,
+  table,
+  label,
+}: {
+  column: {
+    id: string;
+    getIsGrouped: () => boolean;
+    toggleGrouping: () => void;
+    getIsSorted: () => false | 'asc' | 'desc';
+    toggleSorting: (desc?: boolean) => void;
+  };
+  table: {
+    options: {
+      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
+    };
+  };
+  label: string;
+}) {
+  const isSorted = column.getIsSorted();
+  const columnId = column.id;
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-custom">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label={`${label} column options`}
+          >
+            <MoreVertical className="h-4 w-4 text-gray-600" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={() => column.toggleGrouping()}>
+            {column.getIsGrouped()
+              ? `Ungroup by ${label}`
+              : `Group by ${label}`}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => column.toggleSorting(false)}>
+            Sort ascending
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => column.toggleSorting(true)}>
+            Sort descending
+          </DropdownMenuItem>
+          {isSorted && (
+            <DropdownMenuItem
+              onSelect={() =>
+                table.options.onSortingChange?.((prev) =>
+                  prev.filter((s) => s.id !== columnId)
+                )
+              }
+            >
+              Clear sort
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+/** Reusable cell with expand/collapse only in the column that owns this row's group */
+function GroupableCell({
+  row,
+  column,
+  table,
+}: CellContext<GradingReportRow, unknown>) {
+  const isGrouped = row.getIsGrouped();
+  const canExpand = row.getCanExpand();
+  const grouping = table.getState().grouping ?? [];
+  const groupingColumnId = grouping[row.depth];
+  const isThisColumnGrouping = groupingColumnId === column.id;
+  const showExpandCollapse = isGrouped && canExpand && isThisColumnGrouping;
+  const value = String(row.getValue(column.id) ?? '—');
+  return (
+    <div className="font-custom flex items-center gap-1">
+      {showExpandCollapse ? (
+        <button
+          type="button"
+          onClick={row.getToggleExpandedHandler()}
+          className="text-muted-foreground focus-visible:ring-primary hover:bg-primary/10 hover:text-primary inline-flex shrink-0 rounded p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          aria-label={row.getIsExpanded() ? 'Collapse group' : 'Expand group'}
+        >
+          {row.getIsExpanded() ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+      ) : null}
+      <span
+        style={{
+          paddingLeft: showExpandCollapse ? 0 : row.depth * 20,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Farmer column cell: expand/collapse + farmer name and account number for leaf rows */
+function FarmerCell({
+  row,
+  column,
+  table,
+}: CellContext<GradingReportRow, unknown>) {
+  const isGrouped = row.getIsGrouped();
+  const canExpand = row.getCanExpand();
+  const grouping = table.getState().grouping ?? [];
+  const groupingColumnId = grouping[row.depth];
+  const isThisColumnGrouping = groupingColumnId === column.id;
+  const showExpandCollapse = isGrouped && canExpand && isThisColumnGrouping;
+  const name = String(row.getValue('farmerName') ?? '—');
+  const accountNo = row.original.accountNumber;
+  const accountStr =
+    accountNo != null && accountNo !== '' && accountNo !== '—'
+      ? ` #${accountNo}`
+      : '';
+  return (
+    <div className="font-custom flex items-center gap-1">
+      {showExpandCollapse ? (
+        <button
+          type="button"
+          onClick={row.getToggleExpandedHandler()}
+          className="text-muted-foreground focus-visible:ring-primary hover:bg-primary/10 hover:text-primary inline-flex shrink-0 rounded p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          aria-label={row.getIsExpanded() ? 'Collapse group' : 'Expand group'}
+        >
+          {row.getIsExpanded() ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+      ) : null}
+      <span
+        style={{
+          paddingLeft: showExpandCollapse ? 0 : row.depth * 20,
+        }}
+      >
+        {name}
+        {!isGrouped && accountStr && (
+          <span className="text-muted-foreground font-normal">
+            {accountStr}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
 
 export type GradingReportRow = {
   id: string;
@@ -56,26 +258,9 @@ export const columns: ColumnDef<GradingReportRow>[] = [
   // ——— Farmer (first column) ———
   {
     accessorKey: 'farmerName',
-    header: () => <span className="font-custom">Farmer</span>,
-    cell: ({ row }) => {
-      const name = String(row.getValue('farmerName') ?? '—');
-      const accountNo = row.original.accountNumber;
-      const accountStr =
-        accountNo != null && accountNo !== '' && accountNo !== '—'
-          ? `#${accountNo}`
-          : null;
-      return (
-        <span className="font-custom">
-          {name}
-          {accountStr != null ? (
-            <span className="text-muted-foreground font-normal">
-              {' '}
-              {accountStr}
-            </span>
-          ) : null}
-        </span>
-      );
-    },
+    header: ({ column }) => <GroupableHeader column={column} label="Farmer" />,
+    cell: FarmerCell,
+    enableGrouping: true,
   },
   // ——— Incoming gate pass ———
   {
@@ -83,9 +268,12 @@ export const columns: ColumnDef<GradingReportRow>[] = [
     header: () => <div className="font-custom text-right">Incoming GP no.</div>,
     cell: ({ row }) => (
       <div className="text-right">
-        {String(row.getValue('incomingGatePassNo') ?? '—')}
+        {row.getIsGrouped()
+          ? '—'
+          : String(row.getValue('incomingGatePassNo') ?? '—')}
       </div>
     ),
+    aggregationFn: () => null,
   },
   {
     accessorKey: 'incomingManualNo',
@@ -94,17 +282,26 @@ export const columns: ColumnDef<GradingReportRow>[] = [
     ),
     cell: ({ row }) => (
       <div className="text-right">
-        {String(row.getValue('incomingManualNo') ?? '—')}
+        {row.getIsGrouped()
+          ? '—'
+          : String(row.getValue('incomingManualNo') ?? '—')}
       </div>
     ),
+    aggregationFn: () => null,
   },
   {
     accessorKey: 'incomingGatePassDate',
-    header: () => <span className="font-custom">Incoming gate pass date</span>,
+    header: ({ column }) => (
+      <GroupableHeader column={column} label="Incoming gate pass date" />
+    ),
+    cell: GroupableCell,
+    enableGrouping: true,
   },
   {
     accessorKey: 'variety',
-    header: () => <span className="font-custom">Variety</span>,
+    header: ({ column }) => <GroupableHeader column={column} label="Variety" />,
+    cell: GroupableCell,
+    enableGrouping: true,
   },
   {
     accessorKey: 'truckNumber',
@@ -118,6 +315,7 @@ export const columns: ColumnDef<GradingReportRow>[] = [
         {formatNum(row.getValue('bagsReceived') as number)}
       </div>
     ),
+    aggregationFn: 'sum',
   },
   {
     accessorKey: 'grossWeightKg',
@@ -168,22 +366,31 @@ export const columns: ColumnDef<GradingReportRow>[] = [
     header: () => <div className="font-custom text-right">Gate pass no.</div>,
     cell: ({ row }) => (
       <div className="text-right">
-        {String(row.getValue('gatePassNo') ?? '—')}
+        {row.getIsGrouped() ? '—' : String(row.getValue('gatePassNo') ?? '—')}
       </div>
     ),
+    aggregationFn: () => null,
   },
   {
     accessorKey: 'manualGatePassNumber',
     header: () => <div className="font-custom text-right">Manual GP no.</div>,
     cell: ({ row }) => (
       <div className="text-right">
-        {String(row.getValue('manualGatePassNumber') ?? '—')}
+        {row.getIsGrouped()
+          ? '—'
+          : String(row.getValue('manualGatePassNumber') ?? '—')}
       </div>
     ),
+    aggregationFn: () => null,
   },
   {
     accessorKey: 'date',
-    header: () => <span className="font-custom">Date</span>,
+    header: ({ column, table }) => (
+      <GroupableSortableHeader column={column} table={table} label="Date" />
+    ),
+    cell: GroupableCell,
+    enableGrouping: true,
+    enableSorting: true,
   },
   {
     accessorKey: 'totalGradedBags',
@@ -193,6 +400,7 @@ export const columns: ColumnDef<GradingReportRow>[] = [
         {formatNum(row.getValue('totalGradedBags') as number)}
       </div>
     ),
+    aggregationFn: 'sum',
   },
   {
     accessorKey: 'totalGradedWeightKg',
@@ -209,6 +417,7 @@ export const columns: ColumnDef<GradingReportRow>[] = [
         {formatNum(row.getValue('totalGradedWeightKg') as number)}
       </div>
     ),
+    aggregationFn: 'sum',
   },
   {
     accessorKey: 'wastageKg',
@@ -222,10 +431,13 @@ export const columns: ColumnDef<GradingReportRow>[] = [
         <div className={wastageHighlightCell}>{formatNum(val as number)}</div>
       );
     },
+    aggregationFn: 'sum',
   },
   {
     accessorKey: 'grader',
-    header: () => <span className="font-custom">Grader</span>,
+    header: ({ column }) => <GroupableHeader column={column} label="Grader" />,
+    cell: GroupableCell,
+    enableGrouping: true,
   },
   {
     accessorKey: 'remarks',

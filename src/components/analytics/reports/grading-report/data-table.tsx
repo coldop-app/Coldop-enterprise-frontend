@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import type { Ref } from 'react';
+import React, { forwardRef, useImperativeHandle, useState } from 'react';
+import type { Row } from '@tanstack/table-core';
 import type { ColumnDef } from '@tanstack/table-core';
 import type { VisibilityState } from '@tanstack/table-core';
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
+  getGroupedRowModel,
+  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 
@@ -17,6 +22,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import {
   Table,
   TableBody,
   TableCell,
@@ -26,7 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Item, ItemFooter } from '@/components/ui/item';
-import { Settings2 } from 'lucide-react';
+import { GripVertical, Layers, Settings2, X } from 'lucide-react';
 
 const TOTAL_COLUMN_IDS = [
   'bagsReceived',
@@ -90,27 +103,159 @@ function getColumnLabel(id: string): string {
   return COLUMN_LABELS[id] ?? id;
 }
 
-export function DataTable<TData, TValue>({
-  columns,
-  data,
-  totalColumnIds = [...TOTAL_COLUMN_IDS],
-  initialColumnVisibility,
-  toolbarLeftContent,
-  toolbarRightContent,
-}: DataTableProps<TData, TValue>) {
+/** Snapshot of table state for PDF: visible columns, grouping, sorting, and row model (groups + leaves). */
+export interface GradingReportPdfSnapshot<TData> {
+  visibleColumnIds: string[];
+  grouping: string[];
+  sorting: { id: string; desc: boolean }[];
+  rows: Array<
+    | {
+        type: 'group';
+        depth: number;
+        groupingColumnId: string;
+        groupingValue: unknown;
+        displayValue: string;
+        firstLeaf?: TData;
+      }
+    | { type: 'leaf'; row: TData }
+  >;
+}
+
+export interface GradingReportDataTableRef<TData> {
+  getPdfSnapshot: () => GradingReportPdfSnapshot<TData> | null;
+}
+
+function getFirstLeaf<TData>(row: Row<TData>): TData | undefined {
+  if (!row.getIsGrouped() || !row.subRows?.length) return row.original;
+  return getFirstLeaf(row.subRows[0]);
+}
+
+const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
+  {
+    columns,
+    data,
+    totalColumnIds = [...TOTAL_COLUMN_IDS],
+    initialColumnVisibility,
+    toolbarLeftContent,
+    toolbarRightContent,
+  }: DataTableProps<TData, TValue>,
+  ref: Ref<GradingReportDataTableRef<TData>>
+) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     () => initialColumnVisibility ?? {}
   );
+  const [grouping, setGrouping] = useState<string[]>([]);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [groupByOpen, setGroupByOpen] = useState(false);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getGroupedRowModel: getGroupedRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
+    onGroupingChange: setGrouping,
+    onSortingChange: setSorting,
+    onExpandedChange: (updater) =>
+      setExpanded((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : prev;
+        return typeof next === 'object' && next !== null ? next : prev;
+      }),
     state: {
       columnVisibility,
+      grouping,
+      sorting,
+      expanded,
     },
+    groupedColumnMode: 'reorder',
   });
+
+  const groupedIds = table.getState().grouping ?? [];
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    const dragIndex = Number(e.dataTransfer.getData('text/plain'));
+    if (Number.isNaN(dragIndex) || dragIndex === dropIndex) return;
+    const next = [...groupedIds];
+    const [removed] = next.splice(dragIndex, 1);
+    next.splice(dropIndex, 0, removed);
+    setGrouping(next);
+  };
+
+  const removeFromGrouping = (columnId: string) => {
+    setGrouping(groupedIds.filter((id) => id !== columnId));
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPdfSnapshot: (): GradingReportPdfSnapshot<TData> | null => {
+        const state = table.getState();
+        const groupingIds = state.grouping ?? [];
+        const visibleColumnIds = table
+          .getAllColumns()
+          .filter((col) => col.getIsVisible())
+          .map((col) => col.id);
+        const rows: GradingReportPdfSnapshot<TData>['rows'] = [];
+        const sortedModel = table.getSortedRowModel();
+        function walkRows(modelRows: Row<TData>[], depth: number): void {
+          for (const row of modelRows) {
+            if (row.getIsGrouped()) {
+              const groupingColumnId = groupingIds[depth];
+              const groupingValue = groupingColumnId
+                ? row.getValue(groupingColumnId)
+                : undefined;
+              const displayValue =
+                groupingValue != null && groupingValue !== ''
+                  ? String(groupingValue)
+                  : '—';
+              rows.push({
+                type: 'group',
+                depth,
+                groupingColumnId: groupingColumnId ?? '',
+                groupingValue,
+                displayValue,
+                firstLeaf: getFirstLeaf(row),
+              });
+              if (row.subRows?.length) {
+                walkRows(row.subRows, depth + 1);
+              }
+            } else {
+              rows.push({ type: 'leaf', row: row.original });
+            }
+          }
+        }
+        walkRows(sortedModel.rows, 0);
+        return {
+          visibleColumnIds,
+          grouping: groupingIds,
+          sorting: state.sorting ?? [],
+          rows,
+        };
+      },
+    }),
+    [table]
+  );
 
   const totals = (() => {
     const acc: Record<string, number> = {};
@@ -133,6 +278,80 @@ export function DataTable<TData, TValue>({
         <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:items-end">
             {toolbarLeftContent}
+            <Sheet open={groupByOpen} onOpenChange={setGroupByOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-9 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                >
+                  <Layers className="mr-2 h-4 w-4" />
+                  Group by
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="font-custom border-border flex w-full flex-col sm:max-w-[280px]"
+              >
+                <SheetHeader className="border-border border-b pb-4">
+                  <SheetTitle className="text-foreground">Group by</SheetTitle>
+                  <SheetDescription>
+                    Drag to reorder. Remove groups with the × button.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="flex flex-1 flex-col overflow-auto p-4">
+                  {groupedIds.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No groups applied. Use the 3-dot menu on a column header
+                      (Farmer, Variety, Date, Incoming gate pass date, Grader)
+                      to group by that column.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {groupedIds.map((columnId, index) => (
+                        <li
+                          key={columnId}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, index)}
+                          className={`border-border bg-card flex cursor-grab items-center gap-2 rounded-md border px-3 py-2 text-sm active:cursor-grabbing ${
+                            dragOverIndex === index
+                              ? 'border-primary bg-primary/10'
+                              : ''
+                          }`}
+                        >
+                          <GripVertical className="text-muted-foreground h-4 w-4 shrink-0" />
+                          <span className="text-foreground min-w-0 flex-1 truncate">
+                            {getColumnLabel(columnId)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive h-7 w-7 shrink-0"
+                            aria-label={`Remove ${getColumnLabel(columnId)} from groups`}
+                            onClick={() => removeFromGrouping(columnId)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {groupedIds.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-foreground mt-4 h-7 text-xs"
+                      onClick={() => setGrouping([])}
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -156,6 +375,7 @@ export function DataTable<TData, TValue>({
                       onCheckedChange={(value) =>
                         column.toggleVisibility(!!value)
                       }
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {getColumnLabel(column.id)}
                     </DropdownMenuCheckboxItem>
@@ -200,7 +420,14 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="border-border hover:bg-muted/50 border-b transition-colors last:border-b-0"
+                  data-depth={row.depth}
+                  className={`border-border border-b transition-colors last:border-b-0 ${
+                    row.getIsGrouped()
+                      ? 'bg-primary/15 hover:bg-primary/20'
+                      : row.depth > 0
+                        ? 'bg-secondary/40 hover:bg-secondary/50'
+                        : 'hover:bg-muted/50'
+                  }`}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -257,4 +484,10 @@ export function DataTable<TData, TValue>({
       </div>
     </div>
   );
-}
+}) as <TData, TValue>(
+  props: DataTableProps<TData, TValue> & {
+    ref?: Ref<GradingReportDataTableRef<TData>>;
+  }
+) => React.ReactElement;
+
+export const DataTable = DataTableInner;

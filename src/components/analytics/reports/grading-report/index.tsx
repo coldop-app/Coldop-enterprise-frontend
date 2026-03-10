@@ -12,7 +12,11 @@ import type {
 } from '@/types/analytics';
 import type { GradingGatePassIncomingGatePass } from '@/types/grading-gate-pass';
 import { columns, type GradingReportRow } from './columns';
-import { DataTable } from './data-table';
+import {
+  DataTable,
+  type GradingReportDataTableRef,
+  type GradingReportPdfSnapshot,
+} from './data-table';
 import type { VisibilityState } from '@tanstack/table-core';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +24,9 @@ import { DatePicker } from '@/components/forms/date-picker';
 import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { queryClient } from '@/lib/queryClient';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
+import { FileDown } from 'lucide-react';
 import {
   computeGradingOrderTotals,
   computeIncomingNetProductKg,
@@ -296,8 +302,11 @@ function isFlatGradingData(
 }
 
 const GradingReportTable = () => {
+  const coldStorage = useStore((s) => s.coldStorage);
+  const tableRef = useRef<GradingReportDataTableRef<GradingReportRow>>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [appliedRange, setAppliedRange] = useState<{
     dateFrom?: string;
     dateTo?: string;
@@ -364,6 +373,48 @@ const GradingReportTable = () => {
     toast.success('Date filters cleared. Report updated.');
   };
 
+  const getDateRangeLabel = () => {
+    if (appliedRange.dateFrom && appliedRange.dateTo) {
+      return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
+    }
+    if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
+    if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
+    return 'All dates';
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const snapshot: GradingReportPdfSnapshot<GradingReportRow> | null =
+        tableRef.current?.getPdfSnapshot() ?? null;
+      const [{ pdf }, { GradingReportTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/grading-report-table-pdf'),
+      ]);
+      const blob = await pdf(
+        <GradingReportTablePdf
+          companyName={coldStorage?.name ?? 'Cold Storage'}
+          dateRangeLabel={getDateRangeLabel()}
+          reportTitle="Grading Report"
+          rows={rows}
+          tableSnapshot={snapshot}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('PDF opened in new tab', {
+        description: 'Grading report is ready to view or print.',
+      });
+    } catch {
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
@@ -408,6 +459,7 @@ const GradingReportTable = () => {
           Grading Report
         </h2>
         <DataTable
+          ref={tableRef}
           columns={columns}
           data={rows}
           initialColumnVisibility={GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY}
@@ -448,6 +500,23 @@ const GradingReportTable = () => {
                 </Button>
               )}
             </>
+          }
+          toolbarRightContent={
+            <Button
+              className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || isLoading}
+              aria-label={
+                isGeneratingPdf
+                  ? 'Generating PDF…'
+                  : isLoading
+                    ? 'Loading report…'
+                    : 'View report'
+              }
+            >
+              <FileDown className="h-4 w-4 shrink-0" />
+              {isGeneratingPdf ? 'Generating…' : 'View Report'}
+            </Button>
           }
         />
       </div>
