@@ -4,6 +4,7 @@ import type { GetGradingSizeWiseDistributionParams } from '@/services/store-admi
 import type { GetAreaWiseAnalyticsParams } from '@/services/store-admin/grading-gate-pass/useGetAreaWiseAnalytics';
 import SizeDistributionChart from './SizeDistributionChart';
 import AreaWiseAnalytics from './AreaWiseAnalytics';
+import GradingTrendAnalysisChart from './GradingTrendAnalysisChart';
 
 export interface GradingGatePassAnalyticsScreenProps {
   queryResult: UseQueryResult<GetGradingGatePassesResult, Error>;
@@ -17,6 +18,7 @@ export default function GradingGatePassAnalyticsScreen({
 }: GradingGatePassAnalyticsScreenProps) {
   return (
     <div className="font-custom space-y-6">
+      <GradingTrendAnalysisChart dateParams={dateParams} />
       <SizeDistributionChart dateParams={dateParams} />
       <AreaWiseAnalytics dateParams={dateParams} />
     </div>
