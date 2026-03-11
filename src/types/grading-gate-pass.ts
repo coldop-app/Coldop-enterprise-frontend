@@ -88,7 +88,7 @@ export interface GradingGatePassOrderDetail {
   weightPerBagKg: number;
 }
 
-/** Grading gate pass as returned by GET /grading-gate-pass (list API) */
+/** Grading gate pass as returned by GET /grading-gate-pass (list API) and GET /grading-gate-pass/farmer-storage-link/:id */
 export interface GradingGatePass {
   _id: string;
   farmerStorageLinkId: string;
@@ -105,7 +105,8 @@ export interface GradingGatePass {
   remarks?: string;
   createdAt: string;
   updatedAt: string;
-  __v: number;
+  /** Present on list API; may be omitted by GET /grading-gate-pass/farmer-storage-link/:id */
+  __v?: number;
 }
 
 /** Pagination as returned by GET /grading-gate-pass */

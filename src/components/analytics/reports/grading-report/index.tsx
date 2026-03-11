@@ -288,6 +288,7 @@ const GradingReportTable = () => {
     limit: GRADING_REPORT_FETCH_LIMIT,
     dateFrom: appliedRange.dateFrom,
     dateTo: appliedRange.dateTo,
+    fetchAllPages: true,
   });
 
   const rows = useMemo((): GradingReportRow[] => {
@@ -313,6 +314,7 @@ const GradingReportTable = () => {
       limit: GRADING_REPORT_FETCH_LIMIT,
       dateFrom: fromDate ? formatDateToYYYYMMDD(fromDate) : undefined,
       dateTo: toDate ? formatDateToYYYYMMDD(toDate) : undefined,
+      fetchAllPages: true,
     };
     const fetchPromise = queryClient.fetchQuery(
       gradingGatePassesQueryOptions(params)

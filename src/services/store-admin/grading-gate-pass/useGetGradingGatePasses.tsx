@@ -21,6 +21,8 @@ export interface GetGradingGatePassesParams {
   sortOrder?: 'asc' | 'desc';
   dateFrom?: string;
   dateTo?: string;
+  /** When true, fetches all pages (limit per request) and returns combined data */
+  fetchAllPages?: boolean;
 }
 
 /** GET error shape (e.g. 401): { success, error: { code, message } } */
@@ -45,38 +47,82 @@ export interface GetGradingGatePassesResult {
   pagination: GradingGatePassPagination;
 }
 
-/** Fetcher used by queryOptions and prefetch */
+/** Fetcher for a single page */
+async function fetchGradingGatePassesPage(
+  params: GetGradingGatePassesParams
+): Promise<GetGradingGatePassesResult> {
+  const { data } = await storeAdminAxiosClient.get<
+    GetGradingGatePassesApiResponse | GetGradingGatePassesError
+  >('/grading-gate-pass', {
+    params: {
+      page: params.page,
+      limit: params.limit,
+      sortOrder: params.sortOrder,
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
+    },
+  });
+
+  if (!data.success || !('data' in data) || data.data == null) {
+    throw new Error(getFetchErrorMessage(data));
+  }
+
+  const response = data as GetGradingGatePassesApiResponse;
+  const list = response.data ?? [];
+  const pagination = response.pagination ?? {
+    page: params.page ?? 1,
+    limit: params.limit ?? 50,
+    total: list.length,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  };
+  return { data: list, pagination };
+}
+
+/** Fetcher used by queryOptions and prefetch – fetches one page or all pages when fetchAllPages is true */
 async function fetchGradingGatePasses(
   params: GetGradingGatePassesParams
 ): Promise<GetGradingGatePassesResult> {
   try {
-    const { data } = await storeAdminAxiosClient.get<
-      GetGradingGatePassesApiResponse | GetGradingGatePassesError
-    >('/grading-gate-pass', {
-      params: {
-        page: params.page,
-        limit: params.limit,
-        sortOrder: params.sortOrder,
-        dateFrom: params.dateFrom,
-        dateTo: params.dateTo,
-      },
-    });
+    if (params.fetchAllPages) {
+      const limit = params.limit ?? 5000;
+      const allData: GetGradingGatePassesApiResponse['data'] = [];
+      let page = 1;
+      let hasNextPage = true;
+      let lastPagination: GradingGatePassPagination = {
+        page: 1,
+        limit,
+        total: 0,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      };
 
-    if (!data.success || !('data' in data) || data.data == null) {
-      throw new Error(getFetchErrorMessage(data));
+      while (hasNextPage) {
+        const result = await fetchGradingGatePassesPage({
+          ...params,
+          page,
+          limit,
+          fetchAllPages: undefined,
+        });
+        allData.push(...result.data);
+        lastPagination = result.pagination;
+        hasNextPage = result.pagination.hasNextPage;
+        page += 1;
+      }
+
+      return {
+        data: allData,
+        pagination: {
+          ...lastPagination,
+          total: allData.length,
+          totalPages: lastPagination.totalPages,
+        },
+      };
     }
 
-    const response = data as GetGradingGatePassesApiResponse;
-    const list = response.data ?? [];
-    const pagination = response.pagination ?? {
-      page: params.page ?? 1,
-      limit: params.limit ?? 50,
-      total: list.length,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    };
-    return { data: list, pagination };
+    return fetchGradingGatePassesPage(params);
   } catch (err) {
     const responseData =
       err &&

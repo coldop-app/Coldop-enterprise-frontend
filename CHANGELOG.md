@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-03-12
+
+### Added
+- People (farmer detail): **Incoming and Grading tabs** — tabbed view with live incoming gate passes (via `useGetIncomingGatePassesOfSingleFarmer`) and grading gate passes (via `useGetGradingPassesOfSingleFarmer`); search, pagination, status filter (Incoming), and voucher cards
+- Service: **useGetIncomingGatePassesOfSingleFarmer** — GET `/incoming-gate-pass/farmer-storage-link/:farmerStorageLinkId` with query keys and prefetch; returns `IncomingGatePassByFarmerStorageLinkItem[]` and pagination
+- Grading gate pass list: **fetchAllPages** — optional param to fetch all pages and return combined data; used by grading report for full dataset
+- Types: `IncomingGatePassCreatedBy`, `IncomingGatePassByLinkFarmerStorageLink`, `IncomingGatePassByFarmerStorageLinkItem`, `GetIncomingGatePassesByFarmerStorageLinkApiResponse` for farmer-specific incoming API
+
+### Changed
+- People (farmer detail): refactored to use dedicated incoming/grading-by-farmer APIs and tabbed layout; stock ledger and export (PDF/Excel) retained; daybook-style vouchers for Incoming and Grading
+- Grading report: uses `fetchAllPages: true` for grading gate passes so report includes full date-range data
+- Grading gate pass type: `GradingGatePass.__v` optional (omitted by farmer-storage-link endpoint)
+- Grading gate pass service: split into single-page fetcher and main fetcher with optional all-pages loop
+
 ## [0.30.0] - 2026-03-10
 
 ### Added

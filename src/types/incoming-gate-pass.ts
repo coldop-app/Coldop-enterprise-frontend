@@ -128,3 +128,54 @@ export interface GetIncomingGatePassesApiResponse {
   pagination?: IncomingGatePassPagination;
   message?: string;
 }
+
+/** Created-by user as returned by GET /incoming-gate-pass/farmer-storage-link/:id */
+export interface IncomingGatePassCreatedBy {
+  _id: string;
+  name: string;
+  mobileNumber: string;
+}
+
+/** Farmer storage link as returned by GET /incoming-gate-pass/farmer-storage-link/:id (populated) */
+export interface IncomingGatePassByLinkFarmerStorageLink {
+  _id: string;
+  farmerId: {
+    _id: string;
+    name: string;
+    address: string;
+    mobileNumber: string;
+  };
+  coldStorageId: string;
+  linkedById: IncomingGatePassLinkedByAdmin;
+  accountNumber: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+/** Single incoming gate pass as returned by GET /incoming-gate-pass/farmer-storage-link/:id */
+export interface IncomingGatePassByFarmerStorageLinkItem {
+  _id: string;
+  farmerStorageLinkId: IncomingGatePassByLinkFarmerStorageLink;
+  createdBy: IncomingGatePassCreatedBy;
+  gatePassNo: number;
+  manualGatePassNumber: number;
+  date: string;
+  variety: string;
+  truckNumber: string;
+  bagsReceived: number;
+  weightSlip: IncomingGatePassWeightSlip;
+  status: string;
+  remarks?: string;
+  location?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** API response for GET /incoming-gate-pass/farmer-storage-link/:farmerStorageLinkId */
+export interface GetIncomingGatePassesByFarmerStorageLinkApiResponse {
+  success: boolean;
+  data: IncomingGatePassByFarmerStorageLinkItem[];
+  pagination: IncomingGatePassPagination;
+}
