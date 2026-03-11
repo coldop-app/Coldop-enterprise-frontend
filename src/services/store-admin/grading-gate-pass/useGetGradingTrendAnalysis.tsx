@@ -2,8 +2,8 @@ import { useQuery, queryOptions } from '@tanstack/react-query';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  GetDailyMonthlyTrendApiResponse,
-  DailyMonthlyTrendData,
+  GetGradingTrendApiResponse,
+  GradingTrendData,
 } from '@/types/analytics';
 
 /** Query key prefix for grading daily/monthly trend */
@@ -22,17 +22,16 @@ export interface GetGradingTrendParams {
 /** Fetcher used by queryOptions and prefetch */
 async function fetchGradingTrend(
   params: GetGradingTrendParams
-): Promise<DailyMonthlyTrendData> {
-  const { data } =
-    await storeAdminAxiosClient.get<GetDailyMonthlyTrendApiResponse>(
-      '/analytics/grading-daily-monthly-trend',
-      {
-        params: {
-          dateFrom: params.dateFrom,
-          dateTo: params.dateTo,
-        },
-      }
-    );
+): Promise<GradingTrendData> {
+  const { data } = await storeAdminAxiosClient.get<GetGradingTrendApiResponse>(
+    '/analytics/grading-daily-monthly-trend',
+    {
+      params: {
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+      },
+    }
+  );
 
   if (!data.success || data.data == null) {
     throw new Error(

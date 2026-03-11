@@ -494,29 +494,68 @@ export interface GetAreaWiseSizeDistributionApiResponse {
 
 // --- Daily/monthly trend (GET /analytics/daily-monthly-trend) ---
 
-/** Single daily entry in GET /analytics/daily-monthly-trend daily.chartData */
+/** Single daily data point (date + bags) */
 export interface DailyTrendChartItem {
   date: string;
   bags: number;
 }
 
-/** Single monthly entry in GET /analytics/daily-monthly-trend monthly.chartData */
+/** Single monthly data point (month + bags) */
 export interface MonthlyTrendChartItem {
   month: string;
   monthLabel: string;
   bags: number;
 }
 
-/** Data shape for GET /analytics/daily-monthly-trend */
+/** Daily series: one location with its daily dataPoints */
+export interface DailyTrendChartSeries {
+  location: string;
+  dataPoints: DailyTrendChartItem[];
+}
+
+/** Monthly series: one location with its monthly dataPoints */
+export interface MonthlyTrendChartSeries {
+  location: string;
+  dataPoints: MonthlyTrendChartItem[];
+}
+
+/** Data shape for GET /analytics/daily-monthly-trend (grouped by location) */
 export interface DailyMonthlyTrendData {
-  daily: { chartData: DailyTrendChartItem[] };
-  monthly: { chartData: MonthlyTrendChartItem[] };
+  daily: { chartData: DailyTrendChartSeries[] };
+  monthly: { chartData: MonthlyTrendChartSeries[] };
 }
 
 /** API response for GET /analytics/daily-monthly-trend */
 export interface GetDailyMonthlyTrendApiResponse {
   success: boolean;
   data: DailyMonthlyTrendData;
+  message?: string;
+}
+
+// --- Grading daily/monthly trend (GET /analytics/grading-daily-monthly-trend) ---
+
+/** Daily series for grading trend: one grader with its daily dataPoints */
+export interface GradingDailyTrendChartSeries {
+  grader: string;
+  dataPoints: DailyTrendChartItem[];
+}
+
+/** Monthly series for grading trend: one grader with its monthly dataPoints */
+export interface GradingMonthlyTrendChartSeries {
+  grader: string;
+  dataPoints: MonthlyTrendChartItem[];
+}
+
+/** Data shape for GET /analytics/grading-daily-monthly-trend (grouped by grader) */
+export interface GradingTrendData {
+  daily: { chartData: GradingDailyTrendChartSeries[] };
+  monthly: { chartData: GradingMonthlyTrendChartSeries[] };
+}
+
+/** API response for GET /analytics/grading-daily-monthly-trend */
+export interface GetGradingTrendApiResponse {
+  success: boolean;
+  data: GradingTrendData;
   message?: string;
 }
 

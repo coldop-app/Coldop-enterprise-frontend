@@ -45,6 +45,14 @@ function formatChartDate(dateStr: string | undefined): string {
     : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
+const CHART_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+];
+
 export interface GradingTrendAnalysisChartProps {
   dateParams: GetGradingTrendParams;
 }
@@ -58,28 +66,136 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
   const { data, isLoading, isError, error, refetch } =
     useGetGradingTrendAnalysis(dateParams);
 
-  const dailyData = useMemo(() => {
-    const raw = data?.daily.chartData ?? [];
-    return raw.map((row) => ({
-      ...row,
-      displayLabel: formatDisplayDate(row.date),
-    }));
+  /** Unique dates across all daily series, sorted */
+  const dailyDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const series of data?.daily.chartData ?? []) {
+      for (const pt of series.dataPoints) set.add(pt.date);
+    }
+    return [...set].sort();
   }, [data?.daily.chartData]);
 
-  const monthlyData = useMemo(() => {
-    const raw = data?.monthly.chartData ?? [];
-    return raw.map((row) => ({
-      ...row,
-      displayLabel: row.monthLabel,
-    }));
+  /** Chart-ready daily data: one row per date with a key per grader (bags) */
+  const dailyChartData = useMemo(() => {
+    const series = data?.daily.chartData ?? [];
+    const graders = series.map((s) => s.grader);
+    const byDate = new Map<string, Record<string, string | number>>();
+    for (const date of dailyDates) {
+      const row: Record<string, string | number> = {
+        date,
+        displayLabel: formatChartDate(date),
+      };
+      for (const g of graders) row[g] = 0;
+      byDate.set(date, row);
+    }
+    for (const { grader, dataPoints } of series) {
+      for (const pt of dataPoints) {
+        const row = byDate.get(pt.date);
+        if (row) row[grader] = pt.bags;
+      }
+    }
+    return dailyDates.map((d) => byDate.get(d)!);
+  }, [data?.daily.chartData, dailyDates]);
+
+  /** Unique months across all monthly series, sorted */
+  const monthlyMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const series of data?.monthly.chartData ?? []) {
+      for (const pt of series.dataPoints) set.add(pt.month);
+    }
+    return [...set].sort();
   }, [data?.monthly.chartData]);
 
-  const chartConfig = useMemo<ChartConfig>(
-    () => ({
-      bags: { label: 'Bags', color: 'var(--chart-1)' },
-    }),
-    []
+  /** Chart-ready monthly data: one row per month with a key per grader (bags) */
+  const monthlyChartData = useMemo(() => {
+    const series = data?.monthly.chartData ?? [];
+    const graders = series.map((s) => s.grader);
+    const byMonth = new Map<string, Record<string, string | number>>();
+    for (const month of monthlyMonths) {
+      const first = series
+        .flatMap((s) => s.dataPoints)
+        .find((p) => p.month === month);
+      const row: Record<string, string | number> = {
+        month,
+        monthLabel: first?.monthLabel ?? month,
+      };
+      for (const g of graders) row[g] = 0;
+      byMonth.set(month, row);
+    }
+    for (const { grader, dataPoints } of series) {
+      for (const pt of dataPoints) {
+        const row = byMonth.get(pt.month);
+        if (row) row[grader] = pt.bags;
+      }
+    }
+    return monthlyMonths.map((m) => byMonth.get(m)!);
+  }, [data?.monthly.chartData, monthlyMonths]);
+
+  const dailyGraders = useMemo(
+    () => (data?.daily.chartData ?? []).map((s) => s.grader),
+    [data?.daily.chartData]
   );
+  const monthlyGraders = useMemo(
+    () => (data?.monthly.chartData ?? []).map((s) => s.grader),
+    [data?.monthly.chartData]
+  );
+
+  /** Daily table: one row per date, cols = Date | Grader1 | Grader2 | ... | Total */
+  const dailyTableData = useMemo(() => {
+    return dailyChartData.map((row) => {
+      let total = 0;
+      for (const grader of dailyGraders) {
+        total += Number(row[grader] ?? 0);
+      }
+      return { ...row, total } as Record<string, string | number> & {
+        date: string;
+        total: number;
+      };
+    });
+  }, [dailyChartData, dailyGraders]);
+
+  /** Monthly table: one row per month, cols = Month | Grader1 | Grader2 | ... | Total */
+  const monthlyTableData = useMemo(() => {
+    return monthlyChartData.map((row) => {
+      let total = 0;
+      for (const grader of monthlyGraders) {
+        total += Number(row[grader] ?? 0);
+      }
+      return { ...row, total } as Record<string, string | number> & {
+        month: string;
+        monthLabel: string;
+        total: number;
+      };
+    });
+  }, [monthlyChartData, monthlyGraders]);
+
+  const dailyChartConfig: ChartConfig = (() => {
+    const config: ChartConfig = {
+      date: { label: 'Date' },
+      displayLabel: { label: 'Date' },
+    };
+    dailyGraders.forEach((grader, i) => {
+      config[grader] = {
+        label: grader,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+      };
+    });
+    return config;
+  })();
+
+  const monthlyChartConfig: ChartConfig = (() => {
+    const config: ChartConfig = {
+      month: { label: 'Month' },
+      monthLabel: { label: 'Month' },
+    };
+    monthlyGraders.forEach((grader, i) => {
+      config[grader] = {
+        label: grader,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+      };
+    });
+    return config;
+  })();
 
   if (isLoading) {
     return (
@@ -152,7 +268,7 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="daily" className="mt-0 outline-none">
-            {dailyData.length === 0 ? (
+            {dailyTableData.length === 0 ? (
               <p className="font-custom text-muted-foreground text-sm">
                 No daily data for the selected date range.
               </p>
@@ -163,36 +279,50 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                     <Calendar className="text-primary h-4 w-4" />
                     Daily activity
                   </h4>
-                  <div className="border-border bg-muted/30 overflow-hidden rounded-lg border">
-                    <div className="max-h-[240px] overflow-y-auto sm:max-h-[280px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead className="font-custom text-muted-foreground h-10 font-medium">
-                              Date
-                            </TableHead>
-                            <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium">
-                              Bags graded
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {dailyData.map((row) => (
-                            <TableRow
-                              key={row.date}
-                              className="hover:bg-muted/50 transition-colors duration-150"
+                  <div className="border-border bg-muted/30 overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="font-custom text-muted-foreground h-10 font-medium whitespace-nowrap">
+                            Date
+                          </TableHead>
+                          {dailyGraders.map((grader) => (
+                            <TableHead
+                              key={grader}
+                              className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap"
                             >
-                              <TableCell className="font-custom text-foreground font-medium">
-                                {row.displayLabel}
-                              </TableCell>
-                              <TableCell className="font-custom text-foreground text-right font-medium tabular-nums">
-                                {formatNumber(row.bags)}
-                              </TableCell>
-                            </TableRow>
+                              {grader}
+                            </TableHead>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap">
+                            Total
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dailyTableData.map((row) => (
+                          <TableRow
+                            key={row.date}
+                            className="hover:bg-muted/50 transition-colors duration-150"
+                          >
+                            <TableCell className="font-custom text-foreground font-medium whitespace-nowrap">
+                              {formatDisplayDate(row.date)}
+                            </TableCell>
+                            {dailyGraders.map((grader) => (
+                              <TableCell
+                                key={grader}
+                                className="font-custom text-foreground text-right font-medium tabular-nums"
+                              >
+                                {formatNumber(Number(row[grader] ?? 0))}
+                              </TableCell>
+                            ))}
+                            <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                              {formatNumber(row.total)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
 
@@ -201,12 +331,12 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                     Trend
                   </h4>
                   <ChartContainer
-                    config={chartConfig}
+                    config={dailyChartConfig}
                     className="min-h-[300px] w-full"
                   >
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart
-                        data={dailyData}
+                        data={dailyChartData}
                         margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -225,7 +355,7 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                         />
                         <Tooltip
                           formatter={(value: number) => [
-                            formatNumber(value),
+                            formatNumber(Number(value)),
                             'Bags',
                           ]}
                           labelFormatter={(label) => formatDisplayDate(label)}
@@ -234,14 +364,21 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                             borderRadius: 'var(--radius)',
                           }}
                         />
-                        <Line
-                          type="monotone"
-                          dataKey="bags"
-                          stroke="var(--chart-1)"
-                          strokeWidth={2}
-                          dot={{ fill: 'var(--chart-1)', r: 3 }}
-                          activeDot={{ r: 4 }}
-                        />
+                        {dailyGraders.map((grader, i) => (
+                          <Line
+                            key={grader}
+                            type="monotone"
+                            dataKey={grader}
+                            name={grader}
+                            stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                            strokeWidth={2}
+                            dot={{
+                              fill: CHART_COLORS[i % CHART_COLORS.length],
+                              r: 3,
+                            }}
+                            activeDot={{ r: 4 }}
+                          />
+                        ))}
                       </LineChart>
                     </ResponsiveContainer>
                   </ChartContainer>
@@ -250,7 +387,7 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
             )}
           </TabsContent>
           <TabsContent value="monthly" className="mt-0 outline-none">
-            {monthlyData.length === 0 ? (
+            {monthlyTableData.length === 0 ? (
               <p className="font-custom text-muted-foreground text-sm">
                 No monthly data for the selected date range.
               </p>
@@ -261,29 +398,45 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                     <Calendar className="text-primary h-4 w-4" />
                     Monthly activity
                   </h4>
-                  <div className="border-border bg-muted/30 overflow-hidden rounded-lg border">
+                  <div className="border-border bg-muted/30 overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="font-custom text-muted-foreground h-10 font-medium">
+                          <TableHead className="font-custom text-muted-foreground h-10 font-medium whitespace-nowrap">
                             Month
                           </TableHead>
-                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium">
-                            Bags graded
+                          {monthlyGraders.map((grader) => (
+                            <TableHead
+                              key={grader}
+                              className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap"
+                            >
+                              {grader}
+                            </TableHead>
+                          ))}
+                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap">
+                            Total
                           </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {monthlyData.map((row) => (
+                        {monthlyTableData.map((row) => (
                           <TableRow
                             key={row.month}
                             className="hover:bg-muted/50 transition-colors duration-150"
                           >
-                            <TableCell className="font-custom text-foreground font-medium">
+                            <TableCell className="font-custom text-foreground font-medium whitespace-nowrap">
                               {row.monthLabel}
                             </TableCell>
-                            <TableCell className="font-custom text-foreground text-right font-medium tabular-nums">
-                              {formatNumber(row.bags)}
+                            {monthlyGraders.map((grader) => (
+                              <TableCell
+                                key={grader}
+                                className="font-custom text-foreground text-right font-medium tabular-nums"
+                              >
+                                {formatNumber(Number(row[grader] ?? 0))}
+                              </TableCell>
+                            ))}
+                            <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                              {formatNumber(row.total)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -297,12 +450,12 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                     Trend
                   </h4>
                   <ChartContainer
-                    config={chartConfig}
+                    config={monthlyChartConfig}
                     className="min-h-[300px] w-full"
                   >
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart
-                        data={monthlyData}
+                        data={monthlyChartData}
                         margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -320,7 +473,7 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                         />
                         <Tooltip
                           formatter={(value: number) => [
-                            formatNumber(value),
+                            formatNumber(Number(value)),
                             'Bags',
                           ]}
                           contentStyle={{
@@ -328,14 +481,21 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                             borderRadius: 'var(--radius)',
                           }}
                         />
-                        <Line
-                          type="monotone"
-                          dataKey="bags"
-                          stroke="var(--chart-1)"
-                          strokeWidth={2}
-                          dot={{ fill: 'var(--chart-1)', r: 3 }}
-                          activeDot={{ r: 4 }}
-                        />
+                        {monthlyGraders.map((grader, i) => (
+                          <Line
+                            key={grader}
+                            type="monotone"
+                            dataKey={grader}
+                            name={grader}
+                            stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                            strokeWidth={2}
+                            dot={{
+                              fill: CHART_COLORS[i % CHART_COLORS.length],
+                              r: 3,
+                            }}
+                            activeDot={{ r: 4 }}
+                          />
+                        ))}
                       </LineChart>
                     </ResponsiveContainer>
                   </ChartContainer>
