@@ -3,15 +3,18 @@
 import { useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
-  useGetGradingGatePassReports,
-  gradingGatePassReportQueryOptions,
-} from '@/services/store-admin/analytics/grading/useGetGradingGatePassReports';
+  useGetGradingGatePasses,
+  gradingGatePassesQueryOptions,
+} from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import type {
-  GradingGatePassReportData,
-  GradingGatePassReportItem,
-} from '@/types/analytics';
-import type { GradingGatePassIncomingGatePass } from '@/types/grading-gate-pass';
-import { columns, type GradingReportRow } from './columns';
+  GradingGatePass,
+  GradingGatePassIncomingRef,
+} from '@/types/grading-gate-pass';
+import {
+  columns,
+  type GradingReportRow,
+  GRADING_REPORT_ROW_SPAN_COLUMN_IDS,
+} from './columns';
 import {
   DataTable,
   type GradingReportDataTableRef,
@@ -43,152 +46,95 @@ function formatDate(iso: string | undefined): string {
   }
 }
 
-function getFarmerName(pass: GradingGatePassReportItem): string {
-  if (pass.farmerStorageLink?.farmerId?.name) {
-    return pass.farmerStorageLink.farmerId.name;
-  }
-  const inc = pass.incomingGatePassId;
-  if (inc && 'farmerStorageLinkId' in inc) {
-    return (
-      (inc as GradingGatePassIncomingGatePass).farmerStorageLinkId?.farmerId
-        ?.name ?? '—'
-    );
-  }
-  return '—';
+function getFarmerName(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): string {
+  return inc.farmerStorageLinkId?.farmerId?.name ?? '—';
 }
 
-function getAccountNumber(pass: GradingGatePassReportItem): number | string {
-  if (pass.farmerStorageLink?.accountNumber != null) {
-    return pass.farmerStorageLink.accountNumber;
-  }
-  const inc = pass.incomingGatePassId;
-  if (inc && 'farmerStorageLinkId' in inc) {
-    return (
-      (inc as GradingGatePassIncomingGatePass).farmerStorageLinkId
-        ?.accountNumber ?? '—'
-    );
-  }
-  return '—';
+function getAccountNumber(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): number | string {
+  return inc.farmerStorageLinkId?.accountNumber ?? '—';
 }
 
-function getFarmerAddress(pass: GradingGatePassReportItem): string {
-  if (pass.farmerStorageLink?.farmerId?.address) {
-    return pass.farmerStorageLink.farmerId.address;
-  }
-  const inc = pass.incomingGatePassId;
-  if (inc && 'farmerStorageLinkId' in inc) {
-    return (
-      (inc as GradingGatePassIncomingGatePass).farmerStorageLinkId?.farmerId
-        ?.address ?? '—'
-    );
-  }
-  return '—';
+function getFarmerAddress(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): string {
+  return inc.farmerStorageLinkId?.farmerId?.address ?? '—';
 }
 
-function getFarmerMobile(pass: GradingGatePassReportItem): string {
-  if (pass.farmerStorageLink?.farmerId?.mobileNumber) {
-    return pass.farmerStorageLink.farmerId.mobileNumber;
-  }
-  const inc = pass.incomingGatePassId;
-  if (inc && 'farmerStorageLinkId' in inc) {
-    return (
-      (inc as GradingGatePassIncomingGatePass).farmerStorageLinkId?.farmerId
-        ?.mobileNumber ?? '—'
-    );
-  }
-  return '—';
+function getFarmerMobile(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): string {
+  return inc.farmerStorageLinkId?.farmerId?.mobileNumber ?? '—';
 }
 
 function getIncomingGatePassNo(
-  pass: GradingGatePassReportItem
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
 ): number | string {
-  const inc = pass.incomingGatePassId;
-  if (inc && typeof inc === 'object' && 'gatePassNo' in inc) {
-    return inc.gatePassNo ?? '—';
-  }
-  return '—';
+  return inc.gatePassNo ?? '—';
 }
 
-function getIncomingManualNo(pass: GradingGatePassReportItem): number | string {
-  const inc = pass.incomingGatePassId;
-  if (inc && typeof inc === 'object' && 'manualGatePassNumber' in inc) {
-    const v = (inc as { manualGatePassNumber?: number }).manualGatePassNumber;
-    return v != null ? v : '—';
-  }
-  return '—';
+function getIncomingManualNo(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): number | string {
+  const v = inc.manualGatePassNumber;
+  return v != null ? v : '—';
 }
 
-function getIncomingGatePassDate(pass: GradingGatePassReportItem): string {
-  const inc = pass.incomingGatePassId;
-  if (inc && typeof inc === 'object' && 'date' in inc) {
-    const dateStr = (inc as { date?: string }).date;
-    if (dateStr) return formatDate(dateStr);
-  }
-  return '—';
+function getIncomingGatePassDate(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): string {
+  return inc.date ? formatDate(inc.date) : '—';
 }
 
-function getTruckNumber(pass: GradingGatePassReportItem): string {
-  const inc = pass.incomingGatePassId;
-  if (inc && typeof inc === 'object' && 'truckNumber' in inc) {
-    return (inc as { truckNumber?: string }).truckNumber ?? '—';
-  }
-  return '—';
+function getTruckNumber(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): string {
+  return inc.truckNumber ?? '—';
 }
 
-function getBagsReceived(pass: GradingGatePassReportItem): number {
-  const inc = pass.incomingGatePassId;
-  if (inc && typeof inc === 'object' && 'bagsReceived' in inc) {
-    return (inc as { bagsReceived?: number }).bagsReceived ?? 0;
-  }
-  if (pass.orderDetails?.length) {
-    return pass.orderDetails.reduce(
-      (sum, d) => sum + (d.initialQuantity ?? d.currentQuantity ?? 0),
-      0
-    );
-  }
-  return 0;
+function getBagsReceived(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): number {
+  return inc.bagsReceived ?? 0;
 }
 
 /**
- * Incoming net weight (kg) using same logic as grading voucher:
- * - If grossWeightKg and tareWeightKg present (weight slip): net = gross − tare
- * - Else if netWeightKg present: use it
- * - Else undefined
+ * Incoming net weight (kg) from weight slip: net = gross − tare.
+ * GradingGatePassIncomingRef only has weightSlip with grossWeightKg/tareWeightKg.
  */
-function getIncomingNetKg(pass: GradingGatePassReportItem): number | undefined {
-  const inc = pass.incomingGatePassId;
-  if (!inc || typeof inc !== 'object') return undefined;
-  const withWeight = inc as {
-    grossWeightKg?: number;
-    tareWeightKg?: number;
-    netWeightKg?: number;
-    weightSlip?: { grossWeightKg?: number; tareWeightKg?: number };
-  };
-  const gross =
-    withWeight.grossWeightKg ?? withWeight.weightSlip?.grossWeightKg;
-  const tare = withWeight.tareWeightKg ?? withWeight.weightSlip?.tareWeightKg;
+function getIncomingNetKg(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): number | undefined {
+  const gross = inc.weightSlip?.grossWeightKg;
+  const tare = inc.weightSlip?.tareWeightKg;
   if (gross != null && tare != null) return gross - tare;
-  if (withWeight.netWeightKg != null) return withWeight.netWeightKg;
   return undefined;
 }
 
-function getGrossTareNet(pass: GradingGatePassReportItem): {
+function getGrossTareNet(
+  _pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef
+): {
   grossWeightKg?: number;
   tareWeightKg?: number;
   netWeightKg?: number;
 } {
-  const inc = pass.incomingGatePassId;
-  if (!inc || typeof inc !== 'object') return {};
-  const withWeight = inc as {
-    grossWeightKg?: number;
-    tareWeightKg?: number;
-    netWeightKg?: number;
-    weightSlip?: { grossWeightKg?: number; tareWeightKg?: number };
-  };
-  const gross =
-    withWeight.grossWeightKg ?? withWeight.weightSlip?.grossWeightKg;
-  const tare = withWeight.tareWeightKg ?? withWeight.weightSlip?.tareWeightKg;
-  const netKg = getIncomingNetKg(pass);
+  const gross = inc.weightSlip?.grossWeightKg;
+  const tare = inc.weightSlip?.tareWeightKg;
+  const netKg = getIncomingNetKg(_pass, inc);
   return {
     grossWeightKg: gross,
     tareWeightKg: tare,
@@ -197,73 +143,106 @@ function getGrossTareNet(pass: GradingGatePassReportItem): {
 }
 
 /**
- * Map flat API response to table rows using the same calculation flow as GradingVoucher:
- * - effectiveIncomingNetKg from weight slip (gross − tare) or netWeightKg
- * - effectiveIncomingNetProductKg = effectiveIncomingNetKg − (bags × JUTE_BAG_WEIGHT)
- * - wastageKg = max(0, effectiveIncomingNetProductKg − totalGradedWeightKg)
+ * Map grading gate passes to table rows. Each grading pass has
+ * incomingGatePassIds[]; when there are multiple incomings they are grouped:
+ * one row per incoming with that incoming's details; grading pass details
+ * (gate pass no., date, total graded bags/weight, wastage, grader, remarks)
+ * appear on the first row of the group only. Wastage is computed at group level
+ * (combined effective incoming net product − total graded weight).
  */
-function mapGradingPassesToRows(
-  passes: GradingGatePassReportItem[]
-): GradingReportRow[] {
-  return passes.map((pass) => {
+function mapGradingPassesToRows(passes: GradingGatePass[]): GradingReportRow[] {
+  const rows: GradingReportRow[] = [];
+
+  for (const pass of passes) {
+    const incomings = pass.incomingGatePassIds ?? [];
+    if (incomings.length === 0) continue;
+
     const createdByName = pass.createdBy?.name ?? '—';
-    const { grossWeightKg, tareWeightKg } = getGrossTareNet(pass);
     const totalGradedBags = pass.orderDetails?.length
       ? pass.orderDetails.reduce(
           (sum, d) => sum + (d.initialQuantity ?? d.currentQuantity ?? 0),
           0
         )
       : 0;
-
     const { totalGradedWeightKg } = computeGradingOrderTotals(
       pass.orderDetails as Parameters<typeof computeGradingOrderTotals>[0]
     );
 
-    const totalIncomingBags = getBagsReceived(pass);
-    const effectiveIncomingNetKg = getIncomingNetKg(pass);
-    const effectiveIncomingNetProductKg =
-      effectiveIncomingNetKg != null && totalIncomingBags != null
-        ? effectiveIncomingNetKg - totalIncomingBags * JUTE_BAG_WEIGHT
+    const groupTotalIncomingBags = incomings.reduce(
+      (sum, inc) => sum + getBagsReceived(pass, inc),
+      0
+    );
+    const groupEffectiveIncomingNetKg = incomings.reduce<number | undefined>(
+      (acc, inc) => {
+        const net = getIncomingNetKg(pass, inc);
+        if (net == null) return acc;
+        return (acc ?? 0) + net;
+      },
+      undefined
+    );
+    const groupEffectiveIncomingNetProductKg =
+      groupEffectiveIncomingNetKg != null && groupTotalIncomingBags != null
+        ? groupEffectiveIncomingNetKg - groupTotalIncomingBags * JUTE_BAG_WEIGHT
         : computeIncomingNetProductKg(
-            effectiveIncomingNetKg,
-            totalIncomingBags
+            groupEffectiveIncomingNetKg,
+            groupTotalIncomingBags
           );
-
     const wastageKg =
-      effectiveIncomingNetProductKg != null && effectiveIncomingNetProductKg > 0
-        ? Math.max(0, effectiveIncomingNetProductKg - totalGradedWeightKg)
+      groupEffectiveIncomingNetProductKg != null &&
+      groupEffectiveIncomingNetProductKg > 0
+        ? Math.max(0, groupEffectiveIncomingNetProductKg - totalGradedWeightKg)
         : undefined;
 
-    return {
-      id: pass._id,
-      farmerName: getFarmerName(pass),
-      accountNumber: getAccountNumber(pass),
-      farmerAddress: getFarmerAddress(pass),
-      farmerMobile: getFarmerMobile(pass),
-      createdByName,
-      gatePassNo: pass.gatePassNo ?? '—',
-      manualGatePassNumber: pass.manualGatePassNumber ?? '—',
-      incomingGatePassNo: getIncomingGatePassNo(pass),
-      incomingManualNo: getIncomingManualNo(pass),
-      incomingGatePassDate: getIncomingGatePassDate(pass),
-      date: formatDate(pass.date),
-      variety: pass.variety ?? '—',
-      truckNumber: getTruckNumber(pass),
-      bagsReceived: totalIncomingBags,
-      grossWeightKg: grossWeightKg ?? '—',
-      tareWeightKg: tareWeightKg ?? '—',
-      netWeightKg: effectiveIncomingNetKg ?? '—',
-      netProductKg:
-        effectiveIncomingNetProductKg != null
-          ? effectiveIncomingNetProductKg
+    incomings.forEach((inc, idx) => {
+      const { grossWeightKg, tareWeightKg } = getGrossTareNet(pass, inc);
+      const totalIncomingBags = getBagsReceived(pass, inc);
+      const effectiveIncomingNetKg = getIncomingNetKg(pass, inc);
+      const effectiveIncomingNetProductKg =
+        effectiveIncomingNetKg != null && totalIncomingBags != null
+          ? effectiveIncomingNetKg - totalIncomingBags * JUTE_BAG_WEIGHT
+          : computeIncomingNetProductKg(
+              effectiveIncomingNetKg,
+              totalIncomingBags
+            );
+
+      const isFirstRow = idx === 0;
+      rows.push({
+        id: incomings.length > 1 ? `${pass._id}-${idx}` : pass._id,
+        farmerName: getFarmerName(pass, inc),
+        accountNumber: getAccountNumber(pass, inc),
+        farmerAddress: getFarmerAddress(pass, inc),
+        farmerMobile: getFarmerMobile(pass, inc),
+        createdByName,
+        gatePassNo: isFirstRow ? (pass.gatePassNo ?? '—') : '—',
+        manualGatePassNumber: isFirstRow
+          ? (pass.manualGatePassNumber ?? '—')
           : '—',
-      totalGradedBags,
-      totalGradedWeightKg,
-      wastageKg: wastageKg ?? '—',
-      grader: pass.grader ?? '—',
-      remarks: pass.remarks ?? '—',
-    };
-  });
+        incomingGatePassNo: getIncomingGatePassNo(pass, inc),
+        incomingManualNo: getIncomingManualNo(pass, inc),
+        incomingGatePassDate: getIncomingGatePassDate(pass, inc),
+        date: isFirstRow ? formatDate(pass.date) : '—',
+        variety: inc.variety ?? pass.variety ?? '—',
+        truckNumber: getTruckNumber(pass, inc),
+        bagsReceived: totalIncomingBags,
+        grossWeightKg: grossWeightKg ?? '—',
+        tareWeightKg: tareWeightKg ?? '—',
+        netWeightKg: effectiveIncomingNetKg ?? '—',
+        netProductKg:
+          effectiveIncomingNetProductKg != null
+            ? effectiveIncomingNetProductKg
+            : '—',
+        totalGradedBags: isFirstRow ? totalGradedBags : 0,
+        totalGradedWeightKg: isFirstRow ? totalGradedWeightKg : 0,
+        wastageKg: isFirstRow ? (wastageKg ?? '—') : '—',
+        grader: isFirstRow ? (pass.grader ?? '—') : '—',
+        remarks: isFirstRow ? (pass.remarks ?? '—') : '—',
+        gradingPassRowIndex: idx,
+        gradingPassGroupSize: incomings.length,
+      });
+    });
+  }
+
+  return rows;
 }
 
 /** Default column visibility: only incoming GP no., manual no., date, bags received, net weight */
@@ -292,14 +271,7 @@ const GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   createdByName: false,
 };
 
-/** Check if API returned flat list (no grouping) */
-function isFlatGradingData(
-  data: GradingGatePassReportData
-): data is GradingGatePassReportItem[] {
-  if (!Array.isArray(data) || data.length === 0) return true;
-  const first = data[0];
-  return first != null && typeof first === 'object' && !('gatePasses' in first);
-}
+const GRADING_REPORT_FETCH_LIMIT = 5000;
 
 const GradingReportTable = () => {
   const coldStorage = useStore((s) => s.coldStorage);
@@ -312,17 +284,15 @@ const GradingReportTable = () => {
     dateTo?: string;
   }>({});
 
-  const { data, isLoading, error } = useGetGradingGatePassReports({
-    groupByFarmer: false,
-    groupByVariety: false,
+  const { data, isLoading, error } = useGetGradingGatePasses({
+    limit: GRADING_REPORT_FETCH_LIMIT,
     dateFrom: appliedRange.dateFrom,
     dateTo: appliedRange.dateTo,
   });
 
   const rows = useMemo((): GradingReportRow[] => {
-    if (!data) return [];
-    const flat = isFlatGradingData(data) ? data : [];
-    return mapGradingPassesToRows(flat);
+    const list = data?.data ?? [];
+    return mapGradingPassesToRows(list);
   }, [data]);
 
   const reportContentRef = useRef<HTMLDivElement>(null);
@@ -340,13 +310,12 @@ const GradingReportTable = () => {
       }
     }
     const params = {
-      groupByFarmer: false,
-      groupByVariety: false,
+      limit: GRADING_REPORT_FETCH_LIMIT,
       dateFrom: fromDate ? formatDateToYYYYMMDD(fromDate) : undefined,
       dateTo: toDate ? formatDateToYYYYMMDD(toDate) : undefined,
     };
     const fetchPromise = queryClient.fetchQuery(
-      gradingGatePassReportQueryOptions(params)
+      gradingGatePassesQueryOptions(params)
     );
     toast.promise(fetchPromise, {
       loading: 'Applying date filters…',
@@ -474,6 +443,7 @@ const GradingReportTable = () => {
           columns={columns}
           data={rows}
           initialColumnVisibility={GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY}
+          rowSpanColumnIds={GRADING_REPORT_ROW_SPAN_COLUMN_IDS}
           toolbarLeftContent={
             <>
               <DatePicker

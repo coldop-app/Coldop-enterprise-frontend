@@ -1,5 +1,8 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { GradingReportRow } from '@/components/analytics/reports/grading-report/columns';
+import {
+  type GradingReportRow,
+  GRADING_REPORT_ROW_SPAN_COLUMN_IDS,
+} from '@/components/analytics/reports/grading-report/columns';
 import type { GradingReportPdfSnapshot } from '@/components/analytics/reports/grading-report/data-table';
 
 export interface GradingReportTablePdfProps {
@@ -207,6 +210,93 @@ const styles = StyleSheet.create({
   },
 });
 
+/** Height of one data row in the PDF table (used for row-span alignment). */
+const PDF_ROW_HEIGHT = 10;
+
+/** Split rows into grading-pass groups for row-span. Each group is consecutive rows belonging to one grading pass. */
+function getGradingPassGroups(rows: GradingReportRow[]): GradingReportRow[][] {
+  const groups: GradingReportRow[][] = [];
+  let i = 0;
+  while (i < rows.length) {
+    const row = rows[i];
+    const size = row.gradingPassGroupSize ?? 1;
+    groups.push(rows.slice(i, i + size));
+    i += size;
+  }
+  return groups;
+}
+
+const SPAN_COLUMN_SET = new Set<string>(GRADING_REPORT_ROW_SPAN_COLUMN_IDS);
+
+interface GroupedTableBodyProps {
+  group: GradingReportRow[];
+  columns: {
+    key: keyof GradingReportRow;
+    label: string;
+    width: string;
+    align: 'left' | 'center';
+  }[];
+}
+
+/** Renders one grading-pass group with row-span: span columns show one tall cell, others show one cell per row. */
+function GroupedTableBody({ group, columns }: GroupedTableBodyProps) {
+  const groupHeight = group.length * PDF_ROW_HEIGHT;
+  const first = group[0]!;
+
+  return (
+    <View style={[styles.tableRow, { minHeight: groupHeight }]}>
+      {columns.map((col, i) => {
+        const isSpan = SPAN_COLUMN_SET.has(col.key);
+        return (
+          <View
+            key={col.key}
+            style={[
+              styles.cellWrap,
+              i === columns.length - 1 ? styles.cellLast : {},
+              { width: col.width, minWidth: 0 },
+              isSpan ? { minHeight: groupHeight } : {},
+            ]}
+          >
+            {isSpan ? (
+              <Text
+                style={[
+                  col.align === 'left' ? styles.cellLeft : styles.cell,
+                  styles.cellText,
+                ]}
+                wrap
+              >
+                {formatCell(first[col.key], col.key)}
+              </Text>
+            ) : (
+              <View style={{ flexDirection: 'column' }}>
+                {group.map((row, rowIdx) => (
+                  <View
+                    key={rowIdx}
+                    style={{
+                      minHeight: PDF_ROW_HEIGHT,
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      style={[
+                        col.align === 'left' ? styles.cellLeft : styles.cell,
+                        styles.cellText,
+                      ]}
+                      wrap
+                    >
+                      {formatCell(row[col.key], col.key)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 const ALL_COLUMNS: {
   key: keyof GradingReportRow;
   label: string;
@@ -289,16 +379,30 @@ function getColumnsForPdf(
   }));
 }
 
-/** Format value for PDF display; numbers limited to 2 decimal places. */
-function formatCell(value: unknown): string {
+/** Column keys that should display as natural numbers (no decimal places). */
+const INTEGER_COLUMN_KEYS = new Set<string>([
+  'incomingGatePassNo',
+  'incomingManualNo',
+  'gatePassNo',
+  'manualGatePassNumber',
+  'bagsReceived',
+  'totalGradedBags',
+  'accountNumber',
+]);
+
+/** Format value for PDF display. Gate pass numbers and counts as integers; other numbers to 2 decimal places. */
+function formatCell(value: unknown, columnKey?: string): string {
   if (value == null || value === '') return '—';
+  const asInteger = columnKey != null && INTEGER_COLUMN_KEYS.has(columnKey);
   if (typeof value === 'number') {
     if (Number.isNaN(value)) return '—';
-    return value.toFixed(2);
+    return asInteger ? String(Math.round(value)) : value.toFixed(2);
   }
   if (typeof value === 'string' && value !== '—') {
     const n = Number(value);
-    if (!Number.isNaN(n)) return n.toFixed(2);
+    if (!Number.isNaN(n)) {
+      return asInteger ? String(Math.round(n)) : n.toFixed(2);
+    }
   }
   return String(value);
 }
@@ -317,43 +421,6 @@ function ReportHeader({
       <Text style={styles.companyName}>{companyName}</Text>
       <Text style={styles.reportTitle}>{reportTitle}</Text>
       <Text style={styles.dateRange}>{dateRangeLabel}</Text>
-    </View>
-  );
-}
-
-interface TableRowProps {
-  row: GradingReportRow;
-  columns: {
-    key: keyof GradingReportRow;
-    label: string;
-    width: string;
-    align: 'left' | 'center';
-  }[];
-}
-
-function TableRow({ row, columns }: TableRowProps) {
-  return (
-    <View style={styles.tableRow}>
-      {columns.map((col, i) => (
-        <View
-          key={col.key}
-          style={[
-            styles.cellWrap,
-            i === columns.length - 1 ? styles.cellLast : {},
-            { width: col.width, minWidth: 0 },
-          ]}
-        >
-          <Text
-            style={[
-              col.align === 'left' ? styles.cellLeft : styles.cell,
-              styles.cellText,
-            ]}
-            wrap
-          >
-            {formatCell(row[col.key])}
-          </Text>
-        </View>
-      ))}
     </View>
   );
 }
@@ -1138,10 +1205,10 @@ export const GradingReportTablePdf = ({
                         </Text>
                       </View>
                     ) : (
-                      section.leaves.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          row={row}
+                      getGradingPassGroups(section.leaves).map((group, gi) => (
+                        <GroupedTableBody
+                          key={group[0]?.id ?? gi}
+                          group={group}
                           columns={columnsForTable}
                         />
                       ))
@@ -1223,8 +1290,12 @@ export const GradingReportTablePdf = ({
               </View>
             ) : (
               <>
-                {leafRows.map((row) => (
-                  <TableRow key={row.id} row={row} columns={columnsForPdf} />
+                {getGradingPassGroups(leafRows).map((group, gi) => (
+                  <GroupedTableBody
+                    key={group[0]?.id ?? gi}
+                    group={group}
+                    columns={columnsForPdf}
+                  />
                 ))}
                 <TotalsRow totals={totals} columns={columnsForPdf} />
               </>

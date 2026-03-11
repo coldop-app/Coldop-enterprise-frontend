@@ -230,7 +230,23 @@ export type GradingReportRow = {
   wastageKg: number | string;
   grader: string;
   remarks: string;
+  /** Row index within a grading-pass group (0 = first row). Used for rowSpan. */
+  gradingPassRowIndex?: number;
+  /** Number of rows in this grading-pass group. Used for rowSpan. */
+  gradingPassGroupSize?: number;
 };
+
+/** Column ids that span across grouped incoming rows (grading gate pass level). */
+export const GRADING_REPORT_ROW_SPAN_COLUMN_IDS = [
+  'gatePassNo',
+  'manualGatePassNumber',
+  'date',
+  'totalGradedBags',
+  'totalGradedWeightKg',
+  'wastageKg',
+  'grader',
+  'remarks',
+] as const;
 
 function formatNum(value: number | string): string {
   const n = typeof value === 'number' ? value : Number(value);

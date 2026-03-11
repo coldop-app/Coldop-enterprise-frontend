@@ -60,6 +60,12 @@ function toNum(value: unknown): number {
   return 0;
 }
 
+/** Row with optional grading-pass group meta for rowSpan */
+interface RowWithGradingGroupMeta {
+  gradingPassRowIndex?: number;
+  gradingPassGroupSize?: number;
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -67,6 +73,8 @@ interface DataTableProps<TData, TValue> {
   totalColumnIds?: readonly string[];
   /** Initial column visibility state (column id -> visible). Omit or use {} for all visible. */
   initialColumnVisibility?: VisibilityState;
+  /** Column ids that should rowSpan across grouped rows (e.g. grading gate pass columns). Row data must have gradingPassRowIndex and gradingPassGroupSize. */
+  rowSpanColumnIds?: readonly string[];
   /** Optional content to render on the left side of the toolbar (filters, Columns) */
   toolbarLeftContent?: React.ReactNode;
   /** Optional content to render on the right side of the toolbar (e.g. primary action) */
@@ -136,6 +144,7 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
     data,
     totalColumnIds = [...TOTAL_COLUMN_IDS],
     initialColumnVisibility,
+    rowSpanColumnIds,
     toolbarLeftContent,
     toolbarRightContent,
   }: DataTableProps<TData, TValue>,
@@ -416,32 +425,54 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  data-depth={row.depth}
-                  className={`border-border border-b transition-colors last:border-b-0 ${
-                    row.getIsGrouped()
-                      ? 'bg-primary/15 hover:bg-primary/20'
-                      : row.depth > 0
-                        ? 'bg-secondary/40 hover:bg-secondary/50'
-                        : 'hover:bg-muted/50'
-                  }`}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const original =
+                  row.original as unknown as RowWithGradingGroupMeta;
+                const rowIndex = original.gradingPassRowIndex ?? 0;
+                const groupSize = original.gradingPassGroupSize ?? 1;
+                const spanColumnSet =
+                  rowSpanColumnIds != null && rowSpanColumnIds.length > 0
+                    ? new Set(rowSpanColumnIds)
+                    : null;
+
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && 'selected'}
+                    data-depth={row.depth}
+                    className={`border-border border-b transition-colors last:border-b-0 ${
+                      row.getIsGrouped()
+                        ? 'bg-primary/15 hover:bg-primary/20'
+                        : row.depth > 0
+                          ? 'bg-secondary/40 hover:bg-secondary/50'
+                          : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isSpanColumn =
+                        spanColumnSet != null &&
+                        spanColumnSet.has(cell.column.id);
+                      if (isSpanColumn && rowIndex > 0) {
+                        return null;
+                      }
+                      const rowSpan =
+                        isSpanColumn && rowIndex === 0 ? groupSize : undefined;
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          rowSpan={rowSpan}
+                          className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow className="border-border border-b hover:bg-transparent">
                 <TableCell
