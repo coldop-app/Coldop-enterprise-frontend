@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { IncomingVoucherData } from '@/components/daybook/vouchers/types';
 import {
   createFileRoute,
@@ -7,23 +7,20 @@ import {
 } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Hash, Package, Edit, FileSpreadsheet, FileText } from 'lucide-react';
+import { Hash, Edit } from 'lucide-react';
 import type { FarmerStorageLink } from '@/types/farmer';
 import { useGetFarmerStorageLinkVouchers } from '@/services/store-admin/people/useGetFarmerStorageLinkVouchers';
 import type { PassVoucherData } from '@/components/daybook/vouchers';
 import type { GradingOrderDetailRow } from '@/components/daybook/vouchers/types';
 import type { StockLedgerRow } from '@/components/pdf/StockLedgerPdf';
-import { Spinner } from '@/components/ui/spinner';
-import { downloadStockLedgerExcel } from '@/utils/stockLedgerExcel';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+} from '@/components/ui/empty';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -46,7 +43,7 @@ function PeopleDetailPage() {
     [vouchersData?.daybook]
   );
 
-  const stockLedgerRows: StockLedgerRow[] = useMemo(() => {
+  const _stockLedgerRows: StockLedgerRow[] = useMemo(() => {
     return daybook.map((entry, index) => {
       const inc = entry.incoming as IncomingVoucherData & { date?: string };
       const bags = entry.summaries?.totalBagsIncoming ?? inc.bagsReceived ?? 0;
@@ -172,39 +169,7 @@ function PeopleDetailPage() {
       };
     });
   }, [daybook]);
-
-  const [isPdfOpening, setIsPdfOpening] = useState(false);
-  const [stockLedgerDialogOpen, setStockLedgerDialogOpen] = useState(false);
-  const openStockLedgerPdf = useCallback(() => {
-    if (!link) return;
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(
-        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
-      );
-    }
-    setIsPdfOpening(true);
-    const farmerName = link.farmerId.name;
-    Promise.all([
-      import('@react-pdf/renderer'),
-      import('@/components/pdf/StockLedgerPdf'),
-    ])
-      .then(([{ pdf }, { StockLedgerPdf: StockLedgerPdfComponent }]) => {
-        return pdf(
-          <StockLedgerPdfComponent
-            farmerName={farmerName}
-            rows={stockLedgerRows}
-          />
-        ).toBlob();
-      })
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        if (win) win.location.href = url;
-        else window.location.href = url;
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      })
-      .finally(() => setIsPdfOpening(false));
-  }, [link, stockLedgerRows]);
+  void _stockLedgerRows; // Reserved for when View Stock Ledger is re-enabled
 
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -263,83 +228,17 @@ function PeopleDetailPage() {
                 </Button>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant="default"
-                  className="gap-2 rounded-xl"
-                  disabled={isPdfOpening}
-                  onClick={() => setStockLedgerDialogOpen(true)}
-                >
-                  {isPdfOpening ? (
-                    <>
-                      <Spinner className="h-4 w-4" />
-                      Generating PDF…
-                    </>
-                  ) : (
-                    <>
-                      <Package className="h-4 w-4" />
-                      View Stock Ledger
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Stock Ledger export dialog */}
-              <Dialog
-                open={stockLedgerDialogOpen}
-                onOpenChange={setStockLedgerDialogOpen}
-              >
-                <DialogContent
-                  className="font-custom sm:max-w-md"
-                  showCloseButton={true}
-                >
-                  <DialogHeader>
-                    <DialogTitle>Stock Ledger</DialogTitle>
-                  </DialogHeader>
-                  <p className="font-custom text-muted-foreground text-sm">
-                    Choose how you want to view or download the stock ledger.
-                  </p>
-                  <DialogFooter className="gap-2 sm:gap-0">
-                    <Button
-                      variant="default"
-                      className="gap-2"
-                      disabled={isPdfOpening}
-                      onClick={() => {
-                        setStockLedgerDialogOpen(false);
-                        openStockLedgerPdf();
-                      }}
-                    >
-                      {isPdfOpening ? (
-                        <>
-                          <Spinner className="h-4 w-4" />
-                          Generating…
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="h-4 w-4" />
-                          View PDF
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      onClick={() => {
-                        if (!link) return;
-                        setStockLedgerDialogOpen(false);
-                        downloadStockLedgerExcel(
-                          link.farmerId.name,
-                          stockLedgerRows
-                        );
-                      }}
-                    >
-                      <FileSpreadsheet className="h-4 w-4" />
-                      Download Excel
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              {/* Coming soon message */}
+              <Empty className="border-0 p-0">
+                <EmptyHeader>
+                  <EmptyTitle className="font-custom text-lg font-semibold">
+                    We are making some changes
+                  </EmptyTitle>
+                  <EmptyDescription className="font-custom text-base">
+                    The farmer profile page will be up very shortly.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             </div>
           </CardContent>
         </Card>
