@@ -146,11 +146,13 @@ const GradingVoucher = memo(function GradingVoucher({
       }, 0)
     : undefined;
 
+  /** When multiple IGPs with weight slips are present, use sum of their net; otherwise fall back to single incomingNetKg. */
   const effectiveIncomingNetKg =
-    incomingNetKg ??
-    (totalIncomingNetFromSlips && totalIncomingNetFromSlips > 0
+    hasIncomingWeightSlips &&
+    totalIncomingNetFromSlips != null &&
+    totalIncomingNetFromSlips > 0
       ? totalIncomingNetFromSlips
-      : undefined);
+      : (incomingNetKg ?? undefined);
 
   /** Incoming net product (kg): incoming weight minus bardana (incoming bags × JUTE_BAG_WEIGHT). */
   const effectiveIncomingNetProductKg =
