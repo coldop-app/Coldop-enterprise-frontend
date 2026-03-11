@@ -21,14 +21,22 @@ import { SummarySheet } from './summary-sheet';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import { useCreateIncomingGatePass } from '@/services/store-admin/incoming-gate-pass/useCreateIncomingGatePass';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 import { POTATO_VARIETIES } from '@/components/forms/grading/constants';
 
-/** Location options for incoming gate pass */
-const INCOMING_LOCATIONS: Option<string>[] = [
+/** Default location options for incoming gate pass */
+const DEFAULT_INCOMING_LOCATIONS: Option<string>[] = [
   { label: 'Jindal Ice And Cold Store', value: 'Jindal Ice And Cold Store' },
   { label: 'Goyal Tarai Seed Shed', value: 'Goyal Tarai Seed Shed' },
+];
+
+/** When coldStorageId matches this, show SICM/SIJS location options */
+const SICM_SIJS_COLD_STORAGE_ID = '69a9621f51f79389305a0f53';
+const SICM_SIJS_LOCATIONS: Option<string>[] = [
+  { label: 'SRCS', value: 'SRCS' },
+  { label: 'SRS', value: 'SRS' },
 ];
 
 export const IncomingForm = memo(function IncomingForm() {
@@ -42,8 +50,19 @@ export const IncomingForm = memo(function IncomingForm() {
   } = useGetAllFarmers();
   const { mutate: createIncomingGatePass, isPending } =
     useCreateIncomingGatePass();
+  const coldStorageId = useStore(
+    (s) => s.coldStorage?._id ?? s.admin?.coldStorageId
+  );
 
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
+
+  const locationOptions = useMemo(
+    () =>
+      coldStorageId === SICM_SIJS_COLD_STORAGE_ID
+        ? SICM_SIJS_LOCATIONS
+        : DEFAULT_INCOMING_LOCATIONS,
+    [coldStorageId]
+  );
 
   // Format voucher number for display
   const voucherNumberDisplay = useMemo(() => {
@@ -422,7 +441,7 @@ export const IncomingForm = memo(function IncomingForm() {
                   </FieldLabel>
                   <SearchSelector
                     id="location-select"
-                    options={INCOMING_LOCATIONS}
+                    options={locationOptions}
                     placeholder="Select location"
                     searchPlaceholder="Search location..."
                     onSelect={(value) => field.handleChange(value)}
