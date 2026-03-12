@@ -15,10 +15,6 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/forms/date-picker';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useCreateGradingGatePass } from '@/services/store-admin/grading-gate-pass/useCreateGradingGatePass';
-import {
-  useGetIncomingGatePasses,
-  INCOMING_GATE_PASS_STATUS_NOT_GRADED,
-} from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 
@@ -26,7 +22,7 @@ import { GRADING_SIZES, BAG_TYPES, GRADER_OPTIONS } from './constants';
 import { GradingFormStep1 } from './GradingFormStep1';
 import { GradingSummarySheet } from './summary-sheet';
 import type { CreateGradingGatePassOrderDetail } from '@/types/grading-gate-pass';
-import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
+import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
 
 export interface SizeEntry {
   size: string;
@@ -57,10 +53,15 @@ const defaultSizeEntries: SizeEntry[] = GRADING_SIZES.map((size) => ({
   weightPerBagKg: 0,
 }));
 
-function getBagsFromPass(pass: IncomingGatePassWithLink): number {
+function getBagsFromPass(
+  pass:
+    | IncomingGatePassByFarmerStorageLinkItem
+    | { bagsReceived?: number; bagSizes?: Array<{ initialQuantity: number }> }
+): number {
   if (pass.bagsReceived != null) return pass.bagsReceived;
-  if (pass.bagSizes?.length)
-    return pass.bagSizes.reduce((sum, b) => sum + b.initialQuantity, 0);
+  const p = pass as { bagSizes?: Array<{ initialQuantity: number }> };
+  if (p.bagSizes?.length)
+    return p.bagSizes.reduce((sum, b) => sum + b.initialQuantity, 0);
   return 0;
 }
 
@@ -103,19 +104,14 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     useGetReceiptVoucherNumber('grading-gate-pass');
   const { mutate: createGradingGatePass, isPending } =
     useCreateGradingGatePass();
-  const { data: incomingResult, isLoading: isLoadingIncomingPasses } =
-    useGetIncomingGatePasses({
-      page: 1,
-      limit: 1000,
-      sortOrder: 'desc',
-      status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
-    });
-  const incomingGatePassesList = incomingResult?.data ?? [];
 
   const [step, setStep] = useState(1);
   const [incomingGatePassIds, setIncomingGatePassIds] = useState<string[]>(
     () => (propIncomingGatePassId ? [propIncomingGatePassId] : [])
   );
+  const [passesListForStep2, setPassesListForStep2] = useState<
+    IncomingGatePassByFarmerStorageLinkItem[]
+  >([]);
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
 
   const formSchema = useMemo(() => buildFormSchema(), []);
@@ -124,18 +120,21 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     () =>
       incomingGatePassIds.length === 0
         ? []
-        : incomingGatePassesList.filter((p) =>
-            incomingGatePassIds.includes(p._id)
-          ),
-    [incomingGatePassesList, incomingGatePassIds]
+        : passesListForStep2.filter((p) => incomingGatePassIds.includes(p._id)),
+    [passesListForStep2, incomingGatePassIds]
   );
 
   const resolvedContext = useMemo(() => {
-    const first = selectedIncomingPasses[0];
+    const first = selectedIncomingPasses[0] as
+      | IncomingGatePassByFarmerStorageLinkItem
+      | undefined;
     const linkId =
-      typeof first?.farmerStorageLinkId === 'string'
-        ? first.farmerStorageLinkId
-        : (first?.farmerStorageLinkId as { _id?: string })?._id;
+      first?.farmerStorageLinkId != null &&
+      typeof first.farmerStorageLinkId === 'object'
+        ? first.farmerStorageLinkId._id
+        : typeof first?.farmerStorageLinkId === 'string'
+          ? first.farmerStorageLinkId
+          : undefined;
     return {
       farmerStorageLinkId: propFarmerStorageLinkId ?? linkId,
       variety: propVariety ?? first?.variety ?? '',
@@ -217,6 +216,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
             form.reset();
             form.setFieldValue('extraSizeEntries', []);
             setIncomingGatePassIds([]);
+            setPassesListForStep2([]);
             setStep(1);
             setIsSummarySheetOpen(false);
             onSuccess?.();
@@ -254,8 +254,7 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     <div className="font-custom flex flex-col">
       {step === 1 && (
         <GradingFormStep1
-          incomingGatePassesList={incomingGatePassesList}
-          isLoadingPasses={isLoadingIncomingPasses}
+          initialFarmerStorageLinkId={propFarmerStorageLinkId}
           initialSelectedIds={
             incomingGatePassIds.length > 0
               ? incomingGatePassIds
@@ -263,8 +262,12 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
                 ? [propIncomingGatePassId]
                 : undefined
           }
-          onNext={(ids) => {
+          onNext={(
+            ids: string[],
+            passes: IncomingGatePassByFarmerStorageLinkItem[]
+          ) => {
             setIncomingGatePassIds(ids);
+            setPassesListForStep2(passes);
             setStep(2);
           }}
         />
