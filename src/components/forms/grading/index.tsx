@@ -103,12 +103,13 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     useGetReceiptVoucherNumber('grading-gate-pass');
   const { mutate: createGradingGatePass, isPending } =
     useCreateGradingGatePass();
-  const { data: incomingResult } = useGetIncomingGatePasses({
-    page: 1,
-    limit: 1000,
-    sortOrder: 'desc',
-    status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
-  });
+  const { data: incomingResult, isLoading: isLoadingIncomingPasses } =
+    useGetIncomingGatePasses({
+      page: 1,
+      limit: 1000,
+      sortOrder: 'desc',
+      status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+    });
   const incomingGatePassesList = incomingResult?.data ?? [];
 
   const [step, setStep] = useState(1);
@@ -253,6 +254,8 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     <div className="font-custom flex flex-col">
       {step === 1 && (
         <GradingFormStep1
+          incomingGatePassesList={incomingGatePassesList}
+          isLoadingPasses={isLoadingIncomingPasses}
           initialSelectedIds={
             incomingGatePassIds.length > 0
               ? incomingGatePassIds

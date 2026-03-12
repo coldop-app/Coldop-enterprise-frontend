@@ -6,25 +6,15 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { SearchSelector } from '@/components/forms/search-selector';
 import type { Option } from '@/components/forms/search-selector';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
-import {
-  useGetIncomingGatePasses,
-  INCOMING_GATE_PASS_STATUS_NOT_GRADED,
-} from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 
 import { POTATO_VARIETIES } from './constants';
 
 export interface GradingFormStep1Props {
+  incomingGatePassesList: IncomingGatePassWithLink[];
+  isLoadingPasses: boolean;
   initialSelectedIds?: string[];
   onNext: (selectedIds: string[]) => void;
-}
-
-function getDefaultDateRange(): { dateFrom: string; dateTo: string } {
-  const now = new Date();
-  const year = now.getFullYear();
-  const dateFrom = `${year}-01-01`;
-  const dateTo = now.toISOString().slice(0, 10);
-  return { dateFrom, dateTo };
 }
 
 function getBagsFromPass(pass: IncomingGatePassWithLink): number {
@@ -45,6 +35,8 @@ function getVarietyLabel(varietyValue: string): string {
 }
 
 export const GradingFormStep1 = memo(function GradingFormStep1({
+  incomingGatePassesList,
+  isLoadingPasses,
   initialSelectedIds = [],
   onNext,
 }: GradingFormStep1Props) {
@@ -54,18 +46,6 @@ export const GradingFormStep1 = memo(function GradingFormStep1({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
     initialSelectedIds.length > 0 ? new Set(initialSelectedIds) : new Set()
   );
-
-  const { dateFrom, dateTo } = getDefaultDateRange();
-  const { data: incomingResult, isLoading: isLoadingPasses } =
-    useGetIncomingGatePasses({
-      page: 1,
-      limit: 1000,
-      sortOrder: 'desc',
-      status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
-      dateFrom,
-      dateTo,
-    });
-  const incomingGatePassesList = incomingResult?.data ?? [];
 
   /** Farmer link IDs that have at least one ungraded incoming gate pass */
   const farmerLinkIdsWithPasses = useMemo(() => {
