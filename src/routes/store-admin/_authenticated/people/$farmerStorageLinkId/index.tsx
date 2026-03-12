@@ -71,11 +71,13 @@ import {
   Warehouse,
   FileText,
   FileSpreadsheet,
+  Calculator,
 } from 'lucide-react';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import { downloadStockLedgerExcel } from '@/utils/stockLedgerExcel';
 import type { PassVoucherData } from '@/components/daybook/vouchers';
 import type { GradingOrderDetailRow } from '@/components/daybook/vouchers/types';
+import { useStore } from '@/stores/store';
 
 /** Map API incoming gate pass (by farmer) to IncomingVoucher props */
 function toIncomingVoucherProps(
@@ -300,6 +302,9 @@ const PeopleDetailPage = memo(function PeopleDetailPage() {
   const [_editModalOpen, setEditModalOpen] = useState(false);
   const [stockLedgerDialogOpen, setStockLedgerDialogOpen] = useState(false);
   const [isPdfOpening, setIsPdfOpening] = useState(false);
+  const [isAccountingPdfOpening, setIsAccountingPdfOpening] = useState(false);
+
+  const coldStorage = useStore((s) => s.coldStorage);
 
   const {
     data: incomingResult,
@@ -367,6 +372,8 @@ const PeopleDetailPage = memo(function PeopleDetailPage() {
     [daybook]
   );
 
+  const incomingList = incomingResult?.data ?? [];
+
   const openStockLedgerPdf = useCallback(() => {
     if (!link) return;
     const farmerName = link.farmerId?.name ?? '—';
@@ -398,7 +405,36 @@ const PeopleDetailPage = memo(function PeopleDetailPage() {
       .finally(() => setIsPdfOpening(false));
   }, [link, stockLedgerRows]);
 
-  const incomingList = incomingResult?.data ?? [];
+  const openAccountingStockLedgerPdf = useCallback(() => {
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsAccountingPdfOpening(true);
+    Promise.all([
+      import('@react-pdf/renderer'),
+      import('@/components/pdf/AccountingStockLedgerPdf'),
+    ])
+      .then(([{ pdf }, { AccountingStockLedgerPdf: AccountingPdfComponent }]) =>
+        pdf(
+          <AccountingPdfComponent
+            farmerName={link?.farmerId?.name ?? '—'}
+            coldStorageDetails={coldStorage}
+            incomingGatePasses={incomingList}
+          />
+        ).toBlob()
+      )
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        if (win) win.location.href = url;
+        else window.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      })
+      .finally(() => setIsAccountingPdfOpening(false));
+  }, [coldStorage, incomingList, link]);
+
   const incomingTotal =
     incomingResult?.pagination?.total ?? incomingList.length;
 
@@ -537,6 +573,24 @@ const PeopleDetailPage = memo(function PeopleDetailPage() {
                     <>
                       <Package className="h-4 w-4" />
                       View Stock Ledger
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="font-custom gap-2 rounded-xl"
+                  disabled={isAccountingPdfOpening}
+                  onClick={() => openAccountingStockLedgerPdf()}
+                >
+                  {isAccountingPdfOpening ? (
+                    <>
+                      <Spinner className="h-4 w-4" />
+                      Generating PDF…
+                    </>
+                  ) : (
+                    <>
+                      <Calculator className="h-4 w-4" />
+                      Accounting Stock Ledger
                     </>
                   )}
                 </Button>
