@@ -15,7 +15,10 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/forms/date-picker';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useCreateGradingGatePass } from '@/services/store-admin/grading-gate-pass/useCreateGradingGatePass';
-import { useGetIncomingGatePasses } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
+import {
+  useGetIncomingGatePasses,
+  INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+} from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 
@@ -53,6 +56,14 @@ const defaultSizeEntries: SizeEntry[] = GRADING_SIZES.map((size) => ({
   bagType: 'JUTE',
   weightPerBagKg: 0,
 }));
+
+function getDefaultDateRange(): { dateFrom: string; dateTo: string } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const dateFrom = `${year}-01-01`;
+  const dateTo = now.toISOString().slice(0, 10);
+  return { dateFrom, dateTo };
+}
 
 function getBagsFromPass(pass: IncomingGatePassWithLink): number {
   if (pass.bagsReceived != null) return pass.bagsReceived;
@@ -100,8 +111,14 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     useGetReceiptVoucherNumber('grading-gate-pass');
   const { mutate: createGradingGatePass, isPending } =
     useCreateGradingGatePass();
+  const { dateFrom, dateTo } = getDefaultDateRange();
   const { data: incomingResult } = useGetIncomingGatePasses({
-    limit: 500,
+    page: 1,
+    limit: 1000,
+    sortOrder: 'desc',
+    status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+    dateFrom,
+    dateTo,
   });
   const incomingGatePassesList = incomingResult?.data ?? [];
 
