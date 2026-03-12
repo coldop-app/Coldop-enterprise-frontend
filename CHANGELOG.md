@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.0] - 2026-03-12
+
+### Added
+- Incoming gate pass: **Edit from daybook** — Edit button on incoming voucher opens dialog to update manual gate pass number and weight slip (gross/tare kg); submits via PUT `/incoming-gate-pass/:id` with optional reason; invalidates daybook and incoming queries on success
+- Service: **useEditIncomingGatePass** — mutation for PUT `/incoming-gate-pass/:id`; payload: `manualGatePassNumber?`, `weightSlip?` (grossWeightKg, tareWeightKg), `reason?`; toast and query invalidation on success/error
+- Types: `EditIncomingGatePassWeightSlip`, `EditIncomingGatePassInput`, `EditIncomingGatePassApiResponse` for incoming gate pass edit API
+- Incoming form: **Net (kg) live display** — form.Subscribe below weight slip shows computed net (gross − tare) in kg
+
+### Changed
+- Incoming voucher: edit dialog with fields for manual GP number, gross weight, tare weight; validation and submit wired to `useEditIncomingGatePass`; reset form when dialog opens
+
 ## [0.31.0] - 2026-03-12
 
 ### Added

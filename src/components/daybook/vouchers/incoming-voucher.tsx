@@ -1,17 +1,33 @@
-import { memo, useState } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
   ChevronDown,
   ChevronUp,
+  Pencil,
   Printer,
   MapPin,
   User,
   Truck,
   Package,
 } from 'lucide-react';
+import { useEditIncomingGatePass } from '@/services/store-admin/incoming-gate-pass/useEditIncomingGatePass';
 import { Spinner } from '@/components/ui/spinner';
 import { DetailRow } from './detail-row';
 import { formatVoucherDate } from './format-date';
@@ -34,6 +50,68 @@ const IncomingVoucher = memo(function IncomingVoucher({
 }: IncomingVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editManualGatePassNumber, setEditManualGatePassNumber] = useState('');
+  const [editGrossWeightKg, setEditGrossWeightKg] = useState('');
+  const [editTareWeightKg, setEditTareWeightKg] = useState('');
+
+  const { mutate: editIncomingGatePass, isPending: isEditPending } =
+    useEditIncomingGatePass();
+
+  const voucherId = voucher._id;
+
+  const resetEditForm = useCallback(() => {
+    setEditManualGatePassNumber(
+      voucher.manualGatePassNumber != null
+        ? String(voucher.manualGatePassNumber)
+        : ''
+    );
+    setEditGrossWeightKg(
+      voucher.weightSlip?.grossWeightKg != null
+        ? String(voucher.weightSlip.grossWeightKg)
+        : ''
+    );
+    setEditTareWeightKg(
+      voucher.weightSlip?.tareWeightKg != null
+        ? String(voucher.weightSlip.tareWeightKg)
+        : ''
+    );
+  }, [voucher.manualGatePassNumber, voucher.weightSlip]);
+
+  useEffect(() => {
+    if (isEditDialogOpen) resetEditForm();
+  }, [isEditDialogOpen, resetEditForm]);
+
+  const handleEditSubmit = useCallback(() => {
+    if (!voucherId) return;
+    const manual =
+      editManualGatePassNumber.trim() === ''
+        ? undefined
+        : Number(editManualGatePassNumber);
+    const gross = Number(editGrossWeightKg);
+    const tare = Number(editTareWeightKg);
+    if (Number.isNaN(gross) || Number.isNaN(tare) || gross < 0 || tare < 0) {
+      return;
+    }
+    editIncomingGatePass(
+      {
+        id: voucherId,
+        ...(manual != null &&
+          !Number.isNaN(manual) && { manualGatePassNumber: manual }),
+        weightSlip: { grossWeightKg: gross, tareWeightKg: tare },
+        reason: 'Updated from daybook',
+      },
+      {
+        onSuccess: () => setIsEditDialogOpen(false),
+      }
+    );
+  }, [
+    voucherId,
+    editManualGatePassNumber,
+    editGrossWeightKg,
+    editTareWeightKg,
+    editIncomingGatePass,
+  ]);
 
   const bags = voucher.bagsReceived ?? 0;
 
@@ -155,20 +233,33 @@ const IncomingVoucher = memo(function IncomingVoucher({
             )}
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            disabled={isPrinting}
-            className="h-8 w-8 p-0"
-            aria-label={isPrinting ? 'Generating PDF…' : 'Print gate pass'}
-          >
-            {isPrinting ? (
-              <Spinner className="h-3.5 w-3.5" />
-            ) : (
-              <Printer className="h-3.5 w-3.5" />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {voucherId != null && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditDialogOpen(true)}
+                className="h-8 w-8 p-0"
+                aria-label="Edit incoming gate pass"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
             )}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              disabled={isPrinting}
+              className="h-8 w-8 p-0"
+              aria-label={isPrinting ? 'Generating PDF…' : 'Print gate pass'}
+            >
+              {isPrinting ? (
+                <Spinner className="h-3.5 w-3.5" />
+              ) : (
+                <Printer className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
         </div>
 
         {isExpanded && (
@@ -299,6 +390,77 @@ const IncomingVoucher = memo(function IncomingVoucher({
           </>
         )}
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="font-custom sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-custom text-lg font-bold">
+              Edit Incoming Gate Pass
+            </DialogTitle>
+            <p className="text-muted-foreground text-sm">
+              Update manual gate pass number and weight slip details.
+            </p>
+          </DialogHeader>
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel>Manual Gate Pass Number</FieldLabel>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g. 400"
+                value={editManualGatePassNumber}
+                onChange={(e) => setEditManualGatePassNumber(e.target.value)}
+                min={0}
+                step={1}
+              />
+              <FieldError />
+            </Field>
+            <Field>
+              <FieldLabel>Gross Weight (kg)</FieldLabel>
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="e.g. 620.5"
+                value={editGrossWeightKg}
+                onChange={(e) => setEditGrossWeightKg(e.target.value)}
+                min={0}
+                step={0.1}
+              />
+              <FieldError />
+            </Field>
+            <Field>
+              <FieldLabel>Tare Weight (kg)</FieldLabel>
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="e.g. 520.2"
+                value={editTareWeightKg}
+                onChange={(e) => setEditTareWeightKg(e.target.value)}
+                min={0}
+                step={0.1}
+              />
+              <FieldError />
+            </Field>
+          </FieldGroup>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isEditPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleEditSubmit}
+              disabled={isEditPending}
+            >
+              {isEditPending ? <Spinner className="mr-2 h-3.5 w-3.5" /> : null}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 });

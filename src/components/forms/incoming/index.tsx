@@ -653,6 +653,24 @@ export const IncomingForm = memo(function IncomingForm() {
                 )}
               />
             </div>
+            <form.Subscribe
+              selector={(state) => ({
+                gross: state.values.weightSlip?.grossWeightKg ?? 0,
+                tare: state.values.weightSlip?.tareWeightKg ?? 0,
+              })}
+            >
+              {({ gross, tare }) => {
+                const net = Math.max(0, gross - tare);
+                return (
+                  <p className="text-muted-foreground font-custom text-sm">
+                    <span className="text-foreground font-medium">
+                      Net (kg):
+                    </span>{' '}
+                    {net.toFixed(2)}
+                  </p>
+                );
+              }}
+            </form.Subscribe>
           </div>
 
           {/* Remarks */}

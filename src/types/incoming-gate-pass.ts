@@ -57,6 +57,26 @@ export interface CreateIncomingGatePassApiResponse {
   message: string;
 }
 
+/** Weight slip sub-object for PUT /incoming-gate-pass (partial) */
+export interface EditIncomingGatePassWeightSlip {
+  grossWeightKg: number;
+  tareWeightKg: number;
+}
+
+/** Request body for PUT /incoming-gate-pass/:id */
+export interface EditIncomingGatePassInput {
+  manualGatePassNumber?: number;
+  weightSlip?: EditIncomingGatePassWeightSlip;
+  reason?: string;
+}
+
+/** API response for PUT /incoming-gate-pass/:id */
+export interface EditIncomingGatePassApiResponse {
+  success: boolean;
+  data: Record<string, unknown>;
+  message: string;
+}
+
 /** Admin user who linked the farmer–storage pair in GET /incoming-gate-pass response */
 export interface IncomingGatePassLinkedByAdmin {
   _id: string;
