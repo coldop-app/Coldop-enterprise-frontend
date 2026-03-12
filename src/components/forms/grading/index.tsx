@@ -57,14 +57,6 @@ const defaultSizeEntries: SizeEntry[] = GRADING_SIZES.map((size) => ({
   weightPerBagKg: 0,
 }));
 
-function getDefaultDateRange(): { dateFrom: string; dateTo: string } {
-  const now = new Date();
-  const year = now.getFullYear();
-  const dateFrom = `${year}-01-01`;
-  const dateTo = now.toISOString().slice(0, 10);
-  return { dateFrom, dateTo };
-}
-
 function getBagsFromPass(pass: IncomingGatePassWithLink): number {
   if (pass.bagsReceived != null) return pass.bagsReceived;
   if (pass.bagSizes?.length)
@@ -111,14 +103,11 @@ export const GradingGatePassForm = memo(function GradingGatePassForm({
     useGetReceiptVoucherNumber('grading-gate-pass');
   const { mutate: createGradingGatePass, isPending } =
     useCreateGradingGatePass();
-  const { dateFrom, dateTo } = getDefaultDateRange();
   const { data: incomingResult } = useGetIncomingGatePasses({
     page: 1,
     limit: 1000,
     sortOrder: 'desc',
     status: INCOMING_GATE_PASS_STATUS_NOT_GRADED,
-    dateFrom,
-    dateTo,
   });
   const incomingGatePassesList = incomingResult?.data ?? [];
 
