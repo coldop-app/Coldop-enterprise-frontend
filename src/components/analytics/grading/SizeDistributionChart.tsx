@@ -231,13 +231,13 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
                 </p>
               ) : (
                 <>
-                  <div className="min-h-[220px] w-full min-w-0 sm:h-[280px] md:mx-auto md:max-w-[400px]">
+                  <div className="min-h-[220px] w-full min-w-0 sm:h-[280px] md:mx-auto md:max-w-[420px]">
                     <ChartContainer
                       config={chartConfig}
                       className="h-full min-h-[220px] w-full min-w-0 sm:min-h-0 [&_.recharts-wrapper]:h-full! [&_.recharts-wrapper]:w-full!"
                     >
                       <PieChart
-                        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                        margin={{ top: 16, right: 110, bottom: 16, left: 60 }}
                       >
                         <ChartTooltip
                           content={
@@ -253,7 +253,7 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
                           data={pieData}
                           dataKey="value"
                           nameKey="name"
-                          cx="50%"
+                          cx="55%"
                           cy="50%"
                           innerRadius={0}
                           strokeWidth={0}

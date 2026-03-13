@@ -75,14 +75,12 @@ function getIncomingTotals(
   totalTareKg: number;
   totalNetKg: number;
   totalBardanaKg: number;
-  totalActualKg: number;
 } {
   let totalBags = 0;
   let totalGrossKg = 0;
   let totalTareKg = 0;
   let totalNetKg = 0;
   let totalBardanaKg = 0;
-  let totalActualKg = 0;
   for (const ref of refs) {
     totalBags += ref.bagsReceived ?? 0;
     const gross = ref.weightSlip?.grossWeightKg ?? 0;
@@ -93,7 +91,6 @@ function getIncomingTotals(
     totalNetKg += net;
     const bardana = getBardanaWeightKg(ref.bagsReceived) ?? 0;
     totalBardanaKg += bardana;
-    totalActualKg += getActualWeightKg(net, bardana) ?? 0;
   }
   return {
     totalBags,
@@ -101,7 +98,6 @@ function getIncomingTotals(
     totalTareKg,
     totalNetKg,
     totalBardanaKg,
-    totalActualKg,
   };
 }
 
@@ -229,9 +225,6 @@ export const FarmerProfileGradingGatePassTable = memo(
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Actual weight (kg)
                   </TableHead>
-                  <TableHead className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3 text-right font-semibold">
-                    Total actual (kg)
-                  </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Grading GP no.
                   </TableHead>
@@ -257,7 +250,7 @@ export const FarmerProfileGradingGatePassTable = memo(
                       >
                         <TableCell
                           className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
-                          colSpan={18}
+                          colSpan={17}
                         >
                           —
                         </TableCell>
@@ -366,14 +359,6 @@ export const FarmerProfileGradingGatePassTable = memo(
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {formatWeightKg(actualKg)}
                         </TableCell>
-                        {index === 0 && (
-                          <TableCell
-                            className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3 text-right align-top font-medium"
-                            rowSpan={refs.length}
-                          >
-                            {formatWeightKg(totals.totalActualKg)}
-                          </TableCell>
-                        )}
                         {index === 0 && (
                           <>
                             <TableCell
