@@ -46,6 +46,7 @@ interface VarietyChartData {
   variety: string;
   pieData: SizeSlice[];
   chartConfig: ChartConfig;
+  totalBags: number;
 }
 
 function buildVarietyChartData(
@@ -67,7 +68,7 @@ function buildVarietyChartData(
         color: CHART_COLORS[i % CHART_COLORS.length],
       };
     });
-    return { variety: item.variety, pieData, chartConfig };
+    return { variety: item.variety, pieData, chartConfig, totalBags: total };
   });
 }
 
@@ -175,7 +176,7 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
               </TabsTrigger>
             ))}
           </TabsList>
-          {varietyCharts.map(({ variety, pieData, chartConfig }) => (
+          {varietyCharts.map(({ variety, pieData, chartConfig, totalBags }) => (
             <TabsContent
               key={variety}
               value={variety}
@@ -228,7 +229,8 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
 
                   <div className="min-w-0 space-y-2">
                     <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
-                      {variety} – Size Distribution & Insights
+                      {variety} – Size Distribution & Insights (
+                      {totalBags.toLocaleString('en-IN')} bags)
                     </h4>
                     <ul className="font-custom text-muted-foreground grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2 sm:text-sm lg:grid-cols-3">
                       {pieData.map((item) => (

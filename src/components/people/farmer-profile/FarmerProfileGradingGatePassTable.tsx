@@ -66,6 +66,45 @@ function getActualWeightKg(
   return Math.round((netWeightKg - bardanaWeightKg) * 10) / 10;
 }
 
+/** Totals across all incoming refs for one grading pass. */
+function getIncomingTotals(
+  refs: Array<GradingGatePassIncomingRef & { _id: string }>
+): {
+  totalBags: number;
+  totalGrossKg: number;
+  totalTareKg: number;
+  totalNetKg: number;
+  totalBardanaKg: number;
+  totalActualKg: number;
+} {
+  let totalBags = 0;
+  let totalGrossKg = 0;
+  let totalTareKg = 0;
+  let totalNetKg = 0;
+  let totalBardanaKg = 0;
+  let totalActualKg = 0;
+  for (const ref of refs) {
+    totalBags += ref.bagsReceived ?? 0;
+    const gross = ref.weightSlip?.grossWeightKg ?? 0;
+    const tare = ref.weightSlip?.tareWeightKg ?? 0;
+    totalGrossKg += gross;
+    totalTareKg += tare;
+    const net = getNetWeightKg(ref.weightSlip) ?? 0;
+    totalNetKg += net;
+    const bardana = getBardanaWeightKg(ref.bagsReceived) ?? 0;
+    totalBardanaKg += bardana;
+    totalActualKg += getActualWeightKg(net, bardana) ?? 0;
+  }
+  return {
+    totalBags,
+    totalGrossKg,
+    totalTareKg,
+    totalNetKg,
+    totalBardanaKg,
+    totalActualKg,
+  };
+}
+
 /** Normalize to array of ref objects; legacy string IDs become a minimal ref. */
 function getIncomingRefs(
   ids: GradingGatePass['incomingGatePassIds'] | undefined
@@ -157,6 +196,9 @@ export const FarmerProfileGradingGatePassTable = memo(
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Bags received
                   </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                    Total bags received
+                  </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
                     Weight slip no.
                   </TableHead>
@@ -164,16 +206,31 @@ export const FarmerProfileGradingGatePassTable = memo(
                     Gross weight (kg)
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                    Total gross (kg)
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Tare weight (kg)
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                    Total tare (kg)
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Net weight (kg)
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                    Total net (kg)
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Less bardana (kg)
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                    Total less bardana (kg)
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Actual weight (kg)
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3 text-right font-semibold">
+                    Total actual (kg)
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Grading GP no.
@@ -199,8 +256,8 @@ export const FarmerProfileGradingGatePassTable = memo(
                         className="border-border hover:bg-muted/50 border-b transition-colors last:border-b-0"
                       >
                         <TableCell
-                          className="font-custom border-border border-r px-4 py-3"
-                          colSpan={12}
+                          className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
+                          colSpan={18}
                         >
                           —
                         </TableCell>
@@ -219,6 +276,7 @@ export const FarmerProfileGradingGatePassTable = memo(
                       </TableRow>
                     );
                   }
+                  const totals = getIncomingTotals(refs);
                   return refs.map((ref, index) => {
                     const netKg = getNetWeightKg(ref.weightSlip);
                     const bardanaKg = getBardanaWeightKg(ref.bagsReceived);
@@ -250,24 +308,72 @@ export const FarmerProfileGradingGatePassTable = memo(
                             ? String(ref.bagsReceived)
                             : '—'}
                         </TableCell>
+                        {index === 0 && (
+                          <TableCell
+                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                            rowSpan={refs.length}
+                          >
+                            {totals.totalBags}
+                          </TableCell>
+                        )}
                         <TableCell className="font-custom border-border border-r px-4 py-3">
                           {ref.weightSlip?.slipNumber ?? '—'}
                         </TableCell>
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {formatWeightKg(ref.weightSlip?.grossWeightKg)}
                         </TableCell>
+                        {index === 0 && (
+                          <TableCell
+                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                            rowSpan={refs.length}
+                          >
+                            {formatWeightKg(totals.totalGrossKg)}
+                          </TableCell>
+                        )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {formatWeightKg(ref.weightSlip?.tareWeightKg)}
                         </TableCell>
+                        {index === 0 && (
+                          <TableCell
+                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                            rowSpan={refs.length}
+                          >
+                            {formatWeightKg(totals.totalTareKg)}
+                          </TableCell>
+                        )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {formatWeightKg(netKg)}
                         </TableCell>
+                        {index === 0 && (
+                          <TableCell
+                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                            rowSpan={refs.length}
+                          >
+                            {formatWeightKg(totals.totalNetKg)}
+                          </TableCell>
+                        )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {formatWeightKg(bardanaKg)}
                         </TableCell>
+                        {index === 0 && (
+                          <TableCell
+                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                            rowSpan={refs.length}
+                          >
+                            {formatWeightKg(totals.totalBardanaKg)}
+                          </TableCell>
+                        )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {formatWeightKg(actualKg)}
                         </TableCell>
+                        {index === 0 && (
+                          <TableCell
+                            className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3 text-right align-top font-medium"
+                            rowSpan={refs.length}
+                          >
+                            {formatWeightKg(totals.totalActualKg)}
+                          </TableCell>
+                        )}
                         {index === 0 && (
                           <>
                             <TableCell

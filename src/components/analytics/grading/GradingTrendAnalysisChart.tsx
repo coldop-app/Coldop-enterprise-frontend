@@ -169,6 +169,44 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
     });
   }, [monthlyChartData, monthlyGraders]);
 
+  /** Daily totals row: one row with total per grader and grand total */
+  const dailyTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+
+    for (const grader of dailyGraders) {
+      totals[grader] = 0;
+    }
+    totals.total = 0;
+
+    for (const row of dailyTableData) {
+      for (const grader of dailyGraders) {
+        totals[grader] += Number(row[grader] ?? 0);
+      }
+      totals.total += Number(row.total ?? 0);
+    }
+
+    return totals;
+  }, [dailyGraders, dailyTableData]);
+
+  /** Monthly totals row: one row with total per grader and grand total */
+  const monthlyTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+
+    for (const grader of monthlyGraders) {
+      totals[grader] = 0;
+    }
+    totals.total = 0;
+
+    for (const row of monthlyTableData) {
+      for (const grader of monthlyGraders) {
+        totals[grader] += Number(row[grader] ?? 0);
+      }
+      totals.total += Number(row.total ?? 0);
+    }
+
+    return totals;
+  }, [monthlyGraders, monthlyTableData]);
+
   const dailyChartConfig: ChartConfig = (() => {
     const config: ChartConfig = {
       date: { label: 'Date' },
@@ -321,6 +359,22 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                             </TableCell>
                           </TableRow>
                         ))}
+                        <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                          <TableCell className="font-custom text-foreground font-semibold whitespace-nowrap">
+                            Total
+                          </TableCell>
+                          {dailyGraders.map((grader) => (
+                            <TableCell
+                              key={grader}
+                              className="font-custom text-foreground text-right font-semibold tabular-nums"
+                            >
+                              {formatNumber(dailyTotals[grader] ?? 0)}
+                            </TableCell>
+                          ))}
+                          <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                            {formatNumber(dailyTotals.total ?? 0)}
+                          </TableCell>
+                        </TableRow>
                       </TableBody>
                     </Table>
                   </div>
@@ -440,6 +494,22 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                             </TableCell>
                           </TableRow>
                         ))}
+                        <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
+                          <TableCell className="font-custom text-foreground font-semibold whitespace-nowrap">
+                            Total
+                          </TableCell>
+                          {monthlyGraders.map((grader) => (
+                            <TableCell
+                              key={grader}
+                              className="font-custom text-foreground text-right font-semibold tabular-nums"
+                            >
+                              {formatNumber(monthlyTotals[grader] ?? 0)}
+                            </TableCell>
+                          ))}
+                          <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                            {formatNumber(monthlyTotals.total ?? 0)}
+                          </TableCell>
+                        </TableRow>
                       </TableBody>
                     </Table>
                   </div>
