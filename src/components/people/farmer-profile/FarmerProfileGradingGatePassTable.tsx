@@ -171,7 +171,7 @@ export const FarmerProfileGradingGatePassTable = memo(
         </CardHeader>
         <CardContent className="p-0">
           <div className="border-border bg-card font-custom overflow-x-auto text-sm shadow-sm">
-            <Table>
+            <Table className="border-collapse">
               <TableHeader>
                 <TableRow className="border-border bg-muted/60 hover:bg-muted/60 border-b-2">
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
@@ -188,6 +188,9 @@ export const FarmerProfileGradingGatePassTable = memo(
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
                     Truck number
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                    Variety
                   </TableHead>
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Bags received
@@ -222,49 +225,31 @@ export const FarmerProfileGradingGatePassTable = memo(
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Total less bardana (kg)
                   </TableHead>
-                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                  <TableHead className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right font-semibold">
                     Actual weight (kg)
                   </TableHead>
-                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold last:border-r-0">
                     Grading GP no.
-                  </TableHead>
-                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                    Grading manual no.
-                  </TableHead>
-                  <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                    Grading date
-                  </TableHead>
-                  <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold last:border-r-0">
-                    Variety
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="order [&_tr]:border-b [&_tr:last-child]:border-b">
                 {gradingPasses.flatMap((pass) => {
                   const refs = getIncomingRefs(pass.incomingGatePassIds);
                   if (refs.length === 0) {
                     return (
                       <TableRow
                         key={pass._id}
-                        className="border-border hover:bg-muted/50 border-b transition-colors last:border-b-0"
+                        className="border-border hover:bg-muted/50 transition-colors"
                       >
                         <TableCell
                           className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
-                          colSpan={17}
+                          colSpan={18}
                         >
                           —
                         </TableCell>
-                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium last:border-r-0">
                           {pass.gatePassNo ?? '—'}
-                        </TableCell>
-                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
-                          {pass.manualGatePassNumber ?? '—'}
-                        </TableCell>
-                        <TableCell className="font-custom border-border border-r px-4 py-3">
-                          {formatDate(pass.date)}
-                        </TableCell>
-                        <TableCell className="font-custom border-border border-r px-4 py-3 last:border-r-0">
-                          {pass.variety ?? '—'}
                         </TableCell>
                       </TableRow>
                     );
@@ -277,7 +262,7 @@ export const FarmerProfileGradingGatePassTable = memo(
                     return (
                       <TableRow
                         key={`${pass._id}-${ref._id}-${index}`}
-                        className="border-border hover:bg-muted/50 border-b transition-colors last:border-b-0"
+                        className="border-border hover:bg-muted/50 transition-colors"
                       >
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
                           {ref.gatePassNo ? String(ref.gatePassNo) : '—'}
@@ -296,6 +281,9 @@ export const FarmerProfileGradingGatePassTable = memo(
                         <TableCell className="font-custom border-border border-r px-4 py-3">
                           {ref.truckNumber ?? '—'}
                         </TableCell>
+                        <TableCell className="font-custom border-border border-r px-4 py-3">
+                          {ref.variety ?? '—'}
+                        </TableCell>
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
                           {ref.bagsReceived != null
                             ? String(ref.bagsReceived)
@@ -306,7 +294,7 @@ export const FarmerProfileGradingGatePassTable = memo(
                             className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
                             rowSpan={refs.length}
                           >
-                            {totals.totalBags}
+                            {refs.length > 1 ? totals.totalBags : '—'}
                           </TableCell>
                         )}
                         <TableCell className="font-custom border-border border-r px-4 py-3">
@@ -320,7 +308,9 @@ export const FarmerProfileGradingGatePassTable = memo(
                             className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
                             rowSpan={refs.length}
                           >
-                            {formatWeightKg(totals.totalGrossKg)}
+                            {refs.length > 1
+                              ? formatWeightKg(totals.totalGrossKg)
+                              : '—'}
                           </TableCell>
                         )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
@@ -331,7 +321,9 @@ export const FarmerProfileGradingGatePassTable = memo(
                             className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
                             rowSpan={refs.length}
                           >
-                            {formatWeightKg(totals.totalTareKg)}
+                            {refs.length > 1
+                              ? formatWeightKg(totals.totalTareKg)
+                              : '—'}
                           </TableCell>
                         )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
@@ -342,7 +334,9 @@ export const FarmerProfileGradingGatePassTable = memo(
                             className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
                             rowSpan={refs.length}
                           >
-                            {formatWeightKg(totals.totalNetKg)}
+                            {refs.length > 1
+                              ? formatWeightKg(totals.totalNetKg)
+                              : '—'}
                           </TableCell>
                         )}
                         <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
@@ -353,39 +347,21 @@ export const FarmerProfileGradingGatePassTable = memo(
                             className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
                             rowSpan={refs.length}
                           >
-                            {formatWeightKg(totals.totalBardanaKg)}
+                            {refs.length > 1
+                              ? formatWeightKg(totals.totalBardanaKg)
+                              : '—'}
                           </TableCell>
                         )}
-                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                        <TableCell className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right">
                           {formatWeightKg(actualKg)}
                         </TableCell>
                         {index === 0 && (
-                          <>
-                            <TableCell
-                              className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                              rowSpan={refs.length}
-                            >
-                              {pass.gatePassNo ?? '—'}
-                            </TableCell>
-                            <TableCell
-                              className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                              rowSpan={refs.length}
-                            >
-                              {pass.manualGatePassNumber ?? '—'}
-                            </TableCell>
-                            <TableCell
-                              className="font-custom border-border border-r px-4 py-3 align-top"
-                              rowSpan={refs.length}
-                            >
-                              {formatDate(pass.date)}
-                            </TableCell>
-                            <TableCell
-                              className="font-custom border-border border-r px-4 py-3 align-top last:border-r-0"
-                              rowSpan={refs.length}
-                            >
-                              {pass.variety ?? '—'}
-                            </TableCell>
-                          </>
+                          <TableCell
+                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
+                            rowSpan={refs.length}
+                          >
+                            {pass.gatePassNo ?? '—'}
+                          </TableCell>
                         )}
                       </TableRow>
                     );
