@@ -7,6 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -49,13 +58,47 @@ interface VarietyChartData {
   totalBags: number;
 }
 
+type SizeSliceInput = { name: string; value: number };
+
+function orderSizeSlices(slices: SizeSliceInput[]): SizeSliceInput[] {
+  const knownOrder: string[] = [
+    'Below 30',
+    '30–40',
+    '35–40',
+    '40–45',
+    '45–50',
+    '50–55',
+    'Above 50',
+    'Above 55',
+    'Cut',
+  ];
+  const sliceMap = new Map(slices.map((s) => [s.name, s]));
+
+  const ordered: SizeSliceInput[] = [];
+  for (const size of knownOrder) {
+    const slice = sliceMap.get(size);
+    if (slice) {
+      ordered.push(slice);
+    }
+  }
+
+  const rest = slices
+    .filter((s) => !knownOrder.includes(s.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return [...ordered, ...rest];
+}
+
 function buildVarietyChartData(
   chartData: { variety: string; sizes: { name: string; value: number }[] }[]
 ): VarietyChartData[] {
   return chartData.map((item) => {
     const raw = item.sizes ?? [];
     const total = raw.reduce((sum, s) => sum + s.value, 0);
-    const pieData: SizeSlice[] = raw.map((s, i) => ({
+    const ordered = orderSizeSlices(
+      raw.map((s) => ({ name: s.name, value: s.value }))
+    );
+    const pieData: SizeSlice[] = ordered.map((s, i) => ({
       name: s.name,
       value: s.value,
       fill: CHART_COLORS[i % CHART_COLORS.length],
@@ -227,29 +270,66 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
                     </ChartContainer>
                   </div>
 
-                  <div className="min-w-0 space-y-2">
+                  <div className="min-w-0 space-y-3">
                     <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
                       {variety} – Size Distribution & Insights (
                       {totalBags.toLocaleString('en-IN')} bags)
                     </h4>
-                    <ul className="font-custom text-muted-foreground grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2 sm:text-sm lg:grid-cols-3">
-                      {pieData.map((item) => (
-                        <li
-                          key={item.name}
-                          className="flex min-w-0 items-center gap-2"
-                        >
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: item.fill }}
-                            aria-hidden
-                          />
-                          <span className="text-foreground min-w-0">
-                            {item.name}: {item.value.toLocaleString('en-IN')}{' '}
-                            bags ({item.percentage.toFixed(1)}%)
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="border-border overflow-x-auto rounded-lg border">
+                      <Table className="border-collapse">
+                        <TableHeader>
+                          <TableRow className="border-border bg-muted hover:bg-muted">
+                            <TableHead className="font-custom border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                              Size
+                            </TableHead>
+                            <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                              Bags
+                            </TableHead>
+                            <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                              % of variety
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pieData.map((item) => (
+                            <TableRow
+                              key={item.name}
+                              className="border-border hover:bg-muted/50"
+                            >
+                              <TableCell className="font-custom border-border border px-3 py-2 text-xs sm:text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: item.fill }}
+                                    aria-hidden
+                                  />
+                                  <span>{item.name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                {item.value.toLocaleString('en-IN')}
+                              </TableCell>
+                              <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                {item.percentage.toFixed(1)}%
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                        <TableFooter>
+                          <TableRow className="border-border hover:bg-transparent">
+                            <TableHead className="font-custom bg-muted/60 border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                              Total
+                            </TableHead>
+                            <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                              {totalBags.toLocaleString('en-IN')}
+                            </TableCell>
+                            <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                              100.0%
+                            </TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
+                    </div>
                   </div>
                 </>
               )}
