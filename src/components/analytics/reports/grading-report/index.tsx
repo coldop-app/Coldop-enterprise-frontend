@@ -157,7 +157,10 @@ function mapGradingPassesToRows(passes: GradingGatePass[]): GradingReportRow[] {
     const incomings = pass.incomingGatePassIds ?? [];
     if (incomings.length === 0) continue;
 
-    const createdByName = pass.createdBy?.name ?? '—';
+    const createdByName =
+      typeof pass.createdBy === 'object' && pass.createdBy !== null
+        ? pass.createdBy.name
+        : '—';
     const totalGradedBags = pass.orderDetails?.length
       ? pass.orderDetails.reduce(
           (sum, d) => sum + (d.initialQuantity ?? d.currentQuantity ?? 0),

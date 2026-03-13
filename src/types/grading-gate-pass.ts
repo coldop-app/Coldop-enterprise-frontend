@@ -56,16 +56,16 @@ export interface GradingGatePassIncomingRefLink {
   accountNumber: number;
 }
 
-/** Incoming gate pass as nested in grading pass incomingGatePassIds[] (list API) */
+/** Incoming gate pass as nested in grading pass incomingGatePassIds[] (list API and get-all-gate-passes-of-farmer) */
 export interface GradingGatePassIncomingRef {
   _id: string;
-  farmerStorageLinkId:
+  farmerStorageLinkId?:
     | GradingGatePassIncomingRefLink
     | GradingGatePassFarmerStorageLink;
   gatePassNo: number;
   manualGatePassNumber?: number;
   date: string;
-  variety: string;
+  variety?: string;
   location?: string;
   truckNumber?: string;
   bagsReceived?: number;
@@ -75,8 +75,8 @@ export interface GradingGatePassIncomingRef {
     tareWeightKg?: number;
   };
   status?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Single order detail row in a grading gate pass */
@@ -93,7 +93,8 @@ export interface GradingGatePass {
   _id: string;
   farmerStorageLinkId: string;
   incomingGatePassIds: GradingGatePassIncomingRef[];
-  createdBy: GradingGatePassGradedBy;
+  /** Populated object in list API; may be ID string in get-all-gate-passes-of-farmer */
+  createdBy: GradingGatePassGradedBy | string;
   gatePassNo: number;
   manualGatePassNumber?: number;
   date: string;

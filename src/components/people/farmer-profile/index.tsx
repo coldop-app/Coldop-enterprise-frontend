@@ -55,6 +55,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { FarmerProfileHeaderCard } from './FarmerProfileHeaderCard';
+import { FarmerProfileGradingGatePassTable } from './FarmerProfileGradingGatePassTable';
 import { FarmerProfileMetricsGrid } from './FarmerProfileMetricsGrid';
 import { downloadStockLedgerExcel } from '@/utils/stockLedgerExcel';
 import { formatDataForReport } from '@/utils/format-data-for-report';
@@ -355,6 +356,11 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        <FarmerProfileGradingGatePassTable
+          gradingPasses={gatePasses.grading.data ?? []}
+          isLoading={gatePasses.grading.isLoading}
+        />
 
         <Dialog
           open={stockLedgerDialogOpen}
