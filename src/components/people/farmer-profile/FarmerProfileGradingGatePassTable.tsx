@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import type {
   GradingGatePass,
@@ -25,6 +25,10 @@ import {
   JUTE_BAG_WEIGHT,
   LENO_BAG_WEIGHT,
 } from '@/components/forms/grading/constants';
+import { DatePicker } from '@/components/forms/date-picker';
+import { Button } from '@/components/ui/button';
+import { formatDateToYYYYMMDD, parseDateToTimestamp } from '@/lib/helpers';
+import { toast } from 'sonner';
 
 const DEFAULT_STORE = 'JICSPL-Bazpur';
 
@@ -59,7 +63,7 @@ function getVisibleBagSizes(gradingPasses: GradingGatePass[]): string[] {
   const hasQty = new Set<string>();
   for (const pass of gradingPasses) {
     for (const d of pass.orderDetails ?? []) {
-      if ((d.currentQuantity ?? 0) > 0 && d.size) hasQty.add(d.size);
+      if ((d.initialQuantity ?? 0) > 0 && d.size) hasQty.add(d.size);
     }
   }
   return BAG_SIZE_ORDER.filter((size) => hasQty.has(size));
@@ -83,7 +87,7 @@ function getSizeMapForBagType(
   for (const d of orderDetails ?? []) {
     if (d.bagType !== bagType) continue;
     const size = d.size;
-    const qty = d.currentQuantity ?? 0;
+    const qty = d.initialQuantity ?? 0;
     const weight = d.weightPerBagKg ?? 0;
     const existing = map.get(size);
     if (existing) {
@@ -212,12 +216,47 @@ function getIncomingTotals(
   };
 }
 
+/** Sum of actual weight (net − bardana) across all incoming refs for a pass. */
+function getIncomingActualWeightTotal(
+  refs: Array<GradingGatePassIncomingRef & { _id: string }>
+): number {
+  let total = 0;
+  for (const ref of refs) {
+    const netKg = getNetWeightKg(ref.weightSlip);
+    const bardanaKg = getBardanaWeightKg(ref.bagsReceived);
+    const actual = getActualWeightKg(netKg, bardanaKg);
+    if (actual != null) total += actual;
+  }
+  return Math.round(total * 10) / 10;
+}
+
+/** Wastage = actual weight of potato (incoming) − actual weight of potato (grading). */
+function getWastage(
+  refs: Array<GradingGatePassIncomingRef & { _id: string }>,
+  orderDetails: GradingGatePass['orderDetails'] | undefined
+): number {
+  const incoming = getIncomingActualWeightTotal(refs);
+  const grading = getActualWeightOfPotato(orderDetails);
+  return Math.round((incoming - grading) * 10) / 10;
+}
+
+/** Wastage as percentage of actual weight of potato (incoming). Returns undefined when incoming is 0. */
+function getWastagePercent(
+  refs: Array<GradingGatePassIncomingRef & { _id: string }>,
+  orderDetails: GradingGatePass['orderDetails'] | undefined
+): number | undefined {
+  const incoming = getIncomingActualWeightTotal(refs);
+  if (incoming === 0) return undefined;
+  const wastage = getWastage(refs, orderDetails);
+  return Math.round((wastage / incoming) * 1000) / 10;
+}
+
 /** Total bags across all order details (sizes) for a grading gate pass. */
 function getPostGradingBags(
   orderDetails: GradingGatePass['orderDetails'] | undefined
 ): number {
   if (!orderDetails?.length) return 0;
-  return orderDetails.reduce((sum, d) => sum + (d.currentQuantity ?? 0), 0);
+  return orderDetails.reduce((sum, d) => sum + (d.initialQuantity ?? 0), 0);
 }
 
 /** Normalize to array of ref objects; legacy string IDs become a minimal ref. */
@@ -242,6 +281,80 @@ export const FarmerProfileGradingGatePassTable = memo(
     gradingPasses,
     isLoading = false,
   }: FarmerProfileGradingGatePassTableProps) {
+    const [fromDate, setFromDate] = useState<string | undefined>();
+    const [toDate, setToDate] = useState<string | undefined>();
+    const [appliedRange, setAppliedRange] = useState<{
+      dateFrom?: string;
+      dateTo?: string;
+    }>({});
+
+    const handleApplyDates = () => {
+      if (!fromDate && !toDate) {
+        setAppliedRange({});
+        return;
+      }
+      if (fromDate && toDate) {
+        const fromStr = formatDateToYYYYMMDD(fromDate);
+        const toStr = formatDateToYYYYMMDD(toDate);
+        if (toStr < fromStr) {
+          toast.error('Invalid date range', {
+            description: '"To" date must not be before "From" date.',
+          });
+          return;
+        }
+        setAppliedRange({ dateFrom: fromStr, dateTo: toStr });
+        toast.success('Date filter applied.', {
+          description: `${fromDate} to ${toDate}`,
+        });
+        return;
+      }
+      setAppliedRange({
+        dateFrom: fromDate ? formatDateToYYYYMMDD(fromDate) : undefined,
+        dateTo: toDate ? formatDateToYYYYMMDD(toDate) : undefined,
+      });
+      const rangeDesc = fromDate
+        ? `From ${fromDate}`
+        : toDate
+          ? `To ${toDate}`
+          : '';
+      toast.success('Date filter applied.', {
+        description: rangeDesc || undefined,
+      });
+    };
+
+    const handleClearDates = () => {
+      setFromDate(undefined);
+      setToDate(undefined);
+      setAppliedRange({});
+      toast.success('Date filters cleared.');
+    };
+
+    const filteredGradingPasses = useMemo(() => {
+      if (!appliedRange.dateFrom && !appliedRange.dateTo) return gradingPasses;
+
+      const fromTs =
+        appliedRange.dateFrom != null
+          ? parseDateToTimestamp(appliedRange.dateFrom)
+          : undefined;
+      const toTs =
+        appliedRange.dateTo != null
+          ? parseDateToTimestamp(appliedRange.dateTo)
+          : undefined;
+
+      return gradingPasses.filter((pass) => {
+        if (!pass.date) return false;
+        const ts = parseDateToTimestamp(pass.date);
+        if (Number.isNaN(ts)) return false;
+        if (fromTs != null && !Number.isNaN(fromTs) && ts < fromTs) {
+          return false;
+        }
+        if (toTs != null && !Number.isNaN(toTs) && ts > toTs) {
+          return false;
+        }
+        return true;
+      });
+    }, [appliedRange.dateFrom, appliedRange.dateTo, gradingPasses]);
+
     if (isLoading) {
       return (
         <Card className="overflow-hidden rounded-xl border shadow-sm">
@@ -281,14 +394,128 @@ export const FarmerProfileGradingGatePassTable = memo(
       );
     }
 
-    const visibleBagSizes = getVisibleBagSizes(gradingPasses);
+    const visibleBagSizes = getVisibleBagSizes(filteredGradingPasses);
+
+    const {
+      totalIncomingBags,
+      totalIncomingGrossKg,
+      totalIncomingTareKg,
+      totalIncomingNetKg,
+      totalIncomingBardanaKg,
+      totalIncomingActualKg,
+      totalPostGradingBags,
+      totalWeightReceivedAfterGradingKg,
+      totalLessBardanaForGradingKg,
+      totalActualPotatoKg,
+      totalWastageKg,
+      perSizeTotals,
+    } = filteredGradingPasses.reduce(
+      (acc, pass) => {
+        const refs = getIncomingRefs(pass.incomingGatePassIds);
+        const incomingTotals = getIncomingTotals(refs);
+
+        acc.totalIncomingBags += incomingTotals.totalBags;
+        acc.totalIncomingGrossKg += incomingTotals.totalGrossKg;
+        acc.totalIncomingTareKg += incomingTotals.totalTareKg;
+        acc.totalIncomingNetKg += incomingTotals.totalNetKg;
+        acc.totalIncomingBardanaKg += incomingTotals.totalBardanaKg;
+        acc.totalIncomingActualKg += getIncomingActualWeightTotal(refs);
+
+        acc.totalPostGradingBags += getPostGradingBags(pass.orderDetails);
+
+        const bagTypes = getBagTypesForPass(pass.orderDetails);
+        for (const bagType of bagTypes) {
+          const sizeMap = getSizeMapForBagType(pass.orderDetails, bagType);
+          for (const size of visibleBagSizes) {
+            const data = sizeMap.get(size);
+            if (data && data.qty > 0) {
+              acc.perSizeTotals.set(
+                size,
+                (acc.perSizeTotals.get(size) ?? 0) + data.qty
+              );
+            }
+          }
+
+          acc.totalWeightReceivedAfterGradingKg +=
+            getWeightReceivedAfterGrading(sizeMap);
+          acc.totalLessBardanaForGradingKg += getLessBardanaForGrading(
+            sizeMap,
+            bagType
+          );
+        }
+
+        const actualPotato = getActualWeightOfPotato(pass.orderDetails);
+        acc.totalActualPotatoKg += actualPotato;
+
+        const wastage = getWastage(refs, pass.orderDetails);
+        acc.totalWastageKg += wastage;
+
+        return acc;
+      },
+      {
+        totalIncomingBags: 0,
+        totalIncomingGrossKg: 0,
+        totalIncomingTareKg: 0,
+        totalIncomingNetKg: 0,
+        totalIncomingBardanaKg: 0,
+        totalIncomingActualKg: 0,
+        totalPostGradingBags: 0,
+        totalWeightReceivedAfterGradingKg: 0,
+        totalLessBardanaForGradingKg: 0,
+        totalActualPotatoKg: 0,
+        totalWastageKg: 0,
+        perSizeTotals: new Map<string, number>(),
+      }
+    );
+
+    const totalWastagePercent =
+      totalIncomingActualKg === 0
+        ? undefined
+        : Math.round((totalWastageKg / totalIncomingActualKg) * 1000) / 10;
 
     return (
       <Card className="overflow-hidden rounded-xl border shadow-sm">
         <CardHeader className="bg-muted/30 border-b py-4">
-          <CardTitle className="font-custom text-lg font-semibold">
-            Grading Gate Pass Details
-          </CardTitle>
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <DatePicker
+              id="farmer-profile-grading-from"
+              label="From"
+              value={fromDate}
+              onChange={setFromDate}
+              compact
+            />
+            <DatePicker
+              id="farmer-profile-grading-to"
+              label="To"
+              value={toDate}
+              onChange={setToDate}
+              compact
+            />
+            <div className="flex h-10 items-center gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                onClick={handleApplyDates}
+                disabled={!fromDate && !toDate}
+              >
+                Apply
+              </Button>
+              {(fromDate ||
+                toDate ||
+                appliedRange.dateFrom ||
+                appliedRange.dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleClearDates}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="border-border bg-card font-custom overflow-x-auto text-sm shadow-sm">
@@ -378,13 +605,19 @@ export const FarmerProfileGradingGatePassTable = memo(
                   <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Less bardana for grading
                   </TableHead>
-                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold last:border-r-0">
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
                     Actual weight of potato
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                    Wastage
+                  </TableHead>
+                  <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold last:border-r-0">
+                    Wastage %
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="order [&_tr]:border-b [&_tr:last-child]:border-b">
-                {gradingPasses.flatMap((pass) => {
+                {filteredGradingPasses.flatMap((pass) => {
                   const refs = getIncomingRefs(pass.incomingGatePassIds);
                   if (refs.length === 0) {
                     const bagTypes = getBagTypesForPass(pass.orderDetails);
@@ -473,14 +706,36 @@ export const FarmerProfileGradingGatePassTable = memo(
                             )}
                           </TableCell>
                           {typeIndex === 0 && (
-                            <TableCell
-                              className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
-                              rowSpan={rowsCount}
-                            >
-                              {formatWeightKg(
-                                getActualWeightOfPotato(pass.orderDetails)
-                              )}
-                            </TableCell>
+                            <>
+                              <TableCell
+                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                                rowSpan={rowsCount}
+                              >
+                                {formatWeightKg(
+                                  getActualWeightOfPotato(pass.orderDetails)
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                                rowSpan={rowsCount}
+                              >
+                                {formatWeightKg(
+                                  getWastage(refs, pass.orderDetails)
+                                )}
+                              </TableCell>
+                              <TableCell
+                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
+                                rowSpan={rowsCount}
+                              >
+                                {(() => {
+                                  const pct = getWastagePercent(
+                                    refs,
+                                    pass.orderDetails
+                                  );
+                                  return pct !== undefined ? `${pct}%` : '—';
+                                })()}
+                              </TableCell>
+                            </>
                           )}
                         </TableRow>
                       );
@@ -739,19 +994,124 @@ export const FarmerProfileGradingGatePassTable = memo(
                           )}
                         </TableCell>
                         {rowIndex === 0 && (
-                          <TableCell
-                            className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
-                            rowSpan={rowsPerPass}
-                          >
-                            {formatWeightKg(
-                              getActualWeightOfPotato(pass.orderDetails)
-                            )}
-                          </TableCell>
+                          <>
+                            <TableCell
+                              className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                              rowSpan={rowsPerPass}
+                            >
+                              {formatWeightKg(
+                                getActualWeightOfPotato(pass.orderDetails)
+                              )}
+                            </TableCell>
+                            <TableCell
+                              className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                              rowSpan={rowsPerPass}
+                            >
+                              {formatWeightKg(
+                                getWastage(refs, pass.orderDetails)
+                              )}
+                            </TableCell>
+                            <TableCell
+                              className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
+                              rowSpan={rowsPerPass}
+                            >
+                              {(() => {
+                                const pct = getWastagePercent(
+                                  refs,
+                                  pass.orderDetails
+                                );
+                                return pct !== undefined ? `${pct}%` : '—';
+                              })()}
+                            </TableCell>
+                          </>
                         )}
                       </TableRow>
                     );
                   });
                 })}
+                {filteredGradingPasses.length > 0 && (
+                  <TableRow className="border-border bg-muted/40 text-primary font-semibold">
+                    <TableCell
+                      className="font-custom border-border border-r px-4 py-3 text-right font-bold"
+                      colSpan={7}
+                    >
+                      Total
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {totalIncomingBags}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalIncomingGrossKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalIncomingTareKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalIncomingNetKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalIncomingBardanaKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalIncomingActualKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3">
+                      —
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {totalPostGradingBags}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3">
+                      —
+                    </TableCell>
+                    {visibleBagSizes.map((size) => (
+                      <TableCell
+                        key={`total-${size}`}
+                        className="font-custom border-border border-r px-4 py-3 text-right font-bold"
+                      >
+                        {perSizeTotals.get(size) ?? 0}
+                      </TableCell>
+                    ))}
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalWeightReceivedAfterGradingKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalLessBardanaForGradingKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalActualPotatoKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                      {formatWeightKg(totalWastageKg)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold last:border-r-0">
+                      {totalWastagePercent !== undefined
+                        ? `${totalWastagePercent}%`
+                        : '—'}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

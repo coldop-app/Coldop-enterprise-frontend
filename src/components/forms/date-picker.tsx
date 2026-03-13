@@ -17,6 +17,8 @@ interface DatePickerProps {
   onChange?: (value: string) => void; // Called with dd.mm.yyyy format
   label?: string; // Optional label override
   id?: string; // Optional id override
+  /** When true, reduces vertical gap between label and input (e.g. for filter rows). */
+  compact?: boolean;
 }
 
 export const DatePicker: React.FC<DatePickerProps> = ({
@@ -24,6 +26,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   onChange,
   label = 'Select Order Date',
   id = 'date',
+  compact = false,
 }) => {
   const [open, setOpen] = React.useState(false);
 
@@ -80,7 +83,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const hasLabel = label != null && label !== '';
 
   return (
-    <div className={hasLabel ? 'space-y-3' : undefined}>
+    <div
+      className={hasLabel ? (compact ? 'space-y-1.5' : 'space-y-3') : undefined}
+    >
       {hasLabel && (
         <Label htmlFor={id} className="text-base font-medium">
           {label}
