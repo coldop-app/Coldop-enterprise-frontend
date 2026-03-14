@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.0] - 2026-03-14
+
+### Added
+- People (farmer detail): Grading gate pass table — **column visibility toggle** (Columns button) to show/hide incoming, grading, bag size, and computed columns
+- People (farmer detail): Grading gate pass table — **Amount Payable** column per pass and in totals (computed from BUY_BACK_COST rates and net potato kg after bardana)
+
+### Changed
+- People (farmer detail): grading gate pass table uses shared column labels and visibility state; amount payable uses variety/size rates and bardana weight per bag type (JUTE/LENO)
+
 ## [0.33.0] - 2026-03-13
 
 ### Added
