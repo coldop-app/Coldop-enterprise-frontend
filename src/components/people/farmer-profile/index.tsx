@@ -22,13 +22,6 @@ import {
   EmptyContent,
   EmptyMedia,
 } from '@/components/ui/empty';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Search, ChevronDown } from 'lucide-react';
@@ -52,12 +45,10 @@ import {
   Truck,
   ArrowUpFromLine,
   ArrowRightFromLine,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { FarmerProfileHeaderCard } from './FarmerProfileHeaderCard';
 import { FarmerProfileGradingGatePassTable } from './FarmerProfileGradingGatePassTable';
 import { FarmerProfileMetricsGrid } from './FarmerProfileMetricsGrid';
-import { downloadStockLedgerExcel } from '@/utils/stockLedgerExcel';
 import { formatDataForReport } from '@/utils/format-data-for-report';
 
 /** Map incoming gate pass (by farmer) to IncomingVoucher props. Uses fallbackLink when API returns unpopulated refs. */
@@ -209,7 +200,6 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [statusFilter, setStatusFilter] = useState<IncomingStatusFilter>('all');
   const [_editModalOpen, setEditModalOpen] = useState(false);
-  const [stockLedgerDialogOpen, setStockLedgerDialogOpen] = useState(false);
 
   const effectiveFarmerStorageLinkId = (link?._id ??
     farmerStorageLinkId ??
@@ -233,8 +223,6 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
     gatePasses.totals,
   ]);
   void reportData; // consumed by formatDataForReport; available for future report UI
-
-  const stockLedgerRows = useMemo(() => [], []);
 
   const incomingFiltered = useMemo(() => {
     let list = gatePasses.incoming.data ?? [];
@@ -349,7 +337,6 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
               <FarmerProfileHeaderCard
                 link={link}
                 onEditClick={() => setEditModalOpen(true)}
-                onViewStockLedgerClick={() => setStockLedgerDialogOpen(true)}
               />
               <Separator />
               <FarmerProfileMetricsGrid aggregates={aggregates} />
@@ -360,40 +347,8 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
         <FarmerProfileGradingGatePassTable
           gradingPasses={gatePasses.grading.data ?? []}
           isLoading={gatePasses.grading.isLoading}
+          farmerName={link?.farmerId?.name}
         />
-
-        <Dialog
-          open={stockLedgerDialogOpen}
-          onOpenChange={setStockLedgerDialogOpen}
-        >
-          <DialogContent
-            className="font-custom sm:max-w-md"
-            showCloseButton={true}
-          >
-            <DialogHeader>
-              <DialogTitle>Stock Ledger</DialogTitle>
-            </DialogHeader>
-            <p className="font-custom text-muted-foreground text-sm">
-              Download the stock ledger as Excel.
-            </p>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="default"
-                className="font-custom gap-2"
-                onClick={() => {
-                  setStockLedgerDialogOpen(false);
-                  downloadStockLedgerExcel(
-                    link.farmerId?.name ?? 'Farmer',
-                    stockLedgerRows
-                  );
-                }}
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                Download Excel
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="font-custom mb-4 flex h-auto w-full flex-nowrap overflow-x-auto rounded-xl">

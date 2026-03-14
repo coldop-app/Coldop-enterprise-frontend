@@ -38,7 +38,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatDateToYYYYMMDD, parseDateToTimestamp } from '@/lib/helpers';
 import { toast } from 'sonner';
-import { MoreVertical, Settings2 } from 'lucide-react';
+import { FileDown, MoreVertical, Settings2 } from 'lucide-react';
+import { useStore } from '@/stores/store';
+import type {
+  FarmerReportPdfRow,
+  FarmerReportPdfSnapshot,
+} from '@/components/pdf/farmer-report/farmer-report-pdf-types';
 
 const DEFAULT_STORE = 'JICSPL-Bazpur';
 
@@ -299,6 +304,17 @@ function formatDate(iso: string | undefined): string {
   }
 }
 
+/** Compact single-line date for PDF (reduces row height). */
+function formatDateForPdf(iso: string | undefined): string {
+  if (!iso) return '—';
+  try {
+    const d = parseISO(iso);
+    return format(d, 'd MMM yy');
+  } catch {
+    return iso;
+  }
+}
+
 function formatWeightKg(value: number | undefined): string {
   if (value == null) return '—';
   return String(Math.round(value * 10) / 10);
@@ -307,6 +323,12 @@ function formatWeightKg(value: number | undefined): string {
 function formatAmountPayable(value: number | undefined): string {
   if (value == null) return '—';
   return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Same as formatAmountPayable but with "Rs." for PDF (₹ often does not render in react-pdf). */
+function formatAmountPayableForPdf(value: number | undefined): string {
+  if (value == null) return '—';
+  return `Rs. ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function getNetWeightKg(
@@ -463,15 +485,127 @@ function getIncomingRefs(
   ) as Array<GradingGatePassIncomingRef & { _id: string }>;
 }
 
+/** All column ids in table order (for PDF row cells). */
+const ALL_PDF_COLUMN_IDS = [
+  ...INCOMING_COLUMN_IDS,
+  ...GRADING_FIXED_COLUMN_IDS,
+  ...BAG_SIZE_ORDER.map((s) => BAG_SIZE_ORDER_LABELS[s] ?? s),
+  ...LAST_COLUMN_IDS,
+];
+
+/** Build a flat cell record for one data row (for PDF). Repeats pass-level values on every row. */
+function buildCellsForPdfRow(
+  pass: GradingGatePass,
+  ref: (GradingGatePassIncomingRef & { _id: string }) | null,
+  bagType: string | null,
+  sizeMap: Map<string, { qty: number; weight: number }>,
+  refs: Array<GradingGatePassIncomingRef & { _id: string }>,
+  totals: ReturnType<typeof getIncomingTotals>,
+  firstRowOfPass: boolean
+): Record<string, string | number> {
+  const netKg = ref ? getNetWeightKg(ref.weightSlip) : undefined;
+  const bardanaKg = ref ? getBardanaWeightKg(ref.bagsReceived) : undefined;
+  const actualKg = getActualWeightKg(netKg, bardanaKg);
+  const cells: Record<string, string | number> = {};
+  for (const id of ALL_PDF_COLUMN_IDS) {
+    if (id === 'systemIncomingNo')
+      cells[id] = ref?.gatePassNo != null ? String(ref.gatePassNo) : '—';
+    else if (id === 'manualIncomingNo')
+      cells[id] =
+        ref?.manualGatePassNumber != null
+          ? String(ref.manualGatePassNumber)
+          : '—';
+    else if (id === 'incomingDate')
+      cells[id] = ref?.date ? formatDateForPdf(ref.date) : '—';
+    else if (id === 'store') cells[id] = DEFAULT_STORE;
+    else if (id === 'truckNumber') cells[id] = ref?.truckNumber ?? '—';
+    else if (id === 'variety') cells[id] = ref?.variety ?? pass.variety ?? '—';
+    else if (id === 'bagsReceived')
+      cells[id] = ref?.bagsReceived != null ? String(ref.bagsReceived) : '—';
+    else if (id === 'totalBagsReceived')
+      cells[id] =
+        firstRowOfPass && refs.length > 1 ? String(totals.totalBags) : '—';
+    else if (id === 'weightSlipNo')
+      cells[id] = ref?.weightSlip?.slipNumber ?? '—';
+    else if (id === 'grossWeightKg')
+      cells[id] = formatWeightKg(ref?.weightSlip?.grossWeightKg);
+    else if (id === 'totalGrossKg')
+      cells[id] =
+        firstRowOfPass && refs.length > 1
+          ? formatWeightKg(totals.totalGrossKg)
+          : '—';
+    else if (id === 'tareWeightKg')
+      cells[id] = formatWeightKg(ref?.weightSlip?.tareWeightKg);
+    else if (id === 'totalTareKg')
+      cells[id] =
+        firstRowOfPass && refs.length > 1
+          ? formatWeightKg(totals.totalTareKg)
+          : '—';
+    else if (id === 'netWeightKg') cells[id] = formatWeightKg(netKg);
+    else if (id === 'totalNetKg')
+      cells[id] =
+        firstRowOfPass && refs.length > 1
+          ? formatWeightKg(totals.totalNetKg)
+          : '—';
+    else if (id === 'lessBardanaKg') cells[id] = formatWeightKg(bardanaKg);
+    else if (id === 'totalLessBardanaKg')
+      cells[id] =
+        firstRowOfPass && refs.length > 1
+          ? formatWeightKg(totals.totalBardanaKg)
+          : '—';
+    else if (id === 'actualWeightKg') cells[id] = formatWeightKg(actualKg);
+    else if (id === 'gradingGatePassNo') cells[id] = pass.gatePassNo ?? '—';
+    else if (id === 'gradingManualNo')
+      cells[id] =
+        pass.manualGatePassNumber != null
+          ? String(pass.manualGatePassNumber)
+          : '—';
+    else if (id === 'gradingDate') cells[id] = formatDateForPdf(pass.date);
+    else if (id === 'postGradingBags')
+      cells[id] = String(getPostGradingBags(pass.orderDetails));
+    else if (id === 'type') cells[id] = bagType ?? '—';
+    else if (id === 'weightReceivedAfterGrading')
+      cells[id] = formatWeightKg(getWeightReceivedAfterGrading(sizeMap));
+    else if (id === 'lessBardanaForGrading')
+      cells[id] = formatWeightKg(getLessBardanaForGrading(sizeMap, bagType));
+    else if (id === 'actualWeightOfPotato')
+      cells[id] = formatWeightKg(getActualWeightOfPotato(pass.orderDetails));
+    else if (id === 'wastage')
+      cells[id] = formatWeightKg(getWastage(refs, pass.orderDetails));
+    else if (id === 'wastagePercent') {
+      const pct = getWastagePercent(refs, pass.orderDetails);
+      cells[id] = pct !== undefined ? `${pct}%` : '—';
+    } else if (id === 'amountPayable')
+      cells[id] = formatAmountPayableForPdf(
+        getAmountPayable(pass.orderDetails, pass.variety)
+      );
+    else if (
+      BAG_SIZE_ORDER.some((s) => (BAG_SIZE_ORDER_LABELS[s] ?? s) === id)
+    ) {
+      const data = sizeMap.get(
+        BAG_SIZE_ORDER.find((s) => (BAG_SIZE_ORDER_LABELS[s] ?? s) === id) ?? ''
+      );
+      if (data && data.qty > 0)
+        cells[id] = `${data.qty} (${formatWeightKg(data.weight)})`;
+      else cells[id] = '';
+    } else cells[id] = '—';
+  }
+  return cells;
+}
+
 export interface FarmerProfileGradingGatePassTableProps {
   gradingPasses: GradingGatePass[];
   isLoading?: boolean;
+  farmerName?: string;
+  companyName?: string;
 }
 
 export const FarmerProfileGradingGatePassTable = memo(
   function FarmerProfileGradingGatePassTable({
     gradingPasses,
     isLoading = false,
+    farmerName: farmerNameProp,
+    companyName: companyNameProp,
   }: FarmerProfileGradingGatePassTableProps) {
     const [fromDate, setFromDate] = useState<string | undefined>();
     const [toDate, setToDate] = useState<string | undefined>();
@@ -485,6 +619,11 @@ export const FarmerProfileGradingGatePassTable = memo(
     const [sortColumn, setSortColumn] = useState<SortColumnId | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [groupByVariety, setGroupByVariety] = useState(false);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+    const coldStorage = useStore((s) => s.coldStorage);
+    const companyName = companyNameProp ?? coldStorage?.name ?? 'Cold Storage';
+    const farmerName = farmerNameProp ?? '';
 
     const isColVisible = (id: string) => columnVisibility[id] !== false;
     const visibleIncomingCount = INCOMING_COLUMN_IDS.filter((id) =>
@@ -540,6 +679,59 @@ export const FarmerProfileGradingGatePassTable = memo(
       setToDate(undefined);
       setAppliedRange({});
       toast.success('Date filters cleared.');
+    };
+
+    const getDateRangeLabel = () => {
+      if (appliedRange.dateFrom && appliedRange.dateTo) {
+        return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
+      }
+      if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
+      if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
+      return 'All dates';
+    };
+
+    const handleViewReport = async () => {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(
+          '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+        );
+      }
+      setIsGeneratingPdf(true);
+      try {
+        const snapshot: FarmerReportPdfSnapshot = {
+          companyName,
+          farmerName: farmerName || undefined,
+          dateRangeLabel: getDateRangeLabel(),
+          reportTitle: 'Grading Gate Pass Report',
+          visibleColumnIds: visibleColumnIdsForPdf,
+          groupByVariety,
+          rows: flatRowsForPdf,
+        };
+        const [{ pdf }, { FarmerReportPdf }] = await Promise.all([
+          import('@react-pdf/renderer'),
+          import('@/components/pdf/farmer-report/farmer-report-pdf'),
+        ]);
+        const blob = await pdf(
+          <FarmerReportPdf snapshot={snapshot} />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        toast.success('PDF opened in new tab', {
+          description: 'Report is ready to view or print.',
+        });
+      } catch {
+        toast.error('Could not generate PDF', {
+          description: 'Please try again.',
+        });
+      } finally {
+        setIsGeneratingPdf(false);
+      }
     };
 
     const filteredGradingPasses = useMemo(() => {
@@ -598,6 +790,73 @@ export const FarmerProfileGradingGatePassTable = memo(
     }, [filteredGradingPasses, sortColumn, sortDirection, groupByVariety]);
 
     const visibleBagSizes = getVisibleBagSizes(filteredGradingPasses);
+
+    const visibleColumnIdsForPdf = useMemo(() => {
+      const incoming = INCOMING_COLUMN_IDS.filter((id) => isColVisible(id));
+      const grading = GRADING_FIXED_COLUMN_IDS.filter((id) => isColVisible(id));
+      const sizes = visibleBagSizes
+        .map((s) => BAG_SIZE_ORDER_LABELS[s] ?? s)
+        .filter((id) => isColVisible(id));
+      const last = LAST_COLUMN_IDS.filter((id) => isColVisible(id));
+      return [...incoming, ...grading, ...sizes, ...last];
+    }, [columnVisibility, visibleBagSizes]);
+
+    const flatRowsForPdf = useMemo((): FarmerReportPdfRow[] => {
+      const result: FarmerReportPdfRow[] = [];
+      for (const { variety, passes } of sortedAndGroupedPasses) {
+        if (groupByVariety && variety != null) {
+          result.push({ type: 'variety', variety });
+        }
+        for (const pass of passes) {
+          const refs = getIncomingRefs(pass.incomingGatePassIds);
+          if (refs.length === 0) {
+            const bagTypes = getBagTypesForPass(pass.orderDetails);
+            const rowsCount = Math.max(1, bagTypes.length);
+            const totals = getIncomingTotals(refs);
+            for (let typeIndex = 0; typeIndex < rowsCount; typeIndex++) {
+              const bagType = bagTypes[typeIndex] ?? null;
+              const sizeMap =
+                bagType != null
+                  ? getSizeMapForBagType(pass.orderDetails, bagType)
+                  : new Map<string, { qty: number; weight: number }>();
+              const cells = buildCellsForPdfRow(
+                pass,
+                null,
+                bagType,
+                sizeMap,
+                refs,
+                totals,
+                typeIndex === 0
+              );
+              result.push({ type: 'data', cells });
+            }
+            continue;
+          }
+          const totals = getIncomingTotals(refs);
+          const bagTypes = getBagTypesForPass(pass.orderDetails);
+          const rowsPerPass = Math.max(refs.length, bagTypes.length);
+          for (let rowIndex = 0; rowIndex < rowsPerPass; rowIndex++) {
+            const ref = refs[rowIndex] ?? null;
+            const bagType = bagTypes[rowIndex] ?? null;
+            const sizeMap =
+              bagType != null
+                ? getSizeMapForBagType(pass.orderDetails, bagType)
+                : new Map<string, { qty: number; weight: number }>();
+            const cells = buildCellsForPdfRow(
+              pass,
+              ref,
+              bagType,
+              sizeMap,
+              refs,
+              totals,
+              rowIndex === 0
+            );
+            result.push({ type: 'data', cells });
+          }
+        }
+      }
+      return result;
+    }, [sortedAndGroupedPasses, groupByVariety]);
     const totalVisibleCols =
       INCOMING_COLUMN_IDS.filter((id) => isColVisible(id)).length +
       GRADING_FIXED_COLUMN_IDS.filter((id) => isColVisible(id)).length +
@@ -1251,91 +1510,104 @@ export const FarmerProfileGradingGatePassTable = memo(
     return (
       <Card className="overflow-hidden rounded-xl border shadow-sm">
         <CardHeader className="bg-muted/30 border-b py-4">
-          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-            <DatePicker
-              id="farmer-profile-grading-from"
-              label="From"
-              value={fromDate}
-              onChange={setFromDate}
-              compact
-            />
-            <DatePicker
-              id="farmer-profile-grading-to"
-              label="To"
-              value={toDate}
-              onChange={setToDate}
-              compact
-            />
-            <div className="flex h-10 items-center gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={handleApplyDates}
-                disabled={!fromDate && !toDate}
-              >
-                Apply
-              </Button>
-              {(fromDate ||
-                toDate ||
-                appliedRange.dateFrom ||
-                appliedRange.dateTo) && (
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+              <DatePicker
+                id="farmer-profile-grading-from"
+                label="From"
+                value={fromDate}
+                onChange={setFromDate}
+                compact
+              />
+              <DatePicker
+                id="farmer-profile-grading-to"
+                label="To"
+                value={toDate}
+                onChange={setToDate}
+                compact
+              />
+              <div className="flex h-10 items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  onClick={handleClearDates}
+                  onClick={handleApplyDates}
+                  disabled={!fromDate && !toDate}
                 >
-                  Clear
+                  Apply
                 </Button>
-              )}
+                {(fromDate ||
+                  toDate ||
+                  appliedRange.dateFrom ||
+                  appliedRange.dateTo) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                    onClick={handleClearDates}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <Button
+                variant={groupByVariety ? 'default' : 'outline'}
+                size="sm"
+                className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                onClick={() => setGroupByVariety((v) => !v)}
+              >
+                Group by variety
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  >
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
+                >
+                  {[
+                    ...INCOMING_COLUMN_IDS,
+                    ...GRADING_FIXED_COLUMN_IDS,
+                    ...BAG_SIZE_COLUMN_IDS,
+                    ...LAST_COLUMN_IDS,
+                  ].map((id) => (
+                    <DropdownMenuCheckboxItem
+                      key={id}
+                      className="font-custom capitalize"
+                      checked={isColVisible(id)}
+                      onCheckedChange={(checked) =>
+                        setColumnVisibility((prev) => ({
+                          ...prev,
+                          [id]: checked,
+                        }))
+                      }
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <Button
-              variant={groupByVariety ? 'default' : 'outline'}
+              variant="default"
               size="sm"
-              className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-              onClick={() => setGroupByVariety((v) => !v)}
+              className="font-custom focus-visible:ring-primary h-10 min-h-10 w-full shrink-0 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+              onClick={handleViewReport}
+              disabled={isGeneratingPdf}
+              aria-label="View report"
             >
-              Group by variety
+              <FileDown className="h-4 w-4 shrink-0" />
+              {isGeneratingPdf ? 'Generating…' : 'View Report'}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                >
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Columns
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
-              >
-                {[
-                  ...INCOMING_COLUMN_IDS,
-                  ...GRADING_FIXED_COLUMN_IDS,
-                  ...BAG_SIZE_COLUMN_IDS,
-                  ...LAST_COLUMN_IDS,
-                ].map((id) => (
-                  <DropdownMenuCheckboxItem
-                    key={id}
-                    className="font-custom capitalize"
-                    checked={isColVisible(id)}
-                    onCheckedChange={(checked) =>
-                      setColumnVisibility((prev) => ({
-                        ...prev,
-                        [id]: checked,
-                      }))
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent className="p-0">
