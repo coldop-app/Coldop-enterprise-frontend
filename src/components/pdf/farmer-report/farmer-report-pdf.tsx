@@ -2,6 +2,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import {
   type FarmerReportPdfSnapshot,
   FARMER_REPORT_PDF_COLUMN_LABELS,
+  FARMER_REPORT_ROW_SPAN_COLUMN_IDS,
 } from './farmer-report-pdf-types';
 
 /** Bag size column ids – these get a reduced width (qty + weight stacked). */
@@ -247,10 +248,19 @@ export function FarmerReportPdf({ snapshot }: FarmerReportPdfProps) {
                   </View>
                 );
               }
+              const passRowIndex = row.passRowIndex ?? 0;
+              const isSpanColumn = (colId: string) =>
+                FARMER_REPORT_ROW_SPAN_COLUMN_IDS.includes(
+                  colId as (typeof FARMER_REPORT_ROW_SPAN_COLUMN_IDS)[number]
+                );
               return (
                 <View key={`data-${rowIndex}`} style={styles.tableRow}>
                   {visibleColumnIds.map((id, i) => {
-                    const raw = formatCellValue(row.cells[id]);
+                    const showSpanValue =
+                      !isSpanColumn(id) || passRowIndex === 0;
+                    const raw = showSpanValue
+                      ? formatCellValue(row.cells[id])
+                      : '—';
                     const qtyWeight = parseQtyWeight(raw);
                     return (
                       <View

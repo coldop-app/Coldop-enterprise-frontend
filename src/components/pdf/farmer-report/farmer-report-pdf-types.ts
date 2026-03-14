@@ -1,7 +1,22 @@
 /** A single row in the farmer report PDF: either a variety group header or a data row. */
 export type FarmerReportPdfRow =
   | { type: 'variety'; variety: string }
-  | { type: 'data'; cells: Record<string, string | number> };
+  | {
+      type: 'data';
+      cells: Record<string, string | number>;
+      /** Row index within the grading-pass group (0 = first). Used for row-span columns. */
+      passRowIndex?: number;
+      /** Number of rows in this grading-pass group. Used for row-span columns. */
+      passGroupSize?: number;
+    };
+
+/** Column ids that span across grouped rows (show value only on first row of group). */
+export const FARMER_REPORT_ROW_SPAN_COLUMN_IDS = [
+  'actualWeightOfPotato',
+  'wastage',
+  'wastagePercent',
+  'amountPayable',
+] as const;
 
 /** Snapshot of the farmer grading table state for PDF (filters, grouping, visible columns, rows). */
 export interface FarmerReportPdfSnapshot {

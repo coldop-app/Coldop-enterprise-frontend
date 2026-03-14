@@ -828,7 +828,12 @@ export const FarmerProfileGradingGatePassTable = memo(
                 totals,
                 typeIndex === 0
               );
-              result.push({ type: 'data', cells });
+              result.push({
+                type: 'data',
+                cells,
+                passRowIndex: typeIndex,
+                passGroupSize: rowsCount,
+              });
             }
             continue;
           }
@@ -851,7 +856,12 @@ export const FarmerProfileGradingGatePassTable = memo(
               totals,
               rowIndex === 0
             );
-            result.push({ type: 'data', cells });
+            result.push({
+              type: 'data',
+              cells,
+              passRowIndex: rowIndex,
+              passGroupSize: rowsPerPass,
+            });
           }
         }
       }
