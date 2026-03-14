@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import type {
   GradingGatePass,
@@ -33,11 +33,12 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatDateToYYYYMMDD, parseDateToTimestamp } from '@/lib/helpers';
 import { toast } from 'sonner';
-import { Settings2 } from 'lucide-react';
+import { MoreVertical, Settings2 } from 'lucide-react';
 
 const DEFAULT_STORE = 'JICSPL-Bazpur';
 
@@ -148,6 +149,64 @@ const FARMER_GRADING_COLUMN_LABELS: Record<string, string> = {
     ])
   ),
 };
+
+/** Sortable column ids for incoming and grading block (used for SortColumnId type). */
+const _SORTABLE_COLUMN_IDS = [
+  'systemIncomingNo',
+  'manualIncomingNo',
+  'incomingDate',
+  'gradingGatePassNo',
+  'gradingManualNo',
+  'gradingDate',
+] as const;
+
+type SortColumnId = (typeof _SORTABLE_COLUMN_IDS)[number];
+
+/** Comparable value for a pass for the given sort column (used for sorting). */
+function getSortValue(
+  pass: GradingGatePass,
+  column: SortColumnId,
+  getRefs: (
+    pass: GradingGatePass
+  ) => Array<GradingGatePassIncomingRef & { _id: string }>
+): number | string {
+  const refs = getRefs(pass);
+  const firstRef = refs[0];
+  switch (column) {
+    case 'systemIncomingNo':
+      return firstRef?.gatePassNo ?? 0;
+    case 'manualIncomingNo': {
+      const v = firstRef?.manualGatePassNumber ?? pass.manualGatePassNumber;
+      return typeof v === 'number' ? v : v != null ? String(v) : '';
+    }
+    case 'incomingDate':
+      return firstRef?.date ?? '';
+    case 'gradingGatePassNo':
+      return pass.gatePassNo ?? 0;
+    case 'gradingManualNo': {
+      const v = pass.manualGatePassNumber;
+      return typeof v === 'number' ? v : v != null ? String(v) : '';
+    }
+    case 'gradingDate':
+      return pass.date ?? '';
+    default:
+      return '';
+  }
+}
+
+function compareSortValues(
+  a: number | string,
+  b: number | string,
+  direction: 'asc' | 'desc'
+): number {
+  const mult = direction === 'asc' ? 1 : -1;
+  if (typeof a === 'number' && typeof b === 'number') {
+    return mult * (a - b);
+  }
+  const sa = String(a);
+  const sb = String(b);
+  return mult * sa.localeCompare(sb, undefined, { numeric: true });
+}
 
 /** Sizes that have at least one non-zero quantity across all passes. */
 function getVisibleBagSizes(gradingPasses: GradingGatePass[]): string[] {
@@ -423,6 +482,9 @@ export const FarmerProfileGradingGatePassTable = memo(
     const [columnVisibility, setColumnVisibility] = useState<
       Record<string, boolean>
     >({});
+    const [sortColumn, setSortColumn] = useState<SortColumnId | null>(null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [groupByVariety, setGroupByVariety] = useState(false);
 
     const isColVisible = (id: string) => columnVisibility[id] !== false;
     const visibleIncomingCount = INCOMING_COLUMN_IDS.filter((id) =>
@@ -506,46 +568,42 @@ export const FarmerProfileGradingGatePassTable = memo(
       });
     }, [appliedRange.dateFrom, appliedRange.dateTo, gradingPasses]);
 
-    if (isLoading) {
-      return (
-        <Card className="overflow-hidden rounded-xl border shadow-sm">
-          <CardHeader className="bg-muted/30 border-b py-4">
-            <CardTitle className="font-custom text-lg font-semibold">
-              Grading Gate Pass Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <p className="font-custom text-muted-foreground py-8 text-center text-sm">
-              Loading…
-            </p>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    if (!gradingPasses.length) {
-      return (
-        <Card className="overflow-hidden rounded-xl border shadow-sm">
-          <CardHeader className="bg-muted/30 border-b py-4">
-            <CardTitle className="font-custom text-lg font-semibold">
-              Grading Gate Pass Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <Empty className="font-custom">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ClipboardList className="size-6" />
-                </EmptyMedia>
-                <EmptyTitle>No grading gate passes</EmptyTitle>
-              </EmptyHeader>
-            </Empty>
-          </CardContent>
-        </Card>
-      );
-    }
+    const sortedAndGroupedPasses = useMemo(() => {
+      const getRefs = (p: GradingGatePass) =>
+        getIncomingRefs(p.incomingGatePassIds);
+      const sorted =
+        sortColumn == null
+          ? [...filteredGradingPasses]
+          : [...filteredGradingPasses].sort((a, b) =>
+              compareSortValues(
+                getSortValue(a, sortColumn, getRefs),
+                getSortValue(b, sortColumn, getRefs),
+                sortDirection
+              )
+            );
+      if (!groupByVariety) {
+        return [{ variety: null as string | null, passes: sorted }];
+      }
+      const byVariety = new Map<string, GradingGatePass[]>();
+      for (const pass of sorted) {
+        const variety = pass.variety ?? getRefs(pass)[0]?.variety ?? '';
+        const list = byVariety.get(variety) ?? [];
+        list.push(pass);
+        byVariety.set(variety, list);
+      }
+      const groups = Array.from(byVariety.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([variety, passes]) => ({ variety, passes }));
+      return groups;
+    }, [filteredGradingPasses, sortColumn, sortDirection, groupByVariety]);
 
     const visibleBagSizes = getVisibleBagSizes(filteredGradingPasses);
+    const totalVisibleCols =
+      INCOMING_COLUMN_IDS.filter((id) => isColVisible(id)).length +
+      GRADING_FIXED_COLUMN_IDS.filter((id) => isColVisible(id)).length +
+      visibleBagSizes.filter((s) => isColVisible(BAG_SIZE_ORDER_LABELS[s] ?? s))
+        .length +
+      LAST_COLUMN_IDS.filter((id) => isColVisible(id)).length;
 
     const {
       totalIncomingBags,
@@ -631,6 +689,565 @@ export const FarmerProfileGradingGatePassTable = memo(
         ? undefined
         : Math.round((totalWastageKg / totalIncomingActualKg) * 1000) / 10;
 
+    const tableBodyRows = useMemo(() => {
+      const visibleBagSizesInner = getVisibleBagSizes(filteredGradingPasses);
+      const isColVisibleInner = (id: string) => columnVisibility[id] !== false;
+      const rows: React.ReactNode[] = [];
+      for (const { variety, passes } of sortedAndGroupedPasses) {
+        if (groupByVariety && variety != null) {
+          rows.push(
+            <TableRow
+              key={`variety-${variety}`}
+              className="border-border bg-muted/50 font-custom font-semibold"
+            >
+              <TableCell
+                className="font-custom border-border border-b px-4 py-2"
+                colSpan={totalVisibleCols}
+              >
+                Variety: {variety || '—'}
+              </TableCell>
+            </TableRow>
+          );
+        }
+        for (const pass of passes) {
+          const refs = getIncomingRefs(pass.incomingGatePassIds);
+          if (refs.length === 0) {
+            const bagTypes = getBagTypesForPass(pass.orderDetails);
+            const rowsCount = Math.max(1, bagTypes.length);
+            for (let typeIndex = 0; typeIndex < rowsCount; typeIndex++) {
+              const bagType = bagTypes[typeIndex];
+              const sizeMap =
+                bagType != null
+                  ? getSizeMapForBagType(pass.orderDetails, bagType)
+                  : new Map<string, { qty: number; weight: number }>();
+              rows.push(
+                <TableRow
+                  key={`${pass._id}-empty-${typeIndex}`}
+                  className="border-border hover:bg-muted/50 transition-colors"
+                >
+                  {visibleIncomingCount > 0 && (
+                    <TableCell
+                      className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
+                      colSpan={visibleIncomingCount}
+                    >
+                      —
+                    </TableCell>
+                  )}
+                  {typeIndex === 0 && (
+                    <>
+                      {isColVisibleInner('gradingGatePassNo') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right font-medium"
+                          rowSpan={rowsCount}
+                        >
+                          {pass.gatePassNo ?? '—'}
+                        </TableCell>
+                      )}
+                      {isColVisibleInner('gradingManualNo') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right font-medium"
+                          rowSpan={rowsCount}
+                        >
+                          {pass.manualGatePassNumber != null
+                            ? String(pass.manualGatePassNumber)
+                            : '—'}
+                        </TableCell>
+                      )}
+                      {isColVisibleInner('gradingDate') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3"
+                          rowSpan={rowsCount}
+                        >
+                          {formatDate(pass.date)}
+                        </TableCell>
+                      )}
+                      {isColVisibleInner('postGradingBags') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right font-medium"
+                          rowSpan={rowsCount}
+                        >
+                          {getPostGradingBags(pass.orderDetails)}
+                        </TableCell>
+                      )}
+                    </>
+                  )}
+                  {isColVisibleInner('type') && (
+                    <TableCell className="font-custom border-border border-r px-4 py-3">
+                      {bagType ?? '—'}
+                    </TableCell>
+                  )}
+                  {visibleBagSizesInner.map((size) => {
+                    const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
+                    if (!isColVisibleInner(sizeId)) return null;
+                    const data = sizeMap.get(size);
+                    const isEmpty = !data || data.qty === 0;
+                    return (
+                      <TableCell
+                        key={size}
+                        className="font-custom border-border border-r px-4 py-3 text-right"
+                      >
+                        {isEmpty ? (
+                          ''
+                        ) : (
+                          <span className="flex flex-col items-end">
+                            <span className="font-medium">{data.qty}</span>
+                            <span className="text-muted-foreground text-xs">
+                              ({formatWeightKg(data.weight)})
+                            </span>
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                  {isColVisibleInner('weightReceivedAfterGrading') && (
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
+                      {formatWeightKg(getWeightReceivedAfterGrading(sizeMap))}
+                    </TableCell>
+                  )}
+                  {isColVisibleInner('lessBardanaForGrading') && (
+                    <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
+                      {formatWeightKg(
+                        getLessBardanaForGrading(sizeMap, bagType)
+                      )}
+                    </TableCell>
+                  )}
+                  {typeIndex === 0 && (
+                    <>
+                      {isColVisibleInner('actualWeightOfPotato') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                          rowSpan={rowsCount}
+                        >
+                          {formatWeightKg(
+                            getActualWeightOfPotato(pass.orderDetails)
+                          )}
+                        </TableCell>
+                      )}
+                      {isColVisibleInner('wastage') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                          rowSpan={rowsCount}
+                        >
+                          {formatWeightKg(getWastage(refs, pass.orderDetails))}
+                        </TableCell>
+                      )}
+                      {isColVisibleInner('wastagePercent') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                          rowSpan={rowsCount}
+                        >
+                          {(() => {
+                            const pct = getWastagePercent(
+                              refs,
+                              pass.orderDetails
+                            );
+                            return pct !== undefined ? `${pct}%` : '—';
+                          })()}
+                        </TableCell>
+                      )}
+                      {isColVisibleInner('amountPayable') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
+                          rowSpan={rowsCount}
+                        >
+                          {formatAmountPayable(
+                            getAmountPayable(pass.orderDetails, pass.variety)
+                          )}
+                        </TableCell>
+                      )}
+                    </>
+                  )}
+                </TableRow>
+              );
+            }
+            continue;
+          }
+          const totals = getIncomingTotals(refs);
+          const bagTypes = getBagTypesForPass(pass.orderDetails);
+          const rowsPerPass = Math.max(refs.length, bagTypes.length);
+          const incomingRowSpan =
+            refs.length === 1 && rowsPerPass > 1 ? rowsPerPass : 1;
+          for (let rowIndex = 0; rowIndex < rowsPerPass; rowIndex++) {
+            const ref = refs[rowIndex] ?? null;
+            const bagType = bagTypes[rowIndex] ?? null;
+            const sizeMap =
+              bagType != null
+                ? getSizeMapForBagType(pass.orderDetails, bagType)
+                : new Map<string, { qty: number; weight: number }>();
+            const netKg = ref ? getNetWeightKg(ref.weightSlip) : undefined;
+            const bardanaKg = ref
+              ? getBardanaWeightKg(ref.bagsReceived)
+              : undefined;
+            const actualKg = getActualWeightKg(netKg, bardanaKg);
+            const isIncomingSpannedRow = incomingRowSpan > 1 && rowIndex > 0;
+            const showIncomingCells =
+              ref != null ? !isIncomingSpannedRow : incomingRowSpan === 1;
+            rows.push(
+              <TableRow
+                key={`${pass._id}-${rowIndex}`}
+                className="border-border hover:bg-muted/50 transition-colors"
+              >
+                {showIncomingCells && ref ? (
+                  <>
+                    {isColVisibleInner('systemIncomingNo') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.gatePassNo ? String(ref.gatePassNo) : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('manualIncomingNo') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.manualGatePassNumber != null
+                          ? String(ref.manualGatePassNumber)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('incomingDate') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.date ? formatDate(ref.date) : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('store') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {DEFAULT_STORE}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('truckNumber') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.truckNumber ?? '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('variety') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.variety ?? '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('bagsReceived') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.bagsReceived != null
+                          ? String(ref.bagsReceived)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {rowIndex === 0 &&
+                      isColVisibleInner('totalBagsReceived') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                          rowSpan={refs.length}
+                        >
+                          {refs.length > 1 ? totals.totalBags : '—'}
+                        </TableCell>
+                      )}
+                    {isColVisibleInner('weightSlipNo') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {ref.weightSlip?.slipNumber ?? '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('grossWeightKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {formatWeightKg(ref.weightSlip?.grossWeightKg)}
+                      </TableCell>
+                    )}
+                    {rowIndex === 0 && isColVisibleInner('totalGrossKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={refs.length}
+                      >
+                        {refs.length > 1
+                          ? formatWeightKg(totals.totalGrossKg)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('tareWeightKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {formatWeightKg(ref.weightSlip?.tareWeightKg)}
+                      </TableCell>
+                    )}
+                    {rowIndex === 0 && isColVisibleInner('totalTareKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={refs.length}
+                      >
+                        {refs.length > 1
+                          ? formatWeightKg(totals.totalTareKg)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('netWeightKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {formatWeightKg(netKg)}
+                      </TableCell>
+                    )}
+                    {rowIndex === 0 && isColVisibleInner('totalNetKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={refs.length}
+                      >
+                        {refs.length > 1
+                          ? formatWeightKg(totals.totalNetKg)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('lessBardanaKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {formatWeightKg(bardanaKg)}
+                      </TableCell>
+                    )}
+                    {rowIndex === 0 &&
+                      isColVisibleInner('totalLessBardanaKg') && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                          rowSpan={refs.length}
+                        >
+                          {refs.length > 1
+                            ? formatWeightKg(totals.totalBardanaKg)
+                            : '—'}
+                        </TableCell>
+                      )}
+                    {isColVisibleInner('actualWeightKg') && (
+                      <TableCell
+                        className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right align-top"
+                        rowSpan={incomingRowSpan}
+                      >
+                        {formatWeightKg(actualKg)}
+                      </TableCell>
+                    )}
+                  </>
+                ) : showIncomingCells &&
+                  ref == null &&
+                  visibleIncomingCount > 0 ? (
+                  <TableCell
+                    className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
+                    colSpan={visibleIncomingCount}
+                  >
+                    —
+                  </TableCell>
+                ) : null}
+                {isIncomingSpannedRow &&
+                  visibleSpannedTotalColsCount > 0 &&
+                  Array.from(
+                    { length: visibleSpannedTotalColsCount },
+                    (_, i) => (
+                      <TableCell
+                        key={`placeholder-total-${i}`}
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top"
+                      >
+                        —
+                      </TableCell>
+                    )
+                  )}
+                {rowIndex === 0 && (
+                  <>
+                    {isColVisibleInner('gradingGatePassNo') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={rowsPerPass}
+                      >
+                        {pass.gatePassNo ?? '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('gradingManualNo') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={rowsPerPass}
+                      >
+                        {pass.manualGatePassNumber != null
+                          ? String(pass.manualGatePassNumber)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('gradingDate') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 align-top"
+                        rowSpan={rowsPerPass}
+                      >
+                        {formatDate(pass.date)}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('postGradingBags') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={rowsPerPass}
+                      >
+                        {getPostGradingBags(pass.orderDetails)}
+                      </TableCell>
+                    )}
+                  </>
+                )}
+                {isColVisibleInner('type') && (
+                  <TableCell className="font-custom border-border border-r px-4 py-3">
+                    {bagType ?? '—'}
+                  </TableCell>
+                )}
+                {visibleBagSizesInner.map((size) => {
+                  const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
+                  if (!isColVisibleInner(sizeId)) return null;
+                  const data = sizeMap.get(size);
+                  const isEmpty = !data || data.qty === 0;
+                  return (
+                    <TableCell
+                      key={size}
+                      className="font-custom border-border border-r px-4 py-3 text-right"
+                    >
+                      {isEmpty ? (
+                        ''
+                      ) : (
+                        <span className="flex flex-col items-end">
+                          <span className="font-medium">{data.qty}</span>
+                          <span className="text-muted-foreground text-xs">
+                            ({formatWeightKg(data.weight)})
+                          </span>
+                        </span>
+                      )}
+                    </TableCell>
+                  );
+                })}
+                {isColVisibleInner('weightReceivedAfterGrading') && (
+                  <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
+                    {formatWeightKg(getWeightReceivedAfterGrading(sizeMap))}
+                  </TableCell>
+                )}
+                {isColVisibleInner('lessBardanaForGrading') && (
+                  <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
+                    {formatWeightKg(getLessBardanaForGrading(sizeMap, bagType))}
+                  </TableCell>
+                )}
+                {rowIndex === 0 && (
+                  <>
+                    {isColVisibleInner('actualWeightOfPotato') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={rowsPerPass}
+                      >
+                        {formatWeightKg(
+                          getActualWeightOfPotato(pass.orderDetails)
+                        )}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('wastage') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={rowsPerPass}
+                      >
+                        {formatWeightKg(getWastage(refs, pass.orderDetails))}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('wastagePercent') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
+                        rowSpan={rowsPerPass}
+                      >
+                        {(() => {
+                          const pct = getWastagePercent(
+                            refs,
+                            pass.orderDetails
+                          );
+                          return pct !== undefined ? `${pct}%` : '—';
+                        })()}
+                      </TableCell>
+                    )}
+                    {isColVisibleInner('amountPayable') && (
+                      <TableCell
+                        className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
+                        rowSpan={rowsPerPass}
+                      >
+                        {formatAmountPayable(
+                          getAmountPayable(pass.orderDetails, pass.variety)
+                        )}
+                      </TableCell>
+                    )}
+                  </>
+                )}
+              </TableRow>
+            );
+          }
+        }
+      }
+      return rows;
+    }, [
+      sortedAndGroupedPasses,
+      groupByVariety,
+      totalVisibleCols,
+      visibleIncomingCount,
+      visibleSpannedTotalColsCount,
+      filteredGradingPasses,
+      columnVisibility,
+    ]);
+
+    if (isLoading) {
+      return (
+        <Card className="overflow-hidden rounded-xl border shadow-sm">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <CardTitle className="font-custom text-lg font-semibold">
+              Grading Gate Pass Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <p className="font-custom text-muted-foreground py-8 text-center text-sm">
+              Loading…
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (!gradingPasses.length) {
+      return (
+        <Card className="overflow-hidden rounded-xl border shadow-sm">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <CardTitle className="font-custom text-lg font-semibold">
+              Grading Gate Pass Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <Empty className="font-custom">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ClipboardList className="size-6" />
+                </EmptyMedia>
+                <EmptyTitle>No grading gate passes</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card className="overflow-hidden rounded-xl border shadow-sm">
         <CardHeader className="bg-muted/30 border-b py-4">
@@ -673,6 +1290,14 @@ export const FarmerProfileGradingGatePassTable = memo(
                 </Button>
               )}
             </div>
+            <Button
+              variant={groupByVariety ? 'default' : 'outline'}
+              size="sm"
+              className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              onClick={() => setGroupByVariety((v) => !v)}
+            >
+              Group by variety
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -720,17 +1345,140 @@ export const FarmerProfileGradingGatePassTable = memo(
                 <TableRow className="border-border bg-muted/60 hover:bg-muted/60 border-b-2">
                   {isColVisible('systemIncomingNo') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      System incoming no.
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="font-custom font-semibold">
+                          System incoming no.
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="System incoming no. column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('systemIncomingNo');
+                                setSortDirection('asc');
+                              }}
+                            >
+                              Sort ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('systemIncomingNo');
+                                setSortDirection('desc');
+                              }}
+                            >
+                              Sort descending
+                            </DropdownMenuItem>
+                            {sortColumn === 'systemIncomingNo' && (
+                              <DropdownMenuItem
+                                onClick={() => setSortColumn(null)}
+                              >
+                                Clear sort
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('manualIncomingNo') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Manual incoming no.
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="font-custom font-semibold">
+                          Manual incoming no.
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="Manual incoming no. column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('manualIncomingNo');
+                                setSortDirection('asc');
+                              }}
+                            >
+                              Sort ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('manualIncomingNo');
+                                setSortDirection('desc');
+                              }}
+                            >
+                              Sort descending
+                            </DropdownMenuItem>
+                            {sortColumn === 'manualIncomingNo' && (
+                              <DropdownMenuItem
+                                onClick={() => setSortColumn(null)}
+                              >
+                                Clear sort
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('incomingDate') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Incoming date
+                      <div className="flex items-center gap-1">
+                        <span className="font-custom font-semibold">
+                          Incoming date
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="Incoming date column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('incomingDate');
+                                setSortDirection('asc');
+                              }}
+                            >
+                              Sort ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('incomingDate');
+                                setSortDirection('desc');
+                              }}
+                            >
+                              Sort descending
+                            </DropdownMenuItem>
+                            {sortColumn === 'incomingDate' && (
+                              <DropdownMenuItem
+                                onClick={() => setSortColumn(null)}
+                              >
+                                Clear sort
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('store') && (
@@ -745,7 +1493,32 @@ export const FarmerProfileGradingGatePassTable = memo(
                   )}
                   {isColVisible('variety') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Variety
+                      <div className="flex items-center gap-1">
+                        <span className="font-custom font-semibold">
+                          Variety
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="Variety column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => setGroupByVariety((v) => !v)}
+                            >
+                              {groupByVariety
+                                ? 'Ungroup by Variety'
+                                : 'Group by Variety'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('bagsReceived') && (
@@ -810,17 +1583,140 @@ export const FarmerProfileGradingGatePassTable = memo(
                   )}
                   {isColVisible('gradingGatePassNo') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Grading GP no.
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="font-custom font-semibold">
+                          Grading GP no.
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="Grading GP no. column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('gradingGatePassNo');
+                                setSortDirection('asc');
+                              }}
+                            >
+                              Sort ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('gradingGatePassNo');
+                                setSortDirection('desc');
+                              }}
+                            >
+                              Sort descending
+                            </DropdownMenuItem>
+                            {sortColumn === 'gradingGatePassNo' && (
+                              <DropdownMenuItem
+                                onClick={() => setSortColumn(null)}
+                              >
+                                Clear sort
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('gradingManualNo') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Grading manual no.
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="font-custom font-semibold">
+                          Grading manual no.
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="Grading manual no. column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('gradingManualNo');
+                                setSortDirection('asc');
+                              }}
+                            >
+                              Sort ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('gradingManualNo');
+                                setSortDirection('desc');
+                              }}
+                            >
+                              Sort descending
+                            </DropdownMenuItem>
+                            {sortColumn === 'gradingManualNo' && (
+                              <DropdownMenuItem
+                                onClick={() => setSortColumn(null)}
+                              >
+                                Clear sort
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('gradingDate') && (
                     <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Grading date
+                      <div className="flex items-center gap-1">
+                        <span className="font-custom font-semibold">
+                          Grading date
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                              aria-label="Grading date column options"
+                            >
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('gradingDate');
+                                setSortDirection('asc');
+                              }}
+                            >
+                              Sort ascending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSortColumn('gradingDate');
+                                setSortDirection('desc');
+                              }}
+                            >
+                              Sort descending
+                            </DropdownMenuItem>
+                            {sortColumn === 'gradingDate' && (
+                              <DropdownMenuItem
+                                onClick={() => setSortColumn(null)}
+                              >
+                                Clear sort
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {isColVisible('postGradingBags') && (
@@ -879,524 +1775,7 @@ export const FarmerProfileGradingGatePassTable = memo(
                 </TableRow>
               </TableHeader>
               <TableBody className="order [&_tr]:border-b [&_tr:last-child]:border-b">
-                {filteredGradingPasses.flatMap((pass) => {
-                  const refs = getIncomingRefs(pass.incomingGatePassIds);
-                  if (refs.length === 0) {
-                    const bagTypes = getBagTypesForPass(pass.orderDetails);
-                    const rowsCount = Math.max(1, bagTypes.length);
-                    return Array.from({ length: rowsCount }, (_, typeIndex) => {
-                      const bagType = bagTypes[typeIndex];
-                      const sizeMap =
-                        bagType != null
-                          ? getSizeMapForBagType(pass.orderDetails, bagType)
-                          : new Map<string, { qty: number; weight: number }>();
-                      return (
-                        <TableRow
-                          key={`${pass._id}-empty-${typeIndex}`}
-                          className="border-border hover:bg-muted/50 transition-colors"
-                        >
-                          {visibleIncomingCount > 0 && (
-                            <TableCell
-                              className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
-                              colSpan={visibleIncomingCount}
-                            >
-                              —
-                            </TableCell>
-                          )}
-                          {typeIndex === 0 && (
-                            <>
-                              {isColVisible('gradingGatePassNo') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right font-medium"
-                                  rowSpan={rowsCount}
-                                >
-                                  {pass.gatePassNo ?? '—'}
-                                </TableCell>
-                              )}
-                              {isColVisible('gradingManualNo') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right font-medium"
-                                  rowSpan={rowsCount}
-                                >
-                                  {pass.manualGatePassNumber != null
-                                    ? String(pass.manualGatePassNumber)
-                                    : '—'}
-                                </TableCell>
-                              )}
-                              {isColVisible('gradingDate') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3"
-                                  rowSpan={rowsCount}
-                                >
-                                  {formatDate(pass.date)}
-                                </TableCell>
-                              )}
-                              {isColVisible('postGradingBags') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right font-medium"
-                                  rowSpan={rowsCount}
-                                >
-                                  {getPostGradingBags(pass.orderDetails)}
-                                </TableCell>
-                              )}
-                            </>
-                          )}
-                          {isColVisible('type') && (
-                            <TableCell className="font-custom border-border border-r px-4 py-3">
-                              {bagType ?? '—'}
-                            </TableCell>
-                          )}
-                          {visibleBagSizes.map((size) => {
-                            const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
-                            if (!isColVisible(sizeId)) return null;
-                            const data = sizeMap.get(size);
-                            const isEmpty = !data || data.qty === 0;
-                            return (
-                              <TableCell
-                                key={size}
-                                className="font-custom border-border border-r px-4 py-3 text-right"
-                              >
-                                {isEmpty ? (
-                                  ''
-                                ) : (
-                                  <span className="flex flex-col items-end">
-                                    <span className="font-medium">
-                                      {data.qty}
-                                    </span>
-                                    <span className="text-muted-foreground text-xs">
-                                      ({formatWeightKg(data.weight)})
-                                    </span>
-                                  </span>
-                                )}
-                              </TableCell>
-                            );
-                          })}
-                          {isColVisible('weightReceivedAfterGrading') && (
-                            <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
-                              {formatWeightKg(
-                                getWeightReceivedAfterGrading(sizeMap)
-                              )}
-                            </TableCell>
-                          )}
-                          {isColVisible('lessBardanaForGrading') && (
-                            <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
-                              {formatWeightKg(
-                                getLessBardanaForGrading(sizeMap, bagType)
-                              )}
-                            </TableCell>
-                          )}
-                          {typeIndex === 0 && (
-                            <>
-                              {isColVisible('actualWeightOfPotato') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                  rowSpan={rowsCount}
-                                >
-                                  {formatWeightKg(
-                                    getActualWeightOfPotato(pass.orderDetails)
-                                  )}
-                                </TableCell>
-                              )}
-                              {isColVisible('wastage') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                  rowSpan={rowsCount}
-                                >
-                                  {formatWeightKg(
-                                    getWastage(refs, pass.orderDetails)
-                                  )}
-                                </TableCell>
-                              )}
-                              {isColVisible('wastagePercent') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                  rowSpan={rowsCount}
-                                >
-                                  {(() => {
-                                    const pct = getWastagePercent(
-                                      refs,
-                                      pass.orderDetails
-                                    );
-                                    return pct !== undefined ? `${pct}%` : '—';
-                                  })()}
-                                </TableCell>
-                              )}
-                              {isColVisible('amountPayable') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
-                                  rowSpan={rowsCount}
-                                >
-                                  {formatAmountPayable(
-                                    getAmountPayable(
-                                      pass.orderDetails,
-                                      pass.variety
-                                    )
-                                  )}
-                                </TableCell>
-                              )}
-                            </>
-                          )}
-                        </TableRow>
-                      );
-                    });
-                  }
-                  const totals = getIncomingTotals(refs);
-                  const bagTypes = getBagTypesForPass(pass.orderDetails);
-                  const rowsPerPass = Math.max(refs.length, bagTypes.length);
-                  const incomingRowSpan =
-                    refs.length === 1 && rowsPerPass > 1 ? rowsPerPass : 1;
-                  return Array.from({ length: rowsPerPass }, (_, rowIndex) => {
-                    const ref = refs[rowIndex] ?? null;
-                    const bagType = bagTypes[rowIndex] ?? null;
-                    const sizeMap =
-                      bagType != null
-                        ? getSizeMapForBagType(pass.orderDetails, bagType)
-                        : new Map<
-                            string,
-                            {
-                              qty: number;
-                              weight: number;
-                            }
-                          >();
-                    const netKg = ref
-                      ? getNetWeightKg(ref.weightSlip)
-                      : undefined;
-                    const bardanaKg = ref
-                      ? getBardanaWeightKg(ref.bagsReceived)
-                      : undefined;
-                    const actualKg = getActualWeightKg(netKg, bardanaKg);
-                    const isIncomingSpannedRow =
-                      incomingRowSpan > 1 && rowIndex > 0;
-                    const showIncomingCells =
-                      ref != null
-                        ? !isIncomingSpannedRow
-                        : incomingRowSpan === 1;
-                    return (
-                      <TableRow
-                        key={`${pass._id}-${rowIndex}`}
-                        className="border-border hover:bg-muted/50 transition-colors"
-                      >
-                        {showIncomingCells && ref ? (
-                          <>
-                            {isColVisible('systemIncomingNo') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.gatePassNo ? String(ref.gatePassNo) : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('manualIncomingNo') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.manualGatePassNumber != null
-                                  ? String(ref.manualGatePassNumber)
-                                  : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('incomingDate') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.date ? formatDate(ref.date) : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('store') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {DEFAULT_STORE}
-                              </TableCell>
-                            )}
-                            {isColVisible('truckNumber') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.truckNumber ?? '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('variety') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.variety ?? '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('bagsReceived') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.bagsReceived != null
-                                  ? String(ref.bagsReceived)
-                                  : '—'}
-                              </TableCell>
-                            )}
-                            {rowIndex === 0 &&
-                              isColVisible('totalBagsReceived') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                  rowSpan={refs.length}
-                                >
-                                  {refs.length > 1 ? totals.totalBags : '—'}
-                                </TableCell>
-                              )}
-                            {isColVisible('weightSlipNo') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {ref.weightSlip?.slipNumber ?? '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('grossWeightKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {formatWeightKg(ref.weightSlip?.grossWeightKg)}
-                              </TableCell>
-                            )}
-                            {rowIndex === 0 && isColVisible('totalGrossKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={refs.length}
-                              >
-                                {refs.length > 1
-                                  ? formatWeightKg(totals.totalGrossKg)
-                                  : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('tareWeightKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {formatWeightKg(ref.weightSlip?.tareWeightKg)}
-                              </TableCell>
-                            )}
-                            {rowIndex === 0 && isColVisible('totalTareKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={refs.length}
-                              >
-                                {refs.length > 1
-                                  ? formatWeightKg(totals.totalTareKg)
-                                  : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('netWeightKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {formatWeightKg(netKg)}
-                              </TableCell>
-                            )}
-                            {rowIndex === 0 && isColVisible('totalNetKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={refs.length}
-                              >
-                                {refs.length > 1
-                                  ? formatWeightKg(totals.totalNetKg)
-                                  : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('lessBardanaKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {formatWeightKg(bardanaKg)}
-                              </TableCell>
-                            )}
-                            {rowIndex === 0 &&
-                              isColVisible('totalLessBardanaKg') && (
-                                <TableCell
-                                  className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                  rowSpan={refs.length}
-                                >
-                                  {refs.length > 1
-                                    ? formatWeightKg(totals.totalBardanaKg)
-                                    : '—'}
-                                </TableCell>
-                              )}
-                            {isColVisible('actualWeightKg') && (
-                              <TableCell
-                                className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right align-top"
-                                rowSpan={incomingRowSpan}
-                              >
-                                {formatWeightKg(actualKg)}
-                              </TableCell>
-                            )}
-                          </>
-                        ) : showIncomingCells &&
-                          ref == null &&
-                          visibleIncomingCount > 0 ? (
-                          <TableCell
-                            className="font-custom border-border border-r-primary/70 border-r-2 border-dotted px-4 py-3"
-                            colSpan={visibleIncomingCount}
-                          >
-                            —
-                          </TableCell>
-                        ) : null}
-                        {isIncomingSpannedRow &&
-                          visibleSpannedTotalColsCount > 0 &&
-                          Array.from(
-                            { length: visibleSpannedTotalColsCount },
-                            (_, i) => (
-                              <TableCell
-                                key={`placeholder-total-${i}`}
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top"
-                              >
-                                —
-                              </TableCell>
-                            )
-                          )}
-                        {rowIndex === 0 && (
-                          <>
-                            {isColVisible('gradingGatePassNo') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={rowsPerPass}
-                              >
-                                {pass.gatePassNo ?? '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('gradingManualNo') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={rowsPerPass}
-                              >
-                                {pass.manualGatePassNumber != null
-                                  ? String(pass.manualGatePassNumber)
-                                  : '—'}
-                              </TableCell>
-                            )}
-                            {isColVisible('gradingDate') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 align-top"
-                                rowSpan={rowsPerPass}
-                              >
-                                {formatDate(pass.date)}
-                              </TableCell>
-                            )}
-                            {isColVisible('postGradingBags') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={rowsPerPass}
-                              >
-                                {getPostGradingBags(pass.orderDetails)}
-                              </TableCell>
-                            )}
-                          </>
-                        )}
-                        {isColVisible('type') && (
-                          <TableCell className="font-custom border-border border-r px-4 py-3">
-                            {bagType ?? '—'}
-                          </TableCell>
-                        )}
-                        {visibleBagSizes.map((size) => {
-                          const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
-                          if (!isColVisible(sizeId)) return null;
-                          const data = sizeMap.get(size);
-                          const isEmpty = !data || data.qty === 0;
-                          return (
-                            <TableCell
-                              key={size}
-                              className="font-custom border-border border-r px-4 py-3 text-right"
-                            >
-                              {isEmpty ? (
-                                ''
-                              ) : (
-                                <span className="flex flex-col items-end">
-                                  <span className="font-medium">
-                                    {data.qty}
-                                  </span>
-                                  <span className="text-muted-foreground text-xs">
-                                    ({formatWeightKg(data.weight)})
-                                  </span>
-                                </span>
-                              )}
-                            </TableCell>
-                          );
-                        })}
-                        {isColVisible('weightReceivedAfterGrading') && (
-                          <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
-                            {formatWeightKg(
-                              getWeightReceivedAfterGrading(sizeMap)
-                            )}
-                          </TableCell>
-                        )}
-                        {isColVisible('lessBardanaForGrading') && (
-                          <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-medium">
-                            {formatWeightKg(
-                              getLessBardanaForGrading(sizeMap, bagType)
-                            )}
-                          </TableCell>
-                        )}
-                        {rowIndex === 0 && (
-                          <>
-                            {isColVisible('actualWeightOfPotato') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={rowsPerPass}
-                              >
-                                {formatWeightKg(
-                                  getActualWeightOfPotato(pass.orderDetails)
-                                )}
-                              </TableCell>
-                            )}
-                            {isColVisible('wastage') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={rowsPerPass}
-                              >
-                                {formatWeightKg(
-                                  getWastage(refs, pass.orderDetails)
-                                )}
-                              </TableCell>
-                            )}
-                            {isColVisible('wastagePercent') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium"
-                                rowSpan={rowsPerPass}
-                              >
-                                {(() => {
-                                  const pct = getWastagePercent(
-                                    refs,
-                                    pass.orderDetails
-                                  );
-                                  return pct !== undefined ? `${pct}%` : '—';
-                                })()}
-                              </TableCell>
-                            )}
-                            {isColVisible('amountPayable') && (
-                              <TableCell
-                                className="font-custom border-border border-r px-4 py-3 text-right align-top font-medium last:border-r-0"
-                                rowSpan={rowsPerPass}
-                              >
-                                {formatAmountPayable(
-                                  getAmountPayable(
-                                    pass.orderDetails,
-                                    pass.variety
-                                  )
-                                )}
-                              </TableCell>
-                            )}
-                          </>
-                        )}
-                      </TableRow>
-                    );
-                  });
-                })}
+                {tableBodyRows}
                 {filteredGradingPasses.length > 0 && (
                   <TableRow className="border-border bg-muted/40 text-primary font-semibold">
                     {visibleFirstSevenCount > 0 && (
