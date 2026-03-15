@@ -36,6 +36,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AccountingReportGatePassDialog,
+  type AccountingReportGatePassRow,
+} from './AccountingReportGatePassDialog';
 import { formatDateToYYYYMMDD, parseDateToTimestamp } from '@/lib/helpers';
 import { toast } from 'sonner';
 import { FileDown, MoreVertical, Settings2 } from 'lucide-react';
@@ -659,6 +663,77 @@ function buildCellsForPdfRow(
   return cells;
 }
 
+/** Build flat PDF rows from grouped passes (used for accounting report so incoming/summary honour selected passes). */
+function buildFlatRowsFromGroupedPasses(
+  groupedPasses: Array<{ variety: string | null; passes: GradingGatePass[] }>,
+  groupByVariety: boolean
+): FarmerReportPdfRow[] {
+  const result: FarmerReportPdfRow[] = [];
+  for (const { variety, passes } of groupedPasses) {
+    if (groupByVariety && variety != null) {
+      result.push({ type: 'variety', variety });
+    }
+    for (const pass of passes) {
+      const refs = getIncomingRefs(pass.incomingGatePassIds);
+      if (refs.length === 0) {
+        const bagTypes = getBagTypesForPass(pass.orderDetails);
+        const rowsCount = Math.max(1, bagTypes.length);
+        const totals = getIncomingTotals(refs);
+        for (let typeIndex = 0; typeIndex < rowsCount; typeIndex++) {
+          const bagType = bagTypes[typeIndex] ?? null;
+          const sizeMap =
+            bagType != null
+              ? getSizeMapForBagType(pass.orderDetails, bagType)
+              : new Map<string, { qty: number; weight: number }>();
+          const cells = buildCellsForPdfRow(
+            pass,
+            null,
+            bagType,
+            sizeMap,
+            refs,
+            totals,
+            typeIndex === 0
+          );
+          result.push({
+            type: 'data',
+            cells,
+            passRowIndex: typeIndex,
+            passGroupSize: rowsCount,
+          });
+        }
+        continue;
+      }
+      const totals = getIncomingTotals(refs);
+      const bagTypes = getBagTypesForPass(pass.orderDetails);
+      const rowsPerPass = Math.max(refs.length, bagTypes.length);
+      for (let rowIndex = 0; rowIndex < rowsPerPass; rowIndex++) {
+        const ref = refs[rowIndex] ?? null;
+        const bagType = bagTypes[rowIndex] ?? null;
+        const sizeMap =
+          bagType != null
+            ? getSizeMapForBagType(pass.orderDetails, bagType)
+            : new Map<string, { qty: number; weight: number }>();
+        const cells = buildCellsForPdfRow(
+          pass,
+          ref,
+          bagType,
+          sizeMap,
+          refs,
+          totals,
+          rowIndex === 0
+        );
+        result.push({
+          type: 'data',
+          cells,
+          passRowIndex: rowIndex,
+          passGroupSize: rowsPerPass,
+        });
+      }
+    }
+  }
+  return result;
+}
+
 export interface FarmerProfileGradingGatePassTableProps {
   gradingPasses: GradingGatePass[];
   isLoading?: boolean;
@@ -686,6 +761,12 @@ export const FarmerProfileGradingGatePassTable = memo(
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [groupByVariety, setGroupByVariety] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const [accountingReportDialogOpen, setAccountingReportDialogOpen] =
+      useState(false);
+    const [
+      selectedGradingPassIdsForAccounting,
+      setSelectedGradingPassIdsForAccounting,
+    ] = useState<Set<string>>(new Set());
 
     const coldStorage = useStore((s) => s.coldStorage);
     const companyName = companyNameProp ?? coldStorage?.name ?? 'Cold Storage';
@@ -803,7 +884,24 @@ export const FarmerProfileGradingGatePassTable = memo(
       }
     };
 
-    const handleAccountingReport = async () => {
+    const handleOpenAccountingReportDialog = () => {
+      setSelectedGradingPassIdsForAccounting(
+        new Set(filteredGradingPasses.map((p) => p._id))
+      );
+      setAccountingReportDialogOpen(true);
+    };
+
+    const handleAccountingReportGenerate = async (selectedIds: Set<string>) => {
+      const selectedPasses = filteredGradingPasses.filter((p) =>
+        selectedIds.has(p._id)
+      );
+      if (selectedPasses.length === 0) {
+        toast.error('No gate passes selected', {
+          description: 'Select at least one grading gate pass.',
+        });
+        return;
+      }
+      setAccountingReportDialogOpen(false);
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(
@@ -812,6 +910,43 @@ export const FarmerProfileGradingGatePassTable = memo(
       }
       setIsGeneratingPdf(true);
       try {
+        const stockLedgerRowsSelected = selectedPasses.map((pass, index) =>
+          gradingPassToStockLedgerRow(pass, index + 1)
+        );
+        const getRefsForSort = (p: GradingGatePass) =>
+          getIncomingRefs(p.incomingGatePassIds);
+        const sortedSelected =
+          sortColumn == null
+            ? [...selectedPasses]
+            : [...selectedPasses].sort((a, b) =>
+                compareSortValues(
+                  getSortValue(a, sortColumn, getRefsForSort),
+                  getSortValue(b, sortColumn, getRefsForSort),
+                  sortDirection
+                )
+              );
+        const groupedSelected: Array<{
+          variety: string | null;
+          passes: GradingGatePass[];
+        }> = groupByVariety
+          ? (() => {
+              const byVariety = new Map<string, GradingGatePass[]>();
+              for (const pass of sortedSelected) {
+                const variety =
+                  pass.variety ?? getRefsForSort(pass)[0]?.variety ?? '';
+                const list = byVariety.get(variety) ?? [];
+                list.push(pass);
+                byVariety.set(variety, list);
+              }
+              return Array.from(byVariety.entries())
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([variety, passes]) => ({ variety, passes }));
+            })()
+          : [{ variety: null as string | null, passes: sortedSelected }];
+        const flatRowsForSelected = buildFlatRowsFromGroupedPasses(
+          groupedSelected,
+          groupByVariety
+        );
         const snapshot: FarmerReportPdfSnapshot = {
           companyName,
           farmerName: farmerName || undefined,
@@ -819,7 +954,7 @@ export const FarmerProfileGradingGatePassTable = memo(
           reportTitle: 'Accounting Report',
           visibleColumnIds: visibleColumnIdsForPdf,
           groupByVariety,
-          rows: flatRowsForPdf,
+          rows: flatRowsForSelected,
         };
         const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
@@ -828,7 +963,7 @@ export const FarmerProfileGradingGatePassTable = memo(
         const blob = await pdf(
           <AccountingStockLedgerPdf
             snapshot={snapshot}
-            stockLedgerRows={stockLedgerRowsForAccountingReport}
+            stockLedgerRows={stockLedgerRowsSelected}
           />
         ).toBlob();
         const url = URL.createObjectURL(blob);
@@ -989,6 +1124,21 @@ export const FarmerProfileGradingGatePassTable = memo(
         gradingPassToStockLedgerRow(pass, index + 1)
       );
     }, [filteredGradingPasses]);
+
+    const accountingReportDialogRows =
+      useMemo((): AccountingReportGatePassRow[] => {
+        return filteredGradingPasses.map((pass) => {
+          const refs = getIncomingRefs(pass.incomingGatePassIds);
+          const totals = getIncomingTotals(refs);
+          const firstRef = refs[0];
+          return {
+            pass,
+            truckNumber: firstRef?.truckNumber ?? '—',
+            incomingBags: totals.totalBags,
+            totalGradingBags: getPostGradingBags(pass.orderDetails),
+          };
+        });
+      }, [filteredGradingPasses]);
 
     const totalVisibleCols =
       INCOMING_COLUMN_IDS.filter((id) => isColVisible(id)).length +
@@ -1641,699 +1791,721 @@ export const FarmerProfileGradingGatePassTable = memo(
     }
 
     return (
-      <Card className="overflow-hidden rounded-xl border shadow-sm">
-        <CardHeader className="bg-muted/30 border-b py-4">
-          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-            <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-              <DatePicker
-                id="farmer-profile-grading-from"
-                label="From"
-                value={fromDate}
-                onChange={setFromDate}
-                compact
-              />
-              <DatePicker
-                id="farmer-profile-grading-to"
-                label="To"
-                value={toDate}
-                onChange={setToDate}
-                compact
-              />
-              <div className="flex h-10 items-center gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  onClick={handleApplyDates}
-                  disabled={!fromDate && !toDate}
-                >
-                  Apply
-                </Button>
-                {(fromDate ||
-                  toDate ||
-                  appliedRange.dateFrom ||
-                  appliedRange.dateTo) && (
+      <>
+        <Card className="overflow-hidden rounded-xl border shadow-sm">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+              <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+                <DatePicker
+                  id="farmer-profile-grading-from"
+                  label="From"
+                  value={fromDate}
+                  onChange={setFromDate}
+                  compact
+                />
+                <DatePicker
+                  id="farmer-profile-grading-to"
+                  label="To"
+                  value={toDate}
+                  onChange={setToDate}
+                  compact
+                />
+                <div className="flex h-10 items-center gap-2">
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={handleClearDates}
+                    onClick={handleApplyDates}
+                    disabled={!fromDate && !toDate}
                   >
-                    Clear
+                    Apply
                   </Button>
-                )}
+                  {(fromDate ||
+                    toDate ||
+                    appliedRange.dateFrom ||
+                    appliedRange.dateTo) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                      onClick={handleClearDates}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <Button
+                  variant={groupByVariety ? 'default' : 'outline'}
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={() => setGroupByVariety((v) => !v)}
+                >
+                  Group by variety
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                    >
+                      <Settings2 className="mr-2 h-4 w-4" />
+                      Columns
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
+                  >
+                    {[
+                      ...INCOMING_COLUMN_IDS,
+                      ...GRADING_FIXED_COLUMN_IDS,
+                      ...BAG_SIZE_COLUMN_IDS,
+                      ...LAST_COLUMN_IDS,
+                    ].map((id) => (
+                      <DropdownMenuCheckboxItem
+                        key={id}
+                        className="font-custom capitalize"
+                        checked={isColVisible(id)}
+                        onCheckedChange={(checked) =>
+                          setColumnVisibility((prev) => ({
+                            ...prev,
+                            [id]: checked,
+                          }))
+                        }
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <Button
-                variant={groupByVariety ? 'default' : 'outline'}
+                variant="default"
                 size="sm"
-                className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={() => setGroupByVariety((v) => !v)}
+                className="font-custom focus-visible:ring-primary h-10 min-h-10 w-full shrink-0 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+                onClick={handleViewReport}
+                disabled={isGeneratingPdf}
+                aria-label="View report"
               >
-                Group by variety
+                <FileDown className="h-4 w-4 shrink-0" />
+                {isGeneratingPdf ? 'Generating…' : 'View Report'}
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  >
-                    <Settings2 className="mr-2 h-4 w-4" />
-                    Columns
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
-                >
-                  {[
-                    ...INCOMING_COLUMN_IDS,
-                    ...GRADING_FIXED_COLUMN_IDS,
-                    ...BAG_SIZE_COLUMN_IDS,
-                    ...LAST_COLUMN_IDS,
-                  ].map((id) => (
-                    <DropdownMenuCheckboxItem
-                      key={id}
-                      className="font-custom capitalize"
-                      checked={isColVisible(id)}
-                      onCheckedChange={(checked) =>
-                        setColumnVisibility((prev) => ({
-                          ...prev,
-                          [id]: checked,
-                        }))
-                      }
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                variant="default"
+                size="sm"
+                className="font-custom h-10 min-h-10 w-full shrink-0 gap-2 rounded-lg bg-blue-600 px-4 text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto"
+                onClick={handleOpenAccountingReportDialog}
+                disabled={isGeneratingPdf}
+                aria-label="Accounting report"
+              >
+                <FileDown className="h-4 w-4 shrink-0" />
+                Accounting Report
+              </Button>
             </div>
-            <Button
-              variant="default"
-              size="sm"
-              className="font-custom focus-visible:ring-primary h-10 min-h-10 w-full shrink-0 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-              onClick={handleViewReport}
-              disabled={isGeneratingPdf}
-              aria-label="View report"
-            >
-              <FileDown className="h-4 w-4 shrink-0" />
-              {isGeneratingPdf ? 'Generating…' : 'View Report'}
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="font-custom h-10 min-h-10 w-full shrink-0 gap-2 rounded-lg bg-blue-600 px-4 text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto"
-              onClick={handleAccountingReport}
-              disabled={isGeneratingPdf}
-              aria-label="Accounting report"
-            >
-              <FileDown className="h-4 w-4 shrink-0" />
-              Accounting Report
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="border-border bg-card font-custom overflow-x-auto text-sm shadow-sm">
-            <Table className="border-collapse">
-              <TableHeader>
-                <TableRow className="border-border bg-muted/60 hover:bg-muted/60 border-b-2">
-                  {isColVisible('systemIncomingNo') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="font-custom font-semibold">
-                          System incoming no.
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="System incoming no. column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('systemIncomingNo');
-                                setSortDirection('asc');
-                              }}
-                            >
-                              Sort ascending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('systemIncomingNo');
-                                setSortDirection('desc');
-                              }}
-                            >
-                              Sort descending
-                            </DropdownMenuItem>
-                            {sortColumn === 'systemIncomingNo' && (
-                              <DropdownMenuItem
-                                onClick={() => setSortColumn(null)}
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="border-border bg-card font-custom overflow-x-auto text-sm shadow-sm">
+              <Table className="border-collapse">
+                <TableHeader>
+                  <TableRow className="border-border bg-muted/60 hover:bg-muted/60 border-b-2">
+                    {isColVisible('systemIncomingNo') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="font-custom font-semibold">
+                            System incoming no.
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="System incoming no. column options"
                               >
-                                Clear sort
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('manualIncomingNo') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="font-custom font-semibold">
-                          Manual incoming no.
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="Manual incoming no. column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('manualIncomingNo');
-                                setSortDirection('asc');
-                              }}
-                            >
-                              Sort ascending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('manualIncomingNo');
-                                setSortDirection('desc');
-                              }}
-                            >
-                              Sort descending
-                            </DropdownMenuItem>
-                            {sortColumn === 'manualIncomingNo' && (
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
                               <DropdownMenuItem
-                                onClick={() => setSortColumn(null)}
+                                onClick={() => {
+                                  setSortColumn('systemIncomingNo');
+                                  setSortDirection('asc');
+                                }}
                               >
-                                Clear sort
+                                Sort ascending
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('incomingDate') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      <div className="flex items-center gap-1">
-                        <span className="font-custom font-semibold">
-                          Incoming date
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="Incoming date column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('incomingDate');
-                                setSortDirection('asc');
-                              }}
-                            >
-                              Sort ascending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('incomingDate');
-                                setSortDirection('desc');
-                              }}
-                            >
-                              Sort descending
-                            </DropdownMenuItem>
-                            {sortColumn === 'incomingDate' && (
                               <DropdownMenuItem
-                                onClick={() => setSortColumn(null)}
+                                onClick={() => {
+                                  setSortColumn('systemIncomingNo');
+                                  setSortDirection('desc');
+                                }}
                               >
-                                Clear sort
+                                Sort descending
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('store') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Store
-                    </TableHead>
-                  )}
-                  {isColVisible('truckNumber') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Truck number
-                    </TableHead>
-                  )}
-                  {isColVisible('variety') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      <div className="flex items-center gap-1">
-                        <span className="font-custom font-semibold">
-                          Variety
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="Variety column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => setGroupByVariety((v) => !v)}
-                            >
-                              {groupByVariety
-                                ? 'Ungroup by Variety'
-                                : 'Group by Variety'}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('bagsReceived') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Bags received
-                    </TableHead>
-                  )}
-                  {isColVisible('totalBagsReceived') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Total bags received
-                    </TableHead>
-                  )}
-                  {isColVisible('weightSlipNo') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Weight slip no.
-                    </TableHead>
-                  )}
-                  {isColVisible('grossWeightKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Gross weight (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('totalGrossKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Total gross (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('tareWeightKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Tare weight (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('totalTareKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Total tare (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('netWeightKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Net weight (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('totalNetKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Total net (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('lessBardanaKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Less bardana (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('totalLessBardanaKg') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Total less bardana (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('actualWeightKg') && (
-                    <TableHead className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right font-semibold">
-                      Actual weight (kg)
-                    </TableHead>
-                  )}
-                  {isColVisible('gradingGatePassNo') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="font-custom font-semibold">
-                          Grading GP no.
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="Grading GP no. column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('gradingGatePassNo');
-                                setSortDirection('asc');
-                              }}
-                            >
-                              Sort ascending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('gradingGatePassNo');
-                                setSortDirection('desc');
-                              }}
-                            >
-                              Sort descending
-                            </DropdownMenuItem>
-                            {sortColumn === 'gradingGatePassNo' && (
+                              {sortColumn === 'systemIncomingNo' && (
+                                <DropdownMenuItem
+                                  onClick={() => setSortColumn(null)}
+                                >
+                                  Clear sort
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
+                    )}
+                    {isColVisible('manualIncomingNo') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="font-custom font-semibold">
+                            Manual incoming no.
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="Manual incoming no. column options"
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
                               <DropdownMenuItem
-                                onClick={() => setSortColumn(null)}
+                                onClick={() => {
+                                  setSortColumn('manualIncomingNo');
+                                  setSortDirection('asc');
+                                }}
                               >
-                                Clear sort
+                                Sort ascending
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('gradingManualNo') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="font-custom font-semibold">
-                          Grading manual no.
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="Grading manual no. column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('gradingManualNo');
-                                setSortDirection('asc');
-                              }}
-                            >
-                              Sort ascending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('gradingManualNo');
-                                setSortDirection('desc');
-                              }}
-                            >
-                              Sort descending
-                            </DropdownMenuItem>
-                            {sortColumn === 'gradingManualNo' && (
                               <DropdownMenuItem
-                                onClick={() => setSortColumn(null)}
+                                onClick={() => {
+                                  setSortColumn('manualIncomingNo');
+                                  setSortDirection('desc');
+                                }}
                               >
-                                Clear sort
+                                Sort descending
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('gradingDate') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      <div className="flex items-center gap-1">
-                        <span className="font-custom font-semibold">
-                          Grading date
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                              aria-label="Grading date column options"
-                            >
-                              <MoreVertical className="h-4 w-4 text-gray-600" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('gradingDate');
-                                setSortDirection('asc');
-                              }}
-                            >
-                              Sort ascending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSortColumn('gradingDate');
-                                setSortDirection('desc');
-                              }}
-                            >
-                              Sort descending
-                            </DropdownMenuItem>
-                            {sortColumn === 'gradingDate' && (
+                              {sortColumn === 'manualIncomingNo' && (
+                                <DropdownMenuItem
+                                  onClick={() => setSortColumn(null)}
+                                >
+                                  Clear sort
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
+                    )}
+                    {isColVisible('incomingDate') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        <div className="flex items-center gap-1">
+                          <span className="font-custom font-semibold">
+                            Incoming date
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="Incoming date column options"
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
                               <DropdownMenuItem
-                                onClick={() => setSortColumn(null)}
+                                onClick={() => {
+                                  setSortColumn('incomingDate');
+                                  setSortDirection('asc');
+                                }}
                               >
-                                Clear sort
+                                Sort ascending
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  )}
-                  {isColVisible('postGradingBags') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Post grading bags
-                    </TableHead>
-                  )}
-                  {isColVisible('type') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                      Type
-                    </TableHead>
-                  )}
-                  {visibleBagSizes.map((size) => {
-                    const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
-                    return (
-                      isColVisible(sizeId) && (
-                        <TableHead
-                          key={size}
-                          className="font-custom border-border border-r px-4 py-3 text-right font-semibold"
-                        >
-                          {sizeId}
-                        </TableHead>
-                      )
-                    );
-                  })}
-                  {isColVisible('weightReceivedAfterGrading') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Weight Received After Grading
-                    </TableHead>
-                  )}
-                  {isColVisible('lessBardanaForGrading') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Less bardana for grading
-                    </TableHead>
-                  )}
-                  {isColVisible('actualWeightOfPotato') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Actual weight of potato
-                    </TableHead>
-                  )}
-                  {isColVisible('wastage') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Wastage
-                    </TableHead>
-                  )}
-                  {isColVisible('wastagePercent') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
-                      Wastage %
-                    </TableHead>
-                  )}
-                  {isColVisible('amountPayable') && (
-                    <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold last:border-r-0">
-                      Amount Payable
-                    </TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody className="order [&_tr]:border-b [&_tr:last-child]:border-b">
-                {tableBodyRows}
-                {filteredGradingPasses.length > 0 && (
-                  <TableRow className="border-border bg-muted/40 text-primary font-semibold">
-                    {visibleFirstSevenCount > 0 && (
-                      <TableCell
-                        className="font-custom border-border border-r px-4 py-3 text-right font-bold"
-                        colSpan={visibleFirstSevenCount}
-                      >
-                        Total
-                      </TableCell>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('incomingDate');
+                                  setSortDirection('desc');
+                                }}
+                              >
+                                Sort descending
+                              </DropdownMenuItem>
+                              {sortColumn === 'incomingDate' && (
+                                <DropdownMenuItem
+                                  onClick={() => setSortColumn(null)}
+                                >
+                                  Clear sort
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
+                    )}
+                    {isColVisible('store') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        Store
+                      </TableHead>
+                    )}
+                    {isColVisible('truckNumber') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        Truck number
+                      </TableHead>
+                    )}
+                    {isColVisible('variety') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        <div className="flex items-center gap-1">
+                          <span className="font-custom font-semibold">
+                            Variety
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="Variety column options"
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={() => setGroupByVariety((v) => !v)}
+                              >
+                                {groupByVariety
+                                  ? 'Ungroup by Variety'
+                                  : 'Group by Variety'}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
+                    )}
+                    {isColVisible('bagsReceived') && (
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Bags received
+                      </TableHead>
                     )}
                     {isColVisible('totalBagsReceived') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {totalIncomingBags}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Total bags received
+                      </TableHead>
                     )}
                     {isColVisible('weightSlipNo') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        Weight slip no.
+                      </TableHead>
                     )}
                     {isColVisible('grossWeightKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Gross weight (kg)
+                      </TableHead>
                     )}
                     {isColVisible('totalGrossKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalIncomingGrossKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Total gross (kg)
+                      </TableHead>
                     )}
                     {isColVisible('tareWeightKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Tare weight (kg)
+                      </TableHead>
                     )}
                     {isColVisible('totalTareKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalIncomingTareKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Total tare (kg)
+                      </TableHead>
                     )}
                     {isColVisible('netWeightKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Net weight (kg)
+                      </TableHead>
                     )}
                     {isColVisible('totalNetKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalIncomingNetKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Total net (kg)
+                      </TableHead>
                     )}
                     {isColVisible('lessBardanaKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Less bardana (kg)
+                      </TableHead>
                     )}
                     {isColVisible('totalLessBardanaKg') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalIncomingBardanaKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Total less bardana (kg)
+                      </TableHead>
                     )}
                     {isColVisible('actualWeightKg') && (
-                      <TableCell className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalIncomingActualKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right font-semibold">
+                        Actual weight (kg)
+                      </TableHead>
                     )}
                     {isColVisible('gradingGatePassNo') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="font-custom font-semibold">
+                            Grading GP no.
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="Grading GP no. column options"
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('gradingGatePassNo');
+                                  setSortDirection('asc');
+                                }}
+                              >
+                                Sort ascending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('gradingGatePassNo');
+                                  setSortDirection('desc');
+                                }}
+                              >
+                                Sort descending
+                              </DropdownMenuItem>
+                              {sortColumn === 'gradingGatePassNo' && (
+                                <DropdownMenuItem
+                                  onClick={() => setSortColumn(null)}
+                                >
+                                  Clear sort
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
                     )}
                     {isColVisible('gradingManualNo') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="font-custom font-semibold">
+                            Grading manual no.
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="Grading manual no. column options"
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('gradingManualNo');
+                                  setSortDirection('asc');
+                                }}
+                              >
+                                Sort ascending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('gradingManualNo');
+                                  setSortDirection('desc');
+                                }}
+                              >
+                                Sort descending
+                              </DropdownMenuItem>
+                              {sortColumn === 'gradingManualNo' && (
+                                <DropdownMenuItem
+                                  onClick={() => setSortColumn(null)}
+                                >
+                                  Clear sort
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
                     )}
                     {isColVisible('gradingDate') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        <div className="flex items-center gap-1">
+                          <span className="font-custom font-semibold">
+                            Grading date
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                aria-label="Grading date column options"
+                              >
+                                <MoreVertical className="h-4 w-4 text-gray-600" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('gradingDate');
+                                  setSortDirection('asc');
+                                }}
+                              >
+                                Sort ascending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSortColumn('gradingDate');
+                                  setSortDirection('desc');
+                                }}
+                              >
+                                Sort descending
+                              </DropdownMenuItem>
+                              {sortColumn === 'gradingDate' && (
+                                <DropdownMenuItem
+                                  onClick={() => setSortColumn(null)}
+                                >
+                                  Clear sort
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableHead>
                     )}
                     {isColVisible('postGradingBags') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {totalPostGradingBags}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Post grading bags
+                      </TableHead>
                     )}
                     {isColVisible('type') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3">
-                        —
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
+                        Type
+                      </TableHead>
                     )}
                     {visibleBagSizes.map((size) => {
                       const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
                       return (
                         isColVisible(sizeId) && (
-                          <TableCell
-                            key={`total-${size}`}
-                            className="font-custom border-border border-r px-4 py-3 text-right font-bold"
+                          <TableHead
+                            key={size}
+                            className="font-custom border-border border-r px-4 py-3 text-right font-semibold"
                           >
-                            {perSizeTotals.get(size) ?? 0}
-                          </TableCell>
+                            {sizeId}
+                          </TableHead>
                         )
                       );
                     })}
                     {isColVisible('weightReceivedAfterGrading') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalWeightReceivedAfterGradingKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Weight Received After Grading
+                      </TableHead>
                     )}
                     {isColVisible('lessBardanaForGrading') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalLessBardanaForGradingKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Less bardana for grading
+                      </TableHead>
                     )}
                     {isColVisible('actualWeightOfPotato') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalActualPotatoKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Actual weight of potato
+                      </TableHead>
                     )}
                     {isColVisible('wastage') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {formatWeightKg(totalWastageKg)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Wastage
+                      </TableHead>
                     )}
                     {isColVisible('wastagePercent') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
-                        {totalWastagePercent !== undefined
-                          ? `${totalWastagePercent}%`
-                          : '—'}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold">
+                        Wastage %
+                      </TableHead>
                     )}
                     {isColVisible('amountPayable') && (
-                      <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold last:border-r-0">
-                        {formatAmountPayable(totalAmountPayable)}
-                      </TableCell>
+                      <TableHead className="font-custom border-border border-r px-4 py-3 text-right font-semibold last:border-r-0">
+                        Amount Payable
+                      </TableHead>
                     )}
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody className="order [&_tr]:border-b [&_tr:last-child]:border-b">
+                  {tableBodyRows}
+                  {filteredGradingPasses.length > 0 && (
+                    <TableRow className="border-border bg-muted/40 text-primary font-semibold">
+                      {visibleFirstSevenCount > 0 && (
+                        <TableCell
+                          className="font-custom border-border border-r px-4 py-3 text-right font-bold"
+                          colSpan={visibleFirstSevenCount}
+                        >
+                          Total
+                        </TableCell>
+                      )}
+                      {isColVisible('totalBagsReceived') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {totalIncomingBags}
+                        </TableCell>
+                      )}
+                      {isColVisible('weightSlipNo') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('grossWeightKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('totalGrossKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalIncomingGrossKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('tareWeightKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('totalTareKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalIncomingTareKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('netWeightKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('totalNetKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalIncomingNetKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('lessBardanaKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('totalLessBardanaKg') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalIncomingBardanaKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('actualWeightKg') && (
+                        <TableCell className="font-custom border-border border-r-primary border-r-2 border-dashed px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalIncomingActualKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('gradingGatePassNo') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('gradingManualNo') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('gradingDate') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3">
+                          —
+                        </TableCell>
+                      )}
+                      {isColVisible('postGradingBags') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {totalPostGradingBags}
+                        </TableCell>
+                      )}
+                      {isColVisible('type') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3">
+                          —
+                        </TableCell>
+                      )}
+                      {visibleBagSizes.map((size) => {
+                        const sizeId = BAG_SIZE_ORDER_LABELS[size] ?? size;
+                        return (
+                          isColVisible(sizeId) && (
+                            <TableCell
+                              key={`total-${size}`}
+                              className="font-custom border-border border-r px-4 py-3 text-right font-bold"
+                            >
+                              {perSizeTotals.get(size) ?? 0}
+                            </TableCell>
+                          )
+                        );
+                      })}
+                      {isColVisible('weightReceivedAfterGrading') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalWeightReceivedAfterGradingKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('lessBardanaForGrading') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalLessBardanaForGradingKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('actualWeightOfPotato') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalActualPotatoKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('wastage') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {formatWeightKg(totalWastageKg)}
+                        </TableCell>
+                      )}
+                      {isColVisible('wastagePercent') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold">
+                          {totalWastagePercent !== undefined
+                            ? `${totalWastagePercent}%`
+                            : '—'}
+                        </TableCell>
+                      )}
+                      {isColVisible('amountPayable') && (
+                        <TableCell className="font-custom border-border border-r px-4 py-3 text-right font-bold last:border-r-0">
+                          {formatAmountPayable(totalAmountPayable)}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <AccountingReportGatePassDialog
+          open={accountingReportDialogOpen}
+          onOpenChange={setAccountingReportDialogOpen}
+          rows={accountingReportDialogRows}
+          selectedPassIds={selectedGradingPassIdsForAccounting}
+          onSelectionChange={setSelectedGradingPassIdsForAccounting}
+          onSelectAll={() =>
+            setSelectedGradingPassIdsForAccounting(
+              new Set(filteredGradingPasses.map((p) => p._id))
+            )
+          }
+          onDeselectAll={() =>
+            setSelectedGradingPassIdsForAccounting(new Set())
+          }
+          onGenerate={() =>
+            handleAccountingReportGenerate(selectedGradingPassIdsForAccounting)
+          }
+          isGeneratingPdf={isGeneratingPdf}
+        />
+      </>
     );
   }
 );
