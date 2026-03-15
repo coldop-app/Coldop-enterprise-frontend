@@ -26,6 +26,7 @@ import { gradingTrendQueryOptions } from '@/services/store-admin/grading-gate-pa
 import Overview from './overview';
 import IncomingGatePassAnalyticsScreen from './incoming';
 import GradingGatePassAnalyticsScreen from './grading';
+import StorageAnalyticsScreen from './storage';
 
 const AnalyticsPage = () => {
   const [fromDate, setFromDate] = useState<string | undefined>();
@@ -226,10 +227,7 @@ const AnalyticsPage = () => {
               />
             </TabsContent>
             <TabsContent value="storage" className="mt-0 outline-none">
-              <p className="font-custom text-sm leading-relaxed text-gray-600">
-                Storage analytics content will appear here. This section will
-                show warehouse and storage movement data.
-              </p>
+              <StorageAnalyticsScreen />
             </TabsContent>
             <TabsContent value="dispatch" className="mt-0 outline-none">
               <p className="font-custom text-sm leading-relaxed text-gray-600">

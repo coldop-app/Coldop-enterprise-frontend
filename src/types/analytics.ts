@@ -315,6 +315,44 @@ export interface GetStorageGatePassReportApiResponse {
   message?: string;
 }
 
+// --- Storage summary (GET /analytics/storage-summary) ---
+
+/** Bag type quantity in storage summary */
+export interface StorageSummaryByBagType {
+  bagType: string;
+  initialQuantity: number;
+  currentQuantity: number;
+  quantityRemoved: number;
+}
+
+/** Size entry within a variety in storage summary */
+export interface StorageSummarySizeItem {
+  size: string;
+  initialQuantity: number;
+  currentQuantity: number;
+  quantityRemoved: number;
+  byBagType: StorageSummaryByBagType[];
+}
+
+/** Variety entry in storage summary (variety → sizes → byBagType) */
+export interface StorageSummaryVarietyItem {
+  variety: string;
+  initialQuantity: number;
+  currentQuantity: number;
+  quantityRemoved: number;
+  sizes: StorageSummarySizeItem[];
+}
+
+/** Data shape for GET /analytics/storage-summary */
+export type StorageSummaryData = StorageSummaryVarietyItem[];
+
+/** API response for GET /analytics/storage-summary */
+export interface GetStorageSummaryApiResponse {
+  success: boolean;
+  data: StorageSummaryData;
+  message?: string;
+}
+
 // --- Nikasi (dispatch) gate pass report (GET /analytics/nikasi-gate-pass-report) ---
 
 /** Farmer as returned in GET /analytics/nikasi-gate-pass-report when groupByFarmer=true */

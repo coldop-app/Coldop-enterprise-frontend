@@ -139,6 +139,62 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 0,
   },
+  /** Distribution section (variety + size charts as tables) */
+  distributionSection: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 2,
+    padding: 6,
+    backgroundColor: '#fafafa',
+  },
+  distributionTitle: {
+    fontSize: 6,
+    fontWeight: 700,
+    color: '#333',
+    marginBottom: 4,
+  },
+  distributionGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  distributionTable: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    minWidth: 0,
+  },
+  distributionTableTitle: {
+    fontSize: 4,
+    fontWeight: 700,
+    color: '#374151',
+    marginBottom: 2,
+    paddingHorizontal: 2,
+  },
+  distributionHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#e8e8e8',
+    borderBottomWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingVertical: 1,
+    paddingHorizontal: 2,
+  },
+  distributionDataRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderColor: '#e5e7eb',
+    paddingVertical: 1,
+    paddingHorizontal: 2,
+  },
+  distributionCell: {
+    fontSize: 3.5,
+    borderRightWidth: 0.5,
+    borderColor: '#e5e7eb',
+    paddingRight: 2,
+  },
+  distributionCellLast: {
+    borderRightWidth: 0,
+  },
 });
 
 function formatCellValue(value: string | number | undefined): string {
@@ -151,6 +207,88 @@ function parseQtyWeight(value: string): { qty: string; weight: string } | null {
   const match = value.match(/^(.+?)\s*\(([^)]*)\)\s*$/);
   if (match) return { qty: match[1].trim(), weight: match[2].trim() };
   return null;
+}
+
+/** Extract numeric bag quantity from a cell value (e.g. "12 (34)" or "12"). */
+function parseBagQty(raw: string | number | undefined): number {
+  if (raw == null || raw === '') return 0;
+  const str = String(raw).trim();
+  const qw = parseQtyWeight(str);
+  if (qw) {
+    const n = Number(qw.qty.replace(/,/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }
+  const n = Number(str.replace(/,/g, ''));
+  return Number.isNaN(n) ? 0 : n;
+}
+
+export interface VarietyDistributionItem {
+  name: string;
+  value: number;
+  percentage: number;
+}
+
+export interface SizeDistributionItem {
+  name: string;
+  value: number;
+  percentage: number;
+}
+
+/** Compute variety and size distribution from snapshot rows (same logic as on-screen charts). */
+function computeDistributionFromSnapshot(snapshot: FarmerReportPdfSnapshot): {
+  varietyDistribution: VarietyDistributionItem[];
+  sizeDistribution: SizeDistributionItem[];
+  totalBags: number;
+} {
+  const varietyMap = new Map<string, number>();
+  const sizeMap = new Map<string, number>();
+  const sizeColumnIds = snapshot.visibleColumnIds.filter((id) =>
+    BAG_SIZE_COLUMN_IDS.has(id)
+  );
+  let currentVariety = '—';
+  for (const row of snapshot.rows) {
+    if (row.type === 'variety') {
+      currentVariety =
+        row.variety != null && String(row.variety).trim() !== ''
+          ? String(row.variety).trim()
+          : '—';
+      continue;
+    }
+    if (row.type !== 'data') continue;
+    for (const sizeId of sizeColumnIds) {
+      const qty = parseBagQty(row.cells[sizeId]);
+      if (qty > 0) {
+        varietyMap.set(
+          currentVariety,
+          (varietyMap.get(currentVariety) ?? 0) + qty
+        );
+        const label = FARMER_REPORT_PDF_COLUMN_LABELS[sizeId] ?? sizeId;
+        sizeMap.set(label, (sizeMap.get(label) ?? 0) + qty);
+      }
+    }
+  }
+  const totalBags = Array.from(sizeMap.values()).reduce((a, b) => a + b, 0);
+  const varietyDistribution: VarietyDistributionItem[] = Array.from(
+    varietyMap.entries()
+  )
+    .map(([name, value]) => ({
+      name,
+      value,
+      percentage: totalBags > 0 ? (value / totalBags) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+  const sizeDistribution: SizeDistributionItem[] = Array.from(sizeMap.entries())
+    .map(([name, value]) => ({
+      name,
+      value,
+      percentage: totalBags > 0 ? (value / totalBags) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+  return {
+    varietyDistribution,
+    sizeDistribution,
+    totalBags,
+  };
 }
 
 export interface FarmerReportPdfProps {
@@ -210,6 +348,12 @@ export function FarmerReportPdf({
     if (id === 'amountPayable') return `${AMOUNT_PAYABLE_WIDTH_PCT}%`;
     return `${Math.max(0, otherColWidthPct).toFixed(1)}%`;
   };
+
+  const distribution = computeDistributionFromSnapshot(snapshot);
+  const hasDistribution =
+    distribution.totalBags > 0 &&
+    (distribution.varietyDistribution.length > 0 ||
+      distribution.sizeDistribution.length > 0);
 
   return (
     <Document>
@@ -300,6 +444,118 @@ export function FarmerReportPdf({
             })}
           </View>
         </View>
+
+        {hasDistribution && (
+          <View style={styles.distributionSection}>
+            <Text style={styles.distributionTitle}>
+              Variety & Size Distribution
+            </Text>
+            <View style={styles.distributionGrid}>
+              <View style={styles.distributionTable}>
+                <Text style={styles.distributionTableTitle}>
+                  Variety Distribution
+                </Text>
+                <View style={styles.distributionHeaderRow}>
+                  <Text style={[styles.distributionCell, { width: '50%' }]}>
+                    Variety
+                  </Text>
+                  <Text
+                    style={[
+                      styles.distributionCell,
+                      { width: '25%', textAlign: 'right' },
+                    ]}
+                  >
+                    Bags
+                  </Text>
+                  <Text
+                    style={[
+                      styles.distributionCell,
+                      styles.distributionCellLast,
+                      { width: '25%', textAlign: 'right' },
+                    ]}
+                  >
+                    %
+                  </Text>
+                </View>
+                {distribution.varietyDistribution.map((item) => (
+                  <View key={item.name} style={styles.distributionDataRow}>
+                    <Text style={[styles.distributionCell, { width: '50%' }]}>
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.distributionCell,
+                        { width: '25%', textAlign: 'right' },
+                      ]}
+                    >
+                      {item.value.toLocaleString('en-IN')}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.distributionCell,
+                        styles.distributionCellLast,
+                        { width: '25%', textAlign: 'right' },
+                      ]}
+                    >
+                      {item.percentage.toFixed(1)}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.distributionTable}>
+                <Text style={styles.distributionTableTitle}>
+                  Size-wise Distribution
+                </Text>
+                <View style={styles.distributionHeaderRow}>
+                  <Text style={[styles.distributionCell, { width: '50%' }]}>
+                    Size
+                  </Text>
+                  <Text
+                    style={[
+                      styles.distributionCell,
+                      { width: '25%', textAlign: 'right' },
+                    ]}
+                  >
+                    Bags
+                  </Text>
+                  <Text
+                    style={[
+                      styles.distributionCell,
+                      styles.distributionCellLast,
+                      { width: '25%', textAlign: 'right' },
+                    ]}
+                  >
+                    %
+                  </Text>
+                </View>
+                {distribution.sizeDistribution.map((item) => (
+                  <View key={item.name} style={styles.distributionDataRow}>
+                    <Text style={[styles.distributionCell, { width: '50%' }]}>
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.distributionCell,
+                        { width: '25%', textAlign: 'right' },
+                      ]}
+                    >
+                      {item.value.toLocaleString('en-IN')}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.distributionCell,
+                        styles.distributionCellLast,
+                        { width: '25%', textAlign: 'right' },
+                      ]}
+                    >
+                      {item.percentage.toFixed(1)}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
 
         {stockLedgerRows != null && stockLedgerRows.length > 0 && (
           <ReportSummarySectionPdf

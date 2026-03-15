@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.0] - 2026-03-15
+
+### Added
+- Analytics Storage tab: **Stock Summary** — `StorageAnalyticsScreen` with table of variety × size (initial/current quantities) from GET `/analytics/storage-summary`; loading, error, and empty states
+- Analytics Storage: **StorageSummaryTable** component and **useGetStorageSummary** hook with `storageSummaryQueryOptions` and `prefetchStorageSummary`
+- People (farmer detail): **FarmerProfileCharts** — variety distribution and size distribution (per variety) pie charts and tables derived from grading gate passes
+- Farmer report PDF: **Distribution section** — optional variety and size distribution tables (extracted from report data) when provided
+
+### Changed
+- Analytics page: Storage tab now renders live `StorageAnalyticsScreen` (replacing placeholder)
+- Farmer profile: charts block with `FarmerProfileCharts` above grading gate pass table
+- Types: **Storage summary** in `analytics.ts` — `StorageSummaryByBagType`, `StorageSummarySizeItem`, `StorageSummaryVarietyItem`, `StorageSummaryData`, `GetStorageSummaryApiResponse`
+
 ## [0.36.0] - 2026-03-15
 
 ### Added
