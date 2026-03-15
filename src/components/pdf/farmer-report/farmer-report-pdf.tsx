@@ -1,4 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { ReportSummarySectionPdf } from '@/components/pdf/grading-gate-pass-table-pdf';
+import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import {
   type FarmerReportPdfSnapshot,
   FARMER_REPORT_PDF_COLUMN_LABELS,
@@ -153,9 +155,14 @@ function parseQtyWeight(value: string): { qty: string; weight: string } | null {
 
 export interface FarmerReportPdfProps {
   snapshot: FarmerReportPdfSnapshot;
+  /** When provided, Report Summary (Variety, Size, Farmer) is shown below the main table. */
+  stockLedgerRows?: StockLedgerRow[];
 }
 
-export function FarmerReportPdf({ snapshot }: FarmerReportPdfProps) {
+export function FarmerReportPdf({
+  snapshot,
+  stockLedgerRows,
+}: FarmerReportPdfProps) {
   const {
     companyName,
     farmerName,
@@ -293,6 +300,13 @@ export function FarmerReportPdf({ snapshot }: FarmerReportPdfProps) {
             })}
           </View>
         </View>
+
+        {stockLedgerRows != null && stockLedgerRows.length > 0 && (
+          <ReportSummarySectionPdf
+            farmerName={farmerName ?? ''}
+            rows={stockLedgerRows}
+          />
+        )}
       </Page>
     </Document>
   );

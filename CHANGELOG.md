@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.0] - 2026-03-15
+
+### Added
+- People (farmer detail): **Accounting Report** — new PDF export with three tables: (1) Incoming details (up to Actual kg), (2) Grading gate pass table, (3) Summary (Variety/Size/Farmer); "Accounting Report" button next to "View Report" on grading gate pass table
+- PDF: **AccountingStockLedgerPdf** — component for accounting report (uses FarmerReportPdf snapshot for table 1, GradingGatePassTablePdf for table 2, SummaryTablePdf for table 3)
+- Farmer report PDF: optional **Report Summary** section (Variety, Size, Farmer tables) below main table when `stockLedgerRows` prop is provided
+
+### Changed
+- Grading gate pass table PDF: **hideReportSummary** prop to optionally hide Report Summary section; **ReportSummarySectionPdf** exported for reuse in farmer report PDF
+- Farmer report PDF: accepts optional `stockLedgerRows` and renders Report Summary when provided; grading gate pass table (farmer profile) passes stock ledger rows to Farmer Report PDF and adds Accounting Report flow with `gradingPassToStockLedgerRow` helper
+
 ## [0.34.0] - 2026-03-14
 
 ### Added

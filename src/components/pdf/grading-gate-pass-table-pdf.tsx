@@ -256,11 +256,14 @@ function computeGradingTableSummary(
 export interface GradingGatePassTablePdfProps {
   farmerName: string;
   rows: StockLedgerRow[];
+  /** When true, hide the Report Summary (Variety / Size / Farmer) below the table. */
+  hideReportSummary?: boolean;
 }
 
 function GradingGatePassTablePdf({
   farmerName,
   rows,
+  hideReportSummary = false,
 }: GradingGatePassTablePdfProps) {
   const rowsWithGgp = rows.filter(
     (row) =>
@@ -434,12 +437,34 @@ function GradingGatePassTablePdf({
         );
       })}
       <TotalRow rows={rowsWithGgp} sizesWithQty={sizesWithQty} />
-      <GradingTableSummarySection
-        farmerName={farmerName}
-        rows={rowsWithGgp}
-        sizesWithQty={sizesWithQty}
-      />
+      {!hideReportSummary && (
+        <GradingTableSummarySection
+          farmerName={farmerName}
+          rows={rowsWithGgp}
+          sizesWithQty={sizesWithQty}
+        />
+      )}
     </View>
+  );
+}
+
+/**
+ * Report Summary (Variety, Size, Farmer tables). Exported for use in farmer-report-pdf.
+ */
+export function ReportSummarySectionPdf({
+  farmerName,
+  rows,
+}: {
+  farmerName: string;
+  rows: StockLedgerRow[];
+}) {
+  const sizesWithQty = getSizesWithQuantities(rows);
+  return (
+    <GradingTableSummarySection
+      farmerName={farmerName}
+      rows={rows}
+      sizesWithQty={sizesWithQty}
+    />
   );
 }
 

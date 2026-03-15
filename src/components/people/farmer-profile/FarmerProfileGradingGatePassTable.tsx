@@ -44,6 +44,8 @@ import type {
   FarmerReportPdfRow,
   FarmerReportPdfSnapshot,
 } from '@/components/pdf/farmer-report/farmer-report-pdf-types';
+import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import { GRADING_SIZES } from '@/components/forms/grading/constants';
 
 const DEFAULT_STORE = 'JICSPL-Bazpur';
 
@@ -485,6 +487,70 @@ function getIncomingRefs(
   ) as Array<GradingGatePassIncomingRef & { _id: string }>;
 }
 
+/** Convert one grading pass to StockLedgerRow for accounting report (grading + summary tables). */
+function gradingPassToStockLedgerRow(
+  pass: GradingGatePass,
+  serialNo: number
+): StockLedgerRow {
+  const refs = getIncomingRefs(pass.incomingGatePassIds);
+  const firstRef = refs[0] ?? null;
+  const netKg = firstRef ? getNetWeightKg(firstRef.weightSlip) : undefined;
+  const bagsReceived = firstRef?.bagsReceived ?? 0;
+  const postGradingBags = getPostGradingBags(pass.orderDetails);
+
+  const sizeBagsJute: Record<string, number> = {};
+  const sizeBagsLeno: Record<string, number> = {};
+  const sizeWeightPerBagJute: Record<string, number> = {};
+  const sizeWeightPerBagLeno: Record<string, number> = {};
+  for (const size of GRADING_SIZES) {
+    sizeBagsJute[size] = 0;
+    sizeBagsLeno[size] = 0;
+  }
+  if (pass.orderDetails?.length) {
+    for (const od of pass.orderDetails) {
+      const size = od.size;
+      const qty = od.initialQuantity ?? od.currentQuantity ?? 0;
+      const wt = od.weightPerBagKg ?? 0;
+      const isLeno = od.bagType?.toUpperCase() === 'LENO';
+      if (GRADING_SIZES.includes(size as (typeof GRADING_SIZES)[number])) {
+        if (isLeno) {
+          sizeBagsLeno[size] = (sizeBagsLeno[size] ?? 0) + qty;
+          sizeWeightPerBagLeno[size] = wt;
+        } else {
+          sizeBagsJute[size] = (sizeBagsJute[size] ?? 0) + qty;
+          sizeWeightPerBagJute[size] = wt;
+        }
+      }
+    }
+  }
+  const hasJute = Object.values(sizeBagsJute).some((v) => v > 0);
+  const hasLeno = Object.values(sizeBagsLeno).some((v) => v > 0);
+
+  return {
+    serialNo,
+    date: firstRef?.date,
+    incomingGatePassNo:
+      firstRef?.gatePassNo != null ? firstRef.gatePassNo : '—',
+    manualIncomingVoucherNo: firstRef?.manualGatePassNumber,
+    gradingGatePassNo: pass.gatePassNo,
+    manualGradingGatePassNo: pass.manualGatePassNumber,
+    gradingGatePassDate: pass.date,
+    store: DEFAULT_STORE,
+    truckNumber: firstRef?.truckNumber,
+    bagsReceived,
+    weightSlipNumber: firstRef?.weightSlip?.slipNumber,
+    grossWeightKg: firstRef?.weightSlip?.grossWeightKg,
+    tareWeightKg: firstRef?.weightSlip?.tareWeightKg,
+    netWeightKg: netKg,
+    postGradingBags: postGradingBags > 0 ? postGradingBags : undefined,
+    variety: pass.variety ?? undefined,
+    sizeBagsJute: hasJute ? sizeBagsJute : undefined,
+    sizeBagsLeno: hasLeno ? sizeBagsLeno : undefined,
+    sizeWeightPerBagJute: hasJute ? sizeWeightPerBagJute : undefined,
+    sizeWeightPerBagLeno: hasLeno ? sizeWeightPerBagLeno : undefined,
+  };
+}
+
 /** All column ids in table order (for PDF row cells). */
 const ALL_PDF_COLUMN_IDS = [
   ...INCOMING_COLUMN_IDS,
@@ -713,7 +779,10 @@ export const FarmerProfileGradingGatePassTable = memo(
           import('@/components/pdf/farmer-report/farmer-report-pdf'),
         ]);
         const blob = await pdf(
-          <FarmerReportPdf snapshot={snapshot} />
+          <FarmerReportPdf
+            snapshot={snapshot}
+            stockLedgerRows={stockLedgerRowsForAccountingReport}
+          />
         ).toBlob();
         const url = URL.createObjectURL(blob);
         if (printWindow) {
@@ -723,6 +792,53 @@ export const FarmerProfileGradingGatePassTable = memo(
         }
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
         toast.success('PDF opened in new tab', {
+          description: 'Report is ready to view or print.',
+        });
+      } catch {
+        toast.error('Could not generate PDF', {
+          description: 'Please try again.',
+        });
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+    };
+
+    const handleAccountingReport = async () => {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(
+          '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+        );
+      }
+      setIsGeneratingPdf(true);
+      try {
+        const snapshot: FarmerReportPdfSnapshot = {
+          companyName,
+          farmerName: farmerName || undefined,
+          dateRangeLabel: getDateRangeLabel(),
+          reportTitle: 'Accounting Report',
+          visibleColumnIds: visibleColumnIdsForPdf,
+          groupByVariety,
+          rows: flatRowsForPdf,
+        };
+        const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
+          import('@react-pdf/renderer'),
+          import('@/components/pdf/AccountingStockLedgerPdf'),
+        ]);
+        const blob = await pdf(
+          <AccountingStockLedgerPdf
+            snapshot={snapshot}
+            stockLedgerRows={stockLedgerRowsForAccountingReport}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        toast.success('Accounting report opened in new tab', {
           description: 'Report is ready to view or print.',
         });
       } catch {
@@ -867,6 +983,13 @@ export const FarmerProfileGradingGatePassTable = memo(
       }
       return result;
     }, [sortedAndGroupedPasses, groupByVariety]);
+
+    const stockLedgerRowsForAccountingReport = useMemo((): StockLedgerRow[] => {
+      return filteredGradingPasses.map((pass, index) =>
+        gradingPassToStockLedgerRow(pass, index + 1)
+      );
+    }, [filteredGradingPasses]);
+
     const totalVisibleCols =
       INCOMING_COLUMN_IDS.filter((id) => isColVisible(id)).length +
       GRADING_FIXED_COLUMN_IDS.filter((id) => isColVisible(id)).length +
@@ -1617,6 +1740,17 @@ export const FarmerProfileGradingGatePassTable = memo(
             >
               <FileDown className="h-4 w-4 shrink-0" />
               {isGeneratingPdf ? 'Generating…' : 'View Report'}
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="font-custom h-10 min-h-10 w-full shrink-0 gap-2 rounded-lg bg-blue-600 px-4 text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:w-auto"
+              onClick={handleAccountingReport}
+              disabled={isGeneratingPdf}
+              aria-label="Accounting report"
+            >
+              <FileDown className="h-4 w-4 shrink-0" />
+              Accounting Report
             </Button>
           </div>
         </CardHeader>
