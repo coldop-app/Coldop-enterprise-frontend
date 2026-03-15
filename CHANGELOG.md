@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.36.0] - 2026-03-15
+
+### Added
+- People (farmer detail): **Accounting Report Excel export** — "Download Excel" button in the Accounting Report dialog; single-sheet Excel with incoming details, grading gate pass table, and summary (variety/size/farmer)
+- Utils: **accountingReportExcel.ts** — `downloadAccountingReportExcel(snapshot, stockLedgerRows)` using shared `buildSummarySheetData` and `buildGradingGatePassSheetData` from stock ledger Excel
+
+### Changed
+- Summary table (PDF and Stock Ledger Excel): summary rows sort with B30 ("Below 30") first, then other sizes in size order; within same size/type/weight, sort by variety
+- Stock Ledger Excel: **buildSummarySheetData** and **buildGradingGatePassSheetData** exported for reuse by accounting report Excel
+- Accounting Report dialog: added `onDownloadExcel` prop and "Download Excel" (FileSpreadsheet) button in footer; refactored farmer profile to use shared `buildAccountingReportDataForSelection` for both PDF and Excel
+
 ## [0.35.0] - 2026-03-15
 
 ### Added

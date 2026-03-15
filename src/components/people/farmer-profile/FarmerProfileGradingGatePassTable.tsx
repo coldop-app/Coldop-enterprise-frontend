@@ -36,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { downloadAccountingReportExcel } from '@/utils/accountingReportExcel';
 import {
   AccountingReportGatePassDialog,
   type AccountingReportGatePassRow,
@@ -892,10 +893,8 @@ export const FarmerProfileGradingGatePassTable = memo(
     };
 
     const handleAccountingReportGenerate = async (selectedIds: Set<string>) => {
-      const selectedPasses = filteredGradingPasses.filter((p) =>
-        selectedIds.has(p._id)
-      );
-      if (selectedPasses.length === 0) {
+      const data = buildAccountingReportDataForSelection(selectedIds);
+      if (!data) {
         toast.error('No gate passes selected', {
           description: 'Select at least one grading gate pass.',
         });
@@ -910,52 +909,7 @@ export const FarmerProfileGradingGatePassTable = memo(
       }
       setIsGeneratingPdf(true);
       try {
-        const stockLedgerRowsSelected = selectedPasses.map((pass, index) =>
-          gradingPassToStockLedgerRow(pass, index + 1)
-        );
-        const getRefsForSort = (p: GradingGatePass) =>
-          getIncomingRefs(p.incomingGatePassIds);
-        const sortedSelected =
-          sortColumn == null
-            ? [...selectedPasses]
-            : [...selectedPasses].sort((a, b) =>
-                compareSortValues(
-                  getSortValue(a, sortColumn, getRefsForSort),
-                  getSortValue(b, sortColumn, getRefsForSort),
-                  sortDirection
-                )
-              );
-        const groupedSelected: Array<{
-          variety: string | null;
-          passes: GradingGatePass[];
-        }> = groupByVariety
-          ? (() => {
-              const byVariety = new Map<string, GradingGatePass[]>();
-              for (const pass of sortedSelected) {
-                const variety =
-                  pass.variety ?? getRefsForSort(pass)[0]?.variety ?? '';
-                const list = byVariety.get(variety) ?? [];
-                list.push(pass);
-                byVariety.set(variety, list);
-              }
-              return Array.from(byVariety.entries())
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([variety, passes]) => ({ variety, passes }));
-            })()
-          : [{ variety: null as string | null, passes: sortedSelected }];
-        const flatRowsForSelected = buildFlatRowsFromGroupedPasses(
-          groupedSelected,
-          groupByVariety
-        );
-        const snapshot: FarmerReportPdfSnapshot = {
-          companyName,
-          farmerName: farmerName || undefined,
-          dateRangeLabel: getDateRangeLabel(),
-          reportTitle: 'Accounting Report',
-          visibleColumnIds: visibleColumnIdsForPdf,
-          groupByVariety,
-          rows: flatRowsForSelected,
-        };
+        const { snapshot, stockLedgerRowsSelected } = data;
         const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
           import('@/components/pdf/AccountingStockLedgerPdf'),
@@ -983,6 +937,81 @@ export const FarmerProfileGradingGatePassTable = memo(
       } finally {
         setIsGeneratingPdf(false);
       }
+    };
+
+    const buildAccountingReportDataForSelection = (
+      selectedIds: Set<string>
+    ) => {
+      const selectedPasses = filteredGradingPasses.filter((p) =>
+        selectedIds.has(p._id)
+      );
+      if (selectedPasses.length === 0) return null;
+      const stockLedgerRowsSelected = selectedPasses.map((pass, index) =>
+        gradingPassToStockLedgerRow(pass, index + 1)
+      );
+      const getRefsForSort = (p: GradingGatePass) =>
+        getIncomingRefs(p.incomingGatePassIds);
+      const sortedSelected =
+        sortColumn == null
+          ? [...selectedPasses]
+          : [...selectedPasses].sort((a, b) =>
+              compareSortValues(
+                getSortValue(a, sortColumn, getRefsForSort),
+                getSortValue(b, sortColumn, getRefsForSort),
+                sortDirection
+              )
+            );
+      const groupedSelected: Array<{
+        variety: string | null;
+        passes: GradingGatePass[];
+      }> = groupByVariety
+        ? (() => {
+            const byVariety = new Map<string, GradingGatePass[]>();
+            for (const pass of sortedSelected) {
+              const variety =
+                pass.variety ?? getRefsForSort(pass)[0]?.variety ?? '';
+              const list = byVariety.get(variety) ?? [];
+              list.push(pass);
+              byVariety.set(variety, list);
+            }
+            return Array.from(byVariety.entries())
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([variety, passes]) => ({ variety, passes }));
+          })()
+        : [{ variety: null as string | null, passes: sortedSelected }];
+      const flatRowsForSelected = buildFlatRowsFromGroupedPasses(
+        groupedSelected,
+        groupByVariety
+      );
+      const snapshot: FarmerReportPdfSnapshot = {
+        companyName,
+        farmerName: farmerName || undefined,
+        dateRangeLabel: getDateRangeLabel(),
+        reportTitle: 'Accounting Report',
+        visibleColumnIds: visibleColumnIdsForPdf,
+        groupByVariety,
+        rows: flatRowsForSelected,
+      };
+      return { snapshot, stockLedgerRowsSelected };
+    };
+
+    const handleAccountingReportDownloadExcel = () => {
+      const data = buildAccountingReportDataForSelection(
+        selectedGradingPassIdsForAccounting
+      );
+      if (!data) {
+        toast.error('No gate passes selected', {
+          description: 'Select at least one grading gate pass.',
+        });
+        return;
+      }
+      downloadAccountingReportExcel(
+        data.snapshot,
+        data.stockLedgerRowsSelected
+      );
+      toast.success('Excel downloaded', {
+        description: 'Accounting report saved to your device.',
+      });
     };
 
     const filteredGradingPasses = useMemo(() => {
@@ -2503,6 +2532,7 @@ export const FarmerProfileGradingGatePassTable = memo(
           onGenerate={() =>
             handleAccountingReportGenerate(selectedGradingPassIdsForAccounting)
           }
+          onDownloadExcel={handleAccountingReportDownloadExcel}
           isGeneratingPdf={isGeneratingPdf}
         />
       </>

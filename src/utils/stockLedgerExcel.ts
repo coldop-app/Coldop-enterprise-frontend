@@ -330,10 +330,18 @@ interface SummaryRow {
   count: number;
 }
 
+/** B30 size (displayed as "B30") — grouped first in summary, then other sizes in size order. */
+const B30_SIZE = 'Below 30';
+
 function getSummaryRows(map: Map<string, number>): SummaryRow[] {
   const sizeOrder = new Map<string, number>(
     GRADING_SIZES.map((s, i) => [s, i])
   );
+  /** B30 first (0), then other sizes in GRADING_SIZES order (1, 2, …). */
+  const getSizeSortOrder = (size: string): number => {
+    if (size === B30_SIZE) return 0;
+    return (sizeOrder.get(size) ?? 99) + 1;
+  };
   const rows: SummaryRow[] = [];
   for (const [key, count] of map) {
     if (count <= 0) continue;
@@ -353,9 +361,12 @@ function getSummaryRows(map: Map<string, number>): SummaryRow[] {
     });
   }
   rows.sort((a, b) => {
+    const orderA = getSizeSortOrder(a.size);
+    const orderB = getSizeSortOrder(b.size);
+    if (orderA !== orderB) return orderA - orderB;
     if (a.type !== b.type) return a.type === 'JUTE' ? -1 : 1;
     if (a.weightNum !== b.weightNum) return a.weightNum - b.weightNum;
-    return (sizeOrder.get(a.size) ?? 99) - (sizeOrder.get(b.size) ?? 99);
+    return (a.variety || '').localeCompare(b.variety || '');
   });
   return rows;
 }
@@ -464,8 +475,10 @@ const SUMMARY_RIGHT_COLUMNS: {
   { label: 'AMT PAY.', key: 'amountPayable' },
 ];
 
-/** Build Summary sheet data (matches SummaryTablePdf). */
-function buildSummarySheetData(rows: StockLedgerRow[]): (string | number)[][] {
+/** Build Summary sheet data (matches SummaryTablePdf). Exported for accounting report single-sheet Excel. */
+export function buildSummarySheetData(
+  rows: StockLedgerRow[]
+): (string | number)[][] {
   const groupedMap = buildGroupedMap(rows);
   const summaryRows = getSummaryRows(groupedMap);
   const rightValuesByRow = buildSummaryRightValuesByRow(summaryRows);
@@ -612,8 +625,8 @@ function getRowTotal(row: StockLedgerRow): number {
   return GRADING_SIZES.reduce((sum, size) => sum + getSizeQty(row, size), 0);
 }
 
-/** Build Grading Gate Pass sheet data (matches GradingGatePassTablePdf). Returns null if no rows with GGP. */
-function buildGradingGatePassSheetData(
+/** Build Grading Gate Pass sheet data (matches GradingGatePassTablePdf). Returns null if no rows with GGP. Exported for accounting report single-sheet Excel. */
+export function buildGradingGatePassSheetData(
   farmerName: string,
   rows: StockLedgerRow[]
 ): (string | number)[][] | null {

@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { FileSpreadsheet } from 'lucide-react';
 
 export interface AccountingReportGatePassRow {
   pass: GradingGatePass;
@@ -36,6 +37,7 @@ export interface AccountingReportGatePassDialogProps {
   onSelectAll: () => void;
   onDeselectAll: () => void;
   onGenerate: () => void;
+  onDownloadExcel: () => void;
   isGeneratingPdf: boolean;
 }
 
@@ -49,6 +51,7 @@ export const AccountingReportGatePassDialog = memo(
     onSelectAll,
     onDeselectAll,
     onGenerate,
+    onDownloadExcel,
     isGeneratingPdf,
   }: AccountingReportGatePassDialogProps) {
     const togglePass = (passId: string) => {
@@ -179,7 +182,7 @@ export const AccountingReportGatePassDialog = memo(
               </p>
             )}
           </div>
-          <DialogFooter className="mt-4 shrink-0">
+          <DialogFooter className="mt-4 shrink-0 flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
@@ -187,6 +190,17 @@ export const AccountingReportGatePassDialog = memo(
               onClick={() => onOpenChange(false)}
             >
               Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="font-custom"
+              disabled={selectedPassIds.size === 0}
+              onClick={onDownloadExcel}
+              aria-label="Download Excel"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4 shrink-0" />
+              Download Excel
             </Button>
             <Button
               type="button"
