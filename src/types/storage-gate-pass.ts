@@ -35,6 +35,8 @@ export interface CreateStorageGatePassInput {
   variety: string;
   bagSizes: CreateStorageGatePassBagSize[];
   remarks?: string;
+  /** Optional manual gate pass number (sent as number to API). */
+  manualGatePassNumber?: number;
 }
 
 /** Incoming bag size snapshot as returned in grading gate pass snapshots */
@@ -188,6 +190,20 @@ export interface CreatedStorageGatePass {
 export interface CreateStorageGatePassApiResponse {
   success?: boolean;
   data: CreatedStorageGatePass | null;
+  message?: string;
+}
+
+/** Request body for PUT /storage-gate-pass/:id */
+export interface EditStorageGatePassInput {
+  date?: string;
+  manualGatePassNumber?: number;
+  reason?: string;
+}
+
+/** API response for PUT /storage-gate-pass/:id */
+export interface EditStorageGatePassApiResponse {
+  success: boolean;
+  data: Record<string, never>;
   message?: string;
 }
 

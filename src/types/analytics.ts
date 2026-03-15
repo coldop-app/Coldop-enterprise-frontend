@@ -597,6 +597,33 @@ export interface GetGradingTrendApiResponse {
   message?: string;
 }
 
+// --- Storage daily/monthly trend (GET /analytics/storage-daily-monthly-trend) ---
+
+/** Daily series for storage trend: one variety with its daily dataPoints */
+export interface StorageDailyTrendChartSeries {
+  variety: string;
+  dataPoints: DailyTrendChartItem[];
+}
+
+/** Monthly series for storage trend: one variety with its monthly dataPoints */
+export interface StorageMonthlyTrendChartSeries {
+  variety: string;
+  dataPoints: MonthlyTrendChartItem[];
+}
+
+/** Data shape for GET /analytics/storage-daily-monthly-trend (grouped by variety) */
+export interface StorageTrendData {
+  daily: { chartData: StorageDailyTrendChartSeries[] };
+  monthly: { chartData: StorageMonthlyTrendChartSeries[] };
+}
+
+/** API response for GET /analytics/storage-daily-monthly-trend */
+export interface GetStorageTrendApiResponse {
+  success: boolean;
+  data: StorageTrendData;
+  message?: string;
+}
+
 // --- Farmers stock by filters (GET /analytics/farmers-stock-by-filters) ---
 
 /** Farmer info in farmers-stock-by-filters response */

@@ -27,7 +27,7 @@ import {
 import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
-import { useCreateBulkStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useCreateBulkStorageGatePasses';
+import { useCreateStorageGatePass } from '@/services/store-admin/storage-gate-pass/useCreateStorageGatePass';
 import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
@@ -164,8 +164,8 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
     isLoading: isLoadingFarmers,
     refetch: refetchFarmers,
   } = useGetAllFarmers();
-  const { mutate: createBulkStorageGatePasses, isPending } =
-    useCreateBulkStorageGatePasses();
+  const { mutate: createStorageGatePass, isPending } =
+    useCreateStorageGatePass();
 
   const farmerOptions: Option<string>[] = useMemo(() => {
     if (!farmerLinks) return [];
@@ -243,18 +243,17 @@ const StorageGatePassForm = memo(function StorageGatePassForm({
         });
       const bagSizes = [...bagSizesFromFixed, ...bagSizesFromExtra];
 
-      createBulkStorageGatePasses(
+      createStorageGatePass(
         {
-          passes: [
-            {
-              farmerStorageLinkId: value.farmerStorageLinkId,
-              gatePassNo: voucherNumber,
-              date: formatDateToISO(value.date),
-              variety: value.variety.trim(),
-              bagSizes,
-              remarks: value.remarks?.trim() || undefined,
-            },
-          ],
+          farmerStorageLinkId: value.farmerStorageLinkId,
+          gatePassNo: voucherNumber,
+          date: formatDateToISO(value.date),
+          variety: value.variety.trim(),
+          bagSizes,
+          remarks: value.remarks?.trim() || undefined,
+          ...(value.manualGatePassNumber != null && {
+            manualGatePassNumber: value.manualGatePassNumber,
+          }),
         },
         {
           onSuccess: () => {

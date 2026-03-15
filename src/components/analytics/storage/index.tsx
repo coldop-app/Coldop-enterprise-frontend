@@ -8,7 +8,9 @@ import type {
   VarietyStockSummary,
   SizeQuantity,
 } from '@/services/store-admin/analytics/storage/useGetStorageSummary';
+import type { GetStorageTrendParams } from '@/services/store-admin/analytics/storage/useGetStorageTrendAnalysis';
 import { StorageSummaryTable } from './StorageSummaryTable';
+import StorageTrendAnalysisChart from './StorageTrendAnalysisChart';
 import type { StorageSummaryVarietyItem } from '@/types/analytics';
 
 /** Preferred column order for size names (others appended) */
@@ -53,8 +55,15 @@ function toStockSummary(varieties: StorageSummaryVarietyItem[]): {
   return { stockSummary, sizes };
 }
 
-export default function StorageAnalyticsScreen() {
-  const { data, isLoading, isError, error, refetch } = useGetStorageSummary();
+export interface StorageAnalyticsScreenProps {
+  dateParams?: GetStorageTrendParams;
+}
+
+export default function StorageAnalyticsScreen({
+  dateParams = {},
+}: StorageAnalyticsScreenProps) {
+  const { data, isLoading, isError, error, refetch } =
+    useGetStorageSummary(dateParams);
 
   const { stockSummary, sizes } = useMemo(() => {
     const varieties = data ?? [];
@@ -122,6 +131,7 @@ export default function StorageAnalyticsScreen() {
         sizes={sizes}
         onCellClick={undefined}
       />
+      <StorageTrendAnalysisChart dateParams={dateParams} />
     </div>
   );
 }

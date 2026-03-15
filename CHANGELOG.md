@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0] - 2026-03-15
+
+### Added
+- Analytics Storage: **Storage trend analysis chart** — `StorageTrendAnalysisChart` with daily and monthly bag trends (line chart by variety), summary table, date params, and refresh; integrated at top of storage analytics screen
+- Service: **useGetStorageTrendAnalysis** and `storageTrendQueryOptions` for GET `/analytics/storage-daily-monthly-trend` (dateFrom, dateTo)
+- Daybook Storage voucher: **Edit from daybook** — Edit button opens dialog to update date and manual gate pass number; submits via PUT `/storage-gate-pass/:id`; invalidates daybook, storage list, storage summary, and storage trend on success
+- Service: **useEditStorageGatePass** — mutation for PUT `/storage-gate-pass/:id`; payload: `date?`, `manualGatePassNumber?`, `reason?`; toast and query invalidation on success/error
+- Types: `StorageTrendData`, `GetStorageTrendApiResponse` in analytics; `EditStorageGatePassInput`, `EditStorageGatePassApiResponse` in storage-gate-pass
+
+### Changed
+- Analytics Storage screen: renders `StorageTrendAnalysisChart` above stock summary with shared date params
+- Analytics page: Apply/Reset date filters now prefetch and invalidate storage trend query
+- Storage form: single-pass create only; bulk storage gate pass create removed
+
+### Removed
+- **useCreateBulkStorageGatePasses** — bulk storage gate pass create hook and POST `/storage-gate-pass/bulk`; storage form uses single-pass create only
+
 ## [0.37.0] - 2026-03-15
 
 ### Added

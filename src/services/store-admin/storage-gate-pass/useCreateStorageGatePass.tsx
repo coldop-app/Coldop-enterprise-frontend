@@ -54,10 +54,22 @@ export function useCreateStorageGatePass() {
     mutationKey: [...storageGatePassKeys.all, 'create'],
 
     mutationFn: async (payload) => {
+      const body: Record<string, unknown> = {
+        farmerStorageLinkId: payload.farmerStorageLinkId,
+        gatePassNo: payload.gatePassNo,
+        date: payload.date,
+        variety: payload.variety,
+        bagSizes: payload.bagSizes,
+        ...(payload.remarks != null && { remarks: payload.remarks }),
+        manualGatePassNumber:
+          payload.manualGatePassNumber != null
+            ? Number(payload.manualGatePassNumber)
+            : null,
+      };
       const { data } =
         await storeAdminAxiosClient.post<CreateStorageGatePassApiResponse>(
           '/storage-gate-pass',
-          payload
+          body
         );
       return data;
     },

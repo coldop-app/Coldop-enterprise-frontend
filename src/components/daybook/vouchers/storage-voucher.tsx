@@ -3,7 +3,25 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Printer, User, Package } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/forms/date-picker';
+import { formatDate, formatDateToYYYYMMDD } from '@/lib/helpers';
+import {
+  ChevronDown,
+  ChevronUp,
+  Printer,
+  User,
+  Package,
+  Pencil,
+} from 'lucide-react';
 import { DetailRow } from './detail-row';
 import { formatVoucherDate } from './format-date';
 import {
@@ -12,6 +30,18 @@ import {
   type VoucherFarmerInfo,
 } from './types';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
+import { useEditStorageGatePass } from '@/services/store-admin/analytics/storage/useEditStorageGatePass';
+
+/** Convert date string (ISO or YYYY-MM-DD) to dd.mm.yyyy for DatePicker */
+function toDatePickerValue(dateString: string | undefined): string {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? '' : formatDate(date);
+  } catch {
+    return '';
+  }
+}
 
 export interface StorageVoucherProps extends Partial<VoucherFarmerInfo> {
   /** Storage gate pass in the new API format (with populated farmerStorageLinkId and bagSizes) */
@@ -24,6 +54,35 @@ const StorageVoucher = memo(function StorageVoucher({
   farmerAccount: farmerAccountProp,
 }: StorageVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editManualGatePassNumber, setEditManualGatePassNumber] = useState<
+    number | ''
+  >('');
+
+  const editMutation = useEditStorageGatePass();
+
+  const openEditDialog = () => {
+    setEditDate(toDatePickerValue(voucher.date));
+    setEditManualGatePassNumber(voucher.manualGatePassNumber ?? '');
+    setEditOpen(true);
+  };
+
+  const handleEditSubmit = () => {
+    const payload: {
+      id: string;
+      date?: string;
+      manualGatePassNumber?: number;
+    } = {
+      id: voucher._id,
+    };
+    if (editDate) payload.date = formatDateToYYYYMMDD(editDate);
+    if (editManualGatePassNumber !== '')
+      payload.manualGatePassNumber = Number(editManualGatePassNumber);
+    editMutation.mutate(payload, {
+      onSuccess: () => setEditOpen(false),
+    });
+  };
 
   const farmerName =
     farmerNameProp ?? voucher.farmerStorageLinkId?.farmerId?.name;
@@ -115,16 +174,72 @@ const StorageVoucher = memo(function StorageVoucher({
             )}
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="h-8 w-8 p-0"
-            aria-label="Print gate pass"
-          >
-            <Printer className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openEditDialog}
+              className="h-8 w-8 p-0"
+              aria-label="Edit gate pass"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="h-8 w-8 p-0"
+              aria-label="Print gate pass"
+            >
+              <Printer className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="font-custom sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit storage gate pass</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <DatePicker
+                id="edit-sgp-date"
+                label="Date"
+                value={editDate}
+                onChange={setEditDate}
+                compact
+              />
+              <div className="grid gap-2">
+                <Label htmlFor="edit-sgp-manual">Manual gate pass number</Label>
+                <Input
+                  id="edit-sgp-manual"
+                  type="number"
+                  min={1}
+                  placeholder="Optional"
+                  value={
+                    editManualGatePassNumber === ''
+                      ? ''
+                      : editManualGatePassNumber
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditManualGatePassNumber(v === '' ? '' : Number(v));
+                  }}
+                  className="font-custom"
+                />
+              </div>
+            </div>
+            <DialogFooter showCloseButton>
+              <Button
+                variant="default"
+                onClick={handleEditSubmit}
+                disabled={editMutation.isPending}
+              >
+                {editMutation.isPending ? 'Saving…' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {isExpanded && (
           <>

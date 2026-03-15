@@ -23,6 +23,7 @@ import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pas
 import { gradingSizeWiseDistributionQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetGradingSizeWiseDistribution';
 import { areaWiseAnalyticsQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetAreaWiseAnalytics';
 import { gradingTrendQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetGradingTrendAnalysis';
+import { storageTrendQueryOptions } from '@/services/store-admin/analytics/storage/useGetStorageTrendAnalysis';
 import Overview from './overview';
 import IncomingGatePassAnalyticsScreen from './incoming';
 import GradingGatePassAnalyticsScreen from './grading';
@@ -49,6 +50,7 @@ const AnalyticsPage = () => {
       ),
       queryClient.fetchQuery(areaWiseAnalyticsQueryOptions(newParams)),
       queryClient.fetchQuery(gradingTrendQueryOptions(newParams)),
+      queryClient.fetchQuery(storageTrendQueryOptions(newParams)),
     ]);
     toast.promise(fetchPromise, {
       loading: 'Applying date filters…',
@@ -76,6 +78,7 @@ const AnalyticsPage = () => {
       queryClient.fetchQuery(gradingSizeWiseDistributionQueryOptions({})),
       queryClient.fetchQuery(areaWiseAnalyticsQueryOptions({})),
       queryClient.fetchQuery(gradingTrendQueryOptions({})),
+      queryClient.fetchQuery(storageTrendQueryOptions({})),
     ]);
     toast.promise(fetchPromise, {
       loading: 'Clearing date filters…',
@@ -227,7 +230,7 @@ const AnalyticsPage = () => {
               />
             </TabsContent>
             <TabsContent value="storage" className="mt-0 outline-none">
-              <StorageAnalyticsScreen />
+              <StorageAnalyticsScreen dateParams={appliedDateParams} />
             </TabsContent>
             <TabsContent value="dispatch" className="mt-0 outline-none">
               <p className="font-custom text-sm leading-relaxed text-gray-600">
