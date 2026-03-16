@@ -94,6 +94,19 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: '100%',
   },
+  cellQuantity: {
+    fontSize: 6,
+    fontWeight: 'bold',
+    width: '100%',
+    maxWidth: '100%',
+  },
+  cellLocation: {
+    fontSize: 5,
+    color: '#555',
+    marginTop: 1,
+    width: '100%',
+    maxWidth: '100%',
+  },
   summaryPage: {
     backgroundColor: '#FEFDF8',
     padding: 16,
@@ -168,6 +181,18 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
+/** Like formatCell but returns empty for 0 (used for quantity columns so 0 is left blank). */
+function formatQuantity(value: unknown): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number') {
+    if (Number.isNaN(value) || value === 0) return '';
+    return String(value);
+  }
+  const s = String(value).trim();
+  if (s === '0' || s === '') return '';
+  return s;
+}
+
 function ReportHeader({
   companyName,
   dateRangeLabel,
@@ -194,10 +219,17 @@ type PdfColumn = {
   align: 'left' | 'center' | 'right';
 };
 
-/** Build PDF column defs: base + size + remarks. Widths sum to 100%. */
+/** Build PDF column defs: base + size + remarks. Widths sum to 100%. Size cols capped so remarks gets remainder. */
 function getPdfColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
   const n = sizeColumnIds.length;
-  const sizeWidth = n > 0 ? Math.min(7, Math.floor(50 / n)) : 0;
+  const sizeWidthOld = n > 0 ? Math.min(7, Math.floor(50 / n)) : 0;
+  const remarksOld = Math.max(15, 100 - 47 - n * sizeWidthOld);
+  const remarksNew = Math.max(8, Math.floor(remarksOld / 2));
+  const remainderForSizes = 100 - 47 - remarksNew;
+  const maxSizeWidthPerCol = 9.5; // ~16px wider per col than 6.8 on A4
+  const sizeWidth =
+    n > 0 ? Math.min(maxSizeWidthPerCol, remainderForSizes / n) : 0;
+  const remarksWidth = 100 - 47 - n * sizeWidth;
   const base: PdfColumn[] = [
     { key: 'gatePassNo', label: 'Gate pass no.', width: '9%', align: 'right' },
     {
@@ -214,14 +246,17 @@ function getPdfColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
     key: getSizeColumnId(size),
     label: size,
     width: `${sizeWidth}%`,
-    align: 'right' as const,
+    align: 'center' as const,
   }));
-  const used = 47 + sizeCols.length * sizeWidth;
-  const remarksWidth = `${Math.max(15, 100 - used)}%`;
   return [
     ...base,
     ...sizeCols,
-    { key: 'remarks', label: 'Remarks', width: remarksWidth, align: 'left' },
+    {
+      key: 'remarks',
+      label: 'Remarks',
+      width: `${remarksWidth}%`,
+      align: 'left',
+    },
   ];
 }
 
@@ -230,29 +265,60 @@ interface TableRowProps {
   columns: PdfColumn[];
 }
 
+const SIZE_COLUMN_PREFIX = 'bags_';
+
 function TableRow({ row, columns }: TableRowProps) {
   return (
     <View style={styles.tableRow}>
-      {columns.map((col, i) => (
-        <View
-          key={col.key}
-          style={[
-            styles.cellWrap,
-            i === columns.length - 1 ? styles.cellLast : {},
-            { width: col.width, minWidth: 0 },
-          ]}
-        >
-          <Text
+      {columns.map((col, i) => {
+        const isSizeCol = col.key.startsWith(SIZE_COLUMN_PREFIX);
+        const isQuantityCol = isSizeCol || col.key === 'totalBags';
+        const location = isSizeCol
+          ? (row[`${col.key}_location`] as string | undefined)
+          : undefined;
+        const displayValue = isQuantityCol
+          ? formatQuantity(row[col.key])
+          : formatCell(row[col.key]);
+        const showQuantityWithLocation =
+          isSizeCol && location && displayValue !== '';
+        return (
+          <View
+            key={col.key}
             style={[
-              col.align === 'left' ? styles.cellLeft : styles.cell,
-              styles.cellText,
+              styles.cellWrap,
+              i === columns.length - 1 ? styles.cellLast : {},
+              { width: col.width, minWidth: 0 },
             ]}
-            wrap
           >
-            {formatCell(row[col.key])}
-          </Text>
-        </View>
-      ))}
+            {showQuantityWithLocation ? (
+              <View style={[styles.cell, { alignItems: 'center' }]}>
+                <Text
+                  style={[styles.cellQuantity, { textAlign: col.align }]}
+                  wrap
+                >
+                  {displayValue}
+                </Text>
+                <Text
+                  style={[styles.cellLocation, { textAlign: col.align }]}
+                  wrap
+                >
+                  ({location})
+                </Text>
+              </View>
+            ) : (
+              <Text
+                style={[
+                  col.align === 'left' ? styles.cellLeft : styles.cell,
+                  styles.cellText,
+                ]}
+                wrap
+              >
+                {displayValue}
+              </Text>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }

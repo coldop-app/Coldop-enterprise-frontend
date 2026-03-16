@@ -45,6 +45,9 @@ type BagSizeEntry = {
   size: string;
   currentQuantity?: number;
   initialQuantity?: number;
+  chamber?: string;
+  floor?: string;
+  row?: string;
 };
 
 /** Normalize API size string to match GRADING_SIZES (e.g. hyphen to en-dash). */
@@ -87,6 +90,38 @@ function getPassTotalBags(
   return Object.values(q).reduce((sum, n) => sum + n, 0);
 }
 
+/** Get per-size location (chamber-floor-row) from pass. First occurrence per size wins. */
+function getSizeLocations(
+  pass: StorageGatePassReportItem & { bagSizes?: BagSizeEntry[] }
+): Record<string, string> {
+  const entries: (BagSizeEntry & {
+    chamber?: string;
+    floor?: string;
+    row?: string;
+  })[] =
+    Array.isArray((pass as { bagSizes?: BagSizeEntry[] }).bagSizes) &&
+    (pass as { bagSizes?: BagSizeEntry[] }).bagSizes!.length > 0
+      ? (pass as { bagSizes: BagSizeEntry[] }).bagSizes
+      : ((pass.orderDetails ?? []) as (BagSizeEntry & {
+          chamber?: string;
+          floor?: string;
+          row?: string;
+        })[]);
+  const out: Record<string, string> = {};
+  for (const e of entries) {
+    const sizeKey = normalizeSizeKey(String(e.size ?? ''));
+    if (sizeKey && !out[sizeKey]) {
+      const c = e.chamber ?? '';
+      const f = e.floor ?? '';
+      const r = e.row ?? '';
+      if (c !== '' || f !== '' || r !== '') {
+        out[sizeKey] = `${c}-${f}-${r}`;
+      }
+    }
+  }
+  return out;
+}
+
 /** Check if API returned flat list (no grouping) */
 function isFlatStorageData(
   data: StorageGatePassReportData
@@ -109,6 +144,7 @@ function mapStoragePassesToRows(
         ? ((createdBy as { name?: string }).name ?? '—')
         : '—';
     const sizeQuantities = getSizeQuantities(pass);
+    const sizeLocations = getSizeLocations(pass);
     const totalBags = getPassTotalBags(pass);
 
     const row: StorageReportRow = {
@@ -126,7 +162,10 @@ function mapStoragePassesToRows(
       remarks: pass.remarks ?? '—',
     };
     for (const size of GRADING_SIZES) {
-      row[getSizeColumnId(size)] = sizeQuantities[size] ?? 0;
+      const sizeId = getSizeColumnId(size);
+      row[sizeId] = sizeQuantities[size] ?? 0;
+      const loc = sizeLocations[size];
+      if (loc) row[`${sizeId}_location`] = loc;
     }
     return row;
   });
