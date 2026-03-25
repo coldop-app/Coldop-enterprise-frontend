@@ -9,8 +9,9 @@ import {
   buildGradingGatePassSheetData,
   buildSummarySheetData,
 } from '@/utils/stockLedgerExcel';
+import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
 
-/** Incoming column ids (table 1): same as AccountingStockLedgerPdf. */
+/** Incoming column ids (table 1): same as AccountingStockLedgerPdf (no Tot bags / Tot gross / Tot tare / Tot net / Tot bardana). */
 const INCOMING_COLUMN_IDS = [
   'systemIncomingNo',
   'manualIncomingNo',
@@ -19,16 +20,11 @@ const INCOMING_COLUMN_IDS = [
   'truckNumber',
   'variety',
   'bagsReceived',
-  'totalBagsReceived',
   'weightSlipNo',
   'grossWeightKg',
-  'totalGrossKg',
   'tareWeightKg',
-  'totalTareKg',
   'netWeightKg',
-  'totalNetKg',
   'lessBardanaKg',
-  'totalLessBardanaKg',
   'actualWeightKg',
 ] as const;
 
@@ -106,29 +102,48 @@ export function downloadAccountingReportExcel(
   }
   sheetRows.push([]);
 
-  // 2. Grading Gate Pass
+  // 2. Grading Gate Pass (by variety)
   sheetRows.push(['2. Grading Gate Pass']);
-  const ggpData = buildGradingGatePassSheetData(
-    farmerName ?? '',
-    stockLedgerRows
-  );
-  if (ggpData != null && ggpData.length > 2) {
-    for (let i = 2; i < ggpData.length; i++) {
-      sheetRows.push(ggpData[i]!);
-    }
-  } else {
-    sheetRows.push(['No grading gate pass data.']);
-  }
   sheetRows.push([]);
-
-  // 3. Summary
-  sheetRows.push(['3. Summary']);
-  const summaryData = buildSummarySheetData(stockLedgerRows);
-  if (summaryData.length > 2) {
-    for (let i = 2; i < summaryData.length; i++) {
-      sheetRows.push(summaryData[i]!);
+  const ggpByVariety = groupStockLedgerRowsByVariety(stockLedgerRows);
+  let anyGgp = false;
+  for (const { variety, rows: varietyRows } of ggpByVariety) {
+    const ggpData = buildGradingGatePassSheetData(
+      farmerName ?? '',
+      varietyRows
+    );
+    if (ggpData != null && ggpData.length > 2) {
+      anyGgp = true;
+      sheetRows.push([`Variety: ${variety}`]);
+      sheetRows.push([]);
+      for (let i = 2; i < ggpData.length; i++) {
+        sheetRows.push(ggpData[i]!);
+      }
+      sheetRows.push([]);
     }
-  } else {
+  }
+  if (!anyGgp) {
+    sheetRows.push(['No grading gate pass data.']);
+    sheetRows.push([]);
+  }
+
+  // 3. Summary (by variety)
+  sheetRows.push(['3. Summary']);
+  sheetRows.push([]);
+  let anySummary = false;
+  for (const { variety, rows: varietyRows } of ggpByVariety) {
+    const summaryData = buildSummarySheetData(varietyRows);
+    if (summaryData.length > 2) {
+      anySummary = true;
+      sheetRows.push([`Variety: ${variety}`]);
+      sheetRows.push([]);
+      for (let i = 2; i < summaryData.length; i++) {
+        sheetRows.push(summaryData[i]!);
+      }
+      sheetRows.push([]);
+    }
+  }
+  if (!anySummary) {
     sheetRows.push(['No summary data.']);
   }
 

@@ -52,6 +52,9 @@ import { FarmerProfileGradingGatePassTable } from './FarmerProfileGradingGatePas
 import { FarmerProfileMetricsGrid } from './FarmerProfileMetricsGrid';
 import { formatDataForReport } from '@/utils/format-data-for-report';
 import { EditFarmerModal } from '@/components/forms/edit-farmer-modal';
+import { useStore } from '@/stores/store';
+import { toast } from 'sonner';
+import { buildFarmerStockLedgerReportPayload } from './FarmerProfileGradingGatePassTable';
 
 /** Map incoming gate pass (by farmer) to IncomingVoucher props. Uses fallbackLink when API returns unpopulated refs. */
 function toIncomingVoucherProps(
@@ -207,6 +210,11 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [statusFilter, setStatusFilter] = useState<IncomingStatusFilter>('all');
   const [_editModalOpen, setEditModalOpen] = useState(false);
+  const [isGeneratingFarmerReportPdf, setIsGeneratingFarmerReportPdf] =
+    useState(false);
+
+  const coldStorage = useStore((s) => s.coldStorage);
+  const companyName = coldStorage?.name ?? 'Cold Storage';
 
   const effectiveFarmerStorageLinkId = (link?._id ??
     farmerStorageLinkId ??
@@ -327,6 +335,54 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
     };
   }, [gatePasses.totals]);
 
+  const handleViewFarmerReport = async () => {
+    if (!link) return;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingFarmerReportPdf(true);
+    try {
+      const { snapshot, stockLedgerRows } = buildFarmerStockLedgerReportPayload(
+        gatePasses.grading.data ?? [],
+        {
+          companyName,
+          farmerName: link.farmerId?.name ?? '',
+          dateRangeLabel: 'All dates',
+        }
+      );
+      const [{ pdf }, { FarmerStockLedgerPdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/FarmerStockLedgerPdf'),
+      ]);
+      const blob = await pdf(
+        <FarmerStockLedgerPdf
+          snapshot={snapshot}
+          stockLedgerRows={stockLedgerRows}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('Farmer report opened in new tab', {
+        description: 'Report is ready to view or print.',
+      });
+    } catch {
+      printWindow?.close();
+      toast.error('Could not generate farmer report', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingFarmerReportPdf(false);
+    }
+  };
+
   if (!link) {
     return (
       <main className="mx-auto max-w-300 px-4 pt-6 pb-16 sm:px-8 sm:py-24">
@@ -338,12 +394,14 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
       <div className="space-y-4 sm:space-y-6">
-        <Card className="overflow-hidden rounded-2xl shadow-lg">
-          <CardContent className="p-6 sm:p-8">
-            <div className="space-y-8">
+        <Card className="overflow-hidden rounded-xl shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="space-y-6">
               <FarmerProfileHeaderCard
                 link={link}
                 onEditClick={() => setEditModalOpen(true)}
+                onViewFarmerReport={handleViewFarmerReport}
+                isViewFarmerReportLoading={isGeneratingFarmerReportPdf}
               />
               <Separator />
               <FarmerProfileMetricsGrid aggregates={aggregates} />

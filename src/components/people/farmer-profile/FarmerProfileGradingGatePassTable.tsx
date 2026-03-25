@@ -735,6 +735,67 @@ function buildFlatRowsFromGroupedPasses(
   return result;
 }
 
+/** Build snapshot + stock ledger rows for Farmer Stock Ledger PDF (all grading passes, variety-grouped). Shared with farmer profile parent for PDF generation. */
+// eslint-disable-next-line react-refresh/only-export-components -- non-component export for index.tsx PDF payload
+export function buildFarmerStockLedgerReportPayload(
+  gradingPasses: GradingGatePass[],
+  params: {
+    companyName: string;
+    farmerName: string;
+    dateRangeLabel: string;
+  }
+): { snapshot: FarmerReportPdfSnapshot; stockLedgerRows: StockLedgerRow[] } {
+  const sortedSelected = [...gradingPasses].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const getRefsForSort = (p: GradingGatePass) =>
+    getIncomingRefs(p.incomingGatePassIds);
+  const groupedSelected: Array<{
+    variety: string | null;
+    passes: GradingGatePass[];
+  }> = (() => {
+    const byVariety = new Map<string, GradingGatePass[]>();
+    for (const pass of sortedSelected) {
+      const variety = pass.variety ?? getRefsForSort(pass)[0]?.variety ?? '';
+      const list = byVariety.get(variety) ?? [];
+      list.push(pass);
+      byVariety.set(variety, list);
+    }
+    return Array.from(byVariety.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([variety, passes]) => ({ variety, passes }));
+  })();
+  const flatRowsForSelected = buildFlatRowsFromGroupedPasses(
+    groupedSelected,
+    true
+  );
+  let serial = 1;
+  const stockLedgerRowsSelected: StockLedgerRow[] = [];
+  for (const { passes } of groupedSelected) {
+    for (const pass of passes) {
+      stockLedgerRowsSelected.push(gradingPassToStockLedgerRow(pass, serial));
+      serial += 1;
+    }
+  }
+  const visibleBagSizes = getVisibleBagSizes(gradingPasses);
+  const visibleColumnIdsForPdf = [
+    ...INCOMING_COLUMN_IDS,
+    ...GRADING_FIXED_COLUMN_IDS,
+    ...visibleBagSizes.map((s) => BAG_SIZE_ORDER_LABELS[s] ?? s),
+    ...LAST_COLUMN_IDS,
+  ];
+  const snapshot: FarmerReportPdfSnapshot = {
+    companyName: params.companyName,
+    farmerName: params.farmerName || undefined,
+    dateRangeLabel: params.dateRangeLabel,
+    reportTitle: 'Farmer Report',
+    visibleColumnIds: visibleColumnIdsForPdf,
+    groupByVariety: true,
+    rows: flatRowsForSelected,
+  };
+  return { snapshot, stockLedgerRows: stockLedgerRowsSelected };
+}
+
 export interface FarmerProfileGradingGatePassTableProps {
   gradingPasses: GradingGatePass[];
   isLoading?: boolean;
@@ -946,9 +1007,6 @@ export const FarmerProfileGradingGatePassTable = memo(
         selectedIds.has(p._id)
       );
       if (selectedPasses.length === 0) return null;
-      const stockLedgerRowsSelected = selectedPasses.map((pass, index) =>
-        gradingPassToStockLedgerRow(pass, index + 1)
-      );
       const getRefsForSort = (p: GradingGatePass) =>
         getIncomingRefs(p.incomingGatePassIds);
       const sortedSelected =
@@ -961,35 +1019,44 @@ export const FarmerProfileGradingGatePassTable = memo(
                 sortDirection
               )
             );
+      /** Accounting report is always grouped variety-wise (incoming + grading + summary). */
       const groupedSelected: Array<{
         variety: string | null;
         passes: GradingGatePass[];
-      }> = groupByVariety
-        ? (() => {
-            const byVariety = new Map<string, GradingGatePass[]>();
-            for (const pass of sortedSelected) {
-              const variety =
-                pass.variety ?? getRefsForSort(pass)[0]?.variety ?? '';
-              const list = byVariety.get(variety) ?? [];
-              list.push(pass);
-              byVariety.set(variety, list);
-            }
-            return Array.from(byVariety.entries())
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([variety, passes]) => ({ variety, passes }));
-          })()
-        : [{ variety: null as string | null, passes: sortedSelected }];
+      }> = (() => {
+        const byVariety = new Map<string, GradingGatePass[]>();
+        for (const pass of sortedSelected) {
+          const variety =
+            pass.variety ?? getRefsForSort(pass)[0]?.variety ?? '';
+          const list = byVariety.get(variety) ?? [];
+          list.push(pass);
+          byVariety.set(variety, list);
+        }
+        return Array.from(byVariety.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([variety, passes]) => ({ variety, passes }));
+      })();
       const flatRowsForSelected = buildFlatRowsFromGroupedPasses(
         groupedSelected,
-        groupByVariety
+        true
       );
+      let serial = 1;
+      const stockLedgerRowsSelected: StockLedgerRow[] = [];
+      for (const { passes } of groupedSelected) {
+        for (const pass of passes) {
+          stockLedgerRowsSelected.push(
+            gradingPassToStockLedgerRow(pass, serial)
+          );
+          serial += 1;
+        }
+      }
       const snapshot: FarmerReportPdfSnapshot = {
         companyName,
         farmerName: farmerName || undefined,
         dateRangeLabel: getDateRangeLabel(),
         reportTitle: 'Accounting Report',
         visibleColumnIds: visibleColumnIdsForPdf,
-        groupByVariety,
+        groupByVariety: true,
         rows: flatRowsForSelected,
       };
       return { snapshot, stockLedgerRowsSelected };
@@ -1072,12 +1139,13 @@ export const FarmerProfileGradingGatePassTable = memo(
     const visibleBagSizes = getVisibleBagSizes(filteredGradingPasses);
 
     const visibleColumnIdsForPdf = useMemo(() => {
-      const incoming = INCOMING_COLUMN_IDS.filter((id) => isColVisible(id));
-      const grading = GRADING_FIXED_COLUMN_IDS.filter((id) => isColVisible(id));
+      const colVisible = (id: string) => columnVisibility[id] !== false;
+      const incoming = INCOMING_COLUMN_IDS.filter((id) => colVisible(id));
+      const grading = GRADING_FIXED_COLUMN_IDS.filter((id) => colVisible(id));
       const sizes = visibleBagSizes
         .map((s) => BAG_SIZE_ORDER_LABELS[s] ?? s)
-        .filter((id) => isColVisible(id));
-      const last = LAST_COLUMN_IDS.filter((id) => isColVisible(id));
+        .filter((id) => colVisible(id));
+      const last = LAST_COLUMN_IDS.filter((id) => colVisible(id));
       return [...incoming, ...grading, ...sizes, ...last];
     }, [columnVisibility, visibleBagSizes]);
 

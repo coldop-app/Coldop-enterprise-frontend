@@ -8,8 +8,9 @@ import {
 import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
 import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
 
-/** Incoming column ids (table 1): display up to and including Actual (kg). */
+/** Incoming column ids (table 1): display up to and including Actual (kg). Excludes Tot bags / Tot gross / Tot tare / Tot net / Tot bardana. */
 const INCOMING_COLUMN_IDS = [
   'systemIncomingNo',
   'manualIncomingNo',
@@ -18,16 +19,11 @@ const INCOMING_COLUMN_IDS = [
   'truckNumber',
   'variety',
   'bagsReceived',
-  'totalBagsReceived',
   'weightSlipNo',
   'grossWeightKg',
-  'totalGrossKg',
   'tareWeightKg',
-  'totalTareKg',
   'netWeightKg',
-  'totalNetKg',
   'lessBardanaKg',
-  'totalLessBardanaKg',
   'actualWeightKg',
 ] as const;
 
@@ -82,6 +78,16 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 4,
+  },
+  varietySubsectionTitle: {
+    fontSize: 6,
+    fontWeight: 700,
+    color: '#111827',
+    marginTop: 6,
+    marginBottom: 3,
+    backgroundColor: '#e5e7eb',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
   },
   tableContainer: {
     marginTop: 4,
@@ -162,11 +168,24 @@ function parseQtyWeight(value: string): { qty: string; weight: string } | null {
   return null;
 }
 
+/** Farmer report: drop system incoming column; show manual as "Gate Pass No". */
+function getIncomingPdfColumnLabel(
+  columnId: string,
+  isFarmerReport: boolean
+): string {
+  if (isFarmerReport && columnId === 'manualIncomingNo') {
+    return 'Gate Pass No';
+  }
+  return FARMER_REPORT_PDF_COLUMN_LABELS[columnId] ?? columnId;
+}
+
 export interface AccountingStockLedgerPdfProps {
   /** Same snapshot as farmer report (used for table 1 – incoming details up to Actual kg). */
   snapshot: FarmerReportPdfSnapshot;
   /** Rows for grading summary and summary tables (tables 2 & 3). */
   stockLedgerRows: StockLedgerRow[];
+  /** When true, omit the grading gate pass page (farmer report: incoming + summary only). */
+  hideGradingPage?: boolean;
 }
 
 /**
@@ -178,6 +197,7 @@ export interface AccountingStockLedgerPdfProps {
 export function AccountingStockLedgerPdf({
   snapshot,
   stockLedgerRows,
+  hideGradingPage = false,
 }: AccountingStockLedgerPdfProps) {
   const {
     companyName,
@@ -193,16 +213,20 @@ export function AccountingStockLedgerPdf({
   const incomingColumnIds = visibleColumnIds.filter((id) =>
     (INCOMING_COLUMN_IDS as readonly string[]).includes(id)
   );
+  const incomingColumnIdsForPdf = hideGradingPage
+    ? incomingColumnIds.filter((id) => id !== 'systemIncomingNo')
+    : incomingColumnIds;
   const hasIncomingData = rows.some(
     (r) => r.type === 'data' || (r.type === 'variety' && groupByVariety)
   );
 
-  const numIncomingCols = incomingColumnIds.length;
+  const numIncomingCols = incomingColumnIdsForPdf.length;
   const incomingColWidthPct =
     numIncomingCols > 0 ? `${(100 / numIncomingCols).toFixed(1)}%` : '100%';
   const getIncomingColWidth = () => incomingColWidthPct;
 
   const farmerDisplayName = farmerName ?? '';
+  const stockLedgerByVariety = groupStockLedgerRowsByVariety(stockLedgerRows);
 
   return (
     <Document>
@@ -219,25 +243,27 @@ export function AccountingStockLedgerPdf({
         </View>
 
         {/* Table 1: Incoming details (up to Actual (kg)) */}
-        {incomingColumnIds.length > 0 && (
+        {incomingColumnIdsForPdf.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>1. Incoming Details</Text>
             <View style={styles.tableContainer}>
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
-                  {incomingColumnIds.map((id, i) => (
+                  {incomingColumnIdsForPdf.map((id, i) => (
                     <View
                       key={id}
                       style={[
                         styles.cell,
                         styles.headerCell,
-                        i === incomingColumnIds.length - 1
+                        i === incomingColumnIdsForPdf.length - 1
                           ? styles.cellLast
                           : {},
                         { width: getIncomingColWidth() },
                       ]}
                     >
-                      <Text>{FARMER_REPORT_PDF_COLUMN_LABELS[id] ?? id}</Text>
+                      <Text>
+                        {getIncomingPdfColumnLabel(id, hideGradingPage)}
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -271,7 +297,7 @@ export function AccountingStockLedgerPdf({
                         <IncomingDataRow
                           key={`data-${rowIndex}`}
                           row={row}
-                          incomingColumnIds={incomingColumnIds}
+                          incomingColumnIds={incomingColumnIdsForPdf}
                           getColWidth={getIncomingColWidth}
                         />
                       )
@@ -291,28 +317,42 @@ export function AccountingStockLedgerPdf({
         )}
       </Page>
 
-      {/* Page 2: Grading table only */}
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.header}>
-          {companyName ? (
-            <Text style={styles.companyName}>{companyName}</Text>
-          ) : null}
-          <Text style={styles.reportTitle}>
-            {reportTitle} – Grading Gate Pass
-          </Text>
-          {farmerDisplayName ? (
-            <Text style={styles.farmerName}>{farmerDisplayName}</Text>
-          ) : null}
-          <Text style={styles.dateRange}>{dateRangeLabel}</Text>
-        </View>
-        <GradingGatePassTablePdf
-          farmerName={farmerDisplayName}
-          rows={stockLedgerRows}
-          hideReportSummary
-        />
-      </Page>
+      {/* Page 2: Grading table only (skipped for farmer report) */}
+      {!hideGradingPage ? (
+        <Page size="A4" orientation="landscape" style={styles.page}>
+          <View style={styles.header}>
+            {companyName ? (
+              <Text style={styles.companyName}>{companyName}</Text>
+            ) : null}
+            <Text style={styles.reportTitle}>
+              {reportTitle} – Grading Gate Pass
+            </Text>
+            {farmerDisplayName ? (
+              <Text style={styles.farmerName}>{farmerDisplayName}</Text>
+            ) : null}
+            <Text style={styles.dateRange}>{dateRangeLabel}</Text>
+          </View>
+          <Text style={styles.sectionTitle}>2. Grading Gate Pass</Text>
+          {stockLedgerByVariety.length === 0 ? (
+            <Text style={styles.sectionTitle}>No grading gate pass data.</Text>
+          ) : (
+            stockLedgerByVariety.map(({ variety, rows: varietyRows }) => (
+              <View key={`ggp-${variety}`}>
+                <Text style={styles.varietySubsectionTitle}>
+                  Variety: {variety}
+                </Text>
+                <GradingGatePassTablePdf
+                  farmerName={farmerDisplayName}
+                  rows={varietyRows}
+                  hideReportSummary
+                />
+              </View>
+            ))
+          )}
+        </Page>
+      ) : null}
 
-      {/* Page 3: Summary table only (nothing below) */}
+      {/* Summary table (page 3 in full report; page 2 when grading is hidden) */}
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           {companyName ? (
@@ -324,7 +364,21 @@ export function AccountingStockLedgerPdf({
           ) : null}
           <Text style={styles.dateRange}>{dateRangeLabel}</Text>
         </View>
-        <SummaryTablePdf rows={stockLedgerRows} />
+        <Text style={styles.sectionTitle}>
+          {hideGradingPage ? '2. Summary' : '3. Summary'}
+        </Text>
+        {stockLedgerByVariety.length === 0 ? (
+          <Text style={styles.sectionTitle}>No summary data.</Text>
+        ) : (
+          stockLedgerByVariety.map(({ variety, rows: varietyRows }) => (
+            <View key={`sum-${variety}`}>
+              <Text style={styles.varietySubsectionTitle}>
+                Variety: {variety}
+              </Text>
+              <SummaryTablePdf rows={varietyRows} />
+            </View>
+          ))
+        )}
       </Page>
     </Document>
   );
