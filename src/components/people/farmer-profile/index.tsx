@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useRouterState, Link, useParams } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ import FarmerProfileCharts from './FarmerProfileCharts';
 import { FarmerProfileGradingGatePassTable } from './FarmerProfileGradingGatePassTable';
 import { FarmerProfileMetricsGrid } from './FarmerProfileMetricsGrid';
 import { formatDataForReport } from '@/utils/format-data-for-report';
+import { EditFarmerModal } from '@/components/forms/edit-farmer-modal';
 
 /** Map incoming gate pass (by farmer) to IncomingVoucher props. Uses fallbackLink when API returns unpopulated refs. */
 function toIncomingVoucherProps(
@@ -191,10 +192,15 @@ function nikasiToPassVoucherData(pass: NikasiGatePass): PassVoucherData {
 
 export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const { farmerStorageLinkId } = useParams({ strict: false });
-  const link = useRouterState({
+  const routerLink = useRouterState({
     select: (state) =>
       (state.location.state as { link?: FarmerStorageLink } | undefined)?.link,
   });
+
+  const [link, setLink] = useState<FarmerStorageLink | undefined>(routerLink);
+  useEffect(() => {
+    setLink(routerLink);
+  }, [routerLink]);
 
   const [activeTab, setActiveTab] = useState('incoming');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1008,6 +1014,29 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {link && (
+          <EditFarmerModal
+            link={link}
+            open={_editModalOpen}
+            onOpenChange={setEditModalOpen}
+            onUpdated={({ name, address, mobileNumber, accountNumber }) => {
+              setLink((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  farmerId: {
+                    ...prev.farmerId,
+                    name,
+                    address,
+                    mobileNumber,
+                  },
+                  accountNumber,
+                };
+              });
+            }}
+          />
+        )}
       </div>
     </main>
   );

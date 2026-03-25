@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.39.0] - 2026-03-25
+
+### Added
+- UI: `Toggle` component (`TogglePrimitive`-based) at `src/components/ui/toggle.tsx`
+- Analytics: toggleable daily/monthly trend charts in `GradingTrendAnalysisChart`, `IncomingTrendAnalysisChart`, and `StorageTrendAnalysisChart`
+- People (farmer detail): `EditFarmerModal` to update farmer details (name, address, mobile number, account number) on the farmer profile page
+- Service: `useUpdateFarmer` hook for PUT `/farmer-storage-link/:id` (toast feedback + query invalidation on success)
+- Dependency: `@radix-ui/react-toggle`
+
+### Changed
+- Farmer profile page now syncs `farmerStorageLink` from router state and renders `EditFarmerModal` when available
+
 ## [0.38.0] - 2026-03-15
 
 ### Added

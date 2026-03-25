@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
 import { RefreshCw, TrendingUp, Calendar } from 'lucide-react';
 import {
   LineChart,
@@ -63,6 +64,8 @@ const StorageTrendAnalysisChart = memo(function StorageTrendAnalysisChart({
   dateParams,
 }: StorageTrendAnalysisChartProps) {
   const [tab, setTab] = useState<TrendTab>('daily');
+  const [showDailyChart, setShowDailyChart] = useState(false);
+  const [showMonthlyChart, setShowMonthlyChart] = useState(false);
   const { data, isLoading, isError, error, refetch } =
     useGetStorageTrendAnalysis(dateParams);
 
@@ -243,7 +246,7 @@ const StorageTrendAnalysisChart = memo(function StorageTrendAnalysisChart({
         </CardHeader>
         <CardContent>
           <Skeleton className="mb-4 h-10 w-48" />
-          <Skeleton className="h-[300px] w-full rounded-lg" />
+          <Skeleton className="h-10 w-full rounded-lg" />
         </CardContent>
       </Card>
     );
@@ -375,61 +378,78 @@ const StorageTrendAnalysisChart = memo(function StorageTrendAnalysisChart({
                 </div>
 
                 <div>
-                  <h4 className="text-foreground mb-3 text-sm font-semibold sm:text-base">
-                    Trend
-                  </h4>
-                  <ChartContainer
-                    config={dailyChartConfig}
-                    className="min-h-[300px] w-full"
-                  >
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart
-                        data={dailyChartData}
-                        margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis
-                          dataKey="date"
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          tickFormatter={(value) => formatChartDate(value)}
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          tickFormatter={formatNumber}
-                        />
-                        <Tooltip
-                          formatter={(value: number) => [
-                            formatNumber(Number(value)),
-                            'Bags',
-                          ]}
-                          labelFormatter={(label) => formatDisplayDate(label)}
-                          contentStyle={{
-                            fontFamily: 'var(--font-sans)',
-                            borderRadius: 'var(--radius)',
-                          }}
-                        />
-                        {dailyVarieties.map((variety, i) => (
-                          <Line
-                            key={variety}
-                            type="monotone"
-                            dataKey={variety}
-                            name={variety}
-                            stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                            strokeWidth={2}
-                            dot={{
-                              fill: CHART_COLORS[i % CHART_COLORS.length],
-                              r: 3,
-                            }}
-                            activeDot={{ r: 4 }}
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-foreground text-sm font-semibold sm:text-base">
+                      Trend
+                    </h4>
+                    <Toggle
+                      pressed={showDailyChart}
+                      onPressedChange={setShowDailyChart}
+                      variant="outline"
+                      className="font-custom h-8 rounded-lg px-3 text-xs sm:text-sm"
+                      aria-label="Toggle daily trend chart"
+                    >
+                      {showDailyChart ? 'Hide chart' : 'Show chart'}
+                    </Toggle>
+                  </div>
+
+                  {showDailyChart && (
+                    <ChartContainer
+                      config={dailyChartConfig}
+                      className="min-h-[300px] w-full"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart
+                          data={dailyChartData}
+                          margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
                           />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+                          <XAxis
+                            dataKey="date"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            tickFormatter={(value) => formatChartDate(value)}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            tickFormatter={formatNumber}
+                          />
+                          <Tooltip
+                            formatter={(value: number) => [
+                              formatNumber(Number(value)),
+                              'Bags',
+                            ]}
+                            labelFormatter={(label) => formatDisplayDate(label)}
+                            contentStyle={{
+                              fontFamily: 'var(--font-sans)',
+                              borderRadius: 'var(--radius)',
+                            }}
+                          />
+                          {dailyVarieties.map((variety, i) => (
+                            <Line
+                              key={variety}
+                              type="monotone"
+                              dataKey={variety}
+                              name={variety}
+                              stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                              strokeWidth={2}
+                              dot={{
+                                fill: CHART_COLORS[i % CHART_COLORS.length],
+                                r: 3,
+                              }}
+                              activeDot={{ r: 4 }}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
                 </div>
               </div>
             )}
@@ -510,59 +530,76 @@ const StorageTrendAnalysisChart = memo(function StorageTrendAnalysisChart({
                 </div>
 
                 <div>
-                  <h4 className="text-foreground mb-3 text-sm font-semibold sm:text-base">
-                    Trend
-                  </h4>
-                  <ChartContainer
-                    config={monthlyChartConfig}
-                    className="min-h-[300px] w-full"
-                  >
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart
-                        data={monthlyChartData}
-                        margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis
-                          dataKey="monthLabel"
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          tickFormatter={formatNumber}
-                        />
-                        <Tooltip
-                          formatter={(value: number) => [
-                            formatNumber(Number(value)),
-                            'Bags',
-                          ]}
-                          contentStyle={{
-                            fontFamily: 'var(--font-sans)',
-                            borderRadius: 'var(--radius)',
-                          }}
-                        />
-                        {monthlyVarieties.map((variety, i) => (
-                          <Line
-                            key={variety}
-                            type="monotone"
-                            dataKey={variety}
-                            name={variety}
-                            stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                            strokeWidth={2}
-                            dot={{
-                              fill: CHART_COLORS[i % CHART_COLORS.length],
-                              r: 3,
-                            }}
-                            activeDot={{ r: 4 }}
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-foreground text-sm font-semibold sm:text-base">
+                      Trend
+                    </h4>
+                    <Toggle
+                      pressed={showMonthlyChart}
+                      onPressedChange={setShowMonthlyChart}
+                      variant="outline"
+                      className="font-custom h-8 rounded-lg px-3 text-xs sm:text-sm"
+                      aria-label="Toggle monthly trend chart"
+                    >
+                      {showMonthlyChart ? 'Hide chart' : 'Show chart'}
+                    </Toggle>
+                  </div>
+
+                  {showMonthlyChart && (
+                    <ChartContainer
+                      config={monthlyChartConfig}
+                      className="min-h-[300px] w-full"
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart
+                          data={monthlyChartData}
+                          margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
                           />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+                          <XAxis
+                            dataKey="monthLabel"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            tickFormatter={formatNumber}
+                          />
+                          <Tooltip
+                            formatter={(value: number) => [
+                              formatNumber(Number(value)),
+                              'Bags',
+                            ]}
+                            contentStyle={{
+                              fontFamily: 'var(--font-sans)',
+                              borderRadius: 'var(--radius)',
+                            }}
+                          />
+                          {monthlyVarieties.map((variety, i) => (
+                            <Line
+                              key={variety}
+                              type="monotone"
+                              dataKey={variety}
+                              name={variety}
+                              stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                              strokeWidth={2}
+                              dot={{
+                                fill: CHART_COLORS[i % CHART_COLORS.length],
+                                r: 3,
+                              }}
+                              activeDot={{ r: 4 }}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
                 </div>
               </div>
             )}
