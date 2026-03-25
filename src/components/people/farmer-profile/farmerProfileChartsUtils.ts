@@ -1,22 +1,39 @@
 import type { GradingGatePass } from '@/types/grading-gate-pass';
-import { GRADING_SIZES } from '@/components/forms/grading/constants';
+import {
+  GRADING_SIZES,
+  JUTE_BAG_WEIGHT,
+  LENO_BAG_WEIGHT,
+} from '@/components/forms/grading/constants';
 
 /** Order for size names (string[] so indexOf/includes accept API string values) */
 export const SIZE_ORDER: readonly string[] = [...GRADING_SIZES];
 
-/** Aggregate variety distribution from grading passes (bags per variety) */
+/** Aggregate variety distribution from grading passes (adjusted net kg per variety) */
 export function computeVarietyDistribution(
   passes: GradingGatePass[]
 ): { name: string; value: number }[] {
   const byVariety = new Map<string, number>();
   for (const pass of passes) {
     const variety = pass.variety?.trim() || 'Unknown';
-    const bags = (pass.orderDetails ?? []).reduce(
+    const totalBags = (pass.orderDetails ?? []).reduce(
       (sum, d) => sum + (d.currentQuantity ?? d.initialQuantity ?? 0),
       0
     );
-    if (bags > 0) {
-      byVariety.set(variety, (byVariety.get(variety) ?? 0) + bags);
+    const totalNetWeightKg = (pass.incomingGatePassIds ?? []).reduce(
+      (sum, incoming) => {
+        const grossWeightKg = incoming.weightSlip?.grossWeightKg ?? 0;
+        const tareWeightKg = incoming.weightSlip?.tareWeightKg ?? 0;
+        return sum + (grossWeightKg - tareWeightKg);
+      },
+      0
+    );
+    const bardanaWeightKg = totalBags * JUTE_BAG_WEIGHT;
+    const adjustedNetWeightKg = Math.max(totalNetWeightKg - bardanaWeightKg, 0);
+    if (adjustedNetWeightKg > 0) {
+      byVariety.set(
+        variety,
+        (byVariety.get(variety) ?? 0) + adjustedNetWeightKg
+      );
     }
   }
   return Array.from(byVariety.entries())
@@ -36,9 +53,13 @@ export function computeSizeDistribution(
     }
     const sizeMap = byVariety.get(variety)!;
     for (const d of pass.orderDetails ?? []) {
-      const qty = d.currentQuantity ?? d.initialQuantity ?? 0;
-      if (qty > 0 && d.size) {
-        sizeMap.set(d.size, (sizeMap.get(d.size) ?? 0) + qty);
+      const bagCount = d.currentQuantity ?? d.initialQuantity ?? 0;
+      const bagTypeWeight =
+        d.bagType === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
+      const adjustedWeightPerBagKg = (d.weightPerBagKg ?? 0) - bagTypeWeight;
+      const totalAdjustedWeightKg = bagCount * adjustedWeightPerBagKg;
+      if (totalAdjustedWeightKg > 0 && d.size) {
+        sizeMap.set(d.size, (sizeMap.get(d.size) ?? 0) + totalAdjustedWeightKg);
       }
     }
   }

@@ -13,10 +13,9 @@ export const areaBreakdownKeys = {
     [...areaBreakdownKeys.all, params] as const,
 };
 
-/** Params for GET /analytics/farmers-stock-by-filters (area, size, variety) */
+/** Params for GET /analytics/farmers-stock-by-filters (area, variety) */
 export interface GetAreaBreakdownParams {
   area?: string;
-  size?: string;
   variety?: string;
 }
 
@@ -30,7 +29,6 @@ async function fetchAreaBreakdown(
       {
         params: {
           area: params.area,
-          size: params.size,
           variety: params.variety,
         },
       }
@@ -52,11 +50,10 @@ export const areaBreakdownQueryOptions = (
     queryFn: () => fetchAreaBreakdown(params),
   });
 
-/** Hook to fetch farmers stock filtered by area, size, and/or variety (area breakdown) */
+/** Hook to fetch farmers stock filtered by area and/or variety (area breakdown) */
 export function useGetAreaBreakdown(params: GetAreaBreakdownParams = {}) {
   const hasFilters =
     (params.area?.trim()?.length ?? 0) > 0 ||
-    (params.size?.trim()?.length ?? 0) > 0 ||
     (params.variety?.trim()?.length ?? 0) > 0;
 
   return useQuery({

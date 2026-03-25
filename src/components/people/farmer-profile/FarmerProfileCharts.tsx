@@ -84,7 +84,8 @@ const FarmerProfileVarietyChart = memo(function FarmerProfileVarietyChart({
             Variety Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by potato variety for this farmer
+            Percentage breakdown by potato variety for this farmer (Excluding
+            Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,7 +104,8 @@ const FarmerProfileVarietyChart = memo(function FarmerProfileVarietyChart({
             Variety Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by potato variety for this farmer
+            Percentage breakdown by potato variety for this farmer (Excluding
+            Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -124,7 +126,8 @@ const FarmerProfileVarietyChart = memo(function FarmerProfileVarietyChart({
           Variety Distribution
         </CardTitle>
         <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Percentage breakdown by potato variety for this farmer
+          Percentage breakdown by potato variety for this farmer (Excluding
+          Bardana)
         </CardDescription>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
@@ -139,7 +142,9 @@ const FarmerProfileVarietyChart = memo(function FarmerProfileVarietyChart({
                   <ChartTooltipContent
                     nameKey="name"
                     formatter={(value) =>
-                      `${Number(value).toLocaleString('en-IN')} bags`
+                      `${Number(value).toLocaleString('en-IN', {
+                        maximumFractionDigits: 2,
+                      })} kg`
                     }
                   />
                 }
@@ -177,8 +182,11 @@ const FarmerProfileVarietyChart = memo(function FarmerProfileVarietyChart({
                   aria-hidden
                 />
                 <span className="text-foreground min-w-0">
-                  {item.name}: {item.value.toLocaleString('en-IN')} bags (
-                  {item.percentage.toFixed(1)}%)
+                  {item.name}:{' '}
+                  {item.value.toLocaleString('en-IN', {
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  kg ({item.percentage.toFixed(1)}%)
                 </span>
               </li>
             ))}
@@ -200,7 +208,7 @@ interface VarietyChartData {
   variety: string;
   pieData: SizeSlice[];
   chartConfig: ChartConfig;
-  totalBags: number;
+  totalWeightKg: number;
 }
 
 function orderSizeSlices(
@@ -240,7 +248,12 @@ function buildVarietyChartData(
         color: CHART_COLORS[i % CHART_COLORS.length],
       };
     });
-    return { variety: item.variety, pieData, chartConfig, totalBags: total };
+    return {
+      variety: item.variety,
+      pieData,
+      chartConfig,
+      totalWeightKg: total,
+    };
   });
 }
 
@@ -269,6 +282,7 @@ const FarmerProfileSizeChart = memo(function FarmerProfileSizeChart({
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             Percentage breakdown by grading size per variety for this farmer
+            (Excluding Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -288,6 +302,7 @@ const FarmerProfileSizeChart = memo(function FarmerProfileSizeChart({
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             Percentage breakdown by grading size per variety for this farmer
+            (Excluding Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -311,6 +326,7 @@ const FarmerProfileSizeChart = memo(function FarmerProfileSizeChart({
         </CardTitle>
         <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
           Percentage breakdown by grading size per variety for this farmer
+          (Excluding Bardana)
         </CardDescription>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
@@ -326,121 +342,132 @@ const FarmerProfileSizeChart = memo(function FarmerProfileSizeChart({
               </TabsTrigger>
             ))}
           </TabsList>
-          {varietyCharts.map(({ variety, pieData, chartConfig, totalBags }) => (
-            <TabsContent
-              key={variety}
-              value={variety}
-              className="mt-4 space-y-4 outline-none sm:space-y-6"
-            >
-              {pieData.length === 0 ? (
-                <p className="font-custom text-muted-foreground py-8 text-center text-sm">
-                  No size data for {variety}.
-                </p>
-              ) : (
-                <>
-                  <div className="min-h-[220px] w-full min-w-0 sm:h-[280px] md:mx-auto md:max-w-[420px]">
-                    <ChartContainer
-                      config={chartConfig}
-                      className="h-full min-h-[220px] w-full min-w-0 sm:min-h-0 [&_.recharts-wrapper]:h-full! [&_.recharts-wrapper]:w-full!"
-                    >
-                      <PieChart
-                        margin={{ top: 16, right: 110, bottom: 16, left: 60 }}
+          {varietyCharts.map(
+            ({ variety, pieData, chartConfig, totalWeightKg }) => (
+              <TabsContent
+                key={variety}
+                value={variety}
+                className="mt-4 space-y-4 outline-none sm:space-y-6"
+              >
+                {pieData.length === 0 ? (
+                  <p className="font-custom text-muted-foreground py-8 text-center text-sm">
+                    No size data for {variety}.
+                  </p>
+                ) : (
+                  <>
+                    <div className="min-h-[220px] w-full min-w-0 sm:h-[280px] md:mx-auto md:max-w-[420px]">
+                      <ChartContainer
+                        config={chartConfig}
+                        className="h-full min-h-[220px] w-full min-w-0 sm:min-h-0 [&_.recharts-wrapper]:h-full! [&_.recharts-wrapper]:w-full!"
                       >
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              nameKey="name"
-                              formatter={(value) =>
-                                `${Number(value).toLocaleString('en-IN')} bags`
-                              }
-                            />
-                          }
-                        />
-                        <Pie
-                          data={pieData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="55%"
-                          cy="50%"
-                          innerRadius={0}
-                          strokeWidth={0}
-                          label={({ name, percent }) =>
-                            `${name}: ${(percent * 100).toFixed(1)}%`
-                          }
-                          labelLine={{ stroke: 'var(--border)' }}
+                        <PieChart
+                          margin={{ top: 16, right: 110, bottom: 16, left: 60 }}
                         >
-                          {pieData.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ChartContainer>
-                  </div>
-                  <div className="min-w-0 space-y-3">
-                    <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
-                      {variety} – Size Distribution & Insights (
-                      {totalBags.toLocaleString('en-IN')} bags)
-                    </h4>
-                    <div className="border-border overflow-x-auto rounded-lg border">
-                      <Table className="border-collapse">
-                        <TableHeader>
-                          <TableRow className="border-border bg-muted hover:bg-muted">
-                            <TableHead className="font-custom border-border border px-3 py-2 text-xs font-bold sm:text-sm">
-                              Size
-                            </TableHead>
-                            <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
-                              Bags
-                            </TableHead>
-                            <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
-                              % of variety
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {pieData.map((item) => (
-                            <TableRow
-                              key={item.name}
-                              className="border-border hover:bg-muted/50"
-                            >
-                              <TableCell className="font-custom border-border border px-3 py-2 text-xs sm:text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: item.fill }}
-                                    aria-hidden
-                                  />
-                                  <span>{item.name}</span>
-                                </div>
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                nameKey="name"
+                                formatter={(value) =>
+                                  `${Number(value).toLocaleString('en-IN', {
+                                    maximumFractionDigits: 2,
+                                  })} kg`
+                                }
+                              />
+                            }
+                          />
+                          <Pie
+                            data={pieData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="55%"
+                            cy="50%"
+                            innerRadius={0}
+                            strokeWidth={0}
+                            label={({ name, percent }) =>
+                              `${name}: ${(percent * 100).toFixed(1)}%`
+                            }
+                            labelLine={{ stroke: 'var(--border)' }}
+                          >
+                            {pieData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ChartContainer>
+                    </div>
+                    <div className="min-w-0 space-y-3">
+                      <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
+                        {variety} – Size Distribution & Insights (
+                        {totalWeightKg.toLocaleString('en-IN', {
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        kg)
+                      </h4>
+                      <div className="border-border overflow-x-auto rounded-lg border">
+                        <Table className="border-collapse">
+                          <TableHeader>
+                            <TableRow className="border-border bg-muted hover:bg-muted">
+                              <TableHead className="font-custom border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                                Size
+                              </TableHead>
+                              <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                                Weight (kg)
+                              </TableHead>
+                              <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                                % of variety
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pieData.map((item) => (
+                              <TableRow
+                                key={item.name}
+                                className="border-border hover:bg-muted/50"
+                              >
+                                <TableCell className="font-custom border-border border px-3 py-2 text-xs sm:text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                      style={{ backgroundColor: item.fill }}
+                                      aria-hidden
+                                    />
+                                    <span>{item.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                  {item.value.toLocaleString('en-IN', {
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                  {item.percentage.toFixed(1)}%
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                          <TableFooter>
+                            <TableRow className="border-border hover:bg-transparent">
+                              <TableHead className="font-custom bg-muted/60 border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                                Total
+                              </TableHead>
+                              <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                                {totalWeightKg.toLocaleString('en-IN', {
+                                  maximumFractionDigits: 2,
+                                })}
                               </TableCell>
-                              <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
-                                {item.value.toLocaleString('en-IN')}
-                              </TableCell>
-                              <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
-                                {item.percentage.toFixed(1)}%
+                              <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                                100.0%
                               </TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                        <TableFooter>
-                          <TableRow className="border-border hover:bg-transparent">
-                            <TableHead className="font-custom bg-muted/60 border-border border px-3 py-2 text-xs font-bold sm:text-sm">
-                              Total
-                            </TableHead>
-                            <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
-                              {totalBags.toLocaleString('en-IN')}
-                            </TableCell>
-                            <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
-                              100.0%
-                            </TableCell>
-                          </TableRow>
-                        </TableFooter>
-                      </Table>
+                          </TableFooter>
+                        </Table>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </TabsContent>
-          ))}
+                  </>
+                )}
+              </TabsContent>
+            )
+          )}
         </Tabs>
       </CardContent>
     </Card>

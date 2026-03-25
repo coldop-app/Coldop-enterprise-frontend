@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/chart';
 import {
   useGetGradingSizeWiseDistribution,
+  type GradingSizeDistributionSizeItem,
   type GetGradingSizeWiseDistributionParams,
 } from '@/services/store-admin/grading-gate-pass/useGetGradingSizeWiseDistribution';
 
@@ -47,6 +48,7 @@ export interface SizeDistributionChartProps {
 interface SizeSlice {
   name: string;
   value: number;
+  bags: number;
   fill: string;
   percentage: number;
 }
@@ -55,7 +57,7 @@ interface VarietyChartData {
   variety: string;
   pieData: SizeSlice[];
   chartConfig: ChartConfig;
-  totalBags: number;
+  totalWeightKg: number;
 }
 
 type SizeSliceInput = { name: string; value: number };
@@ -90,20 +92,30 @@ function orderSizeSlices(slices: SizeSliceInput[]): SizeSliceInput[] {
 }
 
 function buildVarietyChartData(
-  chartData: { variety: string; sizes: { name: string; value: number }[] }[]
+  chartData: { variety: string; sizes: GradingSizeDistributionSizeItem[] }[]
 ): VarietyChartData[] {
   return chartData.map((item) => {
     const raw = item.sizes ?? [];
     const total = raw.reduce((sum, s) => sum + s.value, 0);
     const ordered = orderSizeSlices(
       raw.map((s) => ({ name: s.name, value: s.value }))
-    );
-    const pieData: SizeSlice[] = ordered.map((s, i) => ({
-      name: s.name,
-      value: s.value,
-      fill: CHART_COLORS[i % CHART_COLORS.length],
-      percentage: total > 0 ? (s.value / total) * 100 : 0,
-    }));
+    ).map((orderedSlice) => {
+      const match = raw.find((s) => s.name === orderedSlice.name);
+      return {
+        name: orderedSlice.name,
+        value: orderedSlice.value,
+        bags: match?.bags ?? 0,
+      };
+    });
+    const pieData: SizeSlice[] = ordered.map((s, i) => {
+      return {
+        name: s.name,
+        value: s.value,
+        bags: s.bags,
+        fill: CHART_COLORS[i % CHART_COLORS.length],
+        percentage: total > 0 ? (s.value / total) * 100 : 0,
+      };
+    });
     const chartConfig: ChartConfig = {};
     pieData.forEach((s, i) => {
       chartConfig[s.name] = {
@@ -111,7 +123,12 @@ function buildVarietyChartData(
         color: CHART_COLORS[i % CHART_COLORS.length],
       };
     });
-    return { variety: item.variety, pieData, chartConfig, totalBags: total };
+    return {
+      variety: item.variety,
+      pieData,
+      chartConfig,
+      totalWeightKg: total,
+    };
   });
 }
 
@@ -137,7 +154,7 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
             Size-wise Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by grading size per variety
+            Percentage breakdown by grading size per variety (Excluding Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -181,7 +198,7 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
             Size-wise Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by grading size per variety
+            Percentage breakdown by grading size per variety (Excluding Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -203,7 +220,7 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
           Size-wise Distribution
         </CardTitle>
         <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Percentage breakdown by grading size per variety
+          Percentage breakdown by grading size per variety (Excluding Bardana)
         </CardDescription>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
@@ -219,122 +236,144 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
               </TabsTrigger>
             ))}
           </TabsList>
-          {varietyCharts.map(({ variety, pieData, chartConfig, totalBags }) => (
-            <TabsContent
-              key={variety}
-              value={variety}
-              className="mt-4 space-y-4 outline-none sm:space-y-6"
-            >
-              {pieData.length === 0 ? (
-                <p className="font-custom text-muted-foreground py-8 text-center text-sm">
-                  No size data for {variety}.
-                </p>
-              ) : (
-                <>
-                  <div className="min-h-[220px] w-full min-w-0 sm:h-[280px] md:mx-auto md:max-w-[420px]">
-                    <ChartContainer
-                      config={chartConfig}
-                      className="h-full min-h-[220px] w-full min-w-0 sm:min-h-0 [&_.recharts-wrapper]:h-full! [&_.recharts-wrapper]:w-full!"
-                    >
-                      <PieChart
-                        margin={{ top: 16, right: 110, bottom: 16, left: 60 }}
+          {varietyCharts.map(
+            ({ variety, pieData, chartConfig, totalWeightKg }) => (
+              <TabsContent
+                key={variety}
+                value={variety}
+                className="mt-4 space-y-4 outline-none sm:space-y-6"
+              >
+                {pieData.length === 0 ? (
+                  <p className="font-custom text-muted-foreground py-8 text-center text-sm">
+                    No size data for {variety}.
+                  </p>
+                ) : (
+                  <>
+                    <div className="min-h-[220px] w-full min-w-0 sm:h-[280px] md:mx-auto md:max-w-[420px]">
+                      <ChartContainer
+                        config={chartConfig}
+                        className="h-full min-h-[220px] w-full min-w-0 sm:min-h-0 [&_.recharts-wrapper]:h-full! [&_.recharts-wrapper]:w-full!"
                       >
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              nameKey="name"
-                              formatter={(value) =>
-                                `${Number(value).toLocaleString('en-IN')} bags`
-                              }
-                            />
-                          }
-                        />
-                        <Pie
-                          data={pieData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="55%"
-                          cy="50%"
-                          innerRadius={0}
-                          strokeWidth={0}
-                          label={({ name, percent }) =>
-                            `${name}: ${(percent * 100).toFixed(1)}%`
-                          }
-                          labelLine={{ stroke: 'var(--border)' }}
+                        <PieChart
+                          margin={{ top: 16, right: 110, bottom: 16, left: 60 }}
                         >
-                          {pieData.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ChartContainer>
-                  </div>
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                nameKey="name"
+                                formatter={(value) =>
+                                  `${Number(value).toLocaleString('en-IN', {
+                                    maximumFractionDigits: 2,
+                                  })} kg`
+                                }
+                              />
+                            }
+                          />
+                          <Pie
+                            data={pieData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="55%"
+                            cy="50%"
+                            innerRadius={0}
+                            strokeWidth={0}
+                            label={({ name, percent }) =>
+                              `${name}: ${(percent * 100).toFixed(1)}%`
+                            }
+                            labelLine={{ stroke: 'var(--border)' }}
+                          >
+                            {pieData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ChartContainer>
+                    </div>
 
-                  <div className="min-w-0 space-y-3">
-                    <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
-                      {variety} – Size Distribution & Insights (
-                      {totalBags.toLocaleString('en-IN')} bags)
-                    </h4>
-                    <div className="border-border overflow-x-auto rounded-lg border">
-                      <Table className="border-collapse">
-                        <TableHeader>
-                          <TableRow className="border-border bg-muted hover:bg-muted">
-                            <TableHead className="font-custom border-border border px-3 py-2 text-xs font-bold sm:text-sm">
-                              Size
-                            </TableHead>
-                            <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
-                              Bags
-                            </TableHead>
-                            <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
-                              % of variety
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {pieData.map((item) => (
-                            <TableRow
-                              key={item.name}
-                              className="border-border hover:bg-muted/50"
-                            >
-                              <TableCell className="font-custom border-border border px-3 py-2 text-xs sm:text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: item.fill }}
-                                    aria-hidden
-                                  />
-                                  <span>{item.name}</span>
-                                </div>
+                    <div className="min-w-0 space-y-3">
+                      <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
+                        {variety} – Size Distribution & Insights (
+                        {totalWeightKg.toLocaleString('en-IN', {
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        kg)
+                      </h4>
+                      <div className="border-border overflow-x-auto rounded-lg border">
+                        <Table className="border-collapse">
+                          <TableHeader>
+                            <TableRow className="border-border bg-muted hover:bg-muted">
+                              <TableHead className="font-custom border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                                Size
+                              </TableHead>
+                              <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                                Bags
+                              </TableHead>
+                              <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                                Weight (kg)
+                              </TableHead>
+                              <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                                % of variety
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pieData.map((item) => (
+                              <TableRow
+                                key={item.name}
+                                className="border-border hover:bg-muted/50"
+                              >
+                                <TableCell className="font-custom border-border border px-3 py-2 text-xs sm:text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                      style={{ backgroundColor: item.fill }}
+                                      aria-hidden
+                                    />
+                                    <span>{item.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                  {item.bags.toLocaleString('en-IN')}
+                                </TableCell>
+                                <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                  {item.value.toLocaleString('en-IN', {
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                                  {item.percentage.toFixed(1)}%
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                          <TableFooter>
+                            <TableRow className="border-border hover:bg-transparent">
+                              <TableHead className="font-custom bg-muted/60 border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                                Total
+                              </TableHead>
+                              <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                                {pieData
+                                  .reduce((sum, item) => sum + item.bags, 0)
+                                  .toLocaleString('en-IN')}
                               </TableCell>
-                              <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
-                                {item.value.toLocaleString('en-IN')}
+                              <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                                {totalWeightKg.toLocaleString('en-IN', {
+                                  maximumFractionDigits: 2,
+                                })}
                               </TableCell>
-                              <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
-                                {item.percentage.toFixed(1)}%
+                              <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                                100.0%
                               </TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                        <TableFooter>
-                          <TableRow className="border-border hover:bg-transparent">
-                            <TableHead className="font-custom bg-muted/60 border-border border px-3 py-2 text-xs font-bold sm:text-sm">
-                              Total
-                            </TableHead>
-                            <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
-                              {totalBags.toLocaleString('en-IN')}
-                            </TableCell>
-                            <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
-                              100.0%
-                            </TableCell>
-                          </TableRow>
-                        </TableFooter>
-                      </Table>
+                          </TableFooter>
+                        </Table>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </TabsContent>
-          ))}
+                  </>
+                )}
+              </TabsContent>
+            )
+          )}
         </Tabs>
       </CardContent>
     </Card>

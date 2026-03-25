@@ -106,10 +106,9 @@ function AreaBreakdownPage() {
   const params = useMemo(
     () => ({
       area: area ?? undefined,
-      size: sizeFromUrl ?? undefined,
       variety: variety ?? undefined,
     }),
-    [area, sizeFromUrl, variety]
+    [area, variety]
   );
 
   const { data, isLoading, error, refetch, isFetching } =
@@ -279,7 +278,6 @@ function AreaBreakdownPage() {
 
   const hasFilters =
     (params.area?.trim()?.length ?? 0) > 0 ||
-    (params.size?.trim()?.length ?? 0) > 0 ||
     (params.variety?.trim()?.length ?? 0) > 0;
 
   return (

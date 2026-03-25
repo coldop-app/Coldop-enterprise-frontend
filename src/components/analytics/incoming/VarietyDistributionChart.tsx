@@ -75,7 +75,7 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
             Variety Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by potato variety
+            Percentage breakdown by potato variety (Excluding Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -119,7 +119,7 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
             Variety Distribution
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Percentage breakdown by potato variety (current stock)
+            Percentage breakdown by potato variety (Excluding Bardana)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,7 +139,7 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
           Variety Distribution
         </CardTitle>
         <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Percentage breakdown by potato variety
+          Percentage breakdown by potato variety (Excluding Bardana)
         </CardDescription>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
@@ -154,7 +154,9 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
                   <ChartTooltipContent
                     nameKey="name"
                     formatter={(value) =>
-                      `${Number(value).toLocaleString('en-IN')} bags`
+                      `${Number(value).toLocaleString('en-IN', {
+                        maximumFractionDigits: 2,
+                      })} kg`
                     }
                   />
                 }
@@ -193,8 +195,11 @@ const VarietyDistributionChart = memo(function VarietyDistributionChart({
                   aria-hidden
                 />
                 <span className="text-foreground min-w-0">
-                  {item.name}: {item.value.toLocaleString('en-IN')} bags (
-                  {item.percentage.toFixed(1)}%)
+                  {item.name}:{' '}
+                  {item.value.toLocaleString('en-IN', {
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  kg ({item.percentage.toFixed(1)}%)
                 </span>
               </li>
             ))}
