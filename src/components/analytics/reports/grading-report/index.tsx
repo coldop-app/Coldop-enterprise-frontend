@@ -11,10 +11,15 @@ import type {
   GradingGatePassIncomingRef,
 } from '@/types/grading-gate-pass';
 import {
-  columns,
+  createGradingReportColumns,
   type GradingReportRow,
-  GRADING_REPORT_ROW_SPAN_COLUMN_IDS,
+  gradingReportRowSpanColumnIds,
 } from './columns';
+import {
+  getAggregatedGradedSizeBreakdown,
+  getVisibleBagSizesFromPasses,
+  gradedBagSizeColumnId,
+} from './grading-bag-sizes';
 import {
   DataTable,
   type GradingReportDataTableRef,
@@ -150,7 +155,10 @@ function getGrossTareNet(
  * appear on the first row of the group only. Wastage is computed at group level
  * (combined effective incoming net product − total graded weight).
  */
-function mapGradingPassesToRows(passes: GradingGatePass[]): GradingReportRow[] {
+function mapGradingPassesToRows(
+  passes: GradingGatePass[],
+  visibleBagSizes: readonly string[]
+): GradingReportRow[] {
   const rows: GradingReportRow[] = [];
 
   for (const pass of passes) {
@@ -209,6 +217,19 @@ function mapGradingPassesToRows(passes: GradingGatePass[]): GradingReportRow[] {
             );
 
       const isFirstRow = idx === 0;
+      const gradedSizeBreakdown = isFirstRow
+        ? getAggregatedGradedSizeBreakdown(pass.orderDetails)
+        : undefined;
+      const gradedBagSizeQtyByColumnId = Object.fromEntries(
+        visibleBagSizes.map((s) => {
+          const id = gradedBagSizeColumnId(s);
+          const qty =
+            isFirstRow && gradedSizeBreakdown?.[s]
+              ? gradedSizeBreakdown[s]!.qty
+              : 0;
+          return [id, qty] as const;
+        })
+      );
       rows.push({
         id: incomings.length > 1 ? `${pass._id}-${idx}` : pass._id,
         farmerName: getFarmerName(pass, inc),
@@ -241,6 +262,8 @@ function mapGradingPassesToRows(passes: GradingGatePass[]): GradingReportRow[] {
         remarks: isFirstRow ? (pass.remarks ?? '—') : '—',
         gradingPassRowIndex: idx,
         gradingPassGroupSize: incomings.length,
+        gradedSizeBreakdown,
+        gradedBagSizeQtyByColumnId,
       });
     });
   }
@@ -294,10 +317,49 @@ const GradingReportTable = () => {
     fetchAllPages: true,
   });
 
+  const visibleBagSizes = useMemo(
+    () => getVisibleBagSizesFromPasses(data?.data ?? []),
+    [data]
+  );
+
   const rows = useMemo((): GradingReportRow[] => {
     const list = data?.data ?? [];
-    return mapGradingPassesToRows(list);
-  }, [data]);
+    return mapGradingPassesToRows(list, visibleBagSizes);
+  }, [data, visibleBagSizes]);
+
+  const reportColumns = useMemo(
+    () => createGradingReportColumns(visibleBagSizes),
+    [visibleBagSizes]
+  );
+
+  const initialColumnVisibilityMerged = useMemo(
+    () => ({
+      ...GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY,
+      ...Object.fromEntries(
+        visibleBagSizes.map((s) => [gradedBagSizeColumnId(s), true])
+      ),
+    }),
+    [visibleBagSizes]
+  );
+
+  const rowSpanColumnIds = useMemo(
+    () => gradingReportRowSpanColumnIds(visibleBagSizes),
+    [visibleBagSizes]
+  );
+
+  const totalColumnIds = useMemo(
+    () => [
+      'bagsReceived',
+      'totalGradedBags',
+      ...visibleBagSizes.map((s) => gradedBagSizeColumnId(s)),
+      'totalGradedWeightKg',
+      'wastageKg',
+      'grossWeightKg',
+      'netWeightKg',
+      'netProductKg',
+    ],
+    [visibleBagSizes]
+  );
 
   const reportContentRef = useRef<HTMLDivElement>(null);
 
@@ -444,11 +506,13 @@ const GradingReportTable = () => {
           Grading Report
         </h2>
         <DataTable
+          key={visibleBagSizes.join('\0')}
           ref={tableRef}
-          columns={columns}
+          columns={reportColumns}
           data={rows}
-          initialColumnVisibility={GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY}
-          rowSpanColumnIds={GRADING_REPORT_ROW_SPAN_COLUMN_IDS}
+          initialColumnVisibility={initialColumnVisibilityMerged}
+          rowSpanColumnIds={rowSpanColumnIds}
+          totalColumnIds={totalColumnIds}
           toolbarLeftContent={
             <>
               <DatePicker

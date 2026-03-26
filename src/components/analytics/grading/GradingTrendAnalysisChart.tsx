@@ -11,6 +11,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -320,22 +321,22 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                     <Calendar className="text-primary h-4 w-4" />
                     Daily activity
                   </h4>
-                  <div className="border-border bg-muted/30 overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
-                    <Table>
+                  <div className="border-border overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
+                    <Table className="border-collapse">
                       <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="font-custom text-muted-foreground h-10 font-medium whitespace-nowrap">
+                        <TableRow className="border-border bg-muted hover:bg-muted">
+                          <TableHead className="font-custom border-border border px-4 py-2 font-bold whitespace-nowrap">
                             Date
                           </TableHead>
                           {dailyGraders.map((grader) => (
                             <TableHead
                               key={grader}
-                              className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap"
+                              className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap"
                             >
                               {grader}
                             </TableHead>
                           ))}
-                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap">
+                          <TableHead className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap">
                             Total
                           </TableHead>
                         </TableRow>
@@ -344,41 +345,43 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                         {dailyTableData.map((row) => (
                           <TableRow
                             key={row.date}
-                            className="hover:bg-muted/50 transition-colors duration-150"
+                            className="border-border hover:bg-transparent"
                           >
-                            <TableCell className="font-custom text-foreground font-medium whitespace-nowrap">
+                            <TableCell className="font-custom border-border border px-4 py-2 font-medium whitespace-nowrap">
                               {formatDisplayDate(row.date)}
                             </TableCell>
                             {dailyGraders.map((grader) => (
                               <TableCell
                                 key={grader}
-                                className="font-custom text-foreground text-right font-medium tabular-nums"
+                                className="font-custom border-border border px-4 py-2 text-right font-medium tabular-nums"
                               >
                                 {formatNumber(Number(row[grader] ?? 0))}
                               </TableCell>
                             ))}
-                            <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                            <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
                               {formatNumber(row.total)}
                             </TableCell>
                           </TableRow>
                         ))}
-                        <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
-                          <TableCell className="font-custom text-foreground font-semibold whitespace-nowrap">
-                            Total
-                          </TableCell>
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="font-custom bg-muted/50 border-border border px-4 py-2 font-bold">
+                            Bag Total
+                          </TableHead>
                           {dailyGraders.map((grader) => (
                             <TableCell
                               key={grader}
-                              className="font-custom text-foreground text-right font-semibold tabular-nums"
+                              className="font-custom bg-muted/50 border-border border px-4 py-2 text-right font-bold tabular-nums"
                             >
                               {formatNumber(dailyTotals[grader] ?? 0)}
                             </TableCell>
                           ))}
-                          <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                          <TableCell className="font-custom text-primary bg-primary/10 border-border border px-4 py-2 text-right font-bold tabular-nums">
                             {formatNumber(dailyTotals.total ?? 0)}
                           </TableCell>
                         </TableRow>
-                      </TableBody>
+                      </TableFooter>
                     </Table>
                   </div>
                 </div>
@@ -472,22 +475,22 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                     <Calendar className="text-primary h-4 w-4" />
                     Monthly activity
                   </h4>
-                  <div className="border-border bg-muted/30 overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
-                    <Table>
+                  <div className="border-border overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
+                    <Table className="border-collapse">
                       <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="font-custom text-muted-foreground h-10 font-medium whitespace-nowrap">
+                        <TableRow className="border-border bg-muted hover:bg-muted">
+                          <TableHead className="font-custom border-border border px-4 py-2 font-bold whitespace-nowrap">
                             Month
                           </TableHead>
                           {monthlyGraders.map((grader) => (
                             <TableHead
                               key={grader}
-                              className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap"
+                              className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap"
                             >
                               {grader}
                             </TableHead>
                           ))}
-                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap">
+                          <TableHead className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap">
                             Total
                           </TableHead>
                         </TableRow>
@@ -496,41 +499,43 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                         {monthlyTableData.map((row) => (
                           <TableRow
                             key={row.month}
-                            className="hover:bg-muted/50 transition-colors duration-150"
+                            className="border-border hover:bg-transparent"
                           >
-                            <TableCell className="font-custom text-foreground font-medium whitespace-nowrap">
+                            <TableCell className="font-custom border-border border px-4 py-2 font-medium whitespace-nowrap">
                               {row.monthLabel}
                             </TableCell>
                             {monthlyGraders.map((grader) => (
                               <TableCell
                                 key={grader}
-                                className="font-custom text-foreground text-right font-medium tabular-nums"
+                                className="font-custom border-border border px-4 py-2 text-right font-medium tabular-nums"
                               >
                                 {formatNumber(Number(row[grader] ?? 0))}
                               </TableCell>
                             ))}
-                            <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                            <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
                               {formatNumber(row.total)}
                             </TableCell>
                           </TableRow>
                         ))}
-                        <TableRow className="bg-muted/70 hover:bg-muted/70 font-semibold">
-                          <TableCell className="font-custom text-foreground font-semibold whitespace-nowrap">
-                            Total
-                          </TableCell>
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="font-custom bg-muted/50 border-border border px-4 py-2 font-bold">
+                            Bag Total
+                          </TableHead>
                           {monthlyGraders.map((grader) => (
                             <TableCell
                               key={grader}
-                              className="font-custom text-foreground text-right font-semibold tabular-nums"
+                              className="font-custom bg-muted/50 border-border border px-4 py-2 text-right font-bold tabular-nums"
                             >
                               {formatNumber(monthlyTotals[grader] ?? 0)}
                             </TableCell>
                           ))}
-                          <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                          <TableCell className="font-custom text-primary bg-primary/10 border-border border px-4 py-2 text-right font-bold tabular-nums">
                             {formatNumber(monthlyTotals.total ?? 0)}
                           </TableCell>
                         </TableRow>
-                      </TableBody>
+                      </TableFooter>
                     </Table>
                   </div>
                 </div>

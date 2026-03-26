@@ -40,6 +40,10 @@ import {
 } from '@/components/ui/table';
 import { Item, ItemFooter } from '@/components/ui/item';
 import { GripVertical, Layers, Settings2, X } from 'lucide-react';
+import {
+  GRADING_REPORT_BAG_SIZE_LABELS,
+  sizeKeyFromGradedBagColumnId,
+} from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 
 const TOTAL_COLUMN_IDS = [
   'bagsReceived',
@@ -108,6 +112,10 @@ const COLUMN_LABELS: Record<string, string> = {
 };
 
 function getColumnLabel(id: string): string {
+  const sizeKey = sizeKeyFromGradedBagColumnId(id);
+  if (sizeKey != null) {
+    return GRADING_REPORT_BAG_SIZE_LABELS[sizeKey] ?? sizeKey;
+  }
   return COLUMN_LABELS[id] ?? id;
 }
 
@@ -270,8 +278,16 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
     const acc: Record<string, number> = {};
     for (const id of totalColumnIds) acc[id] = 0;
     for (const row of data as Record<string, unknown>[]) {
+      const qtyByCol = row.gradedBagSizeQtyByColumnId as
+        | Record<string, number>
+        | undefined;
       for (const id of totalColumnIds) {
-        acc[id] += toNum(row[id]);
+        const fromBag =
+          qtyByCol != null && Object.prototype.hasOwnProperty.call(qtyByCol, id)
+            ? qtyByCol[id]
+            : undefined;
+        const v = fromBag !== undefined ? fromBag : row[id];
+        acc[id] += toNum(v);
       }
     }
     return acc;

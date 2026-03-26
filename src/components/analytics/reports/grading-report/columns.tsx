@@ -1,5 +1,9 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { ColumnDef, CellContext } from '@tanstack/table-core';
+import {
+  GRADING_REPORT_BAG_SIZE_LABELS,
+  gradedBagSizeColumnId,
+} from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -234,10 +238,14 @@ export type GradingReportRow = {
   gradingPassRowIndex?: number;
   /** Number of rows in this grading-pass group. Used for rowSpan. */
   gradingPassGroupSize?: number;
+  /** Per-size graded qty and total weight (kg); only on first row of a grading-pass group. */
+  gradedSizeBreakdown?: Record<string, { qty: number; weightPerBagKg: number }>;
+  /** Qty per bag-size column id for footer totals (same ids as `gradedBagSize_*` columns). */
+  gradedBagSizeQtyByColumnId?: Record<string, number>;
 };
 
-/** Column ids that span across grouped incoming rows (grading gate pass level). */
-export const GRADING_REPORT_ROW_SPAN_COLUMN_IDS = [
+/** Base column ids that span across grouped incoming rows (grading gate pass level). Bag-size columns are appended dynamically — see `gradingReportRowSpanColumnIds`. */
+export const GRADING_REPORT_ROW_SPAN_BASE_IDS = [
   'gatePassNo',
   'manualGatePassNumber',
   'date',
@@ -248,10 +256,26 @@ export const GRADING_REPORT_ROW_SPAN_COLUMN_IDS = [
   'remarks',
 ] as const;
 
+/** @deprecated Use `GRADING_REPORT_ROW_SPAN_BASE_IDS` + dynamic bag-size ids from `gradingReportRowSpanColumnIds`. */
+export const GRADING_REPORT_ROW_SPAN_COLUMN_IDS =
+  GRADING_REPORT_ROW_SPAN_BASE_IDS;
+
+export function gradingReportRowSpanColumnIds(
+  visibleBagSizes: readonly string[]
+): string[] {
+  const bagIds = visibleBagSizes.map((s) => gradedBagSizeColumnId(s));
+  return [...GRADING_REPORT_ROW_SPAN_BASE_IDS, ...bagIds];
+}
+
 function formatNum(value: number | string): string {
   const n = typeof value === 'number' ? value : Number(value);
   if (Number.isNaN(n)) return '—';
   return n.toLocaleString();
+}
+
+function formatWeightKg(value: number | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return String(Math.round(value * 10) / 10);
 }
 
 /** Incoming section: GP no., manual no., date, truck, bags (highlight), gross, net (highlight) */
@@ -270,206 +294,263 @@ const wastageHighlightCell =
 const wastageHighlightHeader =
   'font-custom text-right font-semibold text-rose-800 dark:text-rose-200';
 
-export const columns: ColumnDef<GradingReportRow>[] = [
-  // ——— Farmer (first column) ———
-  {
-    accessorKey: 'farmerName',
-    header: ({ column }) => <GroupableHeader column={column} label="Farmer" />,
-    cell: FarmerCell,
-    enableGrouping: true,
-  },
-  // ——— Incoming gate pass ———
-  {
-    accessorKey: 'incomingGatePassNo',
-    header: () => <div className="font-custom text-right">Incoming GP no.</div>,
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.getIsGrouped()
-          ? '—'
-          : String(row.getValue('incomingGatePassNo') ?? '—')}
-      </div>
-    ),
-    aggregationFn: () => null,
-  },
-  {
-    accessorKey: 'incomingManualNo',
-    header: () => (
-      <div className="font-custom text-right">Incoming manual no.</div>
-    ),
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.getIsGrouped()
-          ? '—'
-          : String(row.getValue('incomingManualNo') ?? '—')}
-      </div>
-    ),
-    aggregationFn: () => null,
-  },
-  {
-    accessorKey: 'incomingGatePassDate',
-    header: ({ column }) => (
-      <GroupableHeader column={column} label="Incoming gate pass date" />
-    ),
-    cell: GroupableCell,
-    enableGrouping: true,
-  },
-  {
-    accessorKey: 'variety',
-    header: ({ column }) => <GroupableHeader column={column} label="Variety" />,
-    cell: GroupableCell,
-    enableGrouping: true,
-  },
-  {
-    accessorKey: 'truckNumber',
-    header: () => <span className="font-custom">Truck no.</span>,
-  },
-  {
-    accessorKey: 'bagsReceived',
-    header: () => <div className={incomingHighlightHeader}>Bags received</div>,
-    cell: ({ row }) => (
-      <div className={incomingHighlightCell}>
-        {formatNum(row.getValue('bagsReceived') as number)}
-      </div>
-    ),
-    aggregationFn: 'sum',
-  },
-  {
-    accessorKey: 'grossWeightKg',
-    header: () => <div className="font-custom text-right">Gross (kg)</div>,
-    cell: ({ row }) => (
-      <div className="text-right font-medium">
-        {formatNum(row.getValue('grossWeightKg') as number | string)}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'tareWeightKg',
-    header: () => <div className="font-custom text-right">Tare (kg)</div>,
-    cell: ({ row }) => (
-      <div className="text-right font-medium">
-        {formatNum(row.getValue('tareWeightKg') as number | string)}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'netWeightKg',
-    header: () => <div className={incomingHighlightHeader}>Net (kg)</div>,
-    cell: ({ row }) => (
-      <div className={incomingHighlightCell}>
-        {formatNum(row.getValue('netWeightKg') as number | string)}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'netProductKg',
-    header: () => (
-      <div className={incomingHighlightHeader}>
-        Net product (kg)
-        <span className="text-muted-foreground ml-1 text-[10px] font-normal">
-          (excl bardana)
-        </span>
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className={incomingHighlightCell}>
-        {formatNum(row.getValue('netProductKg') as number | string)}
-      </div>
-    ),
-  },
-  // ——— Grading gate pass ———
-  {
-    accessorKey: 'gatePassNo',
-    header: () => <div className="font-custom text-right">Gate pass no.</div>,
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.getIsGrouped() ? '—' : String(row.getValue('gatePassNo') ?? '—')}
-      </div>
-    ),
-    aggregationFn: () => null,
-  },
-  {
-    accessorKey: 'manualGatePassNumber',
-    header: () => <div className="font-custom text-right">Manual GP no.</div>,
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.getIsGrouped()
-          ? '—'
-          : String(row.getValue('manualGatePassNumber') ?? '—')}
-      </div>
-    ),
-    aggregationFn: () => null,
-  },
-  {
-    accessorKey: 'date',
-    header: ({ column, table }) => (
-      <GroupableSortableHeader column={column} table={table} label="Date" />
-    ),
-    cell: GroupableCell,
-    enableGrouping: true,
-    enableSorting: true,
-  },
-  {
-    accessorKey: 'totalGradedBags',
-    header: () => <div className={gradedHighlightHeader}>Graded bags</div>,
-    cell: ({ row }) => (
-      <div className={gradedHighlightCell}>
-        {formatNum(row.getValue('totalGradedBags') as number)}
-      </div>
-    ),
-    aggregationFn: 'sum',
-  },
-  {
-    accessorKey: 'totalGradedWeightKg',
-    header: () => (
-      <div className={gradedHighlightHeader}>
-        Total graded weight (kg)
-        <span className="text-muted-foreground ml-1 text-[10px] font-normal">
-          (excl bardana)
-        </span>
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className={gradedHighlightCell}>
-        {formatNum(row.getValue('totalGradedWeightKg') as number)}
-      </div>
-    ),
-    aggregationFn: 'sum',
-  },
-  {
-    accessorKey: 'wastageKg',
-    header: () => <div className={wastageHighlightHeader}>Wastage (kg)</div>,
-    cell: ({ row }) => {
-      const val = row.getValue('wastageKg');
-      if (val === '—' || val == null) {
-        return <div className={wastageHighlightCell}>—</div>;
-      }
-      return (
-        <div className={wastageHighlightCell}>{formatNum(val as number)}</div>
-      );
+function buildBagSizeColumns(
+  visibleBagSizes: readonly string[]
+): ColumnDef<GradingReportRow>[] {
+  return visibleBagSizes.map((size) => {
+    const colId = gradedBagSizeColumnId(size);
+    const headerLabel = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
+    return {
+      id: colId,
+      accessorFn: (row) =>
+        row.gradedBagSizeQtyByColumnId?.[colId] ??
+        row.gradedSizeBreakdown?.[size]?.qty ??
+        0,
+      header: () => <div className={gradedHighlightHeader}>{headerLabel}</div>,
+      cell: ({ row }) => {
+        const breakdown = row.original.gradedSizeBreakdown?.[size];
+        const qty = breakdown?.qty ?? 0;
+        const wPerBag = breakdown?.weightPerBagKg;
+        const isEmpty = qty === 0 || breakdown == null;
+        return (
+          <div className={gradedHighlightCell}>
+            {isEmpty ? (
+              ''
+            ) : (
+              <span className="flex flex-col items-end">
+                <span className="font-medium">{formatNum(qty)}</span>
+                <span className="text-muted-foreground text-xs font-normal">
+                  ({formatWeightKg(wPerBag)})
+                </span>
+              </span>
+            )}
+          </div>
+        );
+      },
+      aggregationFn: 'sum',
+    } satisfies ColumnDef<GradingReportRow>;
+  });
+}
+
+export function createGradingReportColumns(
+  visibleBagSizes: readonly string[]
+): ColumnDef<GradingReportRow>[] {
+  return [
+    // ——— Farmer (first column) ———
+    {
+      accessorKey: 'farmerName',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Farmer" />
+      ),
+      cell: FarmerCell,
+      enableGrouping: true,
     },
-    aggregationFn: 'sum',
-  },
-  {
-    accessorKey: 'grader',
-    header: ({ column }) => <GroupableHeader column={column} label="Grader" />,
-    cell: GroupableCell,
-    enableGrouping: true,
-  },
-  {
-    accessorKey: 'remarks',
-    header: () => <span className="font-custom">Remarks</span>,
-  },
-  // ——— Other farmer / created by ———
-  {
-    accessorKey: 'farmerAddress',
-    header: () => <span className="font-custom">Address</span>,
-  },
-  {
-    accessorKey: 'farmerMobile',
-    header: () => <span className="font-custom">Mobile</span>,
-  },
-  {
-    accessorKey: 'createdByName',
-    header: () => <span className="font-custom">Created by</span>,
-  },
-];
+    // ——— Incoming gate pass ———
+    {
+      accessorKey: 'incomingGatePassNo',
+      header: () => (
+        <div className="font-custom text-right">Incoming GP no.</div>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.getIsGrouped()
+            ? '—'
+            : String(row.getValue('incomingGatePassNo') ?? '—')}
+        </div>
+      ),
+      aggregationFn: () => null,
+    },
+    {
+      accessorKey: 'incomingManualNo',
+      header: () => (
+        <div className="font-custom text-right">Incoming manual no.</div>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.getIsGrouped()
+            ? '—'
+            : String(row.getValue('incomingManualNo') ?? '—')}
+        </div>
+      ),
+      aggregationFn: () => null,
+    },
+    {
+      accessorKey: 'incomingGatePassDate',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Incoming gate pass date" />
+      ),
+      cell: GroupableCell,
+      enableGrouping: true,
+    },
+    {
+      accessorKey: 'variety',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Variety" />
+      ),
+      cell: GroupableCell,
+      enableGrouping: true,
+    },
+    {
+      accessorKey: 'truckNumber',
+      header: () => <span className="font-custom">Truck no.</span>,
+    },
+    {
+      accessorKey: 'bagsReceived',
+      header: () => (
+        <div className={incomingHighlightHeader}>Bags received</div>
+      ),
+      cell: ({ row }) => (
+        <div className={incomingHighlightCell}>
+          {formatNum(row.getValue('bagsReceived') as number)}
+        </div>
+      ),
+      aggregationFn: 'sum',
+    },
+    {
+      accessorKey: 'grossWeightKg',
+      header: () => <div className="font-custom text-right">Gross (kg)</div>,
+      cell: ({ row }) => (
+        <div className="text-right font-medium">
+          {formatNum(row.getValue('grossWeightKg') as number | string)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'tareWeightKg',
+      header: () => <div className="font-custom text-right">Tare (kg)</div>,
+      cell: ({ row }) => (
+        <div className="text-right font-medium">
+          {formatNum(row.getValue('tareWeightKg') as number | string)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'netWeightKg',
+      header: () => <div className={incomingHighlightHeader}>Net (kg)</div>,
+      cell: ({ row }) => (
+        <div className={incomingHighlightCell}>
+          {formatNum(row.getValue('netWeightKg') as number | string)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'netProductKg',
+      header: () => (
+        <div className={incomingHighlightHeader}>
+          Net product (kg)
+          <span className="text-muted-foreground ml-1 text-[10px] font-normal">
+            (excl bardana)
+          </span>
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className={incomingHighlightCell}>
+          {formatNum(row.getValue('netProductKg') as number | string)}
+        </div>
+      ),
+    },
+    // ——— Grading gate pass ———
+    {
+      accessorKey: 'gatePassNo',
+      header: () => <div className="font-custom text-right">Gate pass no.</div>,
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.getIsGrouped() ? '—' : String(row.getValue('gatePassNo') ?? '—')}
+        </div>
+      ),
+      aggregationFn: () => null,
+    },
+    {
+      accessorKey: 'manualGatePassNumber',
+      header: () => <div className="font-custom text-right">Manual GP no.</div>,
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.getIsGrouped()
+            ? '—'
+            : String(row.getValue('manualGatePassNumber') ?? '—')}
+        </div>
+      ),
+      aggregationFn: () => null,
+    },
+    {
+      accessorKey: 'date',
+      header: ({ column, table }) => (
+        <GroupableSortableHeader column={column} table={table} label="Date" />
+      ),
+      cell: GroupableCell,
+      enableGrouping: true,
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'totalGradedBags',
+      header: () => <div className={gradedHighlightHeader}>Graded bags</div>,
+      cell: ({ row }) => (
+        <div className={gradedHighlightCell}>
+          {formatNum(row.getValue('totalGradedBags') as number)}
+        </div>
+      ),
+      aggregationFn: 'sum',
+    },
+    ...buildBagSizeColumns(visibleBagSizes),
+    {
+      accessorKey: 'totalGradedWeightKg',
+      header: () => (
+        <div className={gradedHighlightHeader}>
+          Total graded weight (kg)
+          <span className="text-muted-foreground ml-1 text-[10px] font-normal">
+            (excl bardana)
+          </span>
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className={gradedHighlightCell}>
+          {formatNum(row.getValue('totalGradedWeightKg') as number)}
+        </div>
+      ),
+      aggregationFn: 'sum',
+    },
+    {
+      accessorKey: 'wastageKg',
+      header: () => <div className={wastageHighlightHeader}>Wastage (kg)</div>,
+      cell: ({ row }) => {
+        const val = row.getValue('wastageKg');
+        if (val === '—' || val == null) {
+          return <div className={wastageHighlightCell}>—</div>;
+        }
+        return (
+          <div className={wastageHighlightCell}>{formatNum(val as number)}</div>
+        );
+      },
+      aggregationFn: 'sum',
+    },
+    {
+      accessorKey: 'grader',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Grader" />
+      ),
+      cell: GroupableCell,
+      enableGrouping: true,
+    },
+    {
+      accessorKey: 'remarks',
+      header: () => <span className="font-custom">Remarks</span>,
+    },
+    // ——— Other farmer / created by ———
+    {
+      accessorKey: 'farmerAddress',
+      header: () => <span className="font-custom">Address</span>,
+    },
+    {
+      accessorKey: 'farmerMobile',
+      header: () => <span className="font-custom">Mobile</span>,
+    },
+    {
+      accessorKey: 'createdByName',
+      header: () => <span className="font-custom">Created by</span>,
+    },
+  ];
+}
+
+/** No bag-size columns (same as `createGradingReportColumns([])`). */
+export const columns: ColumnDef<GradingReportRow>[] =
+  createGradingReportColumns([]);

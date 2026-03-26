@@ -11,6 +11,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -200,6 +201,33 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
     return config;
   })();
 
+  const dailyTotals = useMemo(() => {
+    const perLocation: Record<string, number> = {};
+    dailyLocations.forEach((loc) => {
+      perLocation[loc] = dailyTableData.reduce(
+        (sum, row) => sum + Number(row[loc] ?? 0),
+        0
+      );
+    });
+    const grandTotal = dailyTableData.reduce((sum, row) => sum + row.total, 0);
+    return { perLocation, grandTotal };
+  }, [dailyLocations, dailyTableData]);
+
+  const monthlyTotals = useMemo(() => {
+    const perLocation: Record<string, number> = {};
+    monthlyLocations.forEach((loc) => {
+      perLocation[loc] = monthlyTableData.reduce(
+        (sum, row) => sum + Number(row[loc] ?? 0),
+        0
+      );
+    });
+    const grandTotal = monthlyTableData.reduce(
+      (sum, row) => sum + row.total,
+      0
+    );
+    return { perLocation, grandTotal };
+  }, [monthlyLocations, monthlyTableData]);
+
   if (isLoading) {
     return (
       <Card className="font-custom">
@@ -282,22 +310,22 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
                     <Calendar className="text-primary h-4 w-4" />
                     Daily activity
                   </h4>
-                  <div className="border-border bg-muted/30 overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
-                    <Table>
+                  <div className="border-border overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
+                    <Table className="border-collapse">
                       <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="font-custom text-muted-foreground h-10 font-medium whitespace-nowrap">
+                        <TableRow className="border-border bg-muted hover:bg-muted">
+                          <TableHead className="font-custom border-border border px-4 py-2 font-bold whitespace-nowrap">
                             Date
                           </TableHead>
                           {dailyLocations.map((loc) => (
                             <TableHead
                               key={loc}
-                              className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap"
+                              className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap"
                             >
                               {loc}
                             </TableHead>
                           ))}
-                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap">
+                          <TableHead className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap">
                             Total
                           </TableHead>
                         </TableRow>
@@ -306,25 +334,43 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
                         {dailyTableData.map((row) => (
                           <TableRow
                             key={row.date}
-                            className="hover:bg-muted/50 transition-colors duration-150"
+                            className="border-border hover:bg-transparent"
                           >
-                            <TableCell className="font-custom text-foreground font-medium whitespace-nowrap">
+                            <TableCell className="font-custom border-border border px-4 py-2 font-medium whitespace-nowrap">
                               {formatDisplayDate(row.date)}
                             </TableCell>
                             {dailyLocations.map((loc) => (
                               <TableCell
                                 key={loc}
-                                className="font-custom text-foreground text-right font-medium tabular-nums"
+                                className="font-custom border-border border px-4 py-2 text-right font-medium tabular-nums"
                               >
                                 {formatNumber(Number(row[loc] ?? 0))}
                               </TableCell>
                             ))}
-                            <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                            <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
                               {formatNumber(row.total)}
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
+                      <TableFooter>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="font-custom bg-muted/50 border-border border px-4 py-2 font-bold">
+                            Bag Total
+                          </TableHead>
+                          {dailyLocations.map((loc) => (
+                            <TableCell
+                              key={loc}
+                              className="font-custom bg-muted/50 border-border border px-4 py-2 text-right font-bold tabular-nums"
+                            >
+                              {formatNumber(dailyTotals.perLocation[loc] ?? 0)}
+                            </TableCell>
+                          ))}
+                          <TableCell className="font-custom text-primary bg-primary/10 border-border border px-4 py-2 text-right font-bold tabular-nums">
+                            {formatNumber(dailyTotals.grandTotal)}
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
                     </Table>
                   </div>
                 </div>
@@ -418,22 +464,22 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
                     <Calendar className="text-primary h-4 w-4" />
                     Monthly activity
                   </h4>
-                  <div className="border-border bg-muted/30 overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
-                    <Table>
+                  <div className="border-border overflow-x-auto overflow-y-auto rounded-lg border sm:max-h-[280px]">
+                    <Table className="border-collapse">
                       <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="font-custom text-muted-foreground h-10 font-medium whitespace-nowrap">
+                        <TableRow className="border-border bg-muted hover:bg-muted">
+                          <TableHead className="font-custom border-border border px-4 py-2 font-bold whitespace-nowrap">
                             Month
                           </TableHead>
                           {monthlyLocations.map((loc) => (
                             <TableHead
                               key={loc}
-                              className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap"
+                              className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap"
                             >
                               {loc}
                             </TableHead>
                           ))}
-                          <TableHead className="font-custom text-muted-foreground h-10 text-right font-medium whitespace-nowrap">
+                          <TableHead className="font-custom border-border border px-4 py-2 text-right font-bold whitespace-nowrap">
                             Total
                           </TableHead>
                         </TableRow>
@@ -442,25 +488,45 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
                         {monthlyTableData.map((row) => (
                           <TableRow
                             key={row.month}
-                            className="hover:bg-muted/50 transition-colors duration-150"
+                            className="border-border hover:bg-transparent"
                           >
-                            <TableCell className="font-custom text-foreground font-medium whitespace-nowrap">
+                            <TableCell className="font-custom border-border border px-4 py-2 font-medium whitespace-nowrap">
                               {row.monthLabel}
                             </TableCell>
                             {monthlyLocations.map((loc) => (
                               <TableCell
                                 key={loc}
-                                className="font-custom text-foreground text-right font-medium tabular-nums"
+                                className="font-custom border-border border px-4 py-2 text-right font-medium tabular-nums"
                               >
                                 {formatNumber(Number(row[loc] ?? 0))}
                               </TableCell>
                             ))}
-                            <TableCell className="font-custom text-foreground text-right font-semibold tabular-nums">
+                            <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
                               {formatNumber(row.total)}
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
+                      <TableFooter>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="font-custom bg-muted/50 border-border border px-4 py-2 font-bold">
+                            Bag Total
+                          </TableHead>
+                          {monthlyLocations.map((loc) => (
+                            <TableCell
+                              key={loc}
+                              className="font-custom bg-muted/50 border-border border px-4 py-2 text-right font-bold tabular-nums"
+                            >
+                              {formatNumber(
+                                monthlyTotals.perLocation[loc] ?? 0
+                              )}
+                            </TableCell>
+                          ))}
+                          <TableCell className="font-custom text-primary bg-primary/10 border-border border px-4 py-2 text-right font-bold tabular-nums">
+                            {formatNumber(monthlyTotals.grandTotal)}
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
                     </Table>
                   </div>
                 </div>
