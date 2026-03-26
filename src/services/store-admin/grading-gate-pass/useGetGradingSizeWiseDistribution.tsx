@@ -4,9 +4,9 @@ import { queryClient } from '@/lib/queryClient';
 
 export interface GradingSizeDistributionSizeItem {
   name: string;
-  /** Size total from API (used for percentage calculations) */
+  /** Weight in kg (excluding bardana), used for percentage calculations */
   value: number;
-  /** Raw bag count for display purposes (same as value for this API) */
+  /** Raw bag count for display purposes */
   bags: number;
 }
 
@@ -42,7 +42,11 @@ async function fetchGradingSizeWiseDistribution(
     data?: {
       chartData?: Array<{
         variety?: string;
-        sizes?: Array<{ name?: string; value?: number }>;
+        sizes?: Array<{
+          name?: string;
+          value?: number;
+          weightExcludingBardanaKg?: number;
+        }>;
       }>;
     };
   }>('/analytics/size-distribution', {
@@ -62,11 +66,12 @@ async function fetchGradingSizeWiseDistribution(
     chartData: (data.data.chartData ?? []).map((item) => ({
       variety: item.variety?.trim() || 'Unknown',
       sizes: (item.sizes ?? []).map((size) => {
-        const value = Number(size.value ?? 0);
+        const bags = Number(size.value ?? 0);
+        const value = Number(size.weightExcludingBardanaKg ?? 0);
         return {
           name: normalizeSizeName(size.name),
           value,
-          bags: value,
+          bags,
         };
       }),
     })),
