@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import {
   type FarmerReportPdfSnapshot,
@@ -26,6 +27,16 @@ const INCOMING_COLUMN_IDS = [
   'lessBardanaKg',
   'actualWeightKg',
 ] as const;
+
+/** Incoming columns that are summed in the per-variety total row (exclude IDs, dates, text). */
+const INCOMING_SUM_COLUMN_IDS = new Set<string>([
+  'bagsReceived',
+  'grossWeightKg',
+  'tareWeightKg',
+  'netWeightKg',
+  'lessBardanaKg',
+  'actualWeightKg',
+]);
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
@@ -155,6 +166,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 0,
   },
+  totalRow: {
+    flexDirection: 'row',
+    backgroundColor: '#e8e8e8',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: BORDER,
+    paddingVertical: 1,
+    paddingHorizontal: 0,
+  },
+  totalCell: {
+    paddingVertical: 1,
+    paddingHorizontal: 1,
+    fontSize: 4,
+    fontWeight: 700,
+    textAlign: 'center',
+    borderRightWidth: 1,
+    borderColor: BORDER,
+  },
 });
 
 function formatCellValue(value: string | number | undefined): string {
@@ -166,6 +196,117 @@ function parseQtyWeight(value: string): { qty: string; weight: string } | null {
   const match = value.match(/^(.+?)\s*\(([^)]*)\)\s*$/);
   if (match) return { qty: match[1].trim(), weight: match[2].trim() };
   return null;
+}
+
+function parseLocaleNumber(raw: string): number | null {
+  const n = parseFloat(String(raw).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+type IncomingColumnTotal =
+  | { kind: 'none' }
+  | { kind: 'simple'; sum: number }
+  | { kind: 'qtyWeight'; qty: number; weight: number };
+
+function computeIncomingColumnTotals(
+  dataRows: (FarmerReportPdfRow & { type: 'data' })[],
+  incomingColumnIds: string[]
+): Record<string, IncomingColumnTotal> {
+  const out: Record<string, IncomingColumnTotal> = {};
+  for (const colId of incomingColumnIds) {
+    if (!INCOMING_SUM_COLUMN_IDS.has(colId)) {
+      out[colId] = { kind: 'none' };
+      continue;
+    }
+    let simpleSum = 0;
+    let qtySum = 0;
+    let weightSum = 0;
+    let anyQtyWeight = false;
+    let anySimple = false;
+    for (const row of dataRows) {
+      const raw = formatCellValue(row.cells[colId]);
+      if (raw === '—' || raw === '') continue;
+      const qw = parseQtyWeight(raw);
+      if (qw) {
+        anyQtyWeight = true;
+        const q = parseLocaleNumber(qw.qty);
+        const w = parseLocaleNumber(qw.weight);
+        if (q != null) qtySum += q;
+        if (w != null) weightSum += w;
+      } else {
+        const n = parseLocaleNumber(raw);
+        if (n != null) {
+          anySimple = true;
+          simpleSum += n;
+        }
+      }
+    }
+    if (anyQtyWeight) {
+      out[colId] = { kind: 'qtyWeight', qty: qtySum, weight: weightSum };
+    } else if (anySimple) {
+      out[colId] = { kind: 'simple', sum: simpleSum };
+    } else {
+      out[colId] = { kind: 'none' };
+    }
+  }
+  return out;
+}
+
+function formatIncomingTotalNumber(n: number): string {
+  return String(Math.round(n * 10) / 10);
+}
+
+/** Rows shown in PDF incoming table: variety headers + first row per pass only. */
+function filterIncomingPdfRows(
+  rows: FarmerReportPdfRow[]
+): FarmerReportPdfRow[] {
+  return rows.filter(
+    (row) =>
+      row.type === 'variety' ||
+      (row.type === 'data' && (row.passRowIndex ?? 0) === 0)
+  );
+}
+
+/** Split into per-variety segments (or one segment when not grouped). */
+function getIncomingSegmentsForPdf(
+  filtered: FarmerReportPdfRow[],
+  groupByVariety: boolean
+): Array<{
+  variety: string | null;
+  dataRows: (FarmerReportPdfRow & { type: 'data' })[];
+}> {
+  if (!groupByVariety) {
+    const dataRows = filtered.filter(
+      (r): r is FarmerReportPdfRow & { type: 'data' } => r.type === 'data'
+    );
+    return dataRows.length ? [{ variety: null, dataRows }] : [];
+  }
+  const segments: Array<{
+    variety: string | null;
+    dataRows: (FarmerReportPdfRow & { type: 'data' })[];
+  }> = [];
+  let current: {
+    variety: string | null;
+    dataRows: (FarmerReportPdfRow & { type: 'data' })[];
+  } = { variety: null, dataRows: [] };
+
+  for (const row of filtered) {
+    if (row.type === 'variety') {
+      if (current.dataRows.length > 0) {
+        segments.push({
+          variety: current.variety,
+          dataRows: current.dataRows,
+        });
+      }
+      current = { variety: row.variety, dataRows: [] };
+    } else {
+      current.dataRows.push(row);
+    }
+  }
+  if (current.dataRows.length > 0) {
+    segments.push({ variety: current.variety, dataRows: current.dataRows });
+  }
+  return segments;
 }
 
 /** Farmer report: drop system incoming column; show manual as "Gate Pass No". */
@@ -228,6 +369,12 @@ export function AccountingStockLedgerPdf({
   const farmerDisplayName = farmerName ?? '';
   const stockLedgerByVariety = groupStockLedgerRowsByVariety(stockLedgerRows);
 
+  const incomingPdfRows = filterIncomingPdfRows(rows);
+  const incomingSegments = getIncomingSegmentsForPdf(
+    incomingPdfRows,
+    groupByVariety
+  );
+
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
@@ -268,16 +415,17 @@ export function AccountingStockLedgerPdf({
                   ))}
                 </View>
                 {hasIncomingData ? (
-                  rows
-                    .filter(
-                      (row) =>
-                        row.type === 'variety' ||
-                        (row.type === 'data' && (row.passRowIndex ?? 0) === 0)
-                    )
-                    .map((row, rowIndex) =>
-                      row.type === 'variety' ? (
+                  incomingSegments.flatMap((segment, segIndex) => {
+                    const totals = computeIncomingColumnTotals(
+                      segment.dataRows,
+                      incomingColumnIdsForPdf
+                    );
+                    const keyBase = `inc-${segIndex}`;
+                    const out: ReactElement[] = [];
+                    if (groupByVariety) {
+                      out.push(
                         <View
-                          key={`variety-${rowIndex}`}
+                          key={`${keyBase}-variety`}
                           style={styles.varietyRow}
                         >
                           <View
@@ -290,18 +438,33 @@ export function AccountingStockLedgerPdf({
                               },
                             ]}
                           >
-                            <Text>Variety: {row.variety || '—'}</Text>
+                            <Text>Variety: {segment.variety ?? '—'}</Text>
                           </View>
                         </View>
-                      ) : (
+                      );
+                    }
+                    for (let i = 0; i < segment.dataRows.length; i++) {
+                      out.push(
                         <IncomingDataRow
-                          key={`data-${rowIndex}`}
-                          row={row}
+                          key={`${keyBase}-data-${i}`}
+                          row={segment.dataRows[i]}
                           incomingColumnIds={incomingColumnIdsForPdf}
                           getColWidth={getIncomingColWidth}
                         />
-                      )
-                    )
+                      );
+                    }
+                    if (segment.dataRows.length > 0) {
+                      out.push(
+                        <IncomingTotalRow
+                          key={`${keyBase}-total`}
+                          incomingColumnIds={incomingColumnIdsForPdf}
+                          totals={totals}
+                          getColWidth={getIncomingColWidth}
+                        />
+                      );
+                    }
+                    return out;
+                  })
                 ) : (
                   <View style={styles.tableRow}>
                     <View
@@ -381,6 +544,52 @@ export function AccountingStockLedgerPdf({
         )}
       </Page>
     </Document>
+  );
+}
+
+function IncomingTotalRow({
+  incomingColumnIds,
+  totals,
+  getColWidth,
+}: {
+  incomingColumnIds: string[];
+  totals: Record<string, IncomingColumnTotal>;
+  getColWidth: () => string;
+}) {
+  return (
+    <View style={styles.totalRow}>
+      {incomingColumnIds.map((id, i) => {
+        const t = totals[id];
+        const isFirst = i === 0;
+        return (
+          <View
+            key={id}
+            style={[
+              styles.totalCell,
+              i === incomingColumnIds.length - 1 ? styles.cellLast : {},
+              { width: getColWidth() },
+            ]}
+          >
+            {isFirst ? (
+              <Text wrap>Total</Text>
+            ) : t.kind === 'simple' ? (
+              <Text wrap>{formatIncomingTotalNumber(t.sum)}</Text>
+            ) : t.kind === 'qtyWeight' ? (
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.cellQtyLine}>
+                  {formatIncomingTotalNumber(t.qty)}
+                </Text>
+                <Text style={styles.cellWeightLine}>
+                  {formatIncomingTotalNumber(t.weight)}
+                </Text>
+              </View>
+            ) : (
+              <Text wrap>—</Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
