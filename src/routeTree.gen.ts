@@ -21,10 +21,12 @@ import { Route as StoreAdminAuthenticatedNikasiIndexRouteImport } from './routes
 import { Route as StoreAdminAuthenticatedIncomingIndexRouteImport } from './routes/store-admin/_authenticated/incoming/index'
 import { Route as StoreAdminAuthenticatedGroupedIndexRouteImport } from './routes/store-admin/_authenticated/grouped/index'
 import { Route as StoreAdminAuthenticatedGradingIndexRouteImport } from './routes/store-admin/_authenticated/grading/index'
+import { Route as StoreAdminAuthenticatedFarmerSeedIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
 import { Route as StoreAdminAuthenticatedAreaBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/area-breakdown/index'
 import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/index'
 import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/index'
+import { Route as StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/edit/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -95,6 +97,12 @@ const StoreAdminAuthenticatedGradingIndexRoute =
     path: '/grading/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedFarmerSeedIndexRoute =
+  StoreAdminAuthenticatedFarmerSeedIndexRouteImport.update({
+    id: '/farmer-seed/',
+    path: '/farmer-seed/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedDaybookIndexRoute =
   StoreAdminAuthenticatedDaybookIndexRouteImport.update({
     id: '/daybook/',
@@ -119,6 +127,12 @@ const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute =
     path: '/people/$farmerStorageLinkId/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedFarmerSeedEditIndexRoute =
+  StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport.update({
+    id: '/farmer-seed/edit/',
+    path: '/farmer-seed/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedAnalyticsReportsIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport.update({
     id: '/analytics/reports/',
@@ -134,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/area-breakdown/': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/farmer-seed/': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   '/store-admin/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/grouped/': typeof StoreAdminAuthenticatedGroupedIndexRoute
   '/store-admin/incoming/': typeof StoreAdminAuthenticatedIncomingIndexRoute
@@ -143,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/analytics/reports/': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
+  '/store-admin/farmer-seed/edit/': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -153,6 +169,7 @@ export interface FileRoutesByTo {
   '/store-admin/analytics': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/area-breakdown': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/farmer-seed': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   '/store-admin/grading': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/grouped': typeof StoreAdminAuthenticatedGroupedIndexRoute
   '/store-admin/incoming': typeof StoreAdminAuthenticatedIncomingIndexRoute
@@ -162,6 +179,7 @@ export interface FileRoutesByTo {
   '/store-admin/settings': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/storage': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/analytics/reports': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
+  '/store-admin/farmer-seed/edit': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRoutesById {
@@ -173,6 +191,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/_authenticated/area-breakdown/': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/_authenticated/farmer-seed/': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   '/store-admin/_authenticated/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/_authenticated/grouped/': typeof StoreAdminAuthenticatedGroupedIndexRoute
   '/store-admin/_authenticated/incoming/': typeof StoreAdminAuthenticatedIncomingIndexRoute
@@ -182,6 +201,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/_authenticated/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
   '/store-admin/_authenticated/analytics/reports/': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
+  '/store-admin/_authenticated/farmer-seed/edit/': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -194,6 +214,7 @@ export interface FileRouteTypes {
     | '/store-admin/analytics/'
     | '/store-admin/area-breakdown/'
     | '/store-admin/daybook/'
+    | '/store-admin/farmer-seed/'
     | '/store-admin/grading/'
     | '/store-admin/grouped/'
     | '/store-admin/incoming/'
@@ -203,6 +224,7 @@ export interface FileRouteTypes {
     | '/store-admin/settings/'
     | '/store-admin/storage/'
     | '/store-admin/analytics/reports/'
+    | '/store-admin/farmer-seed/edit/'
     | '/store-admin/people/$farmerStorageLinkId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -213,6 +235,7 @@ export interface FileRouteTypes {
     | '/store-admin/analytics'
     | '/store-admin/area-breakdown'
     | '/store-admin/daybook'
+    | '/store-admin/farmer-seed'
     | '/store-admin/grading'
     | '/store-admin/grouped'
     | '/store-admin/incoming'
@@ -222,6 +245,7 @@ export interface FileRouteTypes {
     | '/store-admin/settings'
     | '/store-admin/storage'
     | '/store-admin/analytics/reports'
+    | '/store-admin/farmer-seed/edit'
     | '/store-admin/people/$farmerStorageLinkId'
   id:
     | '__root__'
@@ -232,6 +256,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/analytics/'
     | '/store-admin/_authenticated/area-breakdown/'
     | '/store-admin/_authenticated/daybook/'
+    | '/store-admin/_authenticated/farmer-seed/'
     | '/store-admin/_authenticated/grading/'
     | '/store-admin/_authenticated/grouped/'
     | '/store-admin/_authenticated/incoming/'
@@ -241,6 +266,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/settings/'
     | '/store-admin/_authenticated/storage/'
     | '/store-admin/_authenticated/analytics/reports/'
+    | '/store-admin/_authenticated/farmer-seed/edit/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
   fileRoutesById: FileRoutesById
 }
@@ -337,6 +363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedGradingIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/farmer-seed/': {
+      id: '/store-admin/_authenticated/farmer-seed/'
+      path: '/farmer-seed'
+      fullPath: '/store-admin/farmer-seed/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/daybook/': {
       id: '/store-admin/_authenticated/daybook/'
       path: '/daybook'
@@ -365,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/farmer-seed/edit/': {
+      id: '/store-admin/_authenticated/farmer-seed/edit/'
+      path: '/farmer-seed/edit'
+      fullPath: '/store-admin/farmer-seed/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/analytics/reports/': {
       id: '/store-admin/_authenticated/analytics/reports/'
       path: '/analytics/reports'
@@ -379,6 +419,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedAnalyticsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   StoreAdminAuthenticatedAreaBreakdownIndexRoute: typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
+  StoreAdminAuthenticatedFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   StoreAdminAuthenticatedGradingIndexRoute: typeof StoreAdminAuthenticatedGradingIndexRoute
   StoreAdminAuthenticatedGroupedIndexRoute: typeof StoreAdminAuthenticatedGroupedIndexRoute
   StoreAdminAuthenticatedIncomingIndexRoute: typeof StoreAdminAuthenticatedIncomingIndexRoute
@@ -388,6 +429,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedSettingsIndexRoute: typeof StoreAdminAuthenticatedSettingsIndexRoute
   StoreAdminAuthenticatedStorageIndexRoute: typeof StoreAdminAuthenticatedStorageIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
+  StoreAdminAuthenticatedFarmerSeedEditIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 
@@ -399,6 +441,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedAreaBreakdownIndexRoute,
     StoreAdminAuthenticatedDaybookIndexRoute:
       StoreAdminAuthenticatedDaybookIndexRoute,
+    StoreAdminAuthenticatedFarmerSeedIndexRoute:
+      StoreAdminAuthenticatedFarmerSeedIndexRoute,
     StoreAdminAuthenticatedGradingIndexRoute:
       StoreAdminAuthenticatedGradingIndexRoute,
     StoreAdminAuthenticatedGroupedIndexRoute:
@@ -417,6 +461,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedStorageIndexRoute,
     StoreAdminAuthenticatedAnalyticsReportsIndexRoute:
       StoreAdminAuthenticatedAnalyticsReportsIndexRoute,
+    StoreAdminAuthenticatedFarmerSeedEditIndexRoute:
+      StoreAdminAuthenticatedFarmerSeedEditIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute:
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute,
   }

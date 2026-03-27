@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.40.0] - 2026-03-27
+
+### Added
+- Store admin: **Farmer seed** create form at `/store-admin/farmer-seed` — farmer search (`SearchSelector` + `AddFarmerModal`), potato variety, per–bag-size quantity and rate (from grading sizes), validation, and `FarmerSeedSummarySheet` review before submit
+- Services: **useCreateFarmerSeedEntry** (POST `/farmer-seed`) and **useEditFarmerSeedEntry** (PUT `/farmer-seed/:id`) with success/error toasts and `farmerSeedKeys` query invalidation
+- Types: `FarmerSeedBagSize`, create/edit inputs, `FarmerSeedEntry`, and API response types in `farmer-seed.ts`
+- Routes: `/store-admin/farmer-seed` (create) and `/store-admin/farmer-seed/edit` (edit entry point); TanStack Router `routeTree.gen.ts` updated
+
 ## [0.39.0] - 2026-03-25
 
 ### Added
