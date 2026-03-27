@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { Item, ItemFooter } from '@/components/ui/item';
@@ -30,7 +30,7 @@ import { GradingVoucher } from '../vouchers';
 import type { GradingVoucherProps } from '../vouchers';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 import { TabSummaryBar, LIMIT_OPTIONS } from './shared';
-import { GetReportsDialog } from '@/components/analytics/get-reports-dialog';
+import GradingDailyReportDialog from '../grading-daily-report-dialog';
 
 /** Map API grading gate pass to GradingVoucher props */
 function toGradingVoucherProps(pass: GradingGatePass): GradingVoucherProps {
@@ -123,8 +123,6 @@ const GradingTab = memo(function GradingTab({
   hasPrev,
   hasNext,
 }: GradingTabProps) {
-  const [dailyReportDialogOpen, setDailyReportDialogOpen] = useState(false);
-
   const filteredBySearch = useMemo(() => {
     if (!gradingGatePassData?.length) return gradingGatePassData ?? [];
     const q = searchQuery.trim().toLowerCase();
@@ -180,13 +178,7 @@ const GradingTab = memo(function GradingTab({
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button
-              variant="secondary"
-              className="font-custom h-10 w-full sm:w-auto"
-              onClick={() => setDailyReportDialogOpen(true)}
-            >
-              View Daily Report
-            </Button>
+            <GradingDailyReportDialog />
             <Button className="font-custom h-10 w-full gap-2 sm:w-auto" asChild>
               <Link to="/store-admin/grading">
                 <ClipboardList className="h-4 w-4 shrink-0" />
@@ -196,12 +188,6 @@ const GradingTab = memo(function GradingTab({
           </div>
         </ItemFooter>
       </Item>
-
-      <GetReportsDialog
-        open={dailyReportDialogOpen}
-        onOpenChange={setDailyReportDialogOpen}
-        reportType="grading"
-      />
 
       <div className="mt-2 sm:mt-4">
         {gradingLoading ? (

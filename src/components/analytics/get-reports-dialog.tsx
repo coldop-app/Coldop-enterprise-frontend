@@ -408,10 +408,13 @@ export function GetReportsDialog({
             ? 'Ungraded bags gate pass report is ready to view or print.'
             : 'Incoming gate pass report is ready to view or print.',
       });
-    } catch {
+    } catch (error) {
       if (printWindow) printWindow.close();
       toast.error('Could not generate PDF', {
-        description: 'Please try again.',
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : 'Please try again.',
       });
     } finally {
       setIsGeneratingPdf(false);

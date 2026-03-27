@@ -34,11 +34,32 @@ type FlatGradingReportItem = {
   farmerNameFallback?: string;
 };
 
+function normalizeGradingEntries(
+  data: GradingGatePassReportData
+): Array<Record<string, unknown>> {
+  if (Array.isArray(data)) {
+    return data as Array<Record<string, unknown>>;
+  }
+
+  if (data != null && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.data))
+      return obj.data as Array<Record<string, unknown>>;
+    if (Array.isArray(obj.items))
+      return obj.items as Array<Record<string, unknown>>;
+    if (Array.isArray(obj.gatePasses) || Array.isArray(obj.farmers)) {
+      return [obj];
+    }
+  }
+
+  return [];
+}
+
 function flattenGradingReportData(
   data: GradingGatePassReportData
 ): FlatGradingReportItem[] {
   const out: FlatGradingReportItem[] = [];
-  for (const entry of data as unknown as Array<Record<string, unknown>>) {
+  for (const entry of normalizeGradingEntries(data)) {
     if (
       entry != null &&
       typeof entry === 'object' &&
@@ -90,7 +111,16 @@ function flattenGradingReportData(
       continue;
     }
 
-    out.push({ pass: entry as GradingGatePassReportItem });
+    const looksLikeGatePass =
+      entry != null &&
+      typeof entry === 'object' &&
+      ('gatePassNo' in entry ||
+        '_id' in entry ||
+        'incomingGatePassId' in entry ||
+        'incomingGatePassIds' in entry);
+    if (looksLikeGatePass) {
+      out.push({ pass: entry as GradingGatePassReportItem });
+    }
   }
 
   return out;
@@ -102,8 +132,12 @@ function getFarmerNameFromGradingPass(
 ): string {
   const directFarmerName =
     pass.farmerStorageLink?.farmerId?.name ??
+    (pass as { farmerStorageLinkId?: { farmerId?: { name?: string } } })
+      .farmerStorageLinkId?.farmerId?.name ??
     (() => {
-      const incoming = pass.incomingGatePassId as unknown;
+      const incoming =
+        (pass as { incomingGatePassId?: unknown }).incomingGatePassId ??
+        (pass as { incomingGatePassIds?: unknown[] }).incomingGatePassIds?.[0];
       if (
         incoming != null &&
         typeof incoming === 'object' &&
@@ -142,7 +176,9 @@ function gradingReportItemToStockLedgerRow(
     };
   };
 
-  const inc = pass.incomingGatePassId as unknown as Incoming;
+  const inc = ((pass as { incomingGatePassId?: unknown }).incomingGatePassId ??
+    (pass as { incomingGatePassIds?: unknown[] }).incomingGatePassIds?.[0] ??
+    {}) as Incoming;
 
   const incomingDate = typeof inc.date === 'string' ? inc.date : undefined;
 
