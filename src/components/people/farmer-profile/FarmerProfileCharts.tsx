@@ -158,7 +158,7 @@ const FarmerProfileVarietyChart = memo(function FarmerProfileVarietyChart({
                 innerRadius={0}
                 strokeWidth={0}
                 label={({ name, percent }) =>
-                  `${name}: ${(percent * 100).toFixed(1)}%`
+                  `${name}: ${((percent ?? 0) * 100).toFixed(1)}%`
                 }
                 labelLine={{ stroke: 'var(--border)' }}
               >
@@ -384,7 +384,7 @@ const FarmerProfileSizeChart = memo(function FarmerProfileSizeChart({
                             innerRadius={0}
                             strokeWidth={0}
                             label={({ name, percent }) =>
-                              `${name}: ${(percent * 100).toFixed(1)}%`
+                              `${name}: ${((percent ?? 0) * 100).toFixed(1)}%`
                             }
                             labelLine={{ stroke: 'var(--border)' }}
                           >

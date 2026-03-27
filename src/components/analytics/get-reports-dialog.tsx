@@ -37,6 +37,7 @@ import {
   addGradingStatusToIncomingReport,
   filterIncomingReportToUngraded,
 } from '@/components/analytics/incoming/format-data';
+import { buildGradingDailyAccountingPdfPayload } from '@/utils/gradingDailyAccountingPdf';
 import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 
@@ -276,15 +277,23 @@ export function GetReportsDialog({
       if (reportType === 'grading') {
         const gradingData = gradingQuery.data;
         if (!gradingData) return;
-        const [{ pdf }, { GradingGatePassReportPdf }] = await Promise.all([
+        const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
-          import('@/components/pdf/analytics/grading-gate-pass-report.pdf'),
+          import('@/components/pdf/people/AccountingStockLedgerPdf'),
         ]);
+        const { snapshot, stockLedgerRows } =
+          buildGradingDailyAccountingPdfPayload({
+            companyName,
+            dateRangeLabel,
+            reportTitle: 'Daily Report',
+            groupByVariety,
+            gradingReportData: gradingData,
+          });
+
         const blob = await pdf(
-          <GradingGatePassReportPdf
-            companyName={companyName}
-            dateRangeLabel={dateRangeLabel}
-            data={gradingData}
+          <AccountingStockLedgerPdf
+            snapshot={snapshot}
+            stockLedgerRows={stockLedgerRows}
           />
         ).toBlob();
         const url = URL.createObjectURL(blob);
@@ -296,7 +305,7 @@ export function GetReportsDialog({
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
         toast.success('PDF opened in new tab', {
           duration: 3000,
-          description: 'Grading gate pass report is ready to view or print.',
+          description: 'Daily report is ready to view or print.',
         });
         return;
       }
@@ -306,7 +315,7 @@ export function GetReportsDialog({
         if (!storageData) return;
         const [{ pdf }, { StorageGatePassReportPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
-          import('@/components/pdf/analytics/storage-gate-pass-report.pdf'),
+          import('@/components/pdf/analytics/storage-gate-pass-report-pdf'),
         ]);
         const blob = await pdf(
           <StorageGatePassReportPdf
@@ -334,7 +343,7 @@ export function GetReportsDialog({
         if (!nikasiData) return;
         const [{ pdf }, { NikasiGatePassReportPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
-          import('@/components/pdf/analytics/nikasi-gate-pass-report.pdf'),
+          import('@/components/pdf/analytics/nikasi-gate-pass-report-pdf'),
         ]);
         const blob = await pdf(
           <NikasiGatePassReportPdf

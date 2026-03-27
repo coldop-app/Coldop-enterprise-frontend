@@ -419,7 +419,7 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
                             tickFormatter={formatNumber}
                           />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={(value: unknown) => [
                               formatNumber(Number(value)),
                               'Bags',
                             ]}
@@ -574,7 +574,7 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
                             tickFormatter={formatNumber}
                           />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={(value: unknown) => [
                               formatNumber(Number(value)),
                               'Bags',
                             ]}

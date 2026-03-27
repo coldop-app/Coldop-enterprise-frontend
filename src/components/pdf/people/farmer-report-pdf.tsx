@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { ReportSummarySectionPdf } from '@/components/pdf/grading-gate-pass-table-pdf';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import { ReportSummarySectionPdf } from '@/components/pdf/shared/grading-gate-pass-table-pdf';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 import {
   type FarmerReportPdfSnapshot,
   FARMER_REPORT_PDF_COLUMN_LABELS,

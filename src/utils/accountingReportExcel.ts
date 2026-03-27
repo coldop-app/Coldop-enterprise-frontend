@@ -2,9 +2,9 @@ import * as XLSX from 'xlsx';
 import type {
   FarmerReportPdfSnapshot,
   FarmerReportPdfRow,
-} from '@/components/pdf/farmer-report/farmer-report-pdf-types';
-import { FARMER_REPORT_PDF_COLUMN_LABELS } from '@/components/pdf/farmer-report/farmer-report-pdf-types';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+} from '@/components/pdf/people/farmer-report-pdf-types';
+import { FARMER_REPORT_PDF_COLUMN_LABELS } from '@/components/pdf/people/farmer-report-pdf-types';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 import {
   buildGradingGatePassSheetData,
   buildSummarySheetData,

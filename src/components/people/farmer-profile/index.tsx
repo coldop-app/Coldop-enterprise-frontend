@@ -355,7 +355,7 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
       );
       const [{ pdf }, { FarmerStockLedgerPdf }] = await Promise.all([
         import('@react-pdf/renderer'),
-        import('@/components/pdf/FarmerStockLedgerPdf'),
+        import('@/components/pdf/people/FarmerStockLedgerPdf'),
       ]);
       const blob = await pdf(
         <FarmerStockLedgerPdf

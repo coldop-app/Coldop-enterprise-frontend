@@ -196,7 +196,7 @@ const GradingVoucher = memo(function GradingVoucher({
     try {
       const [{ pdf }, { GradingVoucherPdf }] = await Promise.all([
         import('@react-pdf/renderer'),
-        import('@/components/pdf/GradingVoucherPdf'),
+        import('@/components/pdf/vouchers/GradingVoucherPdf'),
       ]);
 
       const blob = await pdf(

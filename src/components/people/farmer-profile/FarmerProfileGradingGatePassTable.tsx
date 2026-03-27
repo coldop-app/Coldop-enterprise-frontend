@@ -48,8 +48,8 @@ import { useStore } from '@/stores/store';
 import type {
   FarmerReportPdfRow,
   FarmerReportPdfSnapshot,
-} from '@/components/pdf/farmer-report/farmer-report-pdf-types';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+} from '@/components/pdf/people/farmer-report-pdf-types';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 import { GRADING_SIZES } from '@/components/forms/grading/constants';
 
 const DEFAULT_STORE = 'JICSPL-Bazpur';
@@ -919,7 +919,7 @@ export const FarmerProfileGradingGatePassTable = memo(
         };
         const [{ pdf }, { FarmerReportPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
-          import('@/components/pdf/farmer-report/farmer-report-pdf'),
+          import('@/components/pdf/people/farmer-report-pdf'),
         ]);
         const blob = await pdf(
           <FarmerReportPdf
@@ -973,7 +973,7 @@ export const FarmerProfileGradingGatePassTable = memo(
         const { snapshot, stockLedgerRowsSelected } = data;
         const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
-          import('@/components/pdf/AccountingStockLedgerPdf'),
+          import('@/components/pdf/people/AccountingStockLedgerPdf'),
         ]);
         const blob = await pdf(
           <AccountingStockLedgerPdf

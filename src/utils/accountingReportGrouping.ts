@@ -1,4 +1,4 @@
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 
 /** Group stock ledger rows by `variety` (sorted by variety name). Preserves row order within each group. */
 export function groupStockLedgerRowsByVariety(

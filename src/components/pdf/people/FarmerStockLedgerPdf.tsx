@@ -1,7 +1,7 @@
 import {
   AccountingStockLedgerPdf,
   type AccountingStockLedgerPdfProps,
-} from '@/components/pdf/AccountingStockLedgerPdf';
+} from '@/components/pdf/people/AccountingStockLedgerPdf';
 
 export type FarmerStockLedgerPdfProps = AccountingStockLedgerPdfProps;
 

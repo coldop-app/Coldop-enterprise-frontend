@@ -9,7 +9,7 @@ import {
 import {
   computeIncomingLessBardana,
   computeIncomingActualWeight,
-} from '@/components/pdf/incomingVoucherCalculations';
+} from '@/components/pdf/shared/incomingVoucherCalculations';
 import {
   SIZE_HEADER_LABELS,
   computeWtReceivedAfterGrading,
@@ -19,20 +19,20 @@ import {
   computeWeightShortage,
   computeWeightShortagePercent,
   computeAmountPayable,
-} from '@/components/pdf/gradingVoucherCalculations';
+} from '@/components/pdf/shared/gradingVoucherCalculations';
 import type {
   StockLedgerRow,
   StockLedgerPdfProps,
-} from '@/components/pdf/stockLedgerTypes';
-import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
-import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
-import { STOCK_LEDGER_COL_WIDTHS as COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
+} from '@/components/pdf/shared/stockLedgerTypes';
+import GradingGatePassTablePdf from '@/components/pdf/shared/grading-gate-pass-table-pdf';
+import SummaryTablePdf from '@/components/pdf/shared/sumary-table-pdf';
+import { STOCK_LEDGER_COL_WIDTHS as COL_WIDTHS } from '@/components/pdf/shared/stockLedgerColumnWidths';
 
 export type { StockLedgerRow, StockLedgerPdfProps };
 export {
   computeIncomingLessBardana,
   computeIncomingActualWeight,
-} from '@/components/pdf/incomingVoucherCalculations';
+} from '@/components/pdf/shared/incomingVoucherCalculations';
 export {
   SIZE_HEADER_LABELS,
   computeWtReceivedAfterGrading,
@@ -43,7 +43,7 @@ export {
   computeWeightShortagePercent,
   getBuyBackRate,
   computeAmountPayable,
-} from '@/components/pdf/gradingVoucherCalculations';
+} from '@/components/pdf/shared/gradingVoucherCalculations';
 
 const HEADER_BG = '#f9fafb';
 const BORDER = '#e5e7eb';

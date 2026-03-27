@@ -5,11 +5,11 @@ import {
   JUTE_BAG_WEIGHT,
   LENO_BAG_WEIGHT,
 } from '@/components/forms/grading/constants';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 import {
   computeIncomingLessBardana,
   computeIncomingActualWeight,
-} from '@/components/pdf/incomingVoucherCalculations';
+} from '@/components/pdf/shared/incomingVoucherCalculations';
 import {
   computeWtReceivedAfterGrading,
   computeLessBardanaAfterGrading,
@@ -20,8 +20,8 @@ import {
   getTotalJuteAndLenoBags,
   getBuyBackRate,
   SIZE_HEADER_LABELS,
-} from '@/components/pdf/gradingVoucherCalculations';
-import { sortRowsByGatePassNo } from '@/components/pdf/StockLedgerPdf';
+} from '@/components/pdf/shared/gradingVoucherCalculations';
+import { sortRowsByGatePassNo } from '@/components/pdf/shared/StockLedgerPdf';
 
 /** Sizes that have at least one bag across the given rows (order preserved from GRADING_SIZES). Used for main table and GGP. */
 function getSizesWithQuantities(rows: StockLedgerRow[]): string[] {

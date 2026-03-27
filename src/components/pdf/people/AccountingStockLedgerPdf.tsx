@@ -5,10 +5,10 @@ import {
   type FarmerReportPdfRow,
   FARMER_REPORT_PDF_COLUMN_LABELS,
   FARMER_REPORT_ROW_SPAN_COLUMN_IDS,
-} from '@/components/pdf/farmer-report/farmer-report-pdf-types';
-import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
-import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+} from '@/components/pdf/people/farmer-report-pdf-types';
+import GradingGatePassTablePdf from '@/components/pdf/shared/grading-gate-pass-table-pdf';
+import SummaryTablePdf from '@/components/pdf/shared/sumary-table-pdf';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
 
 /** Incoming column ids (table 1): display up to and including Actual (kg). Excludes Tot bags / Tot gross / Tot tare / Tot net / Tot bardana. */

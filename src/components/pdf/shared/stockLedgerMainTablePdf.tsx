@@ -9,7 +9,7 @@ import {
 import {
   computeIncomingLessBardana,
   computeIncomingActualWeight,
-} from '@/components/pdf/incomingVoucherCalculations';
+} from '@/components/pdf/shared/incomingVoucherCalculations';
 import {
   SIZE_HEADER_LABELS,
   computeWtReceivedAfterGrading,
@@ -19,9 +19,9 @@ import {
   computeWeightShortage,
   computeWeightShortagePercent,
   computeAmountPayable,
-} from '@/components/pdf/gradingVoucherCalculations';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
-import { STOCK_LEDGER_COL_WIDTHS as COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
+} from '@/components/pdf/shared/gradingVoucherCalculations';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
+import { STOCK_LEDGER_COL_WIDTHS as COL_WIDTHS } from '@/components/pdf/shared/stockLedgerColumnWidths';
 
 const HEADER_BG = '#f9fafb';
 const BORDER = '#e5e7eb';

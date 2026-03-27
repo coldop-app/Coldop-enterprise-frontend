@@ -430,7 +430,7 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                             tickFormatter={formatNumber}
                           />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={(value: unknown) => [
                               formatNumber(Number(value)),
                               'Bags',
                             ]}
@@ -583,7 +583,7 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                             tickFormatter={formatNumber}
                           />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={(value: unknown) => [
                               formatNumber(Number(value)),
                               'Bags',
                             ]}

@@ -7,9 +7,9 @@ import {
 import {
   SIZE_HEADER_LABELS,
   getBuyBackRate,
-} from '@/components/pdf/gradingVoucherCalculations';
-import { STOCK_LEDGER_COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+} from '@/components/pdf/shared/gradingVoucherCalculations';
+import { STOCK_LEDGER_COL_WIDTHS } from '@/components/pdf/shared/stockLedgerColumnWidths';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 
 /** Per (type, weightKey) allocated values for summary right-hand columns */
 export interface SummaryRightValues {

@@ -127,7 +127,7 @@ const IncomingVoucher = memo(function IncomingVoucher({
     try {
       const [{ pdf }, { IncomingVoucherPdf }] = await Promise.all([
         import('@react-pdf/renderer'),
-        import('@/components/pdf/IncomingVoucherPdf'),
+        import('@/components/pdf/vouchers/IncomingVoucherPdf'),
       ]);
       const blob = await pdf(
         <IncomingVoucherPdf

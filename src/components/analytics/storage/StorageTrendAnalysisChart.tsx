@@ -421,7 +421,7 @@ const StorageTrendAnalysisChart = memo(function StorageTrendAnalysisChart({
                             tickFormatter={formatNumber}
                           />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={(value: unknown) => [
                               formatNumber(Number(value)),
                               'Bags',
                             ]}
@@ -572,7 +572,7 @@ const StorageTrendAnalysisChart = memo(function StorageTrendAnalysisChart({
                             tickFormatter={formatNumber}
                           />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={(value: unknown) => [
                               formatNumber(Number(value)),
                               'Bags',
                             ]}

@@ -2,8 +2,8 @@ import { Fragment } from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { formatVoucherDate } from '@/components/daybook/vouchers/format-date';
 import { GRADING_SIZES } from '@/components/forms/grading/constants';
-import { SIZE_HEADER_LABELS } from '@/components/pdf/gradingVoucherCalculations';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import { SIZE_HEADER_LABELS } from '@/components/pdf/shared/gradingVoucherCalculations';
+import type { StockLedgerRow } from '@/components/pdf/shared/stockLedgerTypes';
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
