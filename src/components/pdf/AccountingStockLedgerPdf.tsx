@@ -256,14 +256,28 @@ function formatIncomingTotalNumber(n: number): string {
   return String(Math.round(n * 10) / 10);
 }
 
-/** Rows shown in PDF incoming table: variety headers + first row per pass only. */
+/**
+ * Rows shown in PDF incoming table: variety headers + all incoming data rows.
+ * We include any data row that has at least one incoming identifier/value so
+ * multiple incoming gate passes linked to the same grading pass are preserved.
+ */
 function filterIncomingPdfRows(
   rows: FarmerReportPdfRow[]
 ): FarmerReportPdfRow[] {
+  const hasIncomingIdentity = (row: FarmerReportPdfRow & { type: 'data' }) => {
+    const systemIncoming = formatCellValue(row.cells.systemIncomingNo);
+    const manualIncoming = formatCellValue(row.cells.manualIncomingNo);
+    return (
+      systemIncoming !== '—' ||
+      manualIncoming !== '—' ||
+      (row.passRowIndex ?? 0) === 0
+    );
+  };
+
   return rows.filter(
     (row) =>
       row.type === 'variety' ||
-      (row.type === 'data' && (row.passRowIndex ?? 0) === 0)
+      (row.type === 'data' && hasIncomingIdentity(row))
   );
 }
 

@@ -33,7 +33,11 @@ function formatCellValue(value: string | number | undefined): string {
   return String(value);
 }
 
-/** Build incoming section rows from snapshot (first row per pass + variety headers). */
+/**
+ * Build incoming section rows from snapshot (all incoming rows + variety headers).
+ * We include any data row that has at least one incoming identifier/value so
+ * multiple incoming gate passes linked to the same grading pass are preserved.
+ */
 function buildIncomingSectionRows(
   snapshot: FarmerReportPdfSnapshot
 ): (string | number)[][] {
@@ -49,10 +53,20 @@ function buildIncomingSectionRows(
   );
   result.push(headerRow);
 
+  const hasIncomingIdentity = (row: FarmerReportPdfRow & { type: 'data' }) => {
+    const systemIncoming = formatCellValue(row.cells.systemIncomingNo);
+    const manualIncoming = formatCellValue(row.cells.manualIncomingNo);
+    return (
+      systemIncoming !== '—' ||
+      manualIncoming !== '—' ||
+      (row.passRowIndex ?? 0) === 0
+    );
+  };
+
   const dataRows = rows.filter(
     (row) =>
       row.type === 'variety' ||
-      (row.type === 'data' && (row.passRowIndex ?? 0) === 0)
+      (row.type === 'data' && hasIncomingIdentity(row))
   );
   for (const row of dataRows) {
     if (row.type === 'variety') {
