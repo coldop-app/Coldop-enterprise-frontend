@@ -118,8 +118,8 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                       </tr>
                     </thead>
                     <tbody>
-                      {nonZeroRows.map((row) => (
-                        <tr key={row.name}>
+                      {nonZeroRows.map((row, idx) => (
+                        <tr key={`${row.name}-${idx}`}>
                           <td className="border-t px-3 py-2">{row.name}</td>
                           <td className="border-t px-3 py-2 text-right">
                             {row.quantity}

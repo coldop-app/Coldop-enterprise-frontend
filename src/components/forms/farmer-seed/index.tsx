@@ -11,6 +11,7 @@ import {
   GRADING_SIZES,
   POTATO_VARIETIES,
 } from '@/components/forms/grading/constants';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -35,6 +36,20 @@ import { useState } from 'react';
 
 type FieldErrors = Array<{ message?: string } | undefined>;
 type FarmerSeedBagSizeRow = { name: string; quantity: number; rate: number };
+type FarmerSeedExtraBagSizeRow = {
+  id: string;
+  name: string;
+  quantity: number;
+  rate: number;
+};
+
+/** Default bag size rows shown on the farmer seed form (not the full grading list). */
+const FARMER_SEED_DEFAULT_SIZES = [
+  'Below 30',
+  '30-40',
+  '40-50',
+  'Above 50',
+] as const;
 
 const formSchema = z
   .object({
@@ -47,17 +62,32 @@ const formSchema = z
         rate: z.number().min(0, 'Rate must be non-negative'),
       })
     ),
+    extraBagSizeRows: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string().min(1, 'Bag size is required'),
+        quantity: z.number().int().min(0, 'Quantity must be non-negative'),
+        rate: z.number().min(0, 'Rate must be non-negative'),
+      })
+    ),
   })
-  .refine((data) => data.bagSizes.some((item) => (item.quantity ?? 0) > 0), {
-    message: 'Please enter quantity for at least one bag size.',
-    path: ['bagSizes'],
-  });
+  .refine(
+    (data) =>
+      data.bagSizes.some((item) => (item.quantity ?? 0) > 0) ||
+      data.extraBagSizeRows.some((item) => (item.quantity ?? 0) > 0),
+    {
+      message: 'Please enter quantity for at least one bag size.',
+      path: ['bagSizes'],
+    }
+  );
 
-const defaultBagSizes: FarmerSeedBagSizeRow[] = GRADING_SIZES.map((size) => ({
-  name: size,
-  quantity: 0,
-  rate: 0,
-}));
+const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
+  (size) => ({
+    name: size,
+    quantity: 0,
+    rate: 0,
+  })
+);
 
 const FarmerSeedForm = memo(function FarmerSeedForm() {
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
@@ -85,6 +115,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
       farmerStorageLinkId: '',
       variety: '',
       bagSizes: defaultBagSizes,
+      extraBagSizeRows: [] as FarmerSeedExtraBagSizeRow[],
     },
     validators: {
       onSubmit: formSchema,
@@ -94,13 +125,22 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         {
           farmerStorageLinkId: value.farmerStorageLinkId,
           variety: value.variety.trim(),
-          bagSizes: value.bagSizes
-            .filter((item) => (item.quantity ?? 0) > 0)
-            .map((item) => ({
-              name: item.name,
-              quantity: Number(item.quantity ?? 0),
-              rate: Number(item.rate ?? 0),
-            })),
+          bagSizes: [
+            ...value.bagSizes
+              .filter((item) => (item.quantity ?? 0) > 0)
+              .map((item) => ({
+                name: item.name,
+                quantity: Number(item.quantity ?? 0),
+                rate: Number(item.rate ?? 0),
+              })),
+            ...value.extraBagSizeRows
+              .filter((item) => (item.quantity ?? 0) > 0)
+              .map((item) => ({
+                name: item.name,
+                quantity: Number(item.quantity ?? 0),
+                rate: Number(item.rate ?? 0),
+              })),
+          ],
         },
         {
           onSuccess: (data) => {
@@ -239,109 +279,252 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
 
           <form.Field
             name="bagSizes"
-            children={(field) => {
-              const bagSizes = field.state.value ?? defaultBagSizes;
-              const totalQty = bagSizes.reduce(
-                (sum, row) => sum + (row.quantity ?? 0),
-                0
-              );
-              const hasQty = totalQty > 0;
+            children={(field) => (
+              <form.Subscribe
+                selector={(state) => ({
+                  extraBagSizeRows: state.values.extraBagSizeRows ?? [],
+                })}
+              >
+                {({ extraBagSizeRows }) => {
+                  const bagSizes = field.state.value ?? defaultBagSizes;
+                  const extraTotal = extraBagSizeRows.reduce(
+                    (sum, row) => sum + (row.quantity ?? 0),
+                    0
+                  );
+                  const fixedTotal = bagSizes.reduce(
+                    (sum, row) => sum + (row.quantity ?? 0),
+                    0
+                  );
+                  const totalQty = fixedTotal + extraTotal;
+                  const hasQty = totalQty > 0;
 
-              return (
-                <Card className="overflow-hidden">
-                  <CardHeader className="space-y-1.5 pb-4">
-                    <CardTitle className="font-custom text-foreground text-xl font-semibold">
-                      Enter Bag Sizes
-                    </CardTitle>
-                    <CardDescription className="font-custom text-muted-foreground text-sm">
-                      Add quantity and rate for each size. At least one size
-                      must have quantity greater than zero.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {bagSizes.map((row, index) => {
-                      const qtyDisplay =
-                        row.quantity === 0 ? '' : String(row.quantity);
-                      const rateDisplay =
-                        row.rate === 0 ? '' : String(row.rate);
+                  const defaultExtraName = GRADING_SIZES[0] ?? '';
 
-                      return (
-                        <div
-                          key={`${row.name}-${index}`}
-                          className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center sm:gap-4"
+                  const addExtraRow = () => {
+                    const next: FarmerSeedExtraBagSizeRow[] = [
+                      ...extraBagSizeRows,
+                      {
+                        id: crypto.randomUUID(),
+                        name: defaultExtraName,
+                        quantity: 0,
+                        rate: 0,
+                      },
+                    ];
+                    form.setFieldValue(
+                      'extraBagSizeRows' as never,
+                      next as never
+                    );
+                  };
+
+                  const updateExtraRow = (
+                    id: string,
+                    updates: Partial<FarmerSeedExtraBagSizeRow>
+                  ) => {
+                    const next = extraBagSizeRows.map((row) =>
+                      row.id === id ? { ...row, ...updates } : row
+                    );
+                    form.setFieldValue(
+                      'extraBagSizeRows' as never,
+                      next as never
+                    );
+                  };
+
+                  const removeExtraRow = (id: string) => {
+                    const next = extraBagSizeRows.filter(
+                      (row) => row.id !== id
+                    );
+                    form.setFieldValue(
+                      'extraBagSizeRows' as never,
+                      next as never
+                    );
+                  };
+
+                  return (
+                    <Card className="overflow-hidden">
+                      <CardHeader className="space-y-1.5 pb-4">
+                        <CardTitle className="font-custom text-foreground text-xl font-semibold">
+                          Enter Bag Sizes
+                        </CardTitle>
+                        <CardDescription className="font-custom text-muted-foreground text-sm">
+                          Add quantity and rate for each size. Use Add Size for
+                          additional grading sizes. At least one row must have
+                          quantity greater than zero.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {bagSizes.map((row, index) => {
+                          const qtyDisplay =
+                            row.quantity === 0 ? '' : String(row.quantity);
+                          const rateDisplay =
+                            row.rate === 0 ? '' : String(row.rate);
+
+                          return (
+                            <div
+                              key={`${row.name}-${index}`}
+                              className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center sm:gap-4"
+                            >
+                              <label
+                                htmlFor={`farmer-seed-size-${index}`}
+                                className="font-custom text-foreground text-base font-normal"
+                              >
+                                {row.name}
+                              </label>
+                              <Input
+                                id={`farmer-seed-size-${index}`}
+                                type="number"
+                                min={0}
+                                step={1}
+                                placeholder="Qty"
+                                value={qtyDisplay}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num =
+                                    raw === ''
+                                      ? 0
+                                      : Math.max(0, parseInt(raw, 10) || 0);
+                                  const next = [...bagSizes];
+                                  next[index] = {
+                                    ...next[index],
+                                    quantity: num,
+                                  };
+                                  field.handleChange(next);
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                placeholder="Rate"
+                                value={rateDisplay}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num =
+                                    raw === ''
+                                      ? 0
+                                      : Math.max(0, parseFloat(raw) || 0);
+                                  const next = [...bagSizes];
+                                  next[index] = { ...next[index], rate: num };
+                                  field.handleChange(next);
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                            </div>
+                          );
+                        })}
+                        {extraBagSizeRows.map((row) => {
+                          const qtyDisplay =
+                            row.quantity === 0 ? '' : String(row.quantity);
+                          const rateDisplay =
+                            row.rate === 0 ? '' : String(row.rate);
+                          return (
+                            <div
+                              key={row.id}
+                              className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center sm:gap-4"
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                <select
+                                  aria-label="Select bag size"
+                                  value={row.name}
+                                  onChange={(e) =>
+                                    updateExtraRow(row.id, {
+                                      name: e.target.value,
+                                    })
+                                  }
+                                  className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 min-w-0 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                >
+                                  {GRADING_SIZES.map((s) => (
+                                    <option key={s} value={s}>
+                                      {s}
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-muted-foreground hover:text-destructive shrink-0"
+                                  onClick={() => removeExtraRow(row.id)}
+                                  aria-label={`Remove ${row.name || 'size'} row`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={1}
+                                placeholder="Qty"
+                                value={qtyDisplay}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num =
+                                    raw === ''
+                                      ? 0
+                                      : Math.max(0, parseInt(raw, 10) || 0);
+                                  updateExtraRow(row.id, { quantity: num });
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                placeholder="Rate"
+                                value={rateDisplay}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num =
+                                    raw === ''
+                                      ? 0
+                                      : Math.max(0, parseFloat(raw) || 0);
+                                  updateExtraRow(row.id, { rate: num });
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                            </div>
+                          );
+                        })}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addExtraRow}
+                          className="font-custom w-full sm:w-auto"
                         >
-                          <label
-                            htmlFor={`farmer-seed-size-${index}`}
-                            className="font-custom text-foreground text-base font-normal"
-                          >
-                            {row.name}
-                          </label>
-                          <Input
-                            id={`farmer-seed-size-${index}`}
-                            type="number"
-                            min={0}
-                            step={1}
-                            placeholder="Qty"
-                            value={qtyDisplay}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              const num =
-                                raw === ''
-                                  ? 0
-                                  : Math.max(0, parseInt(raw, 10) || 0);
-                              const next = [...bagSizes];
-                              next[index] = { ...next[index], quantity: num };
-                              field.handleChange(next);
-                            }}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          />
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            placeholder="Rate"
-                            value={rateDisplay}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              const num =
-                                raw === ''
-                                  ? 0
-                                  : Math.max(0, parseFloat(raw) || 0);
-                              const next = [...bagSizes];
-                              next[index] = { ...next[index], rate: num };
-                              field.handleChange(next);
-                            }}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          />
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Size
+                        </Button>
+                        <Separator className="my-4" />
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="font-custom text-foreground text-base font-normal">
+                            Total Quantity
+                          </span>
+                          <span className="font-custom text-foreground text-base font-medium sm:text-right">
+                            {totalQty}
+                          </span>
                         </div>
-                      );
-                    })}
-                    <Separator className="my-4" />
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="font-custom text-foreground text-base font-normal">
-                        Total Quantity
-                      </span>
-                      <span className="font-custom text-foreground text-base font-medium sm:text-right">
-                        {totalQty}
-                      </span>
-                    </div>
-                    {!hasQty && (
-                      <p className="font-custom text-destructive text-sm">
-                        Please enter quantity for at least one bag size.
-                      </p>
-                    )}
-                    {field.state.meta.isTouched &&
-                      !field.state.meta.isValid && (
-                        <FieldError
-                          errors={field.state.meta.errors as FieldErrors}
-                        />
-                      )}
-                  </CardContent>
-                </Card>
-              );
-            }}
+                        {!hasQty && (
+                          <p className="font-custom text-destructive text-sm">
+                            Please enter quantity for at least one bag size.
+                          </p>
+                        )}
+                        {field.state.meta.isTouched &&
+                          !field.state.meta.isValid && (
+                            <FieldError
+                              errors={field.state.meta.errors as FieldErrors}
+                            />
+                          )}
+                      </CardContent>
+                    </Card>
+                  );
+                }}
+              </form.Subscribe>
+            )}
           />
         </FieldGroup>
 
@@ -377,7 +560,16 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         selectedFarmer={selectedFarmer}
         formValues={{
           variety: form.state.values.variety,
-          bagSizes: form.state.values.bagSizes,
+          bagSizes: [
+            ...form.state.values.bagSizes,
+            ...form.state.values.extraBagSizeRows.map(
+              ({ name, quantity, rate }) => ({
+                name,
+                quantity,
+                rate,
+              })
+            ),
+          ],
         }}
         isPending={isPending}
         onSubmit={() => form.handleSubmit()}
