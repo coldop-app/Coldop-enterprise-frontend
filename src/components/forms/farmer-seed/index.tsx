@@ -31,8 +31,10 @@ import { Separator } from '@/components/ui/separator';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import { useCreateFarmerSeedEntry } from '@/services/store-admin/farmer-seed/useCreateFarmerSeedEntry';
 import { FarmerSeedSummarySheet } from '@/components/forms/farmer-seed/summary-sheet';
+import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-farmer-seed-amount';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 
 type FieldErrors = Array<{ message?: string } | undefined>;
 type FarmerSeedBagSizeRow = { name: string; quantity: number; rate: number };
@@ -90,6 +92,7 @@ const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
 );
 
 const FarmerSeedForm = memo(function FarmerSeedForm() {
+  const navigate = useNavigate();
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
   const {
     data: farmerLinks,
@@ -145,7 +148,9 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         {
           onSuccess: (data) => {
             if (data.success) {
+              setIsSummarySheetOpen(false);
               form.reset();
+              navigate({ to: '/store-admin/people' });
             }
           },
         }
@@ -296,6 +301,15 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                     0
                   );
                   const totalQty = fixedTotal + extraTotal;
+                  const fixedAmount = bagSizes.reduce(
+                    (sum, row) => sum + (row.quantity ?? 0) * (row.rate ?? 0),
+                    0
+                  );
+                  const extraAmount = extraBagSizeRows.reduce(
+                    (sum, row) => sum + (row.quantity ?? 0) * (row.rate ?? 0),
+                    0
+                  );
+                  const totalAmount = fixedAmount + extraAmount;
                   const hasQty = totalQty > 0;
 
                   const defaultExtraName = GRADING_SIZES[0] ?? '';
@@ -506,6 +520,14 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                           </span>
                           <span className="font-custom text-foreground text-base font-medium sm:text-right">
                             {totalQty}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="font-custom text-foreground text-base font-normal">
+                            Total Amount
+                          </span>
+                          <span className="font-custom text-foreground text-base font-medium sm:text-right">
+                            {formatFarmerSeedAmount(totalAmount)}
                           </span>
                         </div>
                         {!hasQty && (

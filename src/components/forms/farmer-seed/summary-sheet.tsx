@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { FileText, Loader2, Package, User } from 'lucide-react';
+import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-farmer-seed-amount';
 
 export interface FarmerSeedSummaryBagSize {
   name: string;
@@ -128,7 +129,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                             {row.rate.toFixed(2)}
                           </td>
                           <td className="border-t px-3 py-2 text-right">
-                            {(row.quantity * row.rate).toFixed(2)}
+                            {formatFarmerSeedAmount(row.quantity * row.rate)}
                           </td>
                         </tr>
                       ))}
@@ -153,7 +154,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                 Total Amount
               </span>
               <span className="font-custom text-foreground text-lg font-bold">
-                {totalAmount.toFixed(2)}
+                {formatFarmerSeedAmount(totalAmount)}
               </span>
             </div>
           </div>

@@ -18,13 +18,7 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from '@/components/ui/pagination';
-import {
-  Search,
-  ChevronDown,
-  ArrowUpFromLine,
-  Receipt,
-  Sprout,
-} from 'lucide-react';
+import { Search, ChevronDown, ArrowUpFromLine, Receipt } from 'lucide-react';
 import {
   Empty,
   EmptyHeader,
@@ -195,17 +189,7 @@ const IncomingTab = memo(function IncomingTab({
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end sm:gap-2">
             <Button
-              variant="outline"
               className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-              asChild
-            >
-              <Link to="/store-admin/farmer-seed">
-                <Sprout className="h-4 w-4 shrink-0" />
-                Add Seed
-              </Link>
-            </Button>
-            <Button
-              className="font-custom h-10 w-full shrink-0 gap-2 sm:w-auto"
               asChild
             >
               <Link to="/store-admin/incoming">

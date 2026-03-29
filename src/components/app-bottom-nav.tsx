@@ -21,7 +21,7 @@ const navigationItems: NavigationItem[] = [
     name: 'People',
     href: '/store-admin/people',
     icon: Users,
-    activePaths: ['/store-admin/people'],
+    activePaths: ['/store-admin/people', '/store-admin/farmer-seed'],
   },
   {
     name: 'Analytics',

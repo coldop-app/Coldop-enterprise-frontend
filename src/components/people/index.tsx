@@ -1,5 +1,5 @@
 import { memo, useState, useMemo } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import type { FarmerStorageLink } from '@/types/farmer';
 
@@ -38,6 +38,7 @@ import {
   Search,
   ChevronDown,
   RefreshCw,
+  Sprout,
 } from 'lucide-react';
 
 const PeoplePage = memo(function PeoplePage() {
@@ -189,7 +190,19 @@ const PeoplePage = memo(function PeoplePage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <AddFarmerModal links={links} />
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end sm:gap-2">
+              <Button
+                variant="outline"
+                className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+                asChild
+              >
+                <Link to="/store-admin/farmer-seed">
+                  <Sprout className="h-4 w-4 shrink-0" />
+                  Add Seed
+                </Link>
+              </Button>
+              <AddFarmerModal links={links} />
+            </div>
           </ItemFooter>
         </Item>
 
