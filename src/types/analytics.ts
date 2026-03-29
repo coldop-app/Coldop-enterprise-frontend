@@ -603,6 +603,35 @@ export interface GetIncomingDailyBreakdownApiResponse {
   message?: string;
 }
 
+// --- Grading daily breakdown (GET /grading-gate-pass/grading-daily-breakdown) ---
+
+/** Per-grader totals for a single calendar day */
+export interface GradingDailyBreakdownGraderTotals {
+  gatePassCount: number;
+  totalInitialQuantity: number;
+  totalCurrentQuantity: number;
+}
+
+/** One grader group with its grading gate passes for that day */
+export interface GradingDailyBreakdownGraderGroup {
+  grader: string;
+  totals: GradingDailyBreakdownGraderTotals;
+  gradingGatePasses: GradingGatePass[];
+}
+
+/** Data shape for GET /grading-gate-pass/grading-daily-breakdown?date=YYYY-MM-DD */
+export interface GradingDailyBreakdownData {
+  date: string;
+  groups: GradingDailyBreakdownGraderGroup[];
+}
+
+/** API response for GET /grading-gate-pass/grading-daily-breakdown */
+export interface GetGradingDailyBreakdownApiResponse {
+  success: boolean;
+  data: GradingDailyBreakdownData;
+  message?: string;
+}
+
 // --- Grading daily/monthly trend (GET /analytics/grading-daily-monthly-trend) ---
 
 /** Daily series for grading trend: one grader with its daily dataPoints */

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-03-29
+
+### Added
+- Analytics Grading: **Grading daily breakdown** at `/store-admin/analytics/grading-daily-breakdown` — search param `date` (YYYY-MM-DD); summary cards (graders, gate passes, total current bags); per-grader groups with a gate pass table (GP #, manual #, farmer, account, variety, initial/current bags, allocation, remarks); loading, error, and empty states aligned with incoming daily breakdown
+- Service: **useGetGradingDailyBreakdown**, `gradingDailyBreakdownQueryOptions`, and **prefetchGradingDailyBreakdown** for GET `/grading-gate-pass/grading-daily-breakdown`
+- Types: grading daily breakdown API shapes in `analytics.ts` (`GradingDailyBreakdownData`, groups, totals, response)
+- Grading trend analysis (**daily** activity table): clickable date and grader cells navigate to grading daily breakdown with `date` in the URL (row total column remains non-link), consistent with incoming stock trend behavior
+- Route: **validateSearch** on grading daily breakdown for typed `date` query parsing
+
 ## [0.41.0] - 2026-03-29
 
 ### Added

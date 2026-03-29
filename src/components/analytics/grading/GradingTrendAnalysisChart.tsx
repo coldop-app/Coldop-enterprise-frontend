@@ -29,14 +29,24 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { Link } from '@tanstack/react-router';
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
 import { useGetGradingTrendAnalysis } from '@/services/store-admin/grading-gate-pass/useGetGradingTrendAnalysis';
 import type { GetGradingTrendParams } from '@/services/store-admin/grading-gate-pass/useGetGradingTrendAnalysis';
 import { formatDisplayDate } from '@/lib/helpers';
+import { cn } from '@/lib/utils';
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-IN').format(value);
 }
+
+/** YYYY-MM-DD for daily-breakdown route search */
+function toBreakdownDateParam(isoDate: string): string {
+  return isoDate.slice(0, 10);
+}
+
+const dailyBreakdownLinkBase =
+  'font-custom text-inherit no-underline transition-colors duration-200 hover:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 
 /** Format date for chart axis: day + short month only (no year), e.g. "3 Feb" */
 function formatChartDate(dateStr: string | undefined): string {
@@ -342,27 +352,48 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {dailyTableData.map((row) => (
-                          <TableRow
-                            key={row.date}
-                            className="border-border hover:bg-transparent"
-                          >
-                            <TableCell className="font-custom border-border border px-4 py-2 font-medium whitespace-nowrap">
-                              {formatDisplayDate(row.date)}
-                            </TableCell>
-                            {dailyGraders.map((grader) => (
-                              <TableCell
-                                key={grader}
-                                className="font-custom border-border border px-4 py-2 text-right font-medium tabular-nums"
-                              >
-                                {formatNumber(Number(row[grader] ?? 0))}
+                        {dailyTableData.map((row) => {
+                          const breakdownDate = toBreakdownDateParam(row.date);
+                          return (
+                            <TableRow
+                              key={row.date}
+                              className="border-border hover:bg-transparent"
+                            >
+                              <TableCell className="border-border border p-0 font-medium whitespace-nowrap">
+                                <Link
+                                  to="/store-admin/analytics/grading-daily-breakdown"
+                                  search={{ date: breakdownDate }}
+                                  className={cn(
+                                    dailyBreakdownLinkBase,
+                                    'block px-4 py-2 font-medium whitespace-nowrap'
+                                  )}
+                                >
+                                  {formatDisplayDate(row.date)}
+                                </Link>
                               </TableCell>
-                            ))}
-                            <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
-                              {formatNumber(row.total)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                              {dailyGraders.map((grader) => (
+                                <TableCell
+                                  key={grader}
+                                  className="border-border border p-0 text-right font-medium tabular-nums"
+                                >
+                                  <Link
+                                    to="/store-admin/analytics/grading-daily-breakdown"
+                                    search={{ date: breakdownDate }}
+                                    className={cn(
+                                      dailyBreakdownLinkBase,
+                                      'block px-4 py-2 text-right font-medium tabular-nums'
+                                    )}
+                                  >
+                                    {formatNumber(Number(row[grader] ?? 0))}
+                                  </Link>
+                                </TableCell>
+                              ))}
+                              <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
+                                {formatNumber(row.total)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                       <TableFooter>
                         <TableRow className="border-border hover:bg-transparent">
