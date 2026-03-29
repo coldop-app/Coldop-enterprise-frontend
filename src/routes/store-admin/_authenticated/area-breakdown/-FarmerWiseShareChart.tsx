@@ -5,6 +5,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -26,18 +27,27 @@ const CHART_COLORS = [
 ];
 
 export interface FarmerWiseShareChartProps {
-  /** { farmerName, value } with value > 0 */
-  data: { name: string; value: number }[];
+  /** Per farmer: bag count, value = net potato weight (kg), bardana excluded */
+  data: { name: string; bags: number; value: number }[];
+}
+
+interface FarmerSlice {
+  name: string;
+  value: number;
+  bags: number;
+  fill: string;
+  percentage: number;
 }
 
 const FarmerWiseShareChart = memo(function FarmerWiseShareChart({
   data,
 }: FarmerWiseShareChartProps) {
-  const { pieData, chartConfig } = useMemo(() => {
+  const { pieData, chartConfig, totalWeightKg } = useMemo(() => {
     const total = data.reduce((sum, d) => sum + d.value, 0);
-    const slices = data.map((d, i) => ({
+    const slices: FarmerSlice[] = data.map((d, i) => ({
       name: d.name,
       value: d.value,
+      bags: d.bags,
       fill: CHART_COLORS[i % CHART_COLORS.length],
       percentage: total > 0 ? (d.value / total) * 100 : 0,
     }));
@@ -48,13 +58,9 @@ const FarmerWiseShareChart = memo(function FarmerWiseShareChart({
         color: CHART_COLORS[i % CHART_COLORS.length],
       };
     });
-    return { pieData: slices, chartConfig: config };
+    return { pieData: slices, chartConfig: config, totalWeightKg: total };
   }, [data]);
 
-  const total = useMemo(
-    () => pieData.reduce((sum, d) => sum + d.value, 0),
-    [pieData]
-  );
   const topFarmer = pieData[0];
 
   if (pieData.length === 0) {
@@ -65,7 +71,7 @@ const FarmerWiseShareChart = memo(function FarmerWiseShareChart({
             Farmer-wise Share
           </h3>
           <p className="font-custom text-muted-foreground text-xs sm:text-sm">
-            Percentage breakdown by farmer (stock)
+            Net weight breakdown by farmer (bardana excluded)
           </p>
         </CardHeader>
         <CardContent>
@@ -84,7 +90,8 @@ const FarmerWiseShareChart = memo(function FarmerWiseShareChart({
           Farmer-wise Share
         </h3>
         <p className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Percentage breakdown by farmer (stock)
+          Net weight breakdown by farmer (bardana excluded). Percentages are by
+          weight, not bag count.
         </p>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
@@ -98,10 +105,11 @@ const FarmerWiseShareChart = memo(function FarmerWiseShareChart({
                 content={
                   <ChartTooltipContent
                     nameKey="name"
-                    formatter={(value) => [
-                      `${Number(value).toLocaleString('en-IN')} (${total > 0 ? ((Number(value) / total) * 100).toFixed(1) : 0}%)`,
-                      undefined,
-                    ]}
+                    formatter={(val) =>
+                      `${Number(val).toLocaleString('en-IN', {
+                        maximumFractionDigits: 2,
+                      })} kg`
+                    }
                   />
                 }
               />
@@ -123,55 +131,89 @@ const FarmerWiseShareChart = memo(function FarmerWiseShareChart({
             </PieChart>
           </ChartContainer>
         </div>
-        <div className="min-w-0 space-y-2">
-          <div className="border-border min-w-0 overflow-x-auto rounded-lg border">
-            <Table>
+        <div className="min-w-0 space-y-3">
+          <h4 className="font-custom text-foreground text-sm font-semibold sm:text-base">
+            Farmer share & insights (
+            {totalWeightKg.toLocaleString('en-IN', {
+              maximumFractionDigits: 2,
+            })}{' '}
+            kg)
+          </h4>
+          <div className="border-border overflow-x-auto rounded-lg border">
+            <Table className="border-collapse">
               <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead
-                    className="font-custom w-8 shrink-0 font-medium"
-                    aria-hidden
-                  />
-                  <TableHead className="font-custom font-medium">
+                <TableRow className="border-border bg-muted hover:bg-muted">
+                  <TableHead className="font-custom border-border border px-3 py-2 text-xs font-bold sm:text-sm">
                     Farmer
                   </TableHead>
-                  <TableHead className="font-custom text-right font-medium tabular-nums">
-                    Quantity
+                  <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                    Bags
                   </TableHead>
-                  <TableHead className="font-custom text-right font-medium tabular-nums">
-                    %
+                  <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                    Weight (kg)
+                  </TableHead>
+                  <TableHead className="font-custom border-border border px-3 py-2 text-right text-xs font-bold sm:text-sm">
+                    % of total
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pieData.map((item) => (
-                  <TableRow key={item.name}>
-                    <TableCell className="w-8 shrink-0 p-2" aria-hidden>
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: item.fill }}
-                        aria-hidden
-                      />
+                  <TableRow
+                    key={item.name}
+                    className="border-border hover:bg-muted/50"
+                  >
+                    <TableCell className="font-custom border-border border px-3 py-2 text-xs sm:text-sm">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: item.fill }}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 truncate">{item.name}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="font-custom text-foreground min-w-0">
-                      {item.name}
+                    <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                      {item.bags.toLocaleString('en-IN')}
                     </TableCell>
-                    <TableCell className="font-custom text-right tabular-nums">
-                      {item.value.toLocaleString('en-IN')}
+                    <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
+                      {item.value.toLocaleString('en-IN', {
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
-                    <TableCell className="font-custom text-right tabular-nums">
+                    <TableCell className="font-custom border-border border px-3 py-2 text-right text-xs tabular-nums sm:text-sm">
                       {item.percentage.toFixed(1)}%
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
+              <TableFooter>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="font-custom bg-muted/60 border-border border px-3 py-2 text-xs font-bold sm:text-sm">
+                    Total
+                  </TableHead>
+                  <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                    {pieData
+                      .reduce((sum, item) => sum + item.bags, 0)
+                      .toLocaleString('en-IN')}
+                  </TableCell>
+                  <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                    {totalWeightKg.toLocaleString('en-IN', {
+                      maximumFractionDigits: 2,
+                    })}
+                  </TableCell>
+                  <TableCell className="font-custom bg-muted/60 border-border border px-3 py-2 text-right text-xs font-bold tabular-nums sm:text-sm">
+                    100.0%
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
             </Table>
           </div>
           <div className="min-w-0 space-y-1">
             {topFarmer && (
               <p className="font-custom text-muted-foreground text-xs sm:text-sm">
                 • {topFarmer.name} is the top contributor with{' '}
-                {topFarmer.percentage.toFixed(1)}% of total inventory
+                {topFarmer.percentage.toFixed(1)}% of total net weight
               </p>
             )}
             <p className="font-custom text-muted-foreground text-xs sm:text-sm">

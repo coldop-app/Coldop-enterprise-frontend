@@ -38,7 +38,35 @@ async function fetchAreaBreakdown(
     throw new Error(data.message ?? 'Failed to fetch farmers stock by filters');
   }
 
-  return data.data;
+  const raw = data.data;
+  return {
+    farmers: (raw.farmers ?? []).map((entry) => ({
+      ...entry,
+      varieties: (entry.varieties ?? []).map((v) => ({
+        ...v,
+        sizes: (v.sizes ?? []).map((s) => {
+          const w = (s as { weightExcludingBardanaKg?: unknown })
+            .weightExcludingBardanaKg;
+          const wSnake = (s as { weight_excluding_bardana_kg?: unknown })
+            .weight_excluding_bardana_kg;
+          const weightRaw = w ?? wSnake;
+          const weightExcludingBardanaKg =
+            weightRaw != null && weightRaw !== ''
+              ? Number(weightRaw)
+              : undefined;
+          return {
+            size: s.size ?? '',
+            stock: Number(s.stock ?? 0),
+            weightExcludingBardanaKg:
+              weightExcludingBardanaKg != null &&
+              !Number.isNaN(weightExcludingBardanaKg)
+                ? weightExcludingBardanaKg
+                : undefined,
+          };
+        }),
+      })),
+    })),
+  };
 }
 
 /** Query options – use with useQuery, prefetchQuery, or in loaders */

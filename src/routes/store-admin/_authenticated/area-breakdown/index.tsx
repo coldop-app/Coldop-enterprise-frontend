@@ -19,6 +19,7 @@ import type {
   AreaBreakdownVarietyItem,
   AreaBreakdownSizeStock,
 } from '@/types/analytics';
+import { netPotatoKgFromBagsForGradingSize } from '@/utils/areaBreakdownGradingWeight';
 import SizeWiseDistributionChart from './-SizeWiseDistributionChart';
 import FarmerWiseShareChart from './-FarmerWiseShareChart';
 import FarmerQuantityTable, {
@@ -70,6 +71,20 @@ function getSizesFromData(
 /** Sum stock for a single size entry */
 function getStock(sizeStock: AreaBreakdownSizeStock): number {
   return sizeStock.stock ?? 0;
+}
+
+/**
+ * Net potato kg for one size line (bardana excluded). Uses API `weightExcludingBardanaKg` when
+ * present; otherwise same rule as analytics size distribution / farmer profile: bags × (gross − jute tare).
+ */
+function getSizeLineNetWeightKg(sizeStock: AreaBreakdownSizeStock): number {
+  const bags = getStock(sizeStock);
+  const api = sizeStock.weightExcludingBardanaKg;
+  if (api != null && !Number.isNaN(api) && api > 0) {
+    return api;
+  }
+  if (bags <= 0) return 0;
+  return netPotatoKgFromBagsForGradingSize(bags, sizeStock.size ?? '');
 }
 
 /** Sum stock across all sizes in a variety item, optionally filtered by size */
@@ -212,10 +227,42 @@ function AreaBreakdownPage() {
     return list;
   }, [data, filterSize]);
 
-  const farmerWiseChartData = useMemo(
-    () => farmerAggregate.map((d) => ({ name: d.name, value: d.value })),
-    [farmerAggregate]
-  );
+  const farmerWiseChartData = useMemo(() => {
+    if (!data?.farmers) return [];
+    const byName = new Map<string, { bags: number; weightKg: number }>();
+    for (const entry of data.farmers) {
+      const name = (entry.farmer?.name ?? '').trim() || '—';
+      let bags = 0;
+      let weightKg = 0;
+      for (const v of entry.varieties ?? []) {
+        for (const s of v.sizes ?? []) {
+          const sizeKey = (s.size ?? '').trim();
+          if (filterSize !== null && sizeKey !== filterSize) continue;
+          const b = getStock(s);
+          if (b <= 0) continue;
+          bags += b;
+          weightKg += getSizeLineNetWeightKg(s);
+        }
+      }
+      if (bags <= 0) continue;
+      const prev = byName.get(name);
+      if (prev) {
+        byName.set(name, {
+          bags: prev.bags + bags,
+          weightKg: prev.weightKg + weightKg,
+        });
+      } else {
+        byName.set(name, { bags, weightKg });
+      }
+    }
+    return Array.from(byName.entries())
+      .map(([name, agg]) => ({
+        name,
+        bags: agg.bags,
+        value: agg.weightKg,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [data, filterSize]);
 
   const tableRows = useMemo((): FarmerQuantityRow[] => {
     if (totalQuantity <= 0)

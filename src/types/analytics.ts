@@ -641,6 +641,8 @@ export interface AreaBreakdownFarmer {
 export interface AreaBreakdownSizeStock {
   size: string;
   stock: number;
+  /** When set by GET /analytics/farmers-stock-by-filters, total net kg for this line (bardana excluded) */
+  weightExcludingBardanaKg?: number;
 }
 
 /** Variety with sizes in a farmer entry */
