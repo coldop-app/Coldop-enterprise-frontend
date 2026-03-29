@@ -1,4 +1,7 @@
-import type { IncomingGatePassWithLink } from './incoming-gate-pass';
+import type {
+  IncomingGatePassWithLink,
+  IncomingGatePassByFarmerStorageLinkItem,
+} from './incoming-gate-pass';
 import type {
   GradingGatePass,
   GradingGatePassGradedBy,
@@ -569,6 +572,34 @@ export interface DailyMonthlyTrendData {
 export interface GetDailyMonthlyTrendApiResponse {
   success: boolean;
   data: DailyMonthlyTrendData;
+  message?: string;
+}
+
+// --- Incoming daily breakdown (GET /incoming-gate-pass/incoming-daily-breakdown) ---
+
+/** Per-location totals for a single calendar day */
+export interface IncomingDailyBreakdownLocationTotals {
+  gatePassCount: number;
+  bagsReceived: number;
+}
+
+/** One shed/location group with its gate passes for that day */
+export interface IncomingDailyBreakdownLocationGroup {
+  location: string;
+  totals: IncomingDailyBreakdownLocationTotals;
+  gatePasses: IncomingGatePassByFarmerStorageLinkItem[];
+}
+
+/** Data shape for GET /incoming-gate-pass/incoming-daily-breakdown?date=YYYY-MM-DD */
+export interface IncomingDailyBreakdownData {
+  date: string;
+  groups: IncomingDailyBreakdownLocationGroup[];
+}
+
+/** API response for GET /incoming-gate-pass/incoming-daily-breakdown */
+export interface GetIncomingDailyBreakdownApiResponse {
+  success: boolean;
+  data: IncomingDailyBreakdownData;
   message?: string;
 }
 

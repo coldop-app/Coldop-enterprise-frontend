@@ -28,6 +28,8 @@ import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './rou
 import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/index'
 import { Route as StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/edit/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/index'
+import { Route as StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/analytics/incoming-daily-breakdown/index'
+import { Route as StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/analytics/grading-daily-breakdown/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -139,6 +141,20 @@ const StoreAdminAuthenticatedAnalyticsReportsIndexRoute =
     path: '/analytics/reports/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute =
+  StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRouteImport.update(
+    {
+      id: '/analytics/incoming-daily-breakdown/',
+      path: '/analytics/incoming-daily-breakdown/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
+const StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute =
+  StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRouteImport.update({
+    id: '/analytics/grading-daily-breakdown/',
+    path: '/analytics/grading-daily-breakdown/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -157,6 +173,8 @@ export interface FileRoutesByFullPath {
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
+  '/store-admin/analytics/grading-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
+  '/store-admin/analytics/incoming-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
   '/store-admin/analytics/reports/': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
   '/store-admin/farmer-seed/edit/': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -178,6 +196,8 @@ export interface FileRoutesByTo {
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/settings': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/storage': typeof StoreAdminAuthenticatedStorageIndexRoute
+  '/store-admin/analytics/grading-daily-breakdown': typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
+  '/store-admin/analytics/incoming-daily-breakdown': typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
   '/store-admin/analytics/reports': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
   '/store-admin/farmer-seed/edit': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -200,6 +220,8 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/_authenticated/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
   '/store-admin/_authenticated/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
+  '/store-admin/_authenticated/analytics/grading-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
+  '/store-admin/_authenticated/analytics/incoming-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
   '/store-admin/_authenticated/analytics/reports/': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
   '/store-admin/_authenticated/farmer-seed/edit/': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -223,6 +245,8 @@ export interface FileRouteTypes {
     | '/store-admin/people/'
     | '/store-admin/settings/'
     | '/store-admin/storage/'
+    | '/store-admin/analytics/grading-daily-breakdown/'
+    | '/store-admin/analytics/incoming-daily-breakdown/'
     | '/store-admin/analytics/reports/'
     | '/store-admin/farmer-seed/edit/'
     | '/store-admin/people/$farmerStorageLinkId/'
@@ -244,6 +268,8 @@ export interface FileRouteTypes {
     | '/store-admin/people'
     | '/store-admin/settings'
     | '/store-admin/storage'
+    | '/store-admin/analytics/grading-daily-breakdown'
+    | '/store-admin/analytics/incoming-daily-breakdown'
     | '/store-admin/analytics/reports'
     | '/store-admin/farmer-seed/edit'
     | '/store-admin/people/$farmerStorageLinkId'
@@ -265,6 +291,8 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/people/'
     | '/store-admin/_authenticated/settings/'
     | '/store-admin/_authenticated/storage/'
+    | '/store-admin/_authenticated/analytics/grading-daily-breakdown/'
+    | '/store-admin/_authenticated/analytics/incoming-daily-breakdown/'
     | '/store-admin/_authenticated/analytics/reports/'
     | '/store-admin/_authenticated/farmer-seed/edit/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -412,6 +440,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/analytics/incoming-daily-breakdown/': {
+      id: '/store-admin/_authenticated/analytics/incoming-daily-breakdown/'
+      path: '/analytics/incoming-daily-breakdown'
+      fullPath: '/store-admin/analytics/incoming-daily-breakdown/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/grading-daily-breakdown/': {
+      id: '/store-admin/_authenticated/analytics/grading-daily-breakdown/'
+      path: '/analytics/grading-daily-breakdown'
+      fullPath: '/store-admin/analytics/grading-daily-breakdown/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
   }
 }
 
@@ -428,6 +470,8 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
   StoreAdminAuthenticatedSettingsIndexRoute: typeof StoreAdminAuthenticatedSettingsIndexRoute
   StoreAdminAuthenticatedStorageIndexRoute: typeof StoreAdminAuthenticatedStorageIndexRoute
+  StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute: typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
+  StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
   StoreAdminAuthenticatedFarmerSeedEditIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
@@ -459,6 +503,10 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedSettingsIndexRoute,
     StoreAdminAuthenticatedStorageIndexRoute:
       StoreAdminAuthenticatedStorageIndexRoute,
+    StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute:
+      StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute,
+    StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute:
+      StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute,
     StoreAdminAuthenticatedAnalyticsReportsIndexRoute:
       StoreAdminAuthenticatedAnalyticsReportsIndexRoute,
     StoreAdminAuthenticatedFarmerSeedEditIndexRoute:
