@@ -11,9 +11,8 @@ import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
 
-/** Incoming column ids (table 1): display up to and including Actual (kg). Excludes Tot bags / Tot gross / Tot tare / Tot net / Tot bardana. */
+/** Incoming column ids (table 1): display up to and including Actual (kg). Omits system gate pass no.; excludes Tot bags / Tot gross / Tot tare / Tot net / Tot bardana. */
 const INCOMING_COLUMN_IDS = [
-  'systemIncomingNo',
   'manualIncomingNo',
   'incomingDate',
   'store',
@@ -323,7 +322,7 @@ function getIncomingSegmentsForPdf(
   return segments;
 }
 
-/** Farmer report: drop system incoming column; show manual as "Gate Pass No". */
+/** Farmer report: show manual incoming as "Gate Pass No". */
 function getIncomingPdfColumnLabel(
   columnId: string,
   isFarmerReport: boolean
@@ -368,14 +367,11 @@ export function AccountingStockLedgerPdf({
   const incomingColumnIds = visibleColumnIds.filter((id) =>
     (INCOMING_COLUMN_IDS as readonly string[]).includes(id)
   );
-  const incomingColumnIdsForPdf = hideGradingPage
-    ? incomingColumnIds.filter((id) => id !== 'systemIncomingNo')
-    : incomingColumnIds;
   const hasIncomingData = rows.some(
     (r) => r.type === 'data' || (r.type === 'variety' && groupByVariety)
   );
 
-  const numIncomingCols = incomingColumnIdsForPdf.length;
+  const numIncomingCols = incomingColumnIds.length;
   const incomingColWidthPct =
     numIncomingCols > 0 ? `${(100 / numIncomingCols).toFixed(1)}%` : '100%';
   const getIncomingColWidth = () => incomingColWidthPct;
@@ -404,19 +400,19 @@ export function AccountingStockLedgerPdf({
         </View>
 
         {/* Table 1: Incoming details (up to Actual (kg)) */}
-        {incomingColumnIdsForPdf.length > 0 && (
+        {incomingColumnIds.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>1. Incoming Details</Text>
             <View style={styles.tableContainer}>
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
-                  {incomingColumnIdsForPdf.map((id, i) => (
+                  {incomingColumnIds.map((id, i) => (
                     <View
                       key={id}
                       style={[
                         styles.cell,
                         styles.headerCell,
-                        i === incomingColumnIdsForPdf.length - 1
+                        i === incomingColumnIds.length - 1
                           ? styles.cellLast
                           : {},
                         { width: getIncomingColWidth() },
@@ -432,7 +428,7 @@ export function AccountingStockLedgerPdf({
                   incomingSegments.flatMap((segment, segIndex) => {
                     const totals = computeIncomingColumnTotals(
                       segment.dataRows,
-                      incomingColumnIdsForPdf
+                      incomingColumnIds
                     );
                     const keyBase = `inc-${segIndex}`;
                     const out: ReactElement[] = [];
@@ -462,7 +458,7 @@ export function AccountingStockLedgerPdf({
                         <IncomingDataRow
                           key={`${keyBase}-data-${i}`}
                           row={segment.dataRows[i]}
-                          incomingColumnIds={incomingColumnIdsForPdf}
+                          incomingColumnIds={incomingColumnIds}
                           getColWidth={getIncomingColWidth}
                         />
                       );
@@ -471,7 +467,7 @@ export function AccountingStockLedgerPdf({
                       out.push(
                         <IncomingTotalRow
                           key={`${keyBase}-total`}
-                          incomingColumnIds={incomingColumnIdsForPdf}
+                          incomingColumnIds={incomingColumnIds}
                           totals={totals}
                           getColWidth={getIncomingColWidth}
                         />

@@ -1,7 +1,12 @@
 'use client';
 
 import type { Ref } from 'react';
-import React, { forwardRef, useImperativeHandle, useState } from 'react';
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 import type { Row } from '@tanstack/table-core';
 import type { ColumnDef } from '@tanstack/table-core';
 import type { VisibilityState } from '@tanstack/table-core';
@@ -274,7 +279,15 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
     [table]
   );
 
-  const totals = (() => {
+  const spanColumnSet = useMemo(
+    () =>
+      rowSpanColumnIds != null && rowSpanColumnIds.length > 0
+        ? new Set(rowSpanColumnIds)
+        : null,
+    [rowSpanColumnIds]
+  );
+
+  const totals = useMemo(() => {
     const acc: Record<string, number> = {};
     for (const id of totalColumnIds) acc[id] = 0;
     for (const row of data as Record<string, unknown>[]) {
@@ -291,7 +304,10 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
       }
     }
     return acc;
-  })();
+  }, [data, totalColumnIds]);
+
+  const headerGroups = table.getHeaderGroups();
+  const rowModel = table.getRowModel();
 
   return (
     <div className="space-y-4">
@@ -418,7 +434,7 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
       <div className="border-border bg-card font-custom overflow-hidden rounded-xl border text-sm shadow-sm">
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+            {headerGroups.map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
                 className="border-border bg-muted/60 hover:bg-muted/60 border-b-2"
@@ -440,16 +456,12 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
+            {rowModel.rows?.length ? (
+              rowModel.rows.map((row) => {
                 const original =
                   row.original as unknown as RowWithGradingGroupMeta;
                 const rowIndex = original.gradingPassRowIndex ?? 0;
                 const groupSize = original.gradingPassGroupSize ?? 1;
-                const spanColumnSet =
-                  rowSpanColumnIds != null && rowSpanColumnIds.length > 0
-                    ? new Set(rowSpanColumnIds)
-                    : null;
 
                 return (
                   <TableRow
@@ -503,7 +515,7 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
           {data.length > 0 && totalColumnIds.length > 0 && (
             <TableFooter>
               <TableRow className="border-border bg-muted/60 font-custom font-bold">
-                {table.getHeaderGroups()[0]?.headers.map((header, idx) => {
+                {headerGroups[0]?.headers.map((header, idx) => {
                   const columnId = header.column.id;
                   const total = totals[columnId];
                   const isTotalCol = total !== undefined;

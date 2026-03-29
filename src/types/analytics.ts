@@ -22,6 +22,8 @@ export interface AnalyticsOverviewData {
   totalGradingBags: AnalyticsOverviewGradingBags;
   totalGradingWeight: number;
   totalBagsStored: number;
+  /** When set by GET /analytics/overview, used for shed stock; otherwise clients fall back to totalBagsStored */
+  totalBagsStoredInitial?: number;
   totalBagsDispatched: number;
   totalOutgoingBags: number;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   useGetGradingGatePasses,
@@ -157,7 +157,7 @@ function getGrossTareNet(
  */
 function mapGradingPassesToRows(
   passes: GradingGatePass[],
-  visibleBagSizes: readonly string[]
+  gradedBagColumns: readonly { size: string; columnId: string }[]
 ): GradingReportRow[] {
   const rows: GradingReportRow[] = [];
 
@@ -221,13 +221,12 @@ function mapGradingPassesToRows(
         ? getAggregatedGradedSizeBreakdown(pass.orderDetails)
         : undefined;
       const gradedBagSizeQtyByColumnId = Object.fromEntries(
-        visibleBagSizes.map((s) => {
-          const id = gradedBagSizeColumnId(s);
+        gradedBagColumns.map(({ size, columnId }) => {
           const qty =
-            isFirstRow && gradedSizeBreakdown?.[s]
-              ? gradedSizeBreakdown[s]!.qty
+            isFirstRow && gradedSizeBreakdown?.[size]
+              ? gradedSizeBreakdown[size]!.qty
               : 0;
-          return [id, qty] as const;
+          return [columnId, qty] as const;
         })
       );
       rows.push({
@@ -299,8 +298,21 @@ const GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
 
 const GRADING_REPORT_FETCH_LIMIT = 5000;
 
+/** Lets the browser paint / handle input before a long main-thread task (e.g. react-pdf). */
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => resolve(), { timeout: 120 });
+    } else {
+      requestAnimationFrame(() => resolve());
+    }
+  });
+}
+
 const GradingReportTable = () => {
-  const coldStorage = useStore((s) => s.coldStorage);
+  const coldStorageName = useStore(
+    (s) => s.coldStorage?.name ?? 'Cold Storage'
+  );
   const tableRef = useRef<GradingReportDataTableRef<GradingReportRow>>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
@@ -317,15 +329,32 @@ const GradingReportTable = () => {
     fetchAllPages: true,
   });
 
+  const passes = data?.data;
+
+  /** Bag-size columns: Below 30, 30–40, 35–40, … 50–55, Above 50, Above 55, Cut (see grading-bag-sizes). */
   const visibleBagSizes = useMemo(
-    () => getVisibleBagSizesFromPasses(data?.data ?? []),
-    [data]
+    () => getVisibleBagSizesFromPasses(passes ?? []),
+    [passes]
+  );
+
+  const bagSizeSignature = useMemo(
+    () => visibleBagSizes.join('\0'),
+    [visibleBagSizes]
+  );
+
+  const gradedBagColumns = useMemo(
+    () =>
+      visibleBagSizes.map((size) => ({
+        size,
+        columnId: gradedBagSizeColumnId(size),
+      })),
+    [visibleBagSizes]
   );
 
   const rows = useMemo((): GradingReportRow[] => {
-    const list = data?.data ?? [];
-    return mapGradingPassesToRows(list, visibleBagSizes);
-  }, [data, visibleBagSizes]);
+    const list = passes ?? [];
+    return mapGradingPassesToRows(list, gradedBagColumns);
+  }, [passes, gradedBagColumns]);
 
   const reportColumns = useMemo(
     () => createGradingReportColumns(visibleBagSizes),
@@ -335,35 +364,33 @@ const GradingReportTable = () => {
   const initialColumnVisibilityMerged = useMemo(
     () => ({
       ...GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY,
-      ...Object.fromEntries(
-        visibleBagSizes.map((s) => [gradedBagSizeColumnId(s), true])
-      ),
+      ...Object.fromEntries(gradedBagColumns.map((c) => [c.columnId, true])),
     }),
-    [visibleBagSizes]
+    [gradedBagColumns]
   );
 
   const rowSpanColumnIds = useMemo(
-    () => gradingReportRowSpanColumnIds(visibleBagSizes),
-    [visibleBagSizes]
+    () => gradingReportRowSpanColumnIds(gradedBagColumns.map((c) => c.size)),
+    [gradedBagColumns]
   );
 
   const totalColumnIds = useMemo(
     () => [
       'bagsReceived',
       'totalGradedBags',
-      ...visibleBagSizes.map((s) => gradedBagSizeColumnId(s)),
+      ...gradedBagColumns.map((c) => c.columnId),
       'totalGradedWeightKg',
       'wastageKg',
       'grossWeightKg',
       'netWeightKg',
       'netProductKg',
     ],
-    [visibleBagSizes]
+    [gradedBagColumns]
   );
 
   const reportContentRef = useRef<HTMLDivElement>(null);
 
-  const handleApplyDates = () => {
+  const handleApplyDates = useCallback(() => {
     if (!fromDate && !toDate) return;
     if (fromDate && toDate) {
       const fromStr = formatDateToYYYYMMDD(fromDate);
@@ -400,26 +427,25 @@ const GradingReportTable = () => {
         });
       })
       .catch(() => {});
-  };
+  }, [fromDate, toDate]);
 
-  const handleClearDates = () => {
+  const handleClearDates = useCallback(() => {
     setFromDate(undefined);
     setToDate(undefined);
     setAppliedRange({});
     toast.success('Date filters cleared. Report updated.');
-  };
+  }, []);
 
-  const getDateRangeLabel = () => {
+  const dateRangeLabel = useMemo(() => {
     if (appliedRange.dateFrom && appliedRange.dateTo) {
       return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
     }
     if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
     if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
     return 'All dates';
-  };
+  }, [appliedRange.dateFrom, appliedRange.dateTo]);
 
-  const handleDownloadPdf = async () => {
-    // Open window synchronously so mobile popup blockers allow it
+  const handleDownloadPdf = useCallback(async () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(
@@ -430,14 +456,16 @@ const GradingReportTable = () => {
     try {
       const snapshot: GradingReportPdfSnapshot<GradingReportRow> | null =
         tableRef.current?.getPdfSnapshot() ?? null;
+      await yieldToMain();
       const [{ pdf }, { GradingReportTablePdf }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('@/components/pdf/analytics/grading-report-table-pdf'),
       ]);
+      await yieldToMain();
       const blob = await pdf(
         <GradingReportTablePdf
-          companyName={coldStorage?.name ?? 'Cold Storage'}
-          dateRangeLabel={getDateRangeLabel()}
+          companyName={coldStorageName}
+          dateRangeLabel={dateRangeLabel}
           reportTitle="Grading Report"
           rows={rows}
           tableSnapshot={snapshot}
@@ -460,7 +488,77 @@ const GradingReportTable = () => {
     } finally {
       setIsGeneratingPdf(false);
     }
-  };
+  }, [coldStorageName, dateRangeLabel, rows]);
+
+  const toolbarLeftContent = useMemo(
+    () => (
+      <>
+        <DatePicker
+          id="grading-report-from"
+          label="From"
+          value={fromDate}
+          onChange={setFromDate}
+        />
+        <DatePicker
+          id="grading-report-to"
+          label="To"
+          value={toDate}
+          onChange={setToDate}
+        />
+        <Button
+          variant="default"
+          size="sm"
+          className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          onClick={handleApplyDates}
+          disabled={!fromDate && !toDate}
+        >
+          Apply
+        </Button>
+        {(fromDate ||
+          toDate ||
+          appliedRange.dateFrom ||
+          appliedRange.dateTo) && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            onClick={handleClearDates}
+          >
+            Clear
+          </Button>
+        )}
+      </>
+    ),
+    [
+      appliedRange.dateFrom,
+      appliedRange.dateTo,
+      fromDate,
+      toDate,
+      handleApplyDates,
+      handleClearDates,
+    ]
+  );
+
+  const toolbarRightContent = useMemo(
+    () => (
+      <Button
+        className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+        onClick={handleDownloadPdf}
+        disabled={isGeneratingPdf || isLoading}
+        aria-label={
+          isGeneratingPdf
+            ? 'Generating PDF…'
+            : isLoading
+              ? 'Loading report…'
+              : 'View report'
+        }
+      >
+        <FileDown className="h-4 w-4 shrink-0" />
+        {isGeneratingPdf ? 'Generating…' : 'View Report'}
+      </Button>
+    ),
+    [handleDownloadPdf, isGeneratingPdf, isLoading]
+  );
 
   if (isLoading) {
     return (
@@ -506,68 +604,15 @@ const GradingReportTable = () => {
           Grading Report
         </h2>
         <DataTable
-          key={visibleBagSizes.join('\0')}
+          key={bagSizeSignature}
           ref={tableRef}
           columns={reportColumns}
           data={rows}
           initialColumnVisibility={initialColumnVisibilityMerged}
           rowSpanColumnIds={rowSpanColumnIds}
           totalColumnIds={totalColumnIds}
-          toolbarLeftContent={
-            <>
-              <DatePicker
-                id="grading-report-from"
-                label="From"
-                value={fromDate}
-                onChange={setFromDate}
-              />
-              <DatePicker
-                id="grading-report-to"
-                label="To"
-                value={toDate}
-                onChange={setToDate}
-              />
-              <Button
-                variant="default"
-                size="sm"
-                className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={handleApplyDates}
-                disabled={!fromDate && !toDate}
-              >
-                Apply
-              </Button>
-              {(fromDate ||
-                toDate ||
-                appliedRange.dateFrom ||
-                appliedRange.dateTo) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  onClick={handleClearDates}
-                >
-                  Clear
-                </Button>
-              )}
-            </>
-          }
-          toolbarRightContent={
-            <Button
-              className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf || isLoading}
-              aria-label={
-                isGeneratingPdf
-                  ? 'Generating PDF…'
-                  : isLoading
-                    ? 'Loading report…'
-                    : 'View report'
-              }
-            >
-              <FileDown className="h-4 w-4 shrink-0" />
-              {isGeneratingPdf ? 'Generating…' : 'View Report'}
-            </Button>
-          }
+          toolbarLeftContent={toolbarLeftContent}
+          toolbarRightContent={toolbarRightContent}
         />
       </div>
     </main>

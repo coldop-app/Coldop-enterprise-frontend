@@ -1,6 +1,9 @@
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
-/** Same order and labels as FarmerProfileGradingGatePassTable bag size columns. */
+/**
+ * Display order for grading report bag-size columns (table + PDF).
+ * Below 30 → 30–40 → 35–40 → … → Above 50 → Above 55 → Cut.
+ */
 export const GRADING_REPORT_BAG_SIZE_ORDER: string[] = [
   'Below 30',
   '30–40',
@@ -12,6 +15,22 @@ export const GRADING_REPORT_BAG_SIZE_ORDER: string[] = [
   'Above 55',
   'Cut',
 ];
+
+const KNOWN_BAG_SIZE_SET = new Set(GRADING_REPORT_BAG_SIZE_ORDER);
+
+/** Order size keys: canonical order first, then any unknown sizes (localeCompare). */
+export function orderBagSizesByGradingReport(
+  sizes: Iterable<string>
+): string[] {
+  const set = new Set(sizes);
+  const ordered: string[] = [];
+  for (const s of GRADING_REPORT_BAG_SIZE_ORDER) {
+    if (set.has(s)) ordered.push(s);
+  }
+  const rest = [...set].filter((s) => !KNOWN_BAG_SIZE_SET.has(s));
+  rest.sort((a, b) => a.localeCompare(b));
+  return [...ordered, ...rest];
+}
 
 /** Short labels for column ids / headers (e.g. B30, 30-40). */
 export const GRADING_REPORT_BAG_SIZE_LABELS: Record<string, string> = {
@@ -36,7 +55,7 @@ export function getVisibleBagSizesFromPasses(
       if (q > 0 && d.size) hasQty.add(d.size);
     }
   }
-  return GRADING_REPORT_BAG_SIZE_ORDER.filter((size) => hasQty.has(size));
+  return orderBagSizesByGradingReport(hasQty);
 }
 
 /**
@@ -79,4 +98,32 @@ export function sizeKeyFromGradedBagColumnId(
     (s) => (GRADING_REPORT_BAG_SIZE_LABELS[s] ?? s) === short
   );
   return fromOrder;
+}
+
+const SIZE_ORDER_INDEX = new Map(
+  GRADING_REPORT_BAG_SIZE_ORDER.map((s, i) => [s, i] as const)
+);
+
+/** Sort `gradedBagSize_*` column ids by {@link GRADING_REPORT_BAG_SIZE_ORDER} (not lexicographic). */
+export function sortGradedBagSizeColumnIds(columnIds: string[]): string[] {
+  return [...columnIds].sort((a, b) => {
+    const ka = sizeKeyFromGradedBagColumnId(a);
+    const kb = sizeKeyFromGradedBagColumnId(b);
+    return compareSizeKeysForReport(ka, kb, a, b);
+  });
+}
+
+/** Compare canonical size keys (e.g. for PDF summary rows). Unknown sizes sort after known, then localeCompare. */
+export function compareSizeKeysForReport(
+  aKey: string | undefined,
+  bKey: string | undefined,
+  aFallback = '',
+  bFallback = ''
+): number {
+  const ia = aKey != null ? SIZE_ORDER_INDEX.get(aKey) : undefined;
+  const ib = bKey != null ? SIZE_ORDER_INDEX.get(bKey) : undefined;
+  if (ia != null && ib != null && ia !== ib) return ia - ib;
+  if (ia != null && ib === undefined) return -1;
+  if (ia === undefined && ib != null) return 1;
+  return aFallback.localeCompare(bFallback);
 }

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.0] - 2026-03-29
+
+### Added
+- Analytics overview: **Shed Stock** stat — bags = grading (initial) − stored (initial) − dispatch; description on card; no linked report (derived metric)
+- Types: optional **`totalBagsStoredInitial`** on `AnalyticsOverviewData` when provided by GET `/analytics/overview` (clients otherwise use `totalBagsStored` for the stored term)
+
+### Changed
+- Analytics overview: **`StatCard`** accepts optional `reportType`; "Get Reports" is shown only when a report type is set
+- Grading report (table + PDF): bag-size columns follow **canonical grading report order** (`Below 30` … `Cut`) with unknown sizes after, via `orderBagSizesByGradingReport`, `sortGradedBagSizeColumnIds`, and `compareSizeKeysForReport` in `grading-bag-sizes.ts` (replaces lexicographic column ordering)
+- Grading report PDF: summary rows/tables use the same bag-size ordering as the main table; visible-column PDF path normalizes bag column block order
+- Grading report data table: memoized totals, header groups, row model, and span-column set for clearer renders
+- Grading report screen: toolbar left/right content extracted into variables
+- Accounting report PDF: **system incoming gate pass number** column removed from table 1 (incoming details); manual incoming remains as gate pass reference
+
 ## [0.40.0] - 2026-03-27
 
 ### Added

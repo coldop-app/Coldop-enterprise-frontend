@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -52,7 +53,8 @@ interface StatCardProps {
   description?: string;
   icon: React.ReactNode;
   iconBgClass?: string;
-  reportType: AnalyticsReportType;
+  /** Omit for derived metrics with no dedicated report */
+  reportType?: AnalyticsReportType;
 }
 
 const StatCard = memo(function StatCard({
@@ -87,20 +89,22 @@ const StatCard = memo(function StatCard({
             {description}
           </CardDescription>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="font-custom mt-2 gap-1.5"
-          asChild
-        >
-          <Link
-            to="/store-admin/analytics/reports"
-            search={{ report: reportType }}
+        {reportType != null && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-custom mt-2 gap-1.5"
+            asChild
           >
-            <FileText className="h-4 w-4" />
-            Get Reports
-          </Link>
-        </Button>
+            <Link
+              to="/store-admin/analytics/reports"
+              search={{ report: reportType }}
+            >
+              <FileText className="h-4 w-4" />
+              Get Reports
+            </Link>
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -184,11 +188,19 @@ const GradingCard = memo(function GradingCard({
   );
 });
 
+function computeShedStockBags(data: AnalyticsOverviewData): number {
+  const gradingInitial = data.totalGradingBags.initialQuantity;
+  const storedInitial = data.totalBagsStoredInitial ?? data.totalBagsStored;
+  return gradingInitial - storedInitial - data.totalBagsDispatched;
+}
+
 const OverviewContent = memo(function OverviewContent({
   data,
 }: {
   data: AnalyticsOverviewData;
 }) {
+  const shedStockBags = computeShedStockBags(data);
+
   return (
     <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:gap-8">
       <StatCard
@@ -217,6 +229,12 @@ const OverviewContent = memo(function OverviewContent({
         reportType="stored"
       />
       <StatCard
+        title="Shed Stock"
+        value={formatNumber(shedStockBags)}
+        description="Grading (initial) − stored − dispatch"
+        icon={<Building2 className="h-5 w-5" />}
+      />
+      <StatCard
         title="Dispatch"
         value={formatNumber(data.totalBagsDispatched)}
         icon={<Truck className="h-5 w-5" />}
@@ -235,7 +253,7 @@ const OverviewContent = memo(function OverviewContent({
 function OverviewSkeleton() {
   return (
     <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:gap-8">
-      {Array.from({ length: 7 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <Card key={i} className="font-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <Skeleton className="h-5 w-32" />

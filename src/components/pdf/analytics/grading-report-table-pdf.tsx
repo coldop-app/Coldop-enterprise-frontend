@@ -5,7 +5,10 @@ import {
 } from '@/components/analytics/reports/grading-report/columns';
 import {
   GRADING_REPORT_BAG_SIZE_LABELS,
+  compareSizeKeysForReport,
+  orderBagSizesByGradingReport,
   sizeKeyFromGradedBagColumnId,
+  sortGradedBagSizeColumnIds,
 } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 import type { GradingReportPdfSnapshot } from '@/components/analytics/reports/grading-report/data-table';
 
@@ -404,20 +407,21 @@ const ALL_COLUMNS_STATIC: PdfColumnDef[] = [
   { key: 'remarks', label: 'Remarks', width: '8%', align: 'left' },
 ];
 
+/** Main table + PDF bag columns: order from `grading-bag-sizes` (Below 30 … Cut). */
 function buildFullColumnList(rows: GradingReportRow[]): PdfColumnDef[] {
   const bagIds = new Set<string>();
   for (const r of rows) {
     const m = r.gradedBagSizeQtyByColumnId;
     if (m) for (const k of Object.keys(m)) bagIds.add(k);
   }
-  const bagCols: PdfColumnDef[] = Array.from(bagIds)
-    .sort()
-    .map((id) => ({
-      key: id,
-      label: labelForBagColumnId(id),
-      width: '3.5%',
-      align: 'center' as const,
-    }));
+  const bagCols: PdfColumnDef[] = sortGradedBagSizeColumnIds(
+    Array.from(bagIds)
+  ).map((id) => ({
+    key: id,
+    label: labelForBagColumnId(id),
+    width: '3.5%',
+    align: 'center' as const,
+  }));
   const idx = ALL_COLUMNS_STATIC.findIndex((c) => c.key === 'totalGradedBags');
   if (idx < 0) return [...ALL_COLUMNS_STATIC, ...bagCols];
   return [
@@ -425,6 +429,33 @@ function buildFullColumnList(rows: GradingReportRow[]): PdfColumnDef[] {
     ...bagCols,
     ...ALL_COLUMNS_STATIC.slice(idx + 1),
   ];
+}
+
+/**
+ * Keep non–bag-size columns in place; reorder the contiguous `gradedBagSize_*` block to
+ * `GRADING_REPORT_BAG_SIZE_ORDER` in grading-bag-sizes (same as web report / `buildFullColumnList`).
+ */
+function normalizePdfColumnsBagOrder(columns: PdfColumnDef[]): PdfColumnDef[] {
+  const isBag = (c: PdfColumnDef) => c.key.startsWith('gradedBagSize_');
+  const bagCols = columns.filter(isBag);
+  if (bagCols.length === 0) return columns;
+  const bagByKey = new Map(bagCols.map((c) => [c.key, c] as const));
+  const sortedBags = sortGradedBagSizeColumnIds([...bagByKey.keys()]).map(
+    (k) => bagByKey.get(k)!
+  );
+  const result: PdfColumnDef[] = [];
+  let inserted = false;
+  for (const c of columns) {
+    if (isBag(c)) {
+      if (!inserted) {
+        result.push(...sortedBags);
+        inserted = true;
+      }
+      continue;
+    }
+    result.push(c);
+  }
+  return result;
 }
 
 function getColumnsForPdf(
@@ -438,9 +469,10 @@ function getColumnsForPdf(
       : fullColumns.map((c) => c.key)
   );
   const exclude = new Set(excludeGrouping ?? []);
-  const filtered = fullColumns.filter(
+  let filtered = fullColumns.filter(
     (c) => visible.has(c.key) && !exclude.has(c.key)
   );
+  filtered = normalizePdfColumnsBagOrder(filtered);
   if (filtered.length === 0) return fullColumns;
   const totalPercent = filtered.reduce(
     (sum, c) => sum + parseFloat(c.width),
@@ -853,7 +885,7 @@ function computeGradingReportSummary(
   ).sort((a, b) => {
     const v = a.variety.localeCompare(b.variety);
     if (v !== 0) return v;
-    return a.bagSize.localeCompare(b.bagSize);
+    return compareSizeKeysForReport(a.bagSize, b.bagSize, a.bagSize, b.bagSize);
   });
 
   return { byVariety, byFarmer, byVarietyAndBagSize, overall };
@@ -873,8 +905,8 @@ function SummaryVarietyBagTable({
 }: {
   rows: VarietyBagSizeSummaryRow[];
 }) {
-  const bagSizes = Array.from(new Set(rows.map((r) => r.bagSize))).sort(
-    (a, b) => a.localeCompare(b)
+  const bagSizes = orderBagSizesByGradingReport(
+    new Set(rows.map((r) => r.bagSize))
   );
   const varieties = Array.from(new Set(rows.map((r) => r.variety))).sort(
     (a, b) => a.localeCompare(b)
