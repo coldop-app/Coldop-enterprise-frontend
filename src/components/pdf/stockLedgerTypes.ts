@@ -36,6 +36,27 @@ export interface StockLedgerRow {
   sizeWeightPerBag?: Record<string, number>;
   /** Potato variety for buy-back rate (e.g. from grading pass). Used for Amount Payable and displayed in table. */
   variety?: string;
+  /**
+   * When one grading gate pass is linked to multiple incoming gate passes, rows are emitted
+   * consecutively with the same `gradingPassGroupSize` and increasing `gradingPassRowIndex`.
+   * Grading size breakdown appears only on row index 0. Used by grading PDF / Excel grouping.
+   */
+  gradingPassGroupSize?: number;
+  gradingPassRowIndex?: number;
+}
+
+/** Consecutive ledger rows that belong to the same grading pass (row-span in PDF). */
+export function groupStockLedgerRowsByGradingPass(
+  rows: StockLedgerRow[]
+): StockLedgerRow[][] {
+  const groups: StockLedgerRow[][] = [];
+  let i = 0;
+  while (i < rows.length) {
+    const n = rows[i]?.gradingPassGroupSize ?? 1;
+    groups.push(rows.slice(i, i + n));
+    i += n;
+  }
+  return groups;
 }
 
 export interface StockLedgerPdfProps {

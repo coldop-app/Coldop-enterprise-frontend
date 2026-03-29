@@ -492,17 +492,15 @@ function getIncomingRefs(
   ) as Array<GradingGatePassIncomingRef & { _id: string }>;
 }
 
-/** Convert one grading pass to StockLedgerRow for accounting report (grading + summary tables). */
-function gradingPassToStockLedgerRow(
-  pass: GradingGatePass,
-  serialNo: number
-): StockLedgerRow {
-  const refs = getIncomingRefs(pass.incomingGatePassIds);
-  const firstRef = refs[0] ?? null;
-  const netKg = firstRef ? getNetWeightKg(firstRef.weightSlip) : undefined;
-  const bagsReceived = firstRef?.bagsReceived ?? 0;
-  const postGradingBags = getPostGradingBags(pass.orderDetails);
-
+/** Per-pass size maps for grading breakdown (one shared breakdown per grading pass). */
+function getSizeBreakdownMapsFromPass(pass: GradingGatePass): {
+  sizeBagsJute: Record<string, number>;
+  sizeBagsLeno: Record<string, number>;
+  sizeWeightPerBagJute: Record<string, number>;
+  sizeWeightPerBagLeno: Record<string, number>;
+  hasJute: boolean;
+  hasLeno: boolean;
+} {
   const sizeBagsJute: Record<string, number> = {};
   const sizeBagsLeno: Record<string, number> = {};
   const sizeWeightPerBagJute: Record<string, number> = {};
@@ -530,30 +528,97 @@ function gradingPassToStockLedgerRow(
   }
   const hasJute = Object.values(sizeBagsJute).some((v) => v > 0);
   const hasLeno = Object.values(sizeBagsLeno).some((v) => v > 0);
-
   return {
-    serialNo,
-    date: firstRef?.date,
-    incomingGatePassNo:
-      firstRef?.gatePassNo != null ? firstRef.gatePassNo : '—',
-    manualIncomingVoucherNo: firstRef?.manualGatePassNumber,
+    sizeBagsJute,
+    sizeBagsLeno,
+    sizeWeightPerBagJute,
+    sizeWeightPerBagLeno,
+    hasJute,
+    hasLeno,
+  };
+}
+
+/**
+ * One or more stock ledger rows per grading pass: multiple incoming GPs become consecutive rows
+ * with `gradingPassGroupSize` / `gradingPassRowIndex` (grading breakdown only on row 0).
+ */
+function gradingPassToStockLedgerRows(
+  pass: GradingGatePass,
+  serialStart: number
+): StockLedgerRow[] {
+  const refs = getIncomingRefs(pass.incomingGatePassIds);
+  const postGradingBags = getPostGradingBags(pass.orderDetails);
+  const breakdown = getSizeBreakdownMapsFromPass(pass);
+
+  const baseGrading = {
     gradingGatePassNo: pass.gatePassNo,
     manualGradingGatePassNo: pass.manualGatePassNumber,
     gradingGatePassDate: pass.date,
-    store: DEFAULT_STORE,
-    truckNumber: firstRef?.truckNumber,
-    bagsReceived,
-    weightSlipNumber: firstRef?.weightSlip?.slipNumber,
-    grossWeightKg: firstRef?.weightSlip?.grossWeightKg,
-    tareWeightKg: firstRef?.weightSlip?.tareWeightKg,
-    netWeightKg: netKg,
-    postGradingBags: postGradingBags > 0 ? postGradingBags : undefined,
     variety: pass.variety ?? undefined,
-    sizeBagsJute: hasJute ? sizeBagsJute : undefined,
-    sizeBagsLeno: hasLeno ? sizeBagsLeno : undefined,
-    sizeWeightPerBagJute: hasJute ? sizeWeightPerBagJute : undefined,
-    sizeWeightPerBagLeno: hasLeno ? sizeWeightPerBagLeno : undefined,
   };
+
+  const sizeFieldsForFirstRow = (): Pick<
+    StockLedgerRow,
+    | 'postGradingBags'
+    | 'sizeBagsJute'
+    | 'sizeBagsLeno'
+    | 'sizeWeightPerBagJute'
+    | 'sizeWeightPerBagLeno'
+  > => ({
+    postGradingBags: postGradingBags > 0 ? postGradingBags : undefined,
+    sizeBagsJute: breakdown.hasJute ? breakdown.sizeBagsJute : undefined,
+    sizeBagsLeno: breakdown.hasLeno ? breakdown.sizeBagsLeno : undefined,
+    sizeWeightPerBagJute: breakdown.hasJute
+      ? breakdown.sizeWeightPerBagJute
+      : undefined,
+    sizeWeightPerBagLeno: breakdown.hasLeno
+      ? breakdown.sizeWeightPerBagLeno
+      : undefined,
+  });
+
+  const rowFromRef = (
+    ref: (typeof refs)[number] | null,
+    serialNo: number,
+    groupMeta:
+      | { gradingPassGroupSize: number; gradingPassRowIndex: number }
+      | undefined
+  ): StockLedgerRow => {
+    const netKg = ref ? getNetWeightKg(ref.weightSlip) : undefined;
+    return {
+      serialNo,
+      date: ref?.date,
+      incomingGatePassNo: ref?.gatePassNo != null ? ref.gatePassNo : '—',
+      manualIncomingVoucherNo: ref?.manualGatePassNumber,
+      ...baseGrading,
+      store: DEFAULT_STORE,
+      truckNumber: ref?.truckNumber,
+      bagsReceived: ref?.bagsReceived ?? 0,
+      weightSlipNumber: ref?.weightSlip?.slipNumber,
+      grossWeightKg: ref?.weightSlip?.grossWeightKg,
+      tareWeightKg: ref?.weightSlip?.tareWeightKg,
+      netWeightKg: netKg,
+      ...(groupMeta ?? {}),
+    };
+  };
+
+  if (refs.length <= 1) {
+    const ref = refs[0] ?? null;
+    return [
+      {
+        ...rowFromRef(ref, serialStart, undefined),
+        ...sizeFieldsForFirstRow(),
+      },
+    ];
+  }
+
+  const groupSize = refs.length;
+  return refs.map((ref, i) => ({
+    ...rowFromRef(ref, serialStart + i, {
+      gradingPassGroupSize: groupSize,
+      gradingPassRowIndex: i,
+    }),
+    ...(i === 0 ? sizeFieldsForFirstRow() : {}),
+  }));
 }
 
 /** All column ids in table order (for PDF row cells). */
@@ -773,8 +838,9 @@ export function buildFarmerStockLedgerReportPayload(
   const stockLedgerRowsSelected: StockLedgerRow[] = [];
   for (const { passes } of groupedSelected) {
     for (const pass of passes) {
-      stockLedgerRowsSelected.push(gradingPassToStockLedgerRow(pass, serial));
-      serial += 1;
+      const expanded = gradingPassToStockLedgerRows(pass, serial);
+      stockLedgerRowsSelected.push(...expanded);
+      serial += expanded.length;
     }
   }
   const visibleBagSizes = getVisibleBagSizes(gradingPasses);
@@ -1044,10 +1110,9 @@ export const FarmerProfileGradingGatePassTable = memo(
       const stockLedgerRowsSelected: StockLedgerRow[] = [];
       for (const { passes } of groupedSelected) {
         for (const pass of passes) {
-          stockLedgerRowsSelected.push(
-            gradingPassToStockLedgerRow(pass, serial)
-          );
-          serial += 1;
+          const expanded = gradingPassToStockLedgerRows(pass, serial);
+          stockLedgerRowsSelected.push(...expanded);
+          serial += expanded.length;
         }
       }
       const snapshot: FarmerReportPdfSnapshot = {
@@ -1217,9 +1282,14 @@ export const FarmerProfileGradingGatePassTable = memo(
     }, [sortedAndGroupedPasses, groupByVariety]);
 
     const stockLedgerRowsForAccountingReport = useMemo((): StockLedgerRow[] => {
-      return filteredGradingPasses.map((pass, index) =>
-        gradingPassToStockLedgerRow(pass, index + 1)
-      );
+      let serial = 1;
+      const out: StockLedgerRow[] = [];
+      for (const pass of filteredGradingPasses) {
+        const expanded = gradingPassToStockLedgerRows(pass, serial);
+        out.push(...expanded);
+        serial += expanded.length;
+      }
+      return out;
     }, [filteredGradingPasses]);
 
     const accountingReportDialogRows =

@@ -1,9 +1,12 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { formatVoucherDate } from '@/components/daybook/vouchers/format-date';
 import { GRADING_SIZES } from '@/components/forms/grading/constants';
 import { SIZE_HEADER_LABELS } from '@/components/pdf/gradingVoucherCalculations';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import {
+  type StockLedgerRow,
+  groupStockLedgerRowsByGradingPass,
+} from '@/components/pdf/stockLedgerTypes';
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
@@ -99,6 +102,23 @@ const styles = StyleSheet.create({
   totalCellText: {
     fontWeight: 700,
   },
+  /** Stacked sub-row inside a split column (incoming / repeated identity cols). */
+  splitSubRow: {
+    minHeight: 9,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    width: '100%',
+  },
+  splitSubRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  spanCellInner: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    width: '100%',
+  },
   summarySection: {
     marginTop: 8,
     borderWidth: 1,
@@ -147,6 +167,163 @@ const styles = StyleSheet.create({
 function formatGgpValue(value: number | string | undefined): string {
   if (value == null || String(value).trim() === '') return '—';
   return String(value);
+}
+
+/** One stacked sub-line height inside a merged grading-pass row (matches grading-report-table-pdf pattern). */
+const PDF_SUB_ROW_HEIGHT = 9;
+
+function formatLedgerGradingDate(row: StockLedgerRow): string {
+  if (
+    row.gradingGatePassDate != null &&
+    String(row.gradingGatePassDate).trim() !== ''
+  ) {
+    return formatVoucherDate(row.gradingGatePassDate);
+  }
+  if (row.date != null && String(row.date).trim() !== '') {
+    return formatVoucherDate(row.date);
+  }
+  return '—';
+}
+
+function varietyDisplay(row: StockLedgerRow): string {
+  return row.variety != null && String(row.variety).trim() !== ''
+    ? String(row.variety).trim()
+    : '—';
+}
+
+function SplitGgpColumn({
+  width,
+  group,
+  getText,
+}: {
+  width: number;
+  group: StockLedgerRow[];
+  getText: (row: StockLedgerRow) => string;
+}) {
+  return (
+    <View style={[styles.cell, { width }]}>
+      <View style={{ flexDirection: 'column', width: '100%' }}>
+        {group.map((row, rowIdx) => (
+          <View
+            key={rowIdx}
+            style={[
+              styles.splitSubRow,
+              rowIdx < group.length - 1 ? styles.splitSubRowDivider : {},
+            ]}
+          >
+            <Text style={styles.cellCenter} wrap>
+              {getText(row)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function SpanGgpColumn({
+  width,
+  minHeight,
+  children,
+  isLast = false,
+}: {
+  width: number;
+  minHeight: number;
+  children: ReactNode;
+  isLast?: boolean;
+}) {
+  return (
+    <View
+      style={[styles.cell, isLast ? styles.cellLast : {}, { width, minHeight }]}
+    >
+      <View style={styles.spanCellInner}>{children}</View>
+    </View>
+  );
+}
+
+/** Multiple incoming gate passes → one visual row; span grading + size + total columns. */
+function GroupedGradingDataRow({
+  group,
+  farmerName,
+  sizesWithQty,
+}: {
+  group: StockLedgerRow[];
+  farmerName: string;
+  sizesWithQty: string[];
+}) {
+  const groupHeight = group.length * PDF_SUB_ROW_HEIGHT;
+  const first = group[0]!;
+  const rowTotal = getRowTotal(first);
+
+  return (
+    <View style={[styles.dataRow, { minHeight: groupHeight }]}>
+      <SplitGgpColumn
+        width={COL_WIDTHS.incomingGatePassNo}
+        group={group}
+        getText={(r) => formatGgpValue(r.incomingGatePassNo)}
+      />
+      <SplitGgpColumn
+        width={COL_WIDTHS.manualIncomingVoucherNo}
+        group={group}
+        getText={(r) => formatGgpValue(r.manualIncomingVoucherNo)}
+      />
+      <SpanGgpColumn
+        width={COL_WIDTHS.gradingGatePassNo}
+        minHeight={groupHeight}
+      >
+        <Text style={styles.cellCenter} wrap>
+          {formatGgpValue(first.gradingGatePassNo)}
+        </Text>
+      </SpanGgpColumn>
+      <SpanGgpColumn
+        width={COL_WIDTHS.manualGradingGatePassNo}
+        minHeight={groupHeight}
+      >
+        <Text style={styles.cellCenter} wrap>
+          {formatGgpValue(first.manualGradingGatePassNo)}
+        </Text>
+      </SpanGgpColumn>
+      <SplitGgpColumn
+        width={COL_WIDTHS.farmerName}
+        group={group}
+        getText={() => farmerName}
+      />
+      <SplitGgpColumn
+        width={COL_WIDTHS.variety}
+        group={group}
+        getText={(r) => varietyDisplay(r)}
+      />
+      <SplitGgpColumn
+        width={COL_WIDTHS.date}
+        group={group}
+        getText={(r) => formatLedgerGradingDate(r)}
+      />
+      {sizesWithQty.map((size) => {
+        const { wt, type } = getSizeWtAndType(first, size);
+        const qty = getSizeQty(first, size);
+        return (
+          <Fragment key={size}>
+            <SpanGgpColumn width={COL_WIDTHS.sizeQty} minHeight={groupHeight}>
+              <Text style={styles.cellCenter}>
+                {qty > 0 ? qty.toLocaleString('en-IN') : '—'}
+              </Text>
+            </SpanGgpColumn>
+            <SpanGgpColumn width={COL_WIDTHS.wtInKg} minHeight={groupHeight}>
+              <Text style={styles.cellCenter}>{wt}</Text>
+            </SpanGgpColumn>
+            <SpanGgpColumn width={COL_WIDTHS.bagType} minHeight={groupHeight}>
+              <Text style={styles.cellCenter}>{type}</Text>
+            </SpanGgpColumn>
+          </Fragment>
+        );
+      })}
+      <SpanGgpColumn width={COL_WIDTHS.total} minHeight={groupHeight} isLast>
+        <Text style={styles.cellCenter}>
+          {rowTotal > 0 ? rowTotal.toLocaleString('en-IN') : '—'}
+        </Text>
+      </SpanGgpColumn>
+    </View>
+  );
 }
 
 /** Get weight (kg) and bag type for a size on a row. Prefers JUTE then LENO then unified. */
@@ -276,6 +453,7 @@ function GradingGatePassTablePdf({
   if (rowsWithGgp.length === 0) return null;
 
   const sizesWithQty = getSizesWithQuantities(rowsWithGgp);
+  const rowGroups = groupStockLedgerRowsByGradingPass(rowsWithGgp);
 
   return (
     <View style={styles.section}>
@@ -342,13 +520,22 @@ function GradingGatePassTablePdf({
           <Text style={styles.cellCenter}>Total</Text>
         </View>
       </View>
-      {rowsWithGgp.map((row, index) => {
+      {rowGroups.map((group, gi) => {
+        const keyBase = `ggp-${group[0]?.gradingGatePassNo ?? gi}-${group[0]?.incomingGatePassNo ?? ''}`;
+        if (group.length > 1) {
+          return (
+            <GroupedGradingDataRow
+              key={`${keyBase}-grp`}
+              group={group}
+              farmerName={farmerName}
+              sizesWithQty={sizesWithQty}
+            />
+          );
+        }
+        const row = group[0]!;
         const rowTotal = getRowTotal(row);
         return (
-          <View
-            key={`ggp-${row.incomingGatePassNo}-${index}`}
-            style={styles.dataRow}
-          >
+          <View key={`${keyBase}-1`} style={styles.dataRow}>
             <View
               style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}
             >
@@ -387,20 +574,11 @@ function GradingGatePassTablePdf({
               <Text style={styles.cellCenter}>{farmerName}</Text>
             </View>
             <View style={[styles.cell, { width: COL_WIDTHS.variety }]}>
-              <Text style={styles.cellCenter}>
-                {row.variety != null && String(row.variety).trim() !== ''
-                  ? String(row.variety).trim()
-                  : '—'}
-              </Text>
+              <Text style={styles.cellCenter}>{varietyDisplay(row)}</Text>
             </View>
             <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
               <Text style={styles.cellCenter}>
-                {row.gradingGatePassDate != null &&
-                String(row.gradingGatePassDate).trim() !== ''
-                  ? formatVoucherDate(row.gradingGatePassDate)
-                  : row.date != null && String(row.date).trim() !== ''
-                    ? formatVoucherDate(row.date)
-                    : '—'}
+                {formatLedgerGradingDate(row)}
               </Text>
             </View>
             {sizesWithQty.map((size) => {

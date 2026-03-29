@@ -5,7 +5,10 @@ import {
   JUTE_BAG_WEIGHT,
   LENO_BAG_WEIGHT,
 } from '@/components/forms/grading/constants';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import {
+  type StockLedgerRow,
+  groupStockLedgerRowsByGradingPass,
+} from '@/components/pdf/stockLedgerTypes';
 import {
   computeIncomingLessBardana,
   computeIncomingActualWeight,
@@ -659,35 +662,46 @@ export function buildGradingGatePassSheetData(
   headerRow.push('Total');
   result.push(headerRow);
 
-  for (const row of rowsWithGgp) {
-    const rowTotal = getRowTotal(row);
-    const dateStr =
-      row.gradingGatePassDate != null &&
-      String(row.gradingGatePassDate).trim() !== ''
-        ? formatVoucherDate(row.gradingGatePassDate)
-        : row.date != null && String(row.date).trim() !== ''
-          ? formatVoucherDate(row.date)
+  const groups = groupStockLedgerRowsByGradingPass(rowsWithGgp);
+  for (const group of groups) {
+    const first = group[0]!;
+    const isMulti = group.length > 1;
+    for (let i = 0; i < group.length; i++) {
+      const row = group[i]!;
+      const showSpan = !isMulti || i === 0;
+      const rowTotal = showSpan ? getRowTotal(row) : 0;
+      const dateStr =
+        row.gradingGatePassDate != null &&
+        String(row.gradingGatePassDate).trim() !== ''
+          ? formatVoucherDate(row.gradingGatePassDate)
+          : row.date != null && String(row.date).trim() !== ''
+            ? formatVoucherDate(row.date)
+            : '—';
+      const varietyStr =
+        row.variety != null && String(row.variety).trim() !== ''
+          ? String(row.variety).trim()
           : '—';
-    const varietyStr =
-      row.variety != null && String(row.variety).trim() !== ''
-        ? String(row.variety).trim()
-        : '—';
-    const rowCells: (string | number)[] = [
-      formatGgpValue(row.incomingGatePassNo),
-      formatGgpValue(row.manualIncomingVoucherNo),
-      formatGgpValue(row.gradingGatePassNo),
-      formatGgpValue(row.manualGradingGatePassNo),
-      farmerName,
-      varietyStr,
-      dateStr,
-    ];
-    for (const size of sizesWithQty) {
-      const { wt, type } = getSizeWtAndType(row, size);
-      const qty = getSizeQty(row, size);
-      rowCells.push(qty > 0 ? qty : '—', wt, type);
+      const rowCells: (string | number)[] = [
+        formatGgpValue(row.incomingGatePassNo),
+        formatGgpValue(row.manualIncomingVoucherNo),
+        showSpan ? formatGgpValue(first.gradingGatePassNo) : '',
+        showSpan ? formatGgpValue(first.manualGradingGatePassNo) : '',
+        farmerName,
+        varietyStr,
+        dateStr,
+      ];
+      for (const size of sizesWithQty) {
+        if (showSpan) {
+          const { wt, type } = getSizeWtAndType(first, size);
+          const qty = getSizeQty(first, size);
+          rowCells.push(qty > 0 ? qty : '—', wt, type);
+        } else {
+          rowCells.push('', '', '');
+        }
+      }
+      rowCells.push(showSpan && rowTotal > 0 ? rowTotal : showSpan ? '—' : '');
+      result.push(rowCells);
     }
-    rowCells.push(rowTotal > 0 ? rowTotal : '—');
-    result.push(rowCells);
   }
 
   const totalsBySize: Record<string, number> = {};
