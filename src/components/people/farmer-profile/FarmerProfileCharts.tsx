@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
 import {
   Card,
@@ -23,7 +23,9 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { PieChart as PieChartIcon } from 'lucide-react';
+import { ChevronDown, PieChart as PieChartIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 import {
   SIZE_ORDER,
@@ -483,6 +485,9 @@ const FarmerProfileCharts = memo(function FarmerProfileCharts({
   gradingPasses,
   isLoading = false,
 }: FarmerProfileChartsProps) {
+  const [showVarietyChart, setShowVarietyChart] = useState(false);
+  const [showSizeChart, setShowSizeChart] = useState(false);
+
   const varietyChartData = useMemo(
     () => computeVarietyDistribution(gradingPasses),
     [gradingPasses]
@@ -493,12 +498,63 @@ const FarmerProfileCharts = memo(function FarmerProfileCharts({
   );
 
   return (
-    <div className="font-custom grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <FarmerProfileVarietyChart
-        chartData={varietyChartData}
-        isLoading={isLoading}
-      />
-      <FarmerProfileSizeChart chartData={sizeChartData} isLoading={isLoading} />
+    <div className="font-custom space-y-4">
+      <div className="flex flex-wrap gap-2 sm:gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="font-custom focus-visible:ring-primary focus-visible:ring-offset-2"
+          onClick={() => setShowVarietyChart((v) => !v)}
+          aria-expanded={showVarietyChart}
+          aria-controls="farmer-profile-variety-distribution"
+        >
+          <ChevronDown
+            className={cn(
+              'transition-transform duration-200 ease-in-out',
+              showVarietyChart && 'rotate-180'
+            )}
+            aria-hidden
+          />
+          {showVarietyChart ? 'Hide' : 'Show'} Variety Distribution
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="font-custom focus-visible:ring-primary focus-visible:ring-offset-2"
+          onClick={() => setShowSizeChart((v) => !v)}
+          aria-expanded={showSizeChart}
+          aria-controls="farmer-profile-size-distribution"
+        >
+          <ChevronDown
+            className={cn(
+              'transition-transform duration-200 ease-in-out',
+              showSizeChart && 'rotate-180'
+            )}
+            aria-hidden
+          />
+          {showSizeChart ? 'Hide' : 'Show'} Size-wise Distribution
+        </Button>
+      </div>
+      {(showVarietyChart || showSizeChart) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {showVarietyChart && (
+            <div id="farmer-profile-variety-distribution" className="min-w-0">
+              <FarmerProfileVarietyChart
+                chartData={varietyChartData}
+                isLoading={isLoading}
+              />
+            </div>
+          )}
+          {showSizeChart && (
+            <div id="farmer-profile-size-distribution" className="min-w-0">
+              <FarmerProfileSizeChart
+                chartData={sizeChartData}
+                isLoading={isLoading}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });
