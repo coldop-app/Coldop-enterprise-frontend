@@ -505,27 +505,38 @@ export interface GetSizeDistributionApiResponse {
 
 // --- Area-wise size distribution (GET /analytics/area-wise-size-distribution) ---
 
-/** Single size entry within an area in GET /analytics/area-wise-size-distribution */
-export interface AreaWiseSizeItem {
+/** Single size entry within a bag type in GET /analytics/area-wise-size-distribution */
+export interface AreaWiseBagTypeSizeItem {
   name: string;
   value: number;
+  netWeightKg: number;
+  percentageOfAreaNetWeight: number;
 }
 
-/** Single area entry within a variety */
-export interface AreaWiseAreaItem {
-  area: string;
-  sizes: AreaWiseSizeItem[];
+/** Single bag type entry within a variety */
+export interface AreaWiseBagTypeItem {
+  bagType: string;
+  sizes: AreaWiseBagTypeSizeItem[];
 }
 
-/** Single variety entry in GET /analytics/area-wise-size-distribution chartData */
+/** Single variety entry within an area */
 export interface AreaWiseVarietyItem {
   variety: string;
-  areas: AreaWiseAreaItem[];
+  yieldNetWeightKg: number;
+  yieldPercentageOfArea: number;
+  bagTypes: AreaWiseBagTypeItem[];
+}
+
+/** Single area entry in GET /analytics/area-wise-size-distribution chartData */
+export interface AreaWiseChartAreaItem {
+  area: string;
+  totalNetWeightKg: number;
+  varieties: AreaWiseVarietyItem[];
 }
 
 /** Data shape for GET /analytics/area-wise-size-distribution */
 export interface AreaWiseSizeDistributionData {
-  chartData: AreaWiseVarietyItem[];
+  chartData: AreaWiseChartAreaItem[];
 }
 
 /** API response for GET /analytics/area-wise-size-distribution */

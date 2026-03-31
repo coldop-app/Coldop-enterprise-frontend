@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.0] - 2026-03-31
+
+### Added
+- Analytics Grading: **Area-wise analytics details panel** for selected area in the variety tab — bag-type cards with progress bars, per-size bag and net-weight breakdown, area-share percentages, and a direct "View Farmer-wise Area Breakdown" action
+- Ungraded report: **PDF view/export** button on the report toolbar with dynamic import, table snapshot support (visible columns/grouping/sorting), cold storage name, and applied date-range label
+
+### Changed
+- Area-wise size distribution data model in `analytics.ts` aligned to the new API response shape (`chartData` now area-first with nested varieties, bag types, net-weight metadata, and percentage fields)
+- Analytics Grading area-wise table interaction updated from cell-level drilldown to **row selection with detailed insights** for the selected area while keeping size totals in the summary table
+- Grading report: **Wastage now displayed as percentage** (`Wastage (%)`) computed as `((incoming net product − total graded weight) / incoming net product) × 100`, with labels and formatting updated across table columns and visibility labels
+- Grading report default visible columns adjusted to remove wastage from the initial visible set while retaining it as an available column
+
 ## [0.42.0] - 2026-03-29
 
 ### Added

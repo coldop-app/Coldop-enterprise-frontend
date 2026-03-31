@@ -230,7 +230,7 @@ export type GradingReportRow = {
   totalGradedBags: number;
   /** Total graded weight (kg) from order details (after bag deduction). */
   totalGradedWeightKg: number;
-  /** Wastage (kg) = incoming net product − total graded weight. */
+  /** Wastage (%) = ((incoming net product − total graded weight) / incoming net product) × 100. */
   wastageKg: number | string;
   grader: string;
   remarks: string;
@@ -276,6 +276,12 @@ function formatNum(value: number | string): string {
 function formatWeightKg(value: number | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
   return String(Math.round(value * 10) / 10);
+}
+
+function formatPercent(value: number | string): string {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(n)) return '—';
+  return `${n.toFixed(2)}%`;
 }
 
 /** Incoming section: GP no., manual no., date, truck, bags (highlight), gross, net (highlight) */
@@ -511,14 +517,16 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'wastageKg',
-      header: () => <div className={wastageHighlightHeader}>Wastage (kg)</div>,
+      header: () => <div className={wastageHighlightHeader}>Wastage (%)</div>,
       cell: ({ row }) => {
         const val = row.getValue('wastageKg');
         if (val === '—' || val == null) {
           return <div className={wastageHighlightCell}>—</div>;
         }
         return (
-          <div className={wastageHighlightCell}>{formatNum(val as number)}</div>
+          <div className={wastageHighlightCell}>
+            {formatPercent(val as number)}
+          </div>
         );
       },
       aggregationFn: 'sum',

@@ -151,9 +151,9 @@ function getGrossTareNet(
  * Map grading gate passes to table rows. Each grading pass has
  * incomingGatePassIds[]; when there are multiple incomings they are grouped:
  * one row per incoming with that incoming's details; grading pass details
- * (gate pass no., date, total graded bags/weight, wastage, grader, remarks)
+ * (gate pass no., date, total graded bags/weight, wastage %, grader, remarks)
  * appear on the first row of the group only. Wastage is computed at group level
- * (combined effective incoming net product − total graded weight).
+ * as % of incoming net product: ((incoming net product − total graded weight) / incoming net product) × 100.
  */
 function mapGradingPassesToRows(
   passes: GradingGatePass[],
@@ -202,6 +202,12 @@ function mapGradingPassesToRows(
       groupEffectiveIncomingNetProductKg != null &&
       groupEffectiveIncomingNetProductKg > 0
         ? Math.max(0, groupEffectiveIncomingNetProductKg - totalGradedWeightKg)
+        : undefined;
+    const wastagePercent =
+      wastageKg != null &&
+      groupEffectiveIncomingNetProductKg != null &&
+      groupEffectiveIncomingNetProductKg > 0
+        ? (wastageKg / groupEffectiveIncomingNetProductKg) * 100
         : undefined;
 
     incomings.forEach((inc, idx) => {
@@ -256,7 +262,7 @@ function mapGradingPassesToRows(
             : '—',
         totalGradedBags: isFirstRow ? totalGradedBags : 0,
         totalGradedWeightKg: isFirstRow ? totalGradedWeightKg : 0,
-        wastageKg: isFirstRow ? (wastageKg ?? '—') : '—',
+        wastageKg: isFirstRow ? (wastagePercent ?? '—') : '—',
         grader: isFirstRow ? (pass.grader ?? '—') : '—',
         remarks: isFirstRow ? (pass.remarks ?? '—') : '—',
         gradingPassRowIndex: idx,
@@ -380,7 +386,6 @@ const GradingReportTable = () => {
       'totalGradedBags',
       ...gradedBagColumns.map((c) => c.columnId),
       'totalGradedWeightKg',
-      'wastageKg',
       'grossWeightKg',
       'netWeightKg',
       'netProductKg',

@@ -8,14 +8,20 @@ import {
 } from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import { columns, type IncomingReportRow } from '../incoming-report/columns';
-import { DataTable } from '../incoming-report/data-table';
+import {
+  DataTable,
+  type IncomingReportDataTableRef,
+  type IncomingReportPdfSnapshot,
+} from '../incoming-report/data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/forms/date-picker';
 import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { queryClient } from '@/lib/queryClient';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
+import { FileDown } from 'lucide-react';
 
 /** API can return populated createdBy and optional weightSlip/bagsReceived etc. */
 type IncomingPass = IncomingGatePassWithLink & {
@@ -106,9 +112,12 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
 const NOT_GRADED_STATUS = 'NOT_GRADED';
 
 const UngradedReportTable = () => {
+  const coldStorage = useStore((s) => s.coldStorage);
+  const tableRef = useRef<IncomingReportDataTableRef<IncomingReportRow>>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [appliedRange, setAppliedRange] = useState<{
     dateFrom?: string;
     dateTo?: string;
@@ -176,6 +185,58 @@ const UngradedReportTable = () => {
     toast.success('Date filters cleared. Report updated.');
   };
 
+  const getDateRangeLabel = () => {
+    if (appliedRange.dateFrom && appliedRange.dateTo) {
+      return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
+    }
+    if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
+    if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
+    return 'All dates';
+  };
+
+  const handleDownloadPdf = async () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null =
+        tableRef.current?.getPdfSnapshot() ?? null;
+      const [{ pdf }, { IncomingReportTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/incoming-report-table-pdf'),
+      ]);
+      const blob = await pdf(
+        <IncomingReportTablePdf
+          companyName={coldStorage?.name ?? 'Cold Storage'}
+          dateRangeLabel={getDateRangeLabel()}
+          reportTitle="Ungraded Report"
+          rows={rows}
+          tableSnapshot={snapshot}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('PDF opened in new tab', {
+        description: 'Ungraded report is ready to view or print.',
+      });
+    } catch {
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
@@ -220,6 +281,7 @@ const UngradedReportTable = () => {
           Ungraded Report
         </h2>
         <DataTable
+          ref={tableRef}
           columns={columns}
           data={rows}
           toolbarLeftContent={
@@ -259,6 +321,23 @@ const UngradedReportTable = () => {
                 </Button>
               )}
             </>
+          }
+          toolbarRightContent={
+            <Button
+              className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || isLoading}
+              aria-label={
+                isGeneratingPdf
+                  ? 'Generating PDF…'
+                  : isLoading
+                    ? 'Loading report…'
+                    : 'View report'
+              }
+            >
+              <FileDown className="h-4 w-4 shrink-0" />
+              {isGeneratingPdf ? 'Generating…' : 'View Report'}
+            </Button>
           }
         />
       </div>

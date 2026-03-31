@@ -111,7 +111,7 @@ const COLUMN_LABELS: Record<string, string> = {
   netProductKg: 'Net product (kg)',
   totalGradedBags: 'Graded bags',
   totalGradedWeightKg: 'Total graded weight (kg)',
-  wastageKg: 'Wastage (kg)',
+  wastageKg: 'Wastage (%)',
   grader: 'Grader',
   remarks: 'Remarks',
 };
