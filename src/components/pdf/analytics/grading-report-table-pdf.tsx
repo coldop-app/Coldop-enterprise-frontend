@@ -105,6 +105,39 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: '100%',
   },
+  /** Graded bag-size column: qty, (kg/bag), then Jute/Leno lines (matches web report). */
+  gradedBagCellStack: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 1,
+  },
+  gradedBagCellStackLeft: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 1,
+  },
+  gradedBagQty: {
+    fontSize: 6,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  gradedBagWeight: {
+    fontSize: 6,
+    color: '#555555',
+    textAlign: 'center',
+  },
+  gradedBagTypeLine: {
+    fontSize: 5,
+    color: '#555555',
+    textAlign: 'center',
+  },
+  gradedBagTypeLineLeft: {
+    fontSize: 5,
+    color: '#555555',
+    textAlign: 'left',
+  },
   farmerSection: {
     marginTop: 14,
   },
@@ -249,6 +282,93 @@ function labelForBagColumnId(columnId: string): string {
   return sk ? (GRADING_REPORT_BAG_SIZE_LABELS[sk] ?? sk) : columnId;
 }
 
+function formatPdfInt(n: number): string {
+  return Math.round(n).toLocaleString();
+}
+
+function formatWeightPdfKg(kg: number): string {
+  return (Math.round(kg * 10) / 10).toFixed(1);
+}
+
+/** Stacked qty / (kg per bag) / bag type — same semantics as the grading report data table. */
+function GradedBagSizePdfCell({
+  columnKey,
+  row,
+  align,
+}: {
+  columnKey: string;
+  row: GradingReportRow;
+  align: 'left' | 'center';
+}) {
+  const sizeKey = sizeKeyFromGradedBagColumnId(columnKey);
+  const baseAlign = align === 'left';
+  const stackStyle = baseAlign
+    ? styles.gradedBagCellStackLeft
+    : styles.gradedBagCellStack;
+  const typeStyle = baseAlign
+    ? styles.gradedBagTypeLineLeft
+    : styles.gradedBagTypeLine;
+
+  if (!sizeKey) {
+    return (
+      <Text style={baseAlign ? styles.cellLeft : styles.cell} wrap>
+        —
+      </Text>
+    );
+  }
+
+  const b = row.gradedSizeBreakdown?.[sizeKey];
+  if (!b || b.qty === 0) {
+    return (
+      <Text
+        style={[baseAlign ? styles.cellLeft : styles.cell, styles.cellText]}
+        wrap
+      >
+        {''}
+      </Text>
+    );
+  }
+
+  const parts = b.bagTypeParts ?? [];
+  const weightStr = `(${formatWeightPdfKg(b.weightPerBagKg)})`;
+
+  return (
+    <View style={stackStyle}>
+      <Text
+        style={[
+          baseAlign ? styles.cellLeft : styles.cell,
+          styles.gradedBagQty,
+          { textAlign: baseAlign ? 'left' : 'center' },
+        ]}
+        wrap
+      >
+        {formatPdfInt(b.qty)}
+      </Text>
+      <Text
+        style={[
+          baseAlign ? styles.cellLeft : styles.cell,
+          styles.gradedBagWeight,
+          { textAlign: baseAlign ? 'left' : 'center' },
+        ]}
+        wrap
+      >
+        {weightStr}
+      </Text>
+      {parts.length === 1 ? (
+        <Text style={typeStyle} wrap>
+          {parts[0].label}
+        </Text>
+      ) : parts.length > 1 ? (
+        parts.map((p, i) => (
+          <Text key={`${p.label}-${i}`} style={typeStyle} wrap>
+            {p.label} {formatPdfInt(p.qty)}
+          </Text>
+        ))
+      ) : null}
+    </View>
+  );
+}
+
 type PdfColumnDef = {
   key: string;
   label: string;
@@ -286,19 +406,26 @@ function GroupedTableBody({
             ]}
           >
             {isSpan ? (
-              <Text
-                style={[
-                  col.align === 'left' ? styles.cellLeft : styles.cell,
-                  styles.cellText,
-                ]}
-                wrap
-              >
-                {formatCell(
-                  (first as Record<string, unknown>)[col.key],
-                  col.key,
-                  first
-                )}
-              </Text>
+              col.key.startsWith('gradedBagSize_') ? (
+                <GradedBagSizePdfCell
+                  columnKey={col.key}
+                  row={first}
+                  align={col.align}
+                />
+              ) : (
+                <Text
+                  style={[
+                    col.align === 'left' ? styles.cellLeft : styles.cell,
+                    styles.cellText,
+                  ]}
+                  wrap
+                >
+                  {formatCell(
+                    (first as Record<string, unknown>)[col.key],
+                    col.key
+                  )}
+                </Text>
+              )
             ) : (
               <View style={{ flexDirection: 'column' }}>
                 {group.map((row, rowIdx) => (
@@ -319,19 +446,26 @@ function GroupedTableBody({
                         : []),
                     ]}
                   >
-                    <Text
-                      style={[
-                        col.align === 'left' ? styles.cellLeft : styles.cell,
-                        styles.cellText,
-                      ]}
-                      wrap
-                    >
-                      {formatCell(
-                        (row as Record<string, unknown>)[col.key],
-                        col.key,
-                        row
-                      )}
-                    </Text>
+                    {col.key.startsWith('gradedBagSize_') ? (
+                      <GradedBagSizePdfCell
+                        columnKey={col.key}
+                        row={row}
+                        align={col.align}
+                      />
+                    ) : (
+                      <Text
+                        style={[
+                          col.align === 'left' ? styles.cellLeft : styles.cell,
+                          styles.cellText,
+                        ]}
+                        wrap
+                      >
+                        {formatCell(
+                          (row as Record<string, unknown>)[col.key],
+                          col.key
+                        )}
+                      </Text>
+                    )}
                   </View>
                 ))}
               </View>
@@ -496,23 +630,8 @@ const INTEGER_COLUMN_KEYS = new Set<string>([
   'accountNumber',
 ]);
 
-function formatWeightPdfKg(kg: number): string {
-  return (Math.round(kg * 10) / 10).toFixed(1);
-}
-
 /** Format value for PDF display. Gate pass numbers and counts as integers; other numbers to 2 decimal places. */
-function formatCell(
-  value: unknown,
-  columnKey?: string,
-  row?: GradingReportRow
-): string {
-  if (columnKey?.startsWith('gradedBagSize_') && row) {
-    const sizeKey = sizeKeyFromGradedBagColumnId(columnKey);
-    if (!sizeKey) return '—';
-    const b = row.gradedSizeBreakdown?.[sizeKey];
-    if (!b || b.qty === 0) return '';
-    return `${b.qty} (${formatWeightPdfKg(b.weightPerBagKg)})`;
-  }
+function formatCell(value: unknown, columnKey?: string): string {
   if (value == null || value === '') return '—';
   const asInteger = columnKey != null && INTEGER_COLUMN_KEYS.has(columnKey);
   if (typeof value === 'number') {

@@ -58,30 +58,88 @@ export function getVisibleBagSizesFromPasses(
   return orderBagSizesByGradingReport(hasQty);
 }
 
+/** Display label for a grading order line bag type (Jute / Leno / other). */
+export function formatGradingBagTypeLabel(
+  bagType: string | null | undefined
+): string {
+  const t = bagType?.trim();
+  if (!t) return '—';
+  const u = t.toUpperCase();
+  if (u === 'JUTE') return 'Jute';
+  if (u === 'LENO') return 'Leno';
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+}
+
+function sortBagTypeParts(
+  a: { label: string; qty: number },
+  b: { label: string; qty: number }
+): number {
+  const rank = (l: string) =>
+    l === 'Jute' ? 0 : l === 'Leno' ? 1 : l === '—' ? 99 : 50;
+  const ra = rank(a.label);
+  const rb = rank(b.label);
+  if (ra !== rb) return ra - rb;
+  return a.label.localeCompare(b.label);
+}
+
+export type GradedSizeBreakdownEntry = {
+  qty: number;
+  weightPerBagKg: number;
+  /** Non-empty when qty > 0; split by bag type from order lines */
+  bagTypeParts: { label: string; qty: number }[];
+};
+
 /**
  * Per-size qty across all bag types in orderDetails, with weightPerBagKg merged
  * like FarmerProfileGradingGatePassTable (last non-null weightPerBagKg wins per size).
+ * {@link bagTypeParts} lists qty per bag type for report cells (jute vs leno vs other).
  */
 export function getAggregatedGradedSizeBreakdown(
   orderDetails: GradingGatePass['orderDetails'] | undefined
-): Record<string, { qty: number; weightPerBagKg: number }> {
-  const map = new Map<string, { qty: number; weightPerBagKg: number }>();
+): Record<string, GradedSizeBreakdownEntry> {
+  const map = new Map<
+    string,
+    {
+      qty: number;
+      weightPerBagKg: number;
+      byLabel: Map<string, number>;
+    }
+  >();
+
   for (const d of orderDetails ?? []) {
     const size = d.size;
     if (!size) continue;
     const qty = d.initialQuantity ?? d.currentQuantity ?? 0;
+    const label = formatGradingBagTypeLabel(d.bagType);
     const existing = map.get(size);
     if (existing) {
       existing.qty += qty;
       if (d.weightPerBagKg != null) existing.weightPerBagKg = d.weightPerBagKg;
+      existing.byLabel.set(label, (existing.byLabel.get(label) ?? 0) + qty);
     } else {
+      const byLabel = new Map<string, number>();
+      byLabel.set(label, qty);
       map.set(size, {
         qty,
         weightPerBagKg: d.weightPerBagKg ?? 0,
+        byLabel,
       });
     }
   }
-  return Object.fromEntries(map);
+
+  const result: Record<string, GradedSizeBreakdownEntry> = {};
+  for (const [size, entry] of map) {
+    const bagTypeParts = [...entry.byLabel.entries()]
+      .filter(([, q]) => q > 0)
+      .map(([label, q]) => ({ label, qty: q }))
+      .sort(sortBagTypeParts);
+    result[size] = {
+      qty: entry.qty,
+      weightPerBagKg: entry.weightPerBagKg,
+      bagTypeParts,
+    };
+  }
+  return result;
 }
 
 export function gradedBagSizeColumnId(size: string): string {

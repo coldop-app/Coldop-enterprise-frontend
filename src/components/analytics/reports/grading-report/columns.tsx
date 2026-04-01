@@ -3,6 +3,7 @@ import type { ColumnDef, CellContext } from '@tanstack/table-core';
 import {
   GRADING_REPORT_BAG_SIZE_LABELS,
   gradedBagSizeColumnId,
+  type GradedSizeBreakdownEntry,
 } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 import { Button } from '@/components/ui/button';
 import {
@@ -238,8 +239,8 @@ export type GradingReportRow = {
   gradingPassRowIndex?: number;
   /** Number of rows in this grading-pass group. Used for rowSpan. */
   gradingPassGroupSize?: number;
-  /** Per-size graded qty and total weight (kg); only on first row of a grading-pass group. */
-  gradedSizeBreakdown?: Record<string, { qty: number; weightPerBagKg: number }>;
+  /** Per-size graded qty, weight/bag, and bag-type split; only on first row of a grading-pass group. */
+  gradedSizeBreakdown?: Record<string, GradedSizeBreakdownEntry>;
   /** Qty per bag-size column id for footer totals (same ids as `gradedBagSize_*` columns). */
   gradedBagSizeQtyByColumnId?: Record<string, number>;
 };
@@ -318,16 +319,30 @@ function buildBagSizeColumns(
         const qty = breakdown?.qty ?? 0;
         const wPerBag = breakdown?.weightPerBagKg;
         const isEmpty = qty === 0 || breakdown == null;
+        const parts = breakdown?.bagTypeParts ?? [];
         return (
           <div className={gradedHighlightCell}>
             {isEmpty ? (
               ''
             ) : (
-              <span className="flex flex-col items-end">
+              <span className="flex flex-col items-end gap-0.5">
                 <span className="font-medium">{formatNum(qty)}</span>
                 <span className="text-muted-foreground text-xs font-normal">
                   ({formatWeightKg(wPerBag)})
                 </span>
+                {parts.length === 1 ? (
+                  <span className="text-muted-foreground font-custom text-[10px] leading-tight font-normal">
+                    {parts[0].label}
+                  </span>
+                ) : parts.length > 1 ? (
+                  <span className="text-muted-foreground font-custom flex flex-col items-end gap-0.5 text-[10px] leading-tight font-normal">
+                    {parts.map((p, i) => (
+                      <span key={`${p.label}-${i}`}>
+                        {p.label} {formatNum(p.qty)}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
               </span>
             )}
           </div>
