@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
-import type { ColumnDef, CellContext } from '@tanstack/table-core';
+import type { ColumnDef, CellContext, SortingFn } from '@tanstack/table-core';
 import {
   GRADING_REPORT_BAG_SIZE_LABELS,
   gradedBagSizeColumnId,
@@ -50,6 +50,64 @@ function GroupableHeader({
 }
 
 type SortState = { id: string; desc: boolean }[];
+
+/** Right-aligned column: sort only (no grouping) */
+function SortableHeader({
+  column,
+  table,
+  label,
+}: {
+  column: {
+    id: string;
+    getIsSorted: () => false | 'asc' | 'desc';
+    toggleSorting: (desc?: boolean) => void;
+  };
+  table: {
+    options: {
+      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
+    };
+  };
+  label: string;
+}) {
+  const isSorted = column.getIsSorted();
+  const columnId = column.id;
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span className="font-custom">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label={`${label} column options`}
+          >
+            <MoreVertical className="h-4 w-4 text-gray-600" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => column.toggleSorting(false)}>
+            Sort ascending
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => column.toggleSorting(true)}>
+            Sort descending
+          </DropdownMenuItem>
+          {isSorted && (
+            <DropdownMenuItem
+              onSelect={() =>
+                table.options.onSortingChange?.((prev) =>
+                  prev.filter((s) => s.id !== columnId)
+                )
+              }
+            >
+              Clear sort
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 /** Header with 3-dot menu for columns that support both grouping and sorting (e.g. Date) */
 function GroupableSortableHeader({
@@ -243,6 +301,12 @@ export type GradingReportRow = {
   gradedSizeBreakdown?: Record<string, GradedSizeBreakdownEntry>;
   /** Qty per bag-size column id for footer totals (same ids as `gradedBagSize_*` columns). */
   gradedBagSizeQtyByColumnId?: Record<string, number>;
+  /** Grading gate pass no. for sorting (same value on every row of a pass group). */
+  sortGatePassNo: number;
+  /** Grading manual GP no. for sorting (NaN = missing). */
+  sortManualGatePassNumber: number;
+  /** ISO date string for sorting (grading pass date; same on every row of a pass group). */
+  sortGradingPassDate: string;
 };
 
 /** Base column ids that span across grouped incoming rows (grading gate pass level). Bag-size columns are appended dynamically — see `gradingReportRowSpanColumnIds`. */
@@ -267,6 +331,41 @@ export function gradingReportRowSpanColumnIds(
   const bagIds = visibleBagSizes.map((s) => gradedBagSizeColumnId(s));
   return [...GRADING_REPORT_ROW_SPAN_BASE_IDS, ...bagIds];
 }
+
+function compareNumbersForSort(a: number, b: number): number {
+  const aNaN = Number.isNaN(a);
+  const bNaN = Number.isNaN(b);
+  if (aNaN && bNaN) return 0;
+  if (aNaN) return 1;
+  if (bNaN) return -1;
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
+function compareIsoDateStrings(a: string, b: string): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}
+
+const sortGatePassNoFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
+  compareNumbersForSort(
+    rowA.original.sortGatePassNo,
+    rowB.original.sortGatePassNo
+  );
+
+const sortManualGatePassNumberFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
+  compareNumbersForSort(
+    rowA.original.sortManualGatePassNumber,
+    rowB.original.sortManualGatePassNumber
+  );
+
+const sortGradingPassDateFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
+  compareIsoDateStrings(
+    rowA.original.sortGradingPassDate,
+    rowB.original.sortGradingPassDate
+  );
 
 function formatNum(value: number | string): string {
   const n = typeof value === 'number' ? value : Number(value);
@@ -332,13 +431,13 @@ function buildBagSizeColumns(
                 </span>
                 {parts.length === 1 ? (
                   <span className="text-muted-foreground font-custom text-[10px] leading-tight font-normal">
-                    {parts[0].label}
+                    {`${parts[0].label} (${formatWeightKg(parts[0].weightPerBagKg)})`}
                   </span>
                 ) : parts.length > 1 ? (
                   <span className="text-muted-foreground font-custom flex flex-col items-end gap-0.5 text-[10px] leading-tight font-normal">
                     {parts.map((p, i) => (
                       <span key={`${p.label}-${i}`}>
-                        {p.label} {formatNum(p.qty)}
+                        {`${p.label} ${formatNum(p.qty)} (${formatWeightKg(p.weightPerBagKg)})`}
                       </span>
                     ))}
                   </span>
@@ -372,6 +471,7 @@ export function createGradingReportColumns(
       header: () => (
         <div className="font-custom text-right">Incoming GP no.</div>
       ),
+      enableSorting: false,
       cell: ({ row }) => (
         <div className="text-right">
           {row.getIsGrouped()
@@ -386,6 +486,7 @@ export function createGradingReportColumns(
       header: () => (
         <div className="font-custom text-right">Incoming manual no.</div>
       ),
+      enableSorting: false,
       cell: ({ row }) => (
         <div className="text-right">
           {row.getIsGrouped()
@@ -400,6 +501,7 @@ export function createGradingReportColumns(
       header: ({ column }) => (
         <GroupableHeader column={column} label="Incoming gate pass date" />
       ),
+      enableSorting: false,
       cell: GroupableCell,
       enableGrouping: true,
     },
@@ -473,7 +575,11 @@ export function createGradingReportColumns(
     // ——— Grading gate pass ———
     {
       accessorKey: 'gatePassNo',
-      header: () => <div className="font-custom text-right">Gate pass no.</div>,
+      header: ({ column, table }) => (
+        <SortableHeader column={column} table={table} label="Gate pass no." />
+      ),
+      sortingFn: sortGatePassNoFn,
+      sortDescFirst: false,
       cell: ({ row }) => (
         <div className="text-right">
           {row.getIsGrouped() ? '—' : String(row.getValue('gatePassNo') ?? '—')}
@@ -483,7 +589,11 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'manualGatePassNumber',
-      header: () => <div className="font-custom text-right">Manual GP no.</div>,
+      header: ({ column, table }) => (
+        <SortableHeader column={column} table={table} label="Manual GP no." />
+      ),
+      sortingFn: sortManualGatePassNumberFn,
+      sortDescFirst: false,
       cell: ({ row }) => (
         <div className="text-right">
           {row.getIsGrouped()
@@ -498,6 +608,8 @@ export function createGradingReportColumns(
       header: ({ column, table }) => (
         <GroupableSortableHeader column={column} table={table} label="Date" />
       ),
+      sortingFn: sortGradingPassDateFn,
+      sortDescFirst: false,
       cell: GroupableCell,
       enableGrouping: true,
       enableSorting: true,

@@ -19,6 +19,17 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 
+/** Hoist once: passing `getCoreRowModel()` inline creates a new factory each render and defeats memoization. */
+const coreRowModel = getCoreRowModel();
+const groupedRowModel = getGroupedRowModel();
+const sortedRowModel = getSortedRowModel();
+const expandedRowModel = getExpandedRowModel();
+
+function defaultGetRowId<TData>(row: TData, index: number): string {
+  const r = row as { id?: string | number };
+  return r.id != null ? String(r.id) : String(index);
+}
+
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -60,6 +71,8 @@ const TOTAL_COLUMN_IDS = [
   'netProductKg',
 ] as const;
 
+const DEFAULT_TOTAL_COLUMN_IDS: readonly string[] = [...TOTAL_COLUMN_IDS];
+
 function toNum(value: unknown): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
   if (typeof value === 'string') {
@@ -78,6 +91,8 @@ interface RowWithGradingGroupMeta {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  /** Stable row id for reconciliation (defaults to `String(row.id)` when present). */
+  getRowId?: (originalRow: TData, index: number, parent?: Row<TData>) => string;
   /** Column ids to sum in the total row */
   totalColumnIds?: readonly string[];
   /** Initial column visibility state (column id -> visible). Omit or use {} for all visible. */
@@ -155,7 +170,8 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
   {
     columns,
     data,
-    totalColumnIds = [...TOTAL_COLUMN_IDS],
+    getRowId,
+    totalColumnIds = DEFAULT_TOTAL_COLUMN_IDS,
     initialColumnVisibility,
     rowSpanColumnIds,
     toolbarLeftContent,
@@ -172,13 +188,16 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
   const [groupByOpen, setGroupByOpen] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // TanStack Table memoizes row models internally; React Compiler cannot memoize this hook safely.
+  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getGroupedRowModel: getGroupedRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
+    getRowId: getRowId ?? defaultGetRowId,
+    getCoreRowModel: coreRowModel,
+    getGroupedRowModel: groupedRowModel,
+    getSortedRowModel: sortedRowModel,
+    getExpandedRowModel: expandedRowModel,
     onColumnVisibilityChange: setColumnVisibility,
     onGroupingChange: setGrouping,
     onSortingChange: setSorting,
@@ -194,6 +213,8 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
       expanded,
     },
     groupedColumnMode: 'reorder',
+    enableColumnFilters: false,
+    enableGlobalFilter: false,
   });
 
   const groupedIds = table.getState().grouping ?? [];
@@ -431,115 +452,124 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
           ) : null}
         </ItemFooter>
       </Item>
-      <div className="border-border bg-card font-custom overflow-hidden rounded-xl border text-sm shadow-sm">
-        <Table>
-          <TableHeader>
-            {headerGroups.map((headerGroup) => (
-              <TableRow
-                key={headerGroup.id}
-                className="border-border bg-muted/60 hover:bg-muted/60 border-b-2"
-              >
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="border-border text-foreground border-r px-4 py-3.5 font-semibold last:border-r-0"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {rowModel.rows?.length ? (
-              rowModel.rows.map((row) => {
-                const original =
-                  row.original as unknown as RowWithGradingGroupMeta;
-                const rowIndex = original.gradingPassRowIndex ?? 0;
-                const groupSize = original.gradingPassGroupSize ?? 1;
-
-                return (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                    data-depth={row.depth}
-                    className={`border-border border-b transition-colors last:border-b-0 ${
-                      row.getIsGrouped()
-                        ? 'bg-primary/15 hover:bg-primary/20'
-                        : row.depth > 0
-                          ? 'bg-secondary/40 hover:bg-secondary/50'
-                          : 'hover:bg-muted/50'
-                    }`}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const isSpanColumn =
-                        spanColumnSet != null &&
-                        spanColumnSet.has(cell.column.id);
-                      if (isSpanColumn && rowIndex > 0) {
-                        return null;
-                      }
-                      const rowSpan =
-                        isSpanColumn && rowIndex === 0 ? groupSize : undefined;
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          rowSpan={rowSpan}
-                          className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow className="border-border border-b hover:bg-transparent">
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground border-r-0 py-12 text-center"
+      <div className="border-border bg-card font-custom rounded-xl border text-sm shadow-sm">
+        <div
+          className="max-h-[min(70vh,56rem)] overflow-auto rounded-xl"
+          role="region"
+          aria-label="Grading report table"
+        >
+          <Table>
+            <TableHeader>
+              {headerGroups.map((headerGroup) => (
+                <TableRow
+                  key={headerGroup.id}
+                  className="border-border bg-muted/60 hover:bg-muted/60 border-b-2"
                 >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-          {data.length > 0 && totalColumnIds.length > 0 && (
-            <TableFooter>
-              <TableRow className="border-border bg-muted/60 font-custom font-bold">
-                {headerGroups[0]?.headers.map((header, idx) => {
-                  const columnId = header.column.id;
-                  const total = totals[columnId];
-                  const isTotalCol = total !== undefined;
-                  return (
-                    <TableCell
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
                       key={header.id}
-                      className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
+                      className="border-border bg-muted/60 text-foreground sticky top-0 z-20 border-r border-b px-4 py-3.5 font-semibold last:border-r-0"
                     >
-                      {idx === 0 ? (
-                        <span className="font-custom font-bold">Total</span>
-                      ) : isTotalCol ? (
-                        <div className="font-custom text-right font-bold">
-                          {total.toLocaleString()}
-                        </div>
-                      ) : (
-                        ''
-                      )}
-                    </TableCell>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {rowModel.rows?.length ? (
+                rowModel.rows.map((row) => {
+                  const original =
+                    row.original as unknown as RowWithGradingGroupMeta;
+                  const rowIndex = original.gradingPassRowIndex ?? 0;
+                  const groupSize = original.gradingPassGroupSize ?? 1;
+
+                  return (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      data-depth={row.depth}
+                      style={{ contentVisibility: 'auto' }}
+                      className={`border-border border-b transition-colors last:border-b-0 ${
+                        row.getIsGrouped()
+                          ? 'bg-primary/15 hover:bg-primary/20'
+                          : row.depth > 0
+                            ? 'bg-secondary/40 hover:bg-secondary/50'
+                            : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const isSpanColumn =
+                          spanColumnSet != null &&
+                          spanColumnSet.has(cell.column.id);
+                        if (isSpanColumn && rowIndex > 0) {
+                          return null;
+                        }
+                        const rowSpan =
+                          isSpanColumn && rowIndex === 0
+                            ? groupSize
+                            : undefined;
+                        return (
+                          <TableCell
+                            key={cell.id}
+                            rowSpan={rowSpan}
+                            className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
                   );
-                })}
-              </TableRow>
-            </TableFooter>
-          )}
-        </Table>
+                })
+              ) : (
+                <TableRow className="border-border border-b hover:bg-transparent">
+                  <TableCell
+                    colSpan={columns.length}
+                    className="text-muted-foreground border-r-0 py-12 text-center"
+                  >
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+            {data.length > 0 && totalColumnIds.length > 0 && (
+              <TableFooter>
+                <TableRow className="border-border bg-muted/60 font-custom font-bold">
+                  {headerGroups[0]?.headers.map((header, idx) => {
+                    const columnId = header.column.id;
+                    const total = totals[columnId];
+                    const isTotalCol = total !== undefined;
+                    return (
+                      <TableCell
+                        key={header.id}
+                        className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
+                      >
+                        {idx === 0 ? (
+                          <span className="font-custom font-bold">Total</span>
+                        ) : isTotalCol ? (
+                          <div className="font-custom text-right font-bold">
+                            {total.toLocaleString()}
+                          </div>
+                        ) : (
+                          ''
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              </TableFooter>
+            )}
+          </Table>
+        </div>
       </div>
     </div>
   );

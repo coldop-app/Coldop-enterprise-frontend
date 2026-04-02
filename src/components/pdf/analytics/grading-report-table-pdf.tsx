@@ -1,29 +1,26 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import type { GradingReportRow } from '@/components/analytics/reports/grading-report/columns';
 import {
-  GRADING_REPORT_ROW_SPAN_BASE_IDS,
-  type GradingReportRow,
-} from '@/components/analytics/reports/grading-report/columns';
-import {
-  GRADING_REPORT_BAG_SIZE_LABELS,
-  compareSizeKeysForReport,
   orderBagSizesByGradingReport,
   sizeKeyFromGradedBagColumnId,
-  sortGradedBagSizeColumnIds,
 } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
-import type { GradingReportPdfSnapshot } from '@/components/analytics/reports/grading-report/data-table';
+import type {
+  GradingReportPdfPrepared,
+  GradingReportTableSummary,
+  PdfColumnDef,
+  VarietyBagSizeSummaryRow,
+} from '@/components/analytics/reports/grading-report/grading-report-pdf-prepare';
 
 export interface GradingReportTablePdfProps {
   companyName?: string;
   dateRangeLabel: string;
   reportTitle?: string;
-  rows: GradingReportRow[];
-  /** When provided, honours table grouping, column visibility, and sorting from the report UI. */
-  tableSnapshot?: GradingReportPdfSnapshot<GradingReportRow> | null;
+  /** Precomputed outside react-pdf (see `prepareGradingReportPdf` in the report module). */
+  prepared: GradingReportPdfPrepared;
 }
 
 const styles = StyleSheet.create({
   page: {
-    backgroundColor: '#FEFDF8',
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
@@ -60,7 +57,6 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#E8E8E8',
     fontWeight: 'bold',
     borderBottomWidth: 1,
     borderBottomColor: '#000',
@@ -74,7 +70,6 @@ const styles = StyleSheet.create({
   },
   tableRowTotal: {
     flexDirection: 'row',
-    backgroundColor: '#D0D0D0',
     fontWeight: 'bold',
     borderTopWidth: 1,
     borderTopColor: '#000',
@@ -100,43 +95,54 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
   },
+  /** Bag-size cols: +2 horizontal units each side vs `cellWrap` (matches requested breathing room). */
+  cellWrapBagSize: {
+    paddingHorizontal: 4,
+    borderRightWidth: 0.5,
+    borderRightColor: '#666',
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
   cellText: {
     fontSize: 6,
     width: '100%',
     maxWidth: '100%',
   },
-  /** Graded bag-size column: qty, (kg/bag), then Jute/Leno lines (matches web report). */
+  /** Graded bag-size column: same stack as web table (`columns.tsx` bag cells), no fill. */
+  gradedBagCellOuter: {
+    width: '100%',
+    paddingVertical: 2,
+  },
   gradedBagCellStack: {
     width: '100%',
     flexDirection: 'column',
-    alignItems: 'center',
-    gap: 1,
+    alignItems: 'flex-end',
+    gap: 1.5,
   },
   gradedBagCellStackLeft: {
     width: '100%',
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: 1,
+    gap: 1.5,
   },
   gradedBagQty: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'right',
   },
-  gradedBagWeight: {
-    fontSize: 6,
-    color: '#555555',
-    textAlign: 'center',
+  gradedBagWeightLine: {
+    fontSize: 5.5,
+    textAlign: 'right',
   },
-  gradedBagTypeLine: {
+  gradedBagDetail: {
     fontSize: 5,
-    color: '#555555',
-    textAlign: 'center',
+    textAlign: 'right',
+    maxWidth: '100%',
   },
-  gradedBagTypeLineLeft: {
+  gradedBagDetailLeft: {
     fontSize: 5,
-    color: '#555555',
     textAlign: 'left',
+    maxWidth: '100%',
   },
   farmerSection: {
     marginTop: 14,
@@ -145,7 +151,6 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   farmerHeader: {
-    backgroundColor: '#E8E8E8',
     borderWidth: 1,
     borderColor: '#000',
     padding: 6,
@@ -161,7 +166,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   varietyHeader: {
-    backgroundColor: '#D0E8D0',
     borderWidth: 1,
     borderColor: '#000',
     padding: 6,
@@ -172,7 +176,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   genericHeader: {
-    backgroundColor: '#E8E8E8',
     borderWidth: 1,
     borderColor: '#000',
     padding: 6,
@@ -183,7 +186,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   summaryPage: {
-    backgroundColor: '#FEFDF8',
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
@@ -211,7 +213,6 @@ const styles = StyleSheet.create({
   },
   summaryTableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#E0E0E0',
     fontWeight: 'bold',
     borderBottomWidth: 1,
     borderBottomColor: '#000',
@@ -225,7 +226,6 @@ const styles = StyleSheet.create({
   },
   summaryTableRowTotal: {
     flexDirection: 'row',
-    backgroundColor: '#D0D0D0',
     fontWeight: 'bold',
     borderTopWidth: 1,
     borderTopColor: '#000',
@@ -253,44 +253,24 @@ const styles = StyleSheet.create({
 /** Height of one data row in the PDF table (used for row-span alignment). */
 const PDF_ROW_HEIGHT = 10;
 
-/** Split rows into grading-pass groups for row-span. Each group is consecutive rows belonging to one grading pass. */
-function getGradingPassGroups(rows: GradingReportRow[]): GradingReportRow[][] {
-  const groups: GradingReportRow[][] = [];
-  let i = 0;
-  while (i < rows.length) {
-    const row = rows[i];
-    const size = row.gradingPassGroupSize ?? 1;
-    groups.push(rows.slice(i, i + size));
-    i += size;
-  }
-  return groups;
+function isGradedBagSizeColumnKey(key: string): boolean {
+  return key.startsWith('gradedBagSize_');
 }
 
-function getSpanColumnSet(rows: GradingReportRow[]): Set<string> {
-  const set = new Set<string>(
-    GRADING_REPORT_ROW_SPAN_BASE_IDS as unknown as string[]
-  );
-  for (const r of rows) {
-    const m = r.gradedBagSizeQtyByColumnId;
-    if (m) for (const k of Object.keys(m)) set.add(k);
-  }
-  return set;
+/** Match `formatNum` in `columns.tsx`. */
+function formatPdfNumLikeWeb(value: number | string): string {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(n)) return '—';
+  return n.toLocaleString();
 }
 
-function labelForBagColumnId(columnId: string): string {
-  const sk = sizeKeyFromGradedBagColumnId(columnId);
-  return sk ? (GRADING_REPORT_BAG_SIZE_LABELS[sk] ?? sk) : columnId;
+/** Match `formatWeightKg` in `columns.tsx`. */
+function formatPdfWeightKgLikeWeb(value: number | undefined): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return String(Math.round(value * 10) / 10);
 }
 
-function formatPdfInt(n: number): string {
-  return Math.round(n).toLocaleString();
-}
-
-function formatWeightPdfKg(kg: number): string {
-  return (Math.round(kg * 10) / 10).toFixed(1);
-}
-
-/** Stacked qty / (kg per bag) / bag type — same semantics as the grading report data table. */
+/** Same stack as web bag-size cells: qty, (kg/bag), optional bag-type lines — no fill. */
 function GradedBagSizePdfCell({
   columnKey,
   row,
@@ -305,9 +285,9 @@ function GradedBagSizePdfCell({
   const stackStyle = baseAlign
     ? styles.gradedBagCellStackLeft
     : styles.gradedBagCellStack;
-  const typeStyle = baseAlign
-    ? styles.gradedBagTypeLineLeft
-    : styles.gradedBagTypeLine;
+  const detailStyle = baseAlign
+    ? styles.gradedBagDetailLeft
+    : styles.gradedBagDetail;
 
   if (!sizeKey) {
     return (
@@ -330,51 +310,44 @@ function GradedBagSizePdfCell({
   }
 
   const parts = b.bagTypeParts ?? [];
-  const weightStr = `(${formatWeightPdfKg(b.weightPerBagKg)})`;
+  const wLine = formatPdfWeightKgLikeWeb(b.weightPerBagKg);
 
   return (
-    <View style={stackStyle}>
-      <Text
-        style={[
-          baseAlign ? styles.cellLeft : styles.cell,
-          styles.gradedBagQty,
-          { textAlign: baseAlign ? 'left' : 'center' },
-        ]}
-        wrap
-      >
-        {formatPdfInt(b.qty)}
-      </Text>
-      <Text
-        style={[
-          baseAlign ? styles.cellLeft : styles.cell,
-          styles.gradedBagWeight,
-          { textAlign: baseAlign ? 'left' : 'center' },
-        ]}
-        wrap
-      >
-        {weightStr}
-      </Text>
-      {parts.length === 1 ? (
-        <Text style={typeStyle} wrap>
-          {parts[0].label}
+    <View style={styles.gradedBagCellOuter}>
+      <View style={stackStyle}>
+        <Text
+          style={[
+            styles.gradedBagQty,
+            { textAlign: baseAlign ? 'left' : 'right' },
+          ]}
+          wrap
+        >
+          {formatPdfNumLikeWeb(b.qty)}
         </Text>
-      ) : parts.length > 1 ? (
-        parts.map((p, i) => (
-          <Text key={`${p.label}-${i}`} style={typeStyle} wrap>
-            {p.label} {formatPdfInt(p.qty)}
+        <Text
+          style={[
+            styles.gradedBagWeightLine,
+            { textAlign: baseAlign ? 'left' : 'right' },
+          ]}
+          wrap
+        >
+          {`(${wLine})`}
+        </Text>
+        {parts.length === 1 ? (
+          <Text style={detailStyle} wrap>
+            {`${parts[0].label} (${formatPdfWeightKgLikeWeb(parts[0].weightPerBagKg)})`}
           </Text>
-        ))
-      ) : null}
+        ) : parts.length > 1 ? (
+          parts.map((p, i) => (
+            <Text key={`${p.label}-${i}`} style={detailStyle} wrap>
+              {`${p.label} ${formatPdfNumLikeWeb(p.qty)} (${formatPdfWeightKgLikeWeb(p.weightPerBagKg)})`}
+            </Text>
+          ))
+        ) : null}
+      </View>
     </View>
   );
 }
-
-type PdfColumnDef = {
-  key: string;
-  label: string;
-  width: string;
-  align: 'left' | 'center';
-};
 
 interface GroupedTableBodyProps {
   group: GradingReportRow[];
@@ -399,7 +372,9 @@ function GroupedTableBody({
           <View
             key={col.key}
             style={[
-              styles.cellWrap,
+              isGradedBagSizeColumnKey(col.key)
+                ? styles.cellWrapBagSize
+                : styles.cellWrap,
               i === columns.length - 1 ? styles.cellLast : {},
               { width: col.width, minWidth: 0 },
               isSpan ? { minHeight: groupHeight } : {},
@@ -477,148 +452,6 @@ function GroupedTableBody({
   );
 }
 
-const ALL_COLUMNS_STATIC: PdfColumnDef[] = [
-  { key: 'farmerName', label: 'Farmer', width: '7%', align: 'left' },
-  {
-    key: 'accountNumber',
-    label: 'Account No.',
-    width: '4%',
-    align: 'center',
-  },
-  {
-    key: 'incomingGatePassNo',
-    label: 'Incoming GP no.',
-    width: '5%',
-    align: 'center',
-  },
-  {
-    key: 'incomingManualNo',
-    label: 'Incoming manual no.',
-    width: '5%',
-    align: 'center',
-  },
-  {
-    key: 'incomingGatePassDate',
-    label: 'Incoming GP date',
-    width: '6%',
-    align: 'center',
-  },
-  { key: 'truckNumber', label: 'Truck no.', width: '5%', align: 'center' },
-  { key: 'variety', label: 'Variety', width: '6%', align: 'left' },
-  { key: 'bagsReceived', label: 'Bags rec.', width: '4%', align: 'center' },
-  { key: 'grossWeightKg', label: 'Gross (kg)', width: '5%', align: 'center' },
-  { key: 'tareWeightKg', label: 'Tare (kg)', width: '5%', align: 'center' },
-  { key: 'netWeightKg', label: 'Net (kg)', width: '5%', align: 'center' },
-  {
-    key: 'netProductKg',
-    label: 'Net product (kg)',
-    width: '6%',
-    align: 'center',
-  },
-  { key: 'gatePassNo', label: 'GP no.', width: '4%', align: 'center' },
-  {
-    key: 'manualGatePassNumber',
-    label: 'Manual GP no.',
-    width: '4%',
-    align: 'center',
-  },
-  { key: 'date', label: 'Date', width: '6%', align: 'center' },
-  { key: 'createdByName', label: 'Created by', width: '6%', align: 'left' },
-  {
-    key: 'totalGradedBags',
-    label: 'Graded bags',
-    width: '5%',
-    align: 'center',
-  },
-  {
-    key: 'totalGradedWeightKg',
-    label: 'Graded wt (kg)',
-    width: '6%',
-    align: 'center',
-  },
-  { key: 'wastageKg', label: 'Wastage (kg)', width: '5%', align: 'center' },
-  { key: 'grader', label: 'Grader', width: '8%', align: 'left' },
-  { key: 'remarks', label: 'Remarks', width: '8%', align: 'left' },
-];
-
-/** Main table + PDF bag columns: order from `grading-bag-sizes` (Below 30 … Cut). */
-function buildFullColumnList(rows: GradingReportRow[]): PdfColumnDef[] {
-  const bagIds = new Set<string>();
-  for (const r of rows) {
-    const m = r.gradedBagSizeQtyByColumnId;
-    if (m) for (const k of Object.keys(m)) bagIds.add(k);
-  }
-  const bagCols: PdfColumnDef[] = sortGradedBagSizeColumnIds(
-    Array.from(bagIds)
-  ).map((id) => ({
-    key: id,
-    label: labelForBagColumnId(id),
-    width: '3.5%',
-    align: 'center' as const,
-  }));
-  const idx = ALL_COLUMNS_STATIC.findIndex((c) => c.key === 'totalGradedBags');
-  if (idx < 0) return [...ALL_COLUMNS_STATIC, ...bagCols];
-  return [
-    ...ALL_COLUMNS_STATIC.slice(0, idx + 1),
-    ...bagCols,
-    ...ALL_COLUMNS_STATIC.slice(idx + 1),
-  ];
-}
-
-/**
- * Keep non–bag-size columns in place; reorder the contiguous `gradedBagSize_*` block to
- * `GRADING_REPORT_BAG_SIZE_ORDER` in grading-bag-sizes (same as web report / `buildFullColumnList`).
- */
-function normalizePdfColumnsBagOrder(columns: PdfColumnDef[]): PdfColumnDef[] {
-  const isBag = (c: PdfColumnDef) => c.key.startsWith('gradedBagSize_');
-  const bagCols = columns.filter(isBag);
-  if (bagCols.length === 0) return columns;
-  const bagByKey = new Map(bagCols.map((c) => [c.key, c] as const));
-  const sortedBags = sortGradedBagSizeColumnIds([...bagByKey.keys()]).map(
-    (k) => bagByKey.get(k)!
-  );
-  const result: PdfColumnDef[] = [];
-  let inserted = false;
-  for (const c of columns) {
-    if (isBag(c)) {
-      if (!inserted) {
-        result.push(...sortedBags);
-        inserted = true;
-      }
-      continue;
-    }
-    result.push(c);
-  }
-  return result;
-}
-
-function getColumnsForPdf(
-  visibleColumnIds: string[],
-  fullColumns: PdfColumnDef[],
-  excludeGrouping?: string[]
-): PdfColumnDef[] {
-  const visible = new Set(
-    visibleColumnIds.length > 0
-      ? visibleColumnIds
-      : fullColumns.map((c) => c.key)
-  );
-  const exclude = new Set(excludeGrouping ?? []);
-  let filtered = fullColumns.filter(
-    (c) => visible.has(c.key) && !exclude.has(c.key)
-  );
-  filtered = normalizePdfColumnsBagOrder(filtered);
-  if (filtered.length === 0) return fullColumns;
-  const totalPercent = filtered.reduce(
-    (sum, c) => sum + parseFloat(c.width),
-    0
-  );
-  const scale = 100 / totalPercent;
-  return filtered.map((c) => ({
-    ...c,
-    width: `${(parseFloat(c.width) * scale).toFixed(1)}%`,
-  }));
-}
-
 /** Column keys that should display as natural numbers (no decimal places). */
 const INTEGER_COLUMN_KEYS = new Set<string>([
   'incomingGatePassNo',
@@ -665,45 +498,6 @@ function ReportHeader({
   );
 }
 
-const TOTAL_KEYS: (keyof GradingReportRow)[] = [
-  'bagsReceived',
-  'totalGradedBags',
-  'totalGradedWeightKg',
-  'wastageKg',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-  'netProductKg',
-];
-
-function toNum(value: unknown): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const n = Number(value);
-    return Number.isNaN(n) ? 0 : n;
-  }
-  return 0;
-}
-
-function computeTotalsForRows(
-  rows: GradingReportRow[]
-): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const key of TOTAL_KEYS) totals[key] = 0;
-  for (const row of rows) {
-    for (const key of TOTAL_KEYS) {
-      totals[key] += toNum((row as Record<string, unknown>)[key]);
-    }
-    const qtyMap = row.gradedBagSizeQtyByColumnId;
-    if (qtyMap) {
-      for (const [k, v] of Object.entries(qtyMap)) {
-        totals[k] = (totals[k] ?? 0) + toNum(v);
-      }
-    }
-  }
-  return totals;
-}
-
 function TotalsRow({
   totals,
   columns,
@@ -728,7 +522,9 @@ function TotalsRow({
           <View
             key={col.key}
             style={[
-              styles.cellWrap,
+              isGradedBagSizeColumnKey(col.key)
+                ? styles.cellWrapBagSize
+                : styles.cellWrap,
               i === columns.length - 1 ? styles.cellLast : {},
               { width: col.width },
             ]}
@@ -746,58 +542,6 @@ function TotalsRow({
       })}
     </View>
   );
-}
-
-interface PdfSection {
-  headers: Array<{
-    depth: number;
-    groupingColumnId: string;
-    displayValue: string;
-    firstLeaf?: GradingReportRow;
-  }>;
-  leaves: GradingReportRow[];
-}
-
-function buildSectionsFromSnapshot(
-  snapshot: GradingReportPdfSnapshot<GradingReportRow>
-): PdfSection[] {
-  const { rows, grouping } = snapshot;
-  const deepestDepth = grouping.length > 0 ? grouping.length - 1 : -1;
-  const sections: PdfSection[] = [];
-  let current: PdfSection = { headers: [], leaves: [] };
-
-  for (const item of rows) {
-    if (item.type === 'group') {
-      if (item.depth === deepestDepth) {
-        if (current.leaves.length > 0) {
-          sections.push(current);
-          current = {
-            headers: [...current.headers],
-            leaves: [],
-          };
-        }
-        current.headers[item.depth] = {
-          depth: item.depth,
-          groupingColumnId: item.groupingColumnId,
-          displayValue: item.displayValue,
-          firstLeaf: item.firstLeaf,
-        };
-      } else {
-        current.headers[item.depth] = {
-          depth: item.depth,
-          groupingColumnId: item.groupingColumnId,
-          displayValue: item.displayValue,
-          firstLeaf: item.firstLeaf,
-        };
-      }
-    } else {
-      current.leaves.push(item.row);
-    }
-  }
-  if (current.leaves.length > 0 || current.headers.length > 0) {
-    sections.push(current);
-  }
-  return sections;
 }
 
 function FarmerBlockHeader({ firstLeaf }: { firstLeaf?: GradingReportRow }) {
@@ -859,156 +603,6 @@ const GROUP_LABELS: Record<string, string> = {
   grader: 'Grader',
   createdByName: 'Created by',
 };
-
-/** Aggregate totals for summary rows */
-interface SummaryRowTotals {
-  count: number;
-  bagsReceived: number;
-  totalGradedBags: number;
-  totalGradedWeightKg: number;
-  wastageKg: number;
-}
-
-/** Variety-wise summary row */
-interface VarietySummaryRow {
-  variety: string;
-  count: number;
-  bagsReceived: number;
-  totalGradedBags: number;
-  totalGradedWeightKg: number;
-  wastageKg: number;
-}
-
-/** Farmer-wise summary row */
-interface FarmerSummaryRow {
-  farmerName: string;
-  count: number;
-  bagsReceived: number;
-  totalGradedBags: number;
-  totalGradedWeightKg: number;
-  wastageKg: number;
-}
-
-interface VarietyBagSizeSummaryRow {
-  variety: string;
-  bagSize: string;
-  quantity: number;
-}
-
-/** Computed report summary from grading report rows */
-interface GradingReportTableSummary {
-  byVariety: VarietySummaryRow[];
-  byFarmer: FarmerSummaryRow[];
-  byVarietyAndBagSize: VarietyBagSizeSummaryRow[];
-  overall: SummaryRowTotals;
-}
-
-function computeGradingReportSummary(
-  rows: GradingReportRow[]
-): GradingReportTableSummary {
-  const varietyMap = new Map<string, SummaryRowTotals>();
-  const farmerMap = new Map<string, SummaryRowTotals>();
-  const varietyBagMap = new Map<string, VarietyBagSizeSummaryRow>();
-  const overall: SummaryRowTotals = {
-    count: 0,
-    bagsReceived: 0,
-    totalGradedBags: 0,
-    totalGradedWeightKg: 0,
-    wastageKg: 0,
-  };
-
-  const num = (v: number | string | null | undefined): number => {
-    if (v == null || v === '' || v === '—') return 0;
-    const n = typeof v === 'number' ? v : Number(v);
-    return Number.isNaN(n) ? 0 : n;
-  };
-
-  for (const row of rows) {
-    const isFirstRowOfPass = (row.gradingPassRowIndex ?? 0) === 0;
-    if (!isFirstRowOfPass) continue;
-
-    const totalGradedBags =
-      typeof row.totalGradedBags === 'number' ? row.totalGradedBags : 0;
-    const totalGradedWeightKg =
-      typeof row.totalGradedWeightKg === 'number' ? row.totalGradedWeightKg : 0;
-    const wastageKg = num(row.wastageKg);
-    const bagsReceived = totalGradedBags;
-    const variety = (row.variety ?? '').trim() || '—';
-    const farmerName = (row.farmerName ?? '').trim() || '—';
-
-    overall.count += 1;
-    overall.bagsReceived += bagsReceived;
-    overall.totalGradedBags += totalGradedBags;
-    overall.totalGradedWeightKg += totalGradedWeightKg;
-    overall.wastageKg += wastageKg;
-
-    const v = varietyMap.get(variety);
-    if (v) {
-      v.count += 1;
-      v.bagsReceived += bagsReceived;
-      v.totalGradedBags += totalGradedBags;
-      v.totalGradedWeightKg += totalGradedWeightKg;
-      v.wastageKg += wastageKg;
-    } else {
-      varietyMap.set(variety, {
-        count: 1,
-        bagsReceived,
-        totalGradedBags,
-        totalGradedWeightKg,
-        wastageKg,
-      });
-    }
-
-    const f = farmerMap.get(farmerName);
-    if (f) {
-      f.count += 1;
-      f.bagsReceived += bagsReceived;
-      f.totalGradedBags += totalGradedBags;
-      f.totalGradedWeightKg += totalGradedWeightKg;
-      f.wastageKg += wastageKg;
-    } else {
-      farmerMap.set(farmerName, {
-        count: 1,
-        bagsReceived,
-        totalGradedBags,
-        totalGradedWeightKg,
-        wastageKg,
-      });
-    }
-
-    const qtyById = row.gradedBagSizeQtyByColumnId ?? {};
-    for (const [columnId, qtyValue] of Object.entries(qtyById)) {
-      if (!columnId.startsWith('gradedBagSize_')) continue;
-      const sizeKey = sizeKeyFromGradedBagColumnId(columnId);
-      if (!sizeKey) continue;
-      const quantity = num(qtyValue);
-      if (quantity === 0) continue;
-      const key = `${variety}||${sizeKey}`;
-      const existing = varietyBagMap.get(key);
-      if (existing) {
-        existing.quantity += quantity;
-      } else {
-        varietyBagMap.set(key, { variety, bagSize: sizeKey, quantity });
-      }
-    }
-  }
-
-  const byVariety: VarietySummaryRow[] = Array.from(varietyMap.entries())
-    .map(([variety, t]) => ({ variety, ...t }))
-    .sort((a, b) => a.variety.localeCompare(b.variety));
-  const byFarmer: FarmerSummaryRow[] = Array.from(farmerMap.entries())
-    .map(([farmerName, t]) => ({ farmerName, ...t }))
-    .sort((a, b) => a.farmerName.localeCompare(b.farmerName));
-  const byVarietyAndBagSize: VarietyBagSizeSummaryRow[] = Array.from(
-    varietyBagMap.values()
-  ).sort((a, b) => {
-    const v = a.variety.localeCompare(b.variety);
-    if (v !== 0) return v;
-    return compareSizeKeysForReport(a.bagSize, b.bagSize, a.bagSize, b.bagSize);
-  });
-
-  return { byVariety, byFarmer, byVarietyAndBagSize, overall };
-}
 
 const SUMMARY_COLUMNS = [
   { key: 'name', label: 'Variety / Farmer', width: '28%' },
@@ -1551,105 +1145,89 @@ export const GradingReportTablePdf = ({
   companyName = 'Cold Storage',
   dateRangeLabel,
   reportTitle = 'Grading Report',
-  rows,
-  tableSnapshot,
+  prepared,
 }: GradingReportTablePdfProps) => {
-  const fullColumns = buildFullColumnList(rows);
-  const totals = computeTotalsForRows(rows);
+  const spanColumnSet = new Set(prepared.spanColumnSet);
+  const { totals, summary, grandColumns } = prepared;
 
-  const summary = computeGradingReportSummary(rows);
+  if (prepared.kind === 'grouped') {
+    const { grouping, sections } = prepared;
 
-  const useSnapshot =
-    tableSnapshot &&
-    tableSnapshot.rows.length > 0 &&
-    (tableSnapshot.grouping.length > 0 ||
-      tableSnapshot.visibleColumnIds.length > 0);
-
-  const visibleColumnIds =
-    useSnapshot && tableSnapshot!.visibleColumnIds.length > 0
-      ? tableSnapshot!.visibleColumnIds
-      : fullColumns.map((c) => c.key);
-
-  const grouping = useSnapshot ? tableSnapshot!.grouping : [];
-
-  const spanColumnSet = getSpanColumnSet(rows);
-
-  if (useSnapshot && tableSnapshot!.grouping.length > 0) {
-    const sections = buildSectionsFromSnapshot(tableSnapshot!);
-    const columnsForTable = getColumnsForPdf(
-      visibleColumnIds,
-      fullColumns,
-      grouping
-    );
-    const sectionTotals = sections.map((section) =>
-      computeTotalsForRows(section.leaves)
-    );
     return (
       <Document>
-        <Page size="A4" orientation="landscape" style={styles.page}>
-          <ReportHeader
-            companyName={companyName}
-            dateRangeLabel={dateRangeLabel}
-            reportTitle={reportTitle}
-          />
-          {sections.map((section, sectionIndex) => {
-            const isFirstSection = sectionIndex === 0;
-            return (
-              <View
-                key={sectionIndex}
-                style={[
-                  styles.farmerSection,
-                  isFirstSection ? styles.farmerSectionFirst : {},
-                ]}
+        {sections.flatMap((section, sectionIndex) => {
+          const isFirstSection = sectionIndex === 0;
+          const { pageChunks, columnsForTable, sectionTotal } = section;
+
+          if (section.isEmpty) {
+            return [
+              <Page
+                key={`sec-${sectionIndex}-empty`}
+                size="A4"
+                orientation="landscape"
+                style={styles.page}
               >
-                {grouping.map((_, depth) => {
-                  const h = section.headers[depth];
-                  if (!h) return null;
-                  if (h.groupingColumnId === 'farmerName')
+                <ReportHeader
+                  companyName={companyName}
+                  dateRangeLabel={dateRangeLabel}
+                  reportTitle={reportTitle}
+                />
+                <View
+                  style={[
+                    styles.farmerSection,
+                    isFirstSection ? styles.farmerSectionFirst : {},
+                  ]}
+                >
+                  {grouping.map((_, depth) => {
+                    const h = section.headers[depth];
+                    if (!h) return null;
+                    if (h.groupingColumnId === 'farmerName')
+                      return (
+                        <FarmerBlockHeader
+                          key={depth}
+                          firstLeaf={section.leaves[0] ?? h.firstLeaf}
+                        />
+                      );
+                    if (h.groupingColumnId === 'variety')
+                      return (
+                        <VarietyBlockHeader
+                          key={depth}
+                          variety={h.displayValue}
+                        />
+                      );
                     return (
-                      <FarmerBlockHeader
+                      <GenericBlockHeader
                         key={depth}
-                        firstLeaf={section.leaves[0] ?? h.firstLeaf}
+                        label={
+                          GROUP_LABELS[h.groupingColumnId] ?? h.groupingColumnId
+                        }
+                        value={h.displayValue}
                       />
                     );
-                  if (h.groupingColumnId === 'variety')
-                    return (
-                      <VarietyBlockHeader
-                        key={depth}
-                        variety={h.displayValue}
-                      />
-                    );
-                  return (
-                    <GenericBlockHeader
-                      key={depth}
-                      label={
-                        GROUP_LABELS[h.groupingColumnId] ?? h.groupingColumnId
-                      }
-                      value={h.displayValue}
-                    />
-                  );
-                })}
-                <View style={styles.tableContainer}>
-                  <View style={styles.table}>
-                    <View style={styles.tableHeaderRow}>
-                      {columnsForTable.map((col, i) => (
-                        <Text
-                          key={col.key}
-                          style={[
-                            col.align === 'left'
-                              ? styles.cellLeft
-                              : styles.cell,
-                            i === columnsForTable.length - 1
-                              ? styles.cellLast
-                              : {},
-                            { width: col.width },
-                          ]}
-                        >
-                          {col.label}
-                        </Text>
-                      ))}
-                    </View>
-                    {section.leaves.length === 0 ? (
+                  })}
+                  <View style={styles.tableContainer}>
+                    <View style={styles.table}>
+                      <View style={styles.tableHeaderRow}>
+                        {columnsForTable.map((col, i) => (
+                          <Text
+                            key={col.key}
+                            style={[
+                              col.align === 'left'
+                                ? styles.cellLeft
+                                : styles.cell,
+                              i === columnsForTable.length - 1
+                                ? styles.cellLast
+                                : {},
+                              { width: col.width },
+                              isGradedBagSizeColumnKey(col.key)
+                                ? { paddingHorizontal: 4 }
+                                : {},
+                            ]}
+                          >
+                            {col.label}
+                          </Text>
+                        ))}
+                      </View>
                       <View style={styles.tableRow}>
                         <Text
                           style={[
@@ -1661,35 +1239,117 @@ export const GradingReportTablePdf = ({
                           No rows in this group.
                         </Text>
                       </View>
-                    ) : (
-                      <>
-                        {getGradingPassGroups(section.leaves).map(
-                          (group, gi) => (
-                            <GroupedTableBody
-                              key={group[0]?.id ?? gi}
-                              group={group}
-                              columns={columnsForTable}
-                              spanColumnSet={spanColumnSet}
-                            />
-                          )
-                        )}
-                        <TotalsRow
-                          totals={sectionTotals[sectionIndex] ?? {}}
-                          columns={columnsForTable}
-                        />
-                      </>
-                    )}
+                    </View>
                   </View>
                 </View>
-              </View>
+              </Page>,
+            ];
+          }
+
+          return pageChunks.map((chunk, chunkIndex) => {
+            const isLastChunkOfSection = chunkIndex === pageChunks.length - 1;
+            return (
+              <Page
+                key={`sec-${sectionIndex}-${chunkIndex}`}
+                size="A4"
+                orientation="landscape"
+                style={styles.page}
+              >
+                <ReportHeader
+                  companyName={companyName}
+                  dateRangeLabel={dateRangeLabel}
+                  reportTitle={reportTitle}
+                />
+                <View
+                  style={[
+                    styles.farmerSection,
+                    isFirstSection && chunkIndex === 0
+                      ? styles.farmerSectionFirst
+                      : {},
+                  ]}
+                >
+                  {chunkIndex === 0 &&
+                    grouping.map((_, depth) => {
+                      const h = section.headers[depth];
+                      if (!h) return null;
+                      if (h.groupingColumnId === 'farmerName')
+                        return (
+                          <FarmerBlockHeader
+                            key={depth}
+                            firstLeaf={section.leaves[0] ?? h.firstLeaf}
+                          />
+                        );
+                      if (h.groupingColumnId === 'variety')
+                        return (
+                          <VarietyBlockHeader
+                            key={depth}
+                            variety={h.displayValue}
+                          />
+                        );
+                      return (
+                        <GenericBlockHeader
+                          key={depth}
+                          label={
+                            GROUP_LABELS[h.groupingColumnId] ??
+                            h.groupingColumnId
+                          }
+                          value={h.displayValue}
+                        />
+                      );
+                    })}
+                  <View style={styles.tableContainer}>
+                    <View style={styles.table}>
+                      <View style={styles.tableHeaderRow}>
+                        {columnsForTable.map((col, i) => (
+                          <Text
+                            key={col.key}
+                            style={[
+                              col.align === 'left'
+                                ? styles.cellLeft
+                                : styles.cell,
+                              i === columnsForTable.length - 1
+                                ? styles.cellLast
+                                : {},
+                              { width: col.width },
+                              isGradedBagSizeColumnKey(col.key)
+                                ? { paddingHorizontal: 4 }
+                                : {},
+                            ]}
+                          >
+                            {col.label}
+                          </Text>
+                        ))}
+                      </View>
+                      {chunk.map((group, gi) => (
+                        <GroupedTableBody
+                          key={group[0]?.id ?? `${chunkIndex}-${gi}`}
+                          group={group}
+                          columns={columnsForTable}
+                          spanColumnSet={spanColumnSet}
+                        />
+                      ))}
+                      {isLastChunkOfSection ? (
+                        <TotalsRow
+                          totals={sectionTotal}
+                          columns={columnsForTable}
+                        />
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+              </Page>
             );
-          })}
+          });
+        })}
+        <Page size="A4" orientation="landscape" style={styles.page}>
+          <ReportHeader
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            reportTitle={reportTitle}
+          />
           <View style={styles.tableContainer}>
             <View style={styles.table}>
-              <TotalsRow
-                totals={totals}
-                columns={getColumnsForPdf(visibleColumnIds, fullColumns)}
-              />
+              <TotalsRow totals={totals} columns={grandColumns} />
             </View>
           </View>
         </Page>
@@ -1703,46 +1363,36 @@ export const GradingReportTablePdf = ({
     );
   }
 
-  const columnsForPdf =
-    useSnapshot && tableSnapshot!.visibleColumnIds.length > 0
-      ? getColumnsForPdf(tableSnapshot!.visibleColumnIds, fullColumns)
-      : getColumnsForPdf([], fullColumns);
-
-  const leafRows =
-    useSnapshot && tableSnapshot!.rows.length > 0
-      ? tableSnapshot!.rows
-          .filter(
-            (r): r is { type: 'leaf'; row: GradingReportRow } =>
-              r.type === 'leaf'
-          )
-          .map((r) => r.row)
-      : rows;
+  const { columnsForPdf, mainPageChunks, leafRowsEmpty } = prepared;
 
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <ReportHeader
-          companyName={companyName}
-          dateRangeLabel={dateRangeLabel}
-          reportTitle={reportTitle}
-        />
-        <View style={styles.tableContainer}>
-          <View style={styles.table}>
-            <View style={styles.tableHeaderRow}>
-              {columnsForPdf.map((col, i) => (
-                <Text
-                  key={col.key}
-                  style={[
-                    col.align === 'left' ? styles.cellLeft : styles.cell,
-                    i === columnsForPdf.length - 1 ? styles.cellLast : {},
-                    { width: col.width },
-                  ]}
-                >
-                  {col.label}
-                </Text>
-              ))}
-            </View>
-            {leafRows.length === 0 ? (
+      {leafRowsEmpty ? (
+        <Page size="A4" orientation="landscape" style={styles.page}>
+          <ReportHeader
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            reportTitle={reportTitle}
+          />
+          <View style={styles.tableContainer}>
+            <View style={styles.table}>
+              <View style={styles.tableHeaderRow}>
+                {columnsForPdf.map((col, i) => (
+                  <Text
+                    key={col.key}
+                    style={[
+                      col.align === 'left' ? styles.cellLeft : styles.cell,
+                      i === columnsForPdf.length - 1 ? styles.cellLast : {},
+                      { width: col.width },
+                      isGradedBagSizeColumnKey(col.key)
+                        ? { paddingHorizontal: 4 }
+                        : {},
+                    ]}
+                  >
+                    {col.label}
+                  </Text>
+                ))}
+              </View>
               <View style={styles.tableRow}>
                 <Text
                   style={[
@@ -1754,22 +1404,60 @@ export const GradingReportTablePdf = ({
                   No grading report data for this period.
                 </Text>
               </View>
-            ) : (
-              <>
-                {getGradingPassGroups(leafRows).map((group, gi) => (
-                  <GroupedTableBody
-                    key={group[0]?.id ?? gi}
-                    group={group}
-                    columns={columnsForPdf}
-                    spanColumnSet={spanColumnSet}
-                  />
-                ))}
-                <TotalsRow totals={totals} columns={columnsForPdf} />
-              </>
-            )}
+            </View>
           </View>
-        </View>
-      </Page>
+        </Page>
+      ) : (
+        mainPageChunks.map((chunk, pageIndex) => {
+          const isLastPage = pageIndex === mainPageChunks.length - 1;
+          return (
+            <Page
+              key={`main-${pageIndex}`}
+              size="A4"
+              orientation="landscape"
+              style={styles.page}
+            >
+              <ReportHeader
+                companyName={companyName}
+                dateRangeLabel={dateRangeLabel}
+                reportTitle={reportTitle}
+              />
+              <View style={styles.tableContainer}>
+                <View style={styles.table}>
+                  <View style={styles.tableHeaderRow}>
+                    {columnsForPdf.map((col, i) => (
+                      <Text
+                        key={col.key}
+                        style={[
+                          col.align === 'left' ? styles.cellLeft : styles.cell,
+                          i === columnsForPdf.length - 1 ? styles.cellLast : {},
+                          { width: col.width },
+                          isGradedBagSizeColumnKey(col.key)
+                            ? { paddingHorizontal: 4 }
+                            : {},
+                        ]}
+                      >
+                        {col.label}
+                      </Text>
+                    ))}
+                  </View>
+                  {chunk.map((group, gi) => (
+                    <GroupedTableBody
+                      key={group[0]?.id ?? `${pageIndex}-${gi}`}
+                      group={group}
+                      columns={columnsForPdf}
+                      spanColumnSet={spanColumnSet}
+                    />
+                  ))}
+                  {isLastPage ? (
+                    <TotalsRow totals={totals} columns={columnsForPdf} />
+                  ) : null}
+                </View>
+              </View>
+            </Page>
+          );
+        })
+      )}
       <ReportSummaryPage
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}

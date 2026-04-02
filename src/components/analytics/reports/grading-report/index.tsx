@@ -25,6 +25,7 @@ import {
   type GradingReportDataTableRef,
   type GradingReportPdfSnapshot,
 } from './data-table';
+import { prepareGradingReportPdf } from './grading-report-pdf-prepare';
 import type { VisibilityState } from '@tanstack/table-core';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -249,6 +250,12 @@ function mapGradingPassesToRows(
         incomingGatePassNo: getIncomingGatePassNo(pass, inc),
         incomingManualNo: getIncomingManualNo(pass, inc),
         incomingGatePassDate: getIncomingGatePassDate(pass, inc),
+        sortGatePassNo: pass.gatePassNo ?? Number.NaN,
+        sortManualGatePassNumber:
+          pass.manualGatePassNumber != null
+            ? pass.manualGatePassNumber
+            : Number.NaN,
+        sortGradingPassDate: pass.date ?? '',
         date: isFirstRow ? formatDate(pass.date) : '—',
         variety: inc.variety ?? pass.variety ?? '—',
         truckNumber: getTruckNumber(pass, inc),
@@ -393,6 +400,11 @@ const GradingReportTable = () => {
     [gradedBagColumns]
   );
 
+  const getGradingReportRowId = useCallback(
+    (row: GradingReportRow) => row.id,
+    []
+  );
+
   const reportContentRef = useRef<HTMLDivElement>(null);
 
   const handleApplyDates = useCallback(() => {
@@ -467,13 +479,13 @@ const GradingReportTable = () => {
         import('@/components/pdf/analytics/grading-report-table-pdf'),
       ]);
       await yieldToMain();
+      const prepared = prepareGradingReportPdf(rows, snapshot);
       const blob = await pdf(
         <GradingReportTablePdf
           companyName={coldStorageName}
           dateRangeLabel={dateRangeLabel}
           reportTitle="Grading Report"
-          rows={rows}
-          tableSnapshot={snapshot}
+          prepared={prepared}
         />
       ).toBlob();
       const url = URL.createObjectURL(blob);
@@ -613,6 +625,7 @@ const GradingReportTable = () => {
           ref={tableRef}
           columns={reportColumns}
           data={rows}
+          getRowId={getGradingReportRowId}
           initialColumnVisibility={initialColumnVisibilityMerged}
           rowSpanColumnIds={rowSpanColumnIds}
           totalColumnIds={totalColumnIds}
