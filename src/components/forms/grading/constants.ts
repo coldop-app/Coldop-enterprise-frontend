@@ -37,6 +37,7 @@ export const GRADER_OPTIONS = [
   'Shiva grader',
   'Rama Jandu',
   'JICS Rama Jandu',
+  'Jandu Wyma',
 ] as const;
 
 /** =====================================================
