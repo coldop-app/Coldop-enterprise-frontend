@@ -21,6 +21,7 @@ export interface GradingReportTablePdfProps {
 
 const styles = StyleSheet.create({
   page: {
+    backgroundColor: '#FEFDF8',
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
@@ -57,6 +58,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: 'row',
+    backgroundColor: '#E8E8E8',
     fontWeight: 'bold',
     borderBottomWidth: 1,
     borderBottomColor: '#000',
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
   },
   tableRowTotal: {
     flexDirection: 'row',
+    backgroundColor: '#E0E0E0',
     fontWeight: 'bold',
     borderTopWidth: 1,
     borderTopColor: '#000',
@@ -132,15 +135,18 @@ const styles = StyleSheet.create({
   },
   gradedBagWeightLine: {
     fontSize: 5.5,
+    color: '#444',
     textAlign: 'right',
   },
   gradedBagDetail: {
     fontSize: 5,
+    color: '#444',
     textAlign: 'right',
     maxWidth: '100%',
   },
   gradedBagDetailLeft: {
     fontSize: 5,
+    color: '#444',
     textAlign: 'left',
     maxWidth: '100%',
   },
@@ -151,6 +157,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   farmerHeader: {
+    backgroundColor: '#F5F5F5',
     borderWidth: 1,
     borderColor: '#000',
     padding: 6,
@@ -166,6 +173,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   varietyHeader: {
+    backgroundColor: '#F5F5F5',
     borderWidth: 1,
     borderColor: '#000',
     padding: 6,
@@ -176,6 +184,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   genericHeader: {
+    backgroundColor: '#F5F5F5',
     borderWidth: 1,
     borderColor: '#000',
     padding: 6,
@@ -186,6 +195,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   summaryPage: {
+    backgroundColor: '#FEFDF8',
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
@@ -213,6 +223,7 @@ const styles = StyleSheet.create({
   },
   summaryTableHeader: {
     flexDirection: 'row',
+    backgroundColor: '#E8E8E8',
     fontWeight: 'bold',
     borderBottomWidth: 1,
     borderBottomColor: '#000',
@@ -226,6 +237,7 @@ const styles = StyleSheet.create({
   },
   summaryTableRowTotal: {
     flexDirection: 'row',
+    backgroundColor: '#E0E0E0',
     fontWeight: 'bold',
     borderTopWidth: 1,
     borderTopColor: '#000',

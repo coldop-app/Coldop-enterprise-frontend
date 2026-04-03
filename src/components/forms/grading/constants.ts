@@ -9,7 +9,7 @@ export const POTATO_VARIETIES: { label: string; value: string }[] = [
 ];
 
 /** =====================================================
- *  GRADING SIZES (Field order as per spec)
+ *  GRADING SIZES (display / column order — matches operational spec sheet)
  *  ===================================================== */
 
 export const GRADING_SIZES = [
@@ -17,8 +17,8 @@ export const GRADING_SIZES = [
   '25–30',
   'Below 30',
   '30–35',
-  '35–40',
   '30–40',
+  '35–40',
   '40–45',
   '45–50',
   '50–55',

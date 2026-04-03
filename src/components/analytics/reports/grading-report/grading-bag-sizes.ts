@@ -1,20 +1,11 @@
 import type { GradingGatePass } from '@/types/grading-gate-pass';
+import { GRADING_SIZES } from '@/components/forms/grading/constants';
 
 /**
  * Display order for grading report bag-size columns (table + PDF).
- * Below 30 → 30–40 → 35–40 → … → Above 50 → Above 55 → Cut.
+ * Same order as {@link GRADING_SIZES} (field / spec sheet order).
  */
-export const GRADING_REPORT_BAG_SIZE_ORDER: string[] = [
-  'Below 30',
-  '30–40',
-  '35–40',
-  '40–45',
-  '45–50',
-  '50–55',
-  'Above 50',
-  'Above 55',
-  'Cut',
-];
+export const GRADING_REPORT_BAG_SIZE_ORDER: string[] = [...GRADING_SIZES];
 
 const KNOWN_BAG_SIZE_SET = new Set(GRADING_REPORT_BAG_SIZE_ORDER);
 
@@ -32,9 +23,8 @@ export function orderBagSizesByGradingReport(
   return [...ordered, ...rest];
 }
 
-/** Short labels for column ids / headers (e.g. B30, 30-40). */
+/** Short labels for column ids / PDF headers (e.g. A50, 30-40, B25). */
 export const GRADING_REPORT_BAG_SIZE_LABELS: Record<string, string> = {
-  'Below 30': 'B30',
   '30–40': '30-40',
   '35–40': '35-40',
   '40–45': '40-45',
@@ -43,6 +33,10 @@ export const GRADING_REPORT_BAG_SIZE_LABELS: Record<string, string> = {
   'Above 50': 'A50',
   'Above 55': 'A55',
   Cut: 'CUT',
+  '25–30': '25-30',
+  '30–35': '30-35',
+  'Below 30': 'B30',
+  'Below 25': 'B25',
 };
 
 export function getVisibleBagSizesFromPasses(

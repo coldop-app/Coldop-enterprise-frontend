@@ -344,7 +344,7 @@ const GradingReportTable = () => {
 
   const passes = data?.data;
 
-  /** Bag-size columns: Below 30, 30–40, 35–40, … 50–55, Above 50, Above 55, Cut (see grading-bag-sizes). */
+  /** Bag-size columns: same order as `GRADING_SIZES` / `grading-bag-sizes` (only sizes with qty shown). */
   const visibleBagSizes = useMemo(
     () => getVisibleBagSizesFromPasses(passes ?? []),
     [passes]
