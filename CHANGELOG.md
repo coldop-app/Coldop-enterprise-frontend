@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.0] - 2026-04-04
+
+### Added
+- Farmer profile header: **Accounting Report** opens the same pass-selection dialog as the grading table (PDF/Excel), wired through a ref handle on `FarmerProfileGradingGatePassTable`
+- `FarmerProfileGradingGatePassTable`: **`forwardRef`** with `FarmerProfileGradingGatePassTableHandle` exposing `openAccountingReportDialog`; component **`displayName`** set for React DevTools
+
+### Changed
+- Farmer report PDF: body rows **group by grading pass** — pass-level columns (grading gate pass #, manual #, date, post-grading bags, actual potato weight, wastage, wastage %, amount payable) use **vertically merged cells** with stacked sub-rows for line/detail columns, consistent with the grading report PDF grouped layout
+- Farmer profile grading gate pass table: toolbar layout — **Columns** with filters on the left; **Custom Report** for farmer PDF on the right; accounting report action moved to the profile header
+- Farmer profile header: primary export label **Farmer Report** (replaces "View Farmer Report")
+- People (farmers list): on small viewports, the **sort/footer bar hides while the search field is focused** to reduce clutter when typing
+- Accounting report dialog: PDF generate button uses **default primary styling** (removed hardcoded blue classes)
+
+### Fixed
+- Build: farmer report PDF pass-group row cell styles satisfy `@react-pdf/renderer` `View` typing (avoid readonly style arrays)
+
 ## [0.43.0] - 2026-03-31
 
 ### Added

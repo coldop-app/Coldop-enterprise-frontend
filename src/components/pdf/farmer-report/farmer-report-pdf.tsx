@@ -1,11 +1,32 @@
+import type { ReactNode } from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { ReportSummarySectionPdf } from '@/components/pdf/grading-gate-pass-table-pdf';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import {
+  type FarmerReportPdfRow,
   type FarmerReportPdfSnapshot,
   FARMER_REPORT_PDF_COLUMN_LABELS,
-  FARMER_REPORT_ROW_SPAN_COLUMN_IDS,
 } from './farmer-report-pdf-types';
+
+type FarmerReportPdfDataRow = Extract<FarmerReportPdfRow, { type: 'data' }>;
+
+/**
+ * Grading-pass-level columns: one merged cell spanning all sub-rows (incoming lines /
+ * bag-type lines), matching grading-report-table-pdf grouped layout.
+ */
+const FARMER_PDF_PASS_SPAN_COLUMN_IDS = new Set<string>([
+  'gradingGatePassNo',
+  'gradingManualNo',
+  'gradingDate',
+  'postGradingBags',
+  'actualWeightOfPotato',
+  'wastage',
+  'wastagePercent',
+  'amountPayable',
+]);
+
+/** Min height per stacked sub-row inside a pass group (incoming + type + sizes per line). */
+const FARMER_PDF_SUB_ROW_MIN_HEIGHT = 11;
 
 /** Bag size column ids – these get a reduced width (qty + weight stacked). */
 const BAG_SIZE_COLUMN_IDS = new Set([
@@ -202,6 +223,103 @@ function formatCellValue(value: string | number | undefined): string {
   return String(value);
 }
 
+function sliceNextPassGroup(
+  rows: FarmerReportPdfRow[],
+  startIndex: number
+): { group: FarmerReportPdfDataRow[]; nextIndex: number } | null {
+  const first = rows[startIndex];
+  if (!first || first.type !== 'data') return null;
+  const declared = Math.max(1, first.passGroupSize ?? 1);
+  const group: FarmerReportPdfDataRow[] = [];
+  for (let j = 0; j < declared && startIndex + j < rows.length; j++) {
+    const r = rows[startIndex + j];
+    if (r.type !== 'data') break;
+    group.push(r);
+  }
+  return { group, nextIndex: startIndex + group.length };
+}
+
+function FarmerPdfCellBody({ raw }: { raw: string }) {
+  const qtyWeight = parseQtyWeight(raw);
+  if (qtyWeight) {
+    return (
+      <View style={{ alignItems: 'center' }}>
+        <Text style={styles.cellQtyLine}>{qtyWeight.qty}</Text>
+        <Text style={styles.cellWeightLine}>{qtyWeight.weight}</Text>
+      </View>
+    );
+  }
+  return (
+    <Text style={{ fontSize: 4, textAlign: 'center' }} wrap>
+      {raw}
+    </Text>
+  );
+}
+
+function FarmerPassGroupPdfRow({
+  group,
+  visibleColumnIds,
+  getColWidth,
+}: {
+  group: FarmerReportPdfDataRow[];
+  visibleColumnIds: string[];
+  getColWidth: (id: string) => string;
+}) {
+  const first = group[0]!;
+  const groupHeight = group.length * FARMER_PDF_SUB_ROW_MIN_HEIGHT;
+
+  return (
+    <View wrap={false} style={[styles.tableRow, { minHeight: groupHeight }]}>
+      {visibleColumnIds.map((id, i) => {
+        const isSpan = FARMER_PDF_PASS_SPAN_COLUMN_IDS.has(id);
+        const baseCol = [
+          styles.cell,
+          i === visibleColumnIds.length - 1 ? styles.cellLast : {},
+          { width: getColWidth(id), minWidth: 0 },
+        ];
+
+        if (isSpan) {
+          return (
+            <View
+              key={id}
+              style={[
+                ...baseCol,
+                { minHeight: groupHeight, justifyContent: 'center' },
+              ]}
+            >
+              <FarmerPdfCellBody raw={formatCellValue(first.cells[id])} />
+            </View>
+          );
+        }
+
+        return (
+          <View key={id} style={baseCol}>
+            <View style={{ flexDirection: 'column', flex: 1 }}>
+              {group.map((row, rowIdx) => (
+                <View
+                  key={rowIdx}
+                  style={{
+                    minHeight: FARMER_PDF_SUB_ROW_MIN_HEIGHT,
+                    justifyContent: 'center',
+                    ...(rowIdx < group.length - 1
+                      ? {
+                          borderBottomWidth: 1,
+                          borderBottomColor: '#e5e7eb',
+                        }
+                      : {}),
+                  }}
+                >
+                  <FarmerPdfCellBody raw={formatCellValue(row.cells[id])} />
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Parse "qty (weight)" format used in size columns. Returns null if not that format. */
 function parseQtyWeight(value: string): { qty: string; weight: string } | null {
   const match = value.match(/^(.+?)\s*\(([^)]*)\)\s*$/);
@@ -388,60 +506,41 @@ export function FarmerReportPdf({
               ))}
             </View>
 
-            {/* Body */}
-            {rows.map((row, rowIndex) => {
-              if (row.type === 'variety') {
-                return (
-                  <View key={`variety-${rowIndex}`} style={styles.varietyRow}>
-                    <View style={[styles.varietyCell, { flex: 1 }]}>
-                      <Text>Variety: {row.variety || '—'}</Text>
-                    </View>
-                  </View>
-                );
-              }
-              const passRowIndex = row.passRowIndex ?? 0;
-              const isSpanColumn = (colId: string) =>
-                FARMER_REPORT_ROW_SPAN_COLUMN_IDS.includes(
-                  colId as (typeof FARMER_REPORT_ROW_SPAN_COLUMN_IDS)[number]
-                );
-              return (
-                <View key={`data-${rowIndex}`} style={styles.tableRow}>
-                  {visibleColumnIds.map((id, i) => {
-                    const showSpanValue =
-                      !isSpanColumn(id) || passRowIndex === 0;
-                    const raw = showSpanValue
-                      ? formatCellValue(row.cells[id])
-                      : '—';
-                    const qtyWeight = parseQtyWeight(raw);
-                    return (
-                      <View
-                        key={id}
-                        style={[
-                          styles.cell,
-                          i === visibleColumnIds.length - 1
-                            ? styles.cellLast
-                            : {},
-                          { width: getColWidth(id) },
-                        ]}
-                      >
-                        {qtyWeight ? (
-                          <View style={{ alignItems: 'center' }}>
-                            <Text style={styles.cellQtyLine}>
-                              {qtyWeight.qty}
-                            </Text>
-                            <Text style={styles.cellWeightLine}>
-                              {qtyWeight.weight}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text wrap>{raw}</Text>
-                        )}
+            {/* Body: group rows by grading pass so grading-side columns span vertically. */}
+            {(() => {
+              const body: ReactNode[] = [];
+              let rowIndex = 0;
+              while (rowIndex < rows.length) {
+                const row = rows[rowIndex];
+                if (row.type === 'variety') {
+                  body.push(
+                    <View key={`variety-${rowIndex}`} style={styles.varietyRow}>
+                      <View style={[styles.varietyCell, { flex: 1 }]}>
+                        <Text>Variety: {row.variety || '—'}</Text>
                       </View>
-                    );
-                  })}
-                </View>
-              );
-            })}
+                    </View>
+                  );
+                  rowIndex += 1;
+                  continue;
+                }
+                const sliced = sliceNextPassGroup(rows, rowIndex);
+                if (sliced) {
+                  const key = `group-${rowIndex}`;
+                  body.push(
+                    <FarmerPassGroupPdfRow
+                      key={key}
+                      group={sliced.group}
+                      visibleColumnIds={visibleColumnIds}
+                      getColWidth={getColWidth}
+                    />
+                  );
+                  rowIndex = sliced.nextIndex;
+                } else {
+                  rowIndex += 1;
+                }
+              }
+              return body;
+            })()}
           </View>
         </View>
 

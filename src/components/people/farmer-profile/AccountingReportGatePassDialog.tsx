@@ -205,7 +205,7 @@ export const AccountingReportGatePassDialog = memo(
             <Button
               type="button"
               variant="default"
-              className="font-custom bg-blue-600 hover:bg-blue-700"
+              className="font-custom"
               disabled={selectedPassIds.size === 0 || isGeneratingPdf}
               onClick={onGenerate}
             >

@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouterState, Link, useParams } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,10 @@ import {
 } from 'lucide-react';
 import { FarmerProfileHeaderCard } from './FarmerProfileHeaderCard';
 import FarmerProfileCharts from './FarmerProfileCharts';
-import { FarmerProfileGradingGatePassTable } from './FarmerProfileGradingGatePassTable';
+import {
+  FarmerProfileGradingGatePassTable,
+  type FarmerProfileGradingGatePassTableHandle,
+} from './FarmerProfileGradingGatePassTable';
 import { FarmerProfileMetricsGrid } from './FarmerProfileMetricsGrid';
 import { formatDataForReport } from '@/utils/format-data-for-report';
 import { EditFarmerModal } from '@/components/forms/edit-farmer-modal';
@@ -212,6 +215,8 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const [_editModalOpen, setEditModalOpen] = useState(false);
   const [isGeneratingFarmerReportPdf, setIsGeneratingFarmerReportPdf] =
     useState(false);
+  const gradingGatePassTableRef =
+    useRef<FarmerProfileGradingGatePassTableHandle>(null);
 
   const coldStorage = useStore((s) => s.coldStorage);
   const companyName = coldStorage?.name ?? 'Cold Storage';
@@ -401,6 +406,9 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
                 link={link}
                 onEditClick={() => setEditModalOpen(true)}
                 onViewFarmerReport={handleViewFarmerReport}
+                onOpenAccountingReport={() =>
+                  gradingGatePassTableRef.current?.openAccountingReportDialog()
+                }
                 isViewFarmerReportLoading={isGeneratingFarmerReportPdf}
               />
               <Separator />
@@ -415,6 +423,7 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
         />
 
         <FarmerProfileGradingGatePassTable
+          ref={gradingGatePassTableRef}
           gradingPasses={gatePasses.grading.data ?? []}
           isLoading={gatePasses.grading.isLoading}
           farmerName={link?.farmerId?.name}

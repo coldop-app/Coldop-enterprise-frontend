@@ -18,7 +18,9 @@ export interface FarmerProfileHeaderCardProps {
   link: FarmerStorageLink;
   onEditClick: () => void;
   onViewFarmerReport: () => void;
-  /** When true, disables the View Farmer Report button and shows a spinner. */
+  /** Opens the grading-table accounting report dialog (pass selection + PDF/Excel). */
+  onOpenAccountingReport?: () => void;
+  /** When true, disables the Farmer Report button and shows a spinner. */
   isViewFarmerReportLoading?: boolean;
 }
 
@@ -26,6 +28,7 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
   link,
   onEditClick,
   onViewFarmerReport,
+  onOpenAccountingReport,
   isViewFarmerReportLoading = false,
 }: FarmerProfileHeaderCardProps) {
   return (
@@ -73,9 +76,21 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
               Generating…
             </>
           ) : (
-            'View Farmer Report'
+            'Farmer Report'
           )}
         </Button>
+        {onOpenAccountingReport != null ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isViewFarmerReportLoading}
+            className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={onOpenAccountingReport}
+            aria-label="Accounting report"
+          >
+            Accounting Report
+          </Button>
+        ) : null}
       </div>
     </div>
   );

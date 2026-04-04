@@ -1,4 +1,11 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, {
+  forwardRef,
+  memo,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 import { format, parseISO } from 'date-fns';
 import type {
   GradingGatePass,
@@ -661,33 +668,33 @@ function buildCellsForPdfRow(
       cells[id] = ref?.bagsReceived != null ? String(ref.bagsReceived) : '—';
     else if (id === 'totalBagsReceived')
       cells[id] =
-        firstRowOfPass && refs.length > 1 ? String(totals.totalBags) : '—';
+        firstRowOfPass && refs.length > 0 ? String(totals.totalBags) : '—';
     else if (id === 'weightSlipNo')
       cells[id] = ref?.weightSlip?.slipNumber ?? '—';
     else if (id === 'grossWeightKg')
       cells[id] = formatWeightKg(ref?.weightSlip?.grossWeightKg);
     else if (id === 'totalGrossKg')
       cells[id] =
-        firstRowOfPass && refs.length > 1
+        firstRowOfPass && refs.length > 0
           ? formatWeightKg(totals.totalGrossKg)
           : '—';
     else if (id === 'tareWeightKg')
       cells[id] = formatWeightKg(ref?.weightSlip?.tareWeightKg);
     else if (id === 'totalTareKg')
       cells[id] =
-        firstRowOfPass && refs.length > 1
+        firstRowOfPass && refs.length > 0
           ? formatWeightKg(totals.totalTareKg)
           : '—';
     else if (id === 'netWeightKg') cells[id] = formatWeightKg(netKg);
     else if (id === 'totalNetKg')
       cells[id] =
-        firstRowOfPass && refs.length > 1
+        firstRowOfPass && refs.length > 0
           ? formatWeightKg(totals.totalNetKg)
           : '—';
     else if (id === 'lessBardanaKg') cells[id] = formatWeightKg(bardanaKg);
     else if (id === 'totalLessBardanaKg')
       cells[id] =
-        firstRowOfPass && refs.length > 1
+        firstRowOfPass && refs.length > 0
           ? formatWeightKg(totals.totalBardanaKg)
           : '—';
     else if (id === 'actualWeightKg') cells[id] = formatWeightKg(actualKg);
@@ -870,13 +877,23 @@ export interface FarmerProfileGradingGatePassTableProps {
   companyName?: string;
 }
 
+export type FarmerProfileGradingGatePassTableHandle = {
+  openAccountingReportDialog: () => void;
+};
+
 export const FarmerProfileGradingGatePassTable = memo(
-  function FarmerProfileGradingGatePassTable({
-    gradingPasses,
-    isLoading = false,
-    farmerName: farmerNameProp,
-    companyName: companyNameProp,
-  }: FarmerProfileGradingGatePassTableProps) {
+  forwardRef<
+    FarmerProfileGradingGatePassTableHandle,
+    FarmerProfileGradingGatePassTableProps
+  >(function FarmerProfileGradingGatePassTable(
+    {
+      gradingPasses,
+      isLoading = false,
+      farmerName: farmerNameProp,
+      companyName: companyNameProp,
+    },
+    ref
+  ) {
     const [fromDate, setFromDate] = useState<string | undefined>();
     const [toDate, setToDate] = useState<string | undefined>();
     const [appliedRange, setAppliedRange] = useState<{
@@ -1012,13 +1029,6 @@ export const FarmerProfileGradingGatePassTable = memo(
       } finally {
         setIsGeneratingPdf(false);
       }
-    };
-
-    const handleOpenAccountingReportDialog = () => {
-      setSelectedGradingPassIdsForAccounting(
-        new Set(filteredGradingPasses.map((p) => p._id))
-      );
-      setAccountingReportDialogOpen(true);
     };
 
     const handleAccountingReportGenerate = async (selectedIds: Set<string>) => {
@@ -1173,6 +1183,21 @@ export const FarmerProfileGradingGatePassTable = memo(
         return true;
       });
     }, [appliedRange.dateFrom, appliedRange.dateTo, gradingPasses]);
+
+    const handleOpenAccountingReportDialog = useCallback(() => {
+      setSelectedGradingPassIdsForAccounting(
+        new Set(filteredGradingPasses.map((p) => p._id))
+      );
+      setAccountingReportDialogOpen(true);
+    }, [filteredGradingPasses]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        openAccountingReportDialog: handleOpenAccountingReportDialog,
+      }),
+      [handleOpenAccountingReportDialog]
+    );
 
     const sortedAndGroupedPasses = useMemo(() => {
       const getRefs = (p: GradingGatePass) =>
@@ -1963,125 +1988,99 @@ export const FarmerProfileGradingGatePassTable = memo(
       <>
         <Card className="overflow-hidden rounded-xl border shadow-sm">
           <CardHeader className="bg-muted/30 border-b py-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-                <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-                  <DatePicker
-                    id="farmer-profile-grading-from"
-                    label="From"
-                    value={fromDate}
-                    onChange={setFromDate}
-                    compact
-                  />
-                  <DatePicker
-                    id="farmer-profile-grading-to"
-                    label="To"
-                    value={toDate}
-                    onChange={setToDate}
-                    compact
-                  />
-                  <div className="flex h-10 items-center gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                      onClick={handleApplyDates}
-                      disabled={!fromDate && !toDate}
-                    >
-                      Apply
-                    </Button>
-                    {(fromDate ||
-                      toDate ||
-                      appliedRange.dateFrom ||
-                      appliedRange.dateTo) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                        onClick={handleClearDates}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+              <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+                <DatePicker
+                  id="farmer-profile-grading-from"
+                  label="From"
+                  value={fromDate}
+                  onChange={setFromDate}
+                  compact
+                />
+                <DatePicker
+                  id="farmer-profile-grading-to"
+                  label="To"
+                  value={toDate}
+                  onChange={setToDate}
+                  compact
+                />
+                <div className="flex h-10 items-center gap-2">
                   <Button
-                    variant={groupByVariety ? 'default' : 'outline'}
+                    variant="default"
                     size="sm"
                     className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={() => setGroupByVariety((v) => !v)}
+                    onClick={handleApplyDates}
+                    disabled={!fromDate && !toDate}
                   >
-                    Group by variety
+                    Apply
                   </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                      >
-                        <Settings2 className="mr-2 h-4 w-4" />
-                        Columns
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
+                  {(fromDate ||
+                    toDate ||
+                    appliedRange.dateFrom ||
+                    appliedRange.dateTo) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                      onClick={handleClearDates}
                     >
-                      {[
-                        ...INCOMING_COLUMN_IDS,
-                        ...GRADING_FIXED_COLUMN_IDS,
-                        ...BAG_SIZE_COLUMN_IDS,
-                        ...LAST_COLUMN_IDS,
-                      ].map((id) => (
-                        <DropdownMenuCheckboxItem
-                          key={id}
-                          className="font-custom capitalize"
-                          checked={isColVisible(id)}
-                          onCheckedChange={(checked) =>
-                            setColumnVisibility((prev) => ({
-                              ...prev,
-                              [id]: checked,
-                            }))
-                          }
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      Clear
+                    </Button>
+                  )}
                 </div>
-                <div className="flex w-full flex-wrap items-end justify-end gap-2 sm:w-auto sm:gap-3">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="font-custom focus-visible:ring-primary h-10 min-h-10 shrink-0 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={handleViewReport}
-                    disabled={isGeneratingPdf}
-                    aria-label="View report"
+                <Button
+                  variant={groupByVariety ? 'default' : 'outline'}
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={() => setGroupByVariety((v) => !v)}
+                >
+                  Group by variety
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                    >
+                      <Settings2 className="mr-2 h-4 w-4" />
+                      Columns
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
                   >
-                    <FileDown className="h-4 w-4 shrink-0" />
-                    {isGeneratingPdf ? 'Generating…' : 'View Report'}
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="font-custom h-10 min-h-10 shrink-0 gap-2 rounded-lg bg-blue-600 px-4 text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-                    onClick={handleOpenAccountingReportDialog}
-                    disabled={isGeneratingPdf}
-                    aria-label="Accounting report"
-                  >
-                    <FileDown className="h-4 w-4 shrink-0" />
-                    Accounting Report
-                  </Button>
-                </div>
+                    {[
+                      ...INCOMING_COLUMN_IDS,
+                      ...GRADING_FIXED_COLUMN_IDS,
+                      ...BAG_SIZE_COLUMN_IDS,
+                      ...LAST_COLUMN_IDS,
+                    ].map((id) => (
+                      <DropdownMenuCheckboxItem
+                        key={id}
+                        className="font-custom capitalize"
+                        checked={isColVisible(id)}
+                        onCheckedChange={(checked) =>
+                          setColumnVisibility((prev) => ({
+                            ...prev,
+                            [id]: checked,
+                          }))
+                        }
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="flex w-full flex-wrap items-end justify-end gap-2 sm:w-auto sm:gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 shrink-0 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                   onClick={() => setShowTableData((v) => !v)}
                   aria-expanded={showTableData}
                   aria-controls={
@@ -2098,6 +2097,17 @@ export const FarmerProfileGradingGatePassTable = memo(
                     aria-hidden
                   />
                   {showTableData ? 'Hide' : 'Show'} table data
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 shrink-0 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleViewReport}
+                  disabled={isGeneratingPdf}
+                  aria-label="Custom Report"
+                >
+                  <FileDown className="h-4 w-4 shrink-0" />
+                  {isGeneratingPdf ? 'Generating…' : 'Custom Report'}
                 </Button>
               </div>
             </div>
@@ -2714,5 +2724,8 @@ export const FarmerProfileGradingGatePassTable = memo(
         />
       </>
     );
-  }
+  })
 );
+
+FarmerProfileGradingGatePassTable.displayName =
+  'FarmerProfileGradingGatePassTable';

@@ -1,4 +1,5 @@
-import { memo, useState, useMemo } from 'react';
+import { memo, useState, useMemo, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import type { FarmerStorageLink } from '@/types/farmer';
@@ -46,6 +47,10 @@ const PeoplePage = memo(function PeoplePage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'Name' | 'Account Number'>('Name');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  const handleSearchFocus = useCallback(() => setIsSearchFocused(true), []);
+  const handleSearchBlur = useCallback(() => setIsSearchFocused(false), []);
 
   const links = useMemo(() => data ?? [], [data]);
 
@@ -166,10 +171,17 @@ const PeoplePage = memo(function PeoplePage() {
               placeholder="Search by name, mobile, account number, or address..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
               className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
             />
           </div>
-          <ItemFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <ItemFooter
+            className={cn(
+              'flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
+              isSearchFocused && 'max-sm:hidden'
+            )}
+          >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
