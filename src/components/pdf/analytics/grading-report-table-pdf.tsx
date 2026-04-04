@@ -379,7 +379,7 @@ function GroupedTableBody({
   const first = group[0]!;
 
   return (
-    <View style={[styles.tableRow, { minHeight: groupHeight }]}>
+    <View wrap={false} style={[styles.tableRow, { minHeight: groupHeight }]}>
       {columns.map((col, i) => {
         const isSpan = spanColumnSet.has(col.key);
         return (
@@ -784,24 +784,13 @@ function SummaryVarietyBagTable({
 }
 
 function ReportSummaryPage({
-  companyName,
-  dateRangeLabel,
-  reportTitle,
   summary,
 }: {
-  companyName: string;
-  dateRangeLabel: string;
-  reportTitle: string;
   summary: GradingReportTableSummary;
 }) {
   const fmt = (n: number) => n.toFixed(2);
   return (
     <Page size="A4" orientation="landscape" style={styles.summaryPage}>
-      <ReportHeader
-        companyName={companyName}
-        dateRangeLabel={dateRangeLabel}
-        reportTitle={`${reportTitle} — Summary`}
-      />
       <View style={[styles.summarySection, styles.summarySectionFirst]}>
         <Text style={styles.summaryTitle}>Variety-wise total</Text>
         <View style={styles.summaryTable}>
@@ -1174,6 +1163,7 @@ export const GradingReportTablePdf = ({
           const { pageChunks, columnsForTable, sectionTotal } = section;
 
           if (section.isEmpty) {
+            const showReportHeader = sectionIndex === 0;
             return [
               <Page
                 key={`sec-${sectionIndex}-empty`}
@@ -1181,11 +1171,13 @@ export const GradingReportTablePdf = ({
                 orientation="landscape"
                 style={styles.page}
               >
-                <ReportHeader
-                  companyName={companyName}
-                  dateRangeLabel={dateRangeLabel}
-                  reportTitle={reportTitle}
-                />
+                {showReportHeader ? (
+                  <ReportHeader
+                    companyName={companyName}
+                    dateRangeLabel={dateRangeLabel}
+                    reportTitle={reportTitle}
+                  />
+                ) : null}
                 <View
                   style={[
                     styles.farmerSection,
@@ -1262,6 +1254,7 @@ export const GradingReportTablePdf = ({
 
           return pageChunks.map((chunk, chunkIndex) => {
             const isLastChunkOfSection = chunkIndex === pageChunks.length - 1;
+            const showReportHeader = sectionIndex === 0 && chunkIndex === 0;
             return (
               <Page
                 key={`sec-${sectionIndex}-${chunkIndex}`}
@@ -1269,11 +1262,13 @@ export const GradingReportTablePdf = ({
                 orientation="landscape"
                 style={styles.page}
               >
-                <ReportHeader
-                  companyName={companyName}
-                  dateRangeLabel={dateRangeLabel}
-                  reportTitle={reportTitle}
-                />
+                {showReportHeader ? (
+                  <ReportHeader
+                    companyName={companyName}
+                    dateRangeLabel={dateRangeLabel}
+                    reportTitle={reportTitle}
+                  />
+                ) : null}
                 <View
                   style={[
                     styles.farmerSection,
@@ -1356,23 +1351,13 @@ export const GradingReportTablePdf = ({
           });
         })}
         <Page size="A4" orientation="landscape" style={styles.page}>
-          <ReportHeader
-            companyName={companyName}
-            dateRangeLabel={dateRangeLabel}
-            reportTitle={reportTitle}
-          />
           <View style={styles.tableContainer}>
             <View style={styles.table}>
               <TotalsRow totals={totals} columns={grandColumns} />
             </View>
           </View>
         </Page>
-        <ReportSummaryPage
-          companyName={companyName}
-          dateRangeLabel={dateRangeLabel}
-          reportTitle={reportTitle}
-          summary={summary}
-        />
+        <ReportSummaryPage summary={summary} />
       </Document>
     );
   }
@@ -1431,11 +1416,13 @@ export const GradingReportTablePdf = ({
               orientation="landscape"
               style={styles.page}
             >
-              <ReportHeader
-                companyName={companyName}
-                dateRangeLabel={dateRangeLabel}
-                reportTitle={reportTitle}
-              />
+              {pageIndex === 0 ? (
+                <ReportHeader
+                  companyName={companyName}
+                  dateRangeLabel={dateRangeLabel}
+                  reportTitle={reportTitle}
+                />
+              ) : null}
               <View style={styles.tableContainer}>
                 <View style={styles.table}>
                   <View style={styles.tableHeaderRow}>
@@ -1472,12 +1459,7 @@ export const GradingReportTablePdf = ({
           );
         })
       )}
-      <ReportSummaryPage
-        companyName={companyName}
-        dateRangeLabel={dateRangeLabel}
-        reportTitle={reportTitle}
-        summary={summary}
-      />
+      <ReportSummaryPage summary={summary} />
     </Document>
   );
 };

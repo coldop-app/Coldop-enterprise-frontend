@@ -10,8 +10,24 @@ import {
 } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 import type { GradingReportPdfSnapshot } from '@/components/analytics/reports/grading-report/data-table';
 
-/** Height budget: logical rows (incoming lines) per landscape page (see PDF). */
-export const PDF_MAIN_TABLE_ROWS_PER_PAGE = 28;
+/**
+ * Layout budget for the first main-table page (includes report heading in the PDF).
+ * One unit ≈ one plain data sub-row; rows with stacked bag-type lines count higher.
+ */
+export const PDF_MAIN_TABLE_FIRST_PAGE_LAYOUT_UNITS = 24;
+
+/**
+ * Layout budget for continuation main-table pages (no report heading; slightly more room).
+ */
+export const PDF_MAIN_TABLE_CONTINUATION_PAGE_LAYOUT_UNITS = 26;
+
+/** @deprecated Use PDF_MAIN_TABLE_CONTINUATION_PAGE_LAYOUT_UNITS */
+export const PDF_MAIN_TABLE_LAYOUT_UNITS_PER_PAGE =
+  PDF_MAIN_TABLE_CONTINUATION_PAGE_LAYOUT_UNITS;
+
+/** @deprecated Use first/continuation layout unit constants */
+export const PDF_MAIN_TABLE_ROWS_PER_PAGE =
+  PDF_MAIN_TABLE_CONTINUATION_PAGE_LAYOUT_UNITS;
 
 export type PdfColumnDef = {
   key: string;
@@ -163,33 +179,87 @@ export function getColumnsForPdf(
   }));
 }
 
+/** Visual stack depth for graded bag-size cells (mirrors `GradedBagSizePdfCell`). */
+function gradedBagStackLinesForEntry(b: {
+  qty: number;
+  bagTypeParts?: { label: string; qty: number; weightPerBagKg: number }[];
+}): number {
+  if (!b || b.qty === 0) return 0;
+  const parts = b.bagTypeParts ?? [];
+  if (parts.length === 0) return 2;
+  if (parts.length === 1) return 2;
+  return 1 + parts.length;
+}
+
+/**
+ * Layout units for one incoming line within a grading-pass group (≥1).
+ * Multi-line bag breakdowns and long farmer names consume more of the page budget.
+ */
+export function estimateRowLayoutUnits(row: GradingReportRow): number {
+  let u = 1;
+  const bd = row.gradedSizeBreakdown;
+  if (bd) {
+    let maxStack = 0;
+    for (const b of Object.values(bd)) {
+      maxStack = Math.max(maxStack, gradedBagStackLinesForEntry(b));
+    }
+    if (maxStack > 1) {
+      u += (maxStack - 1) * 0.9;
+    }
+  }
+  if (typeof row.farmerName === 'string' && row.farmerName.trim().length > 42) {
+    u += 0.4;
+  }
+  return Math.min(Math.max(u, 1), 6);
+}
+
+export function estimateGroupLayoutUnits(group: GradingReportRow[]): number {
+  return group.reduce((sum, row) => sum + estimateRowLayoutUnits(row), 0);
+}
+
+/**
+ * Pack whole grading-pass groups onto pages without splitting a group.
+ * Uses a smaller budget on the first page when `applyFirstPageBudget` is true (report heading).
+ * Later grouped sections without the heading should pass `applyFirstPageBudget: false`.
+ */
 export function chunkGradingPassGroups(
   groups: GradingReportRow[][],
-  maxRowsPerPage: number
+  firstPageMaxLayoutUnits: number,
+  continuationPageMaxLayoutUnits: number,
+  applyFirstPageBudget = true
 ): GradingReportRow[][][] {
   if (groups.length === 0) return [];
   const pages: GradingReportRow[][][] = [];
   let current: GradingReportRow[][] = [];
-  let rowCount = 0;
+  let unitCount = 0;
+  let onFirstPdfPage = applyFirstPageBudget;
+
+  const pageLimit = () =>
+    onFirstPdfPage ? firstPageMaxLayoutUnits : continuationPageMaxLayoutUnits;
 
   for (const group of groups) {
-    const gRows = group.length;
-    if (gRows > maxRowsPerPage) {
+    const gUnits = estimateGroupLayoutUnits(group);
+    const limit = pageLimit();
+
+    if (gUnits > limit) {
       if (current.length > 0) {
         pages.push(current);
         current = [];
-        rowCount = 0;
+        unitCount = 0;
+        onFirstPdfPage = false;
       }
       pages.push([group]);
+      onFirstPdfPage = false;
       continue;
     }
-    if (rowCount + gRows > maxRowsPerPage && current.length > 0) {
+    if (unitCount + gUnits > limit && current.length > 0) {
       pages.push(current);
       current = [];
-      rowCount = 0;
+      unitCount = 0;
+      onFirstPdfPage = false;
     }
     current.push(group);
-    rowCount += gRows;
+    unitCount += gUnits;
   }
   if (current.length > 0) pages.push(current);
   return pages;
@@ -541,7 +611,12 @@ export function prepareGradingReportPdf(
       const pageChunks =
         section.leaves.length === 0
           ? []
-          : chunkGradingPassGroups(sectionGroups, PDF_MAIN_TABLE_ROWS_PER_PAGE);
+          : chunkGradingPassGroups(
+              sectionGroups,
+              PDF_MAIN_TABLE_FIRST_PAGE_LAYOUT_UNITS,
+              PDF_MAIN_TABLE_CONTINUATION_PAGE_LAYOUT_UNITS,
+              sectionIndex === 0
+            );
       return {
         headers: section.headers,
         leaves: section.leaves,
@@ -582,7 +657,12 @@ export function prepareGradingReportPdf(
   const mainPageChunks =
     leafRows.length === 0
       ? []
-      : chunkGradingPassGroups(mainGroups, PDF_MAIN_TABLE_ROWS_PER_PAGE);
+      : chunkGradingPassGroups(
+          mainGroups,
+          PDF_MAIN_TABLE_FIRST_PAGE_LAYOUT_UNITS,
+          PDF_MAIN_TABLE_CONTINUATION_PAGE_LAYOUT_UNITS,
+          true
+        );
 
   return {
     kind: 'flat',
