@@ -426,9 +426,11 @@ function buildBagSizeColumns(
             ) : (
               <span className="flex flex-col items-end gap-0.5">
                 <span className="font-medium">{formatNum(qty)}</span>
-                <span className="text-muted-foreground text-xs font-normal">
-                  ({formatWeightKg(wPerBag)})
-                </span>
+                {parts.length === 0 ? (
+                  <span className="text-muted-foreground text-xs font-normal">
+                    ({formatWeightKg(wPerBag)})
+                  </span>
+                ) : null}
                 {parts.length === 1 ? (
                   <span className="text-muted-foreground font-custom text-[10px] leading-tight font-normal">
                     {`${parts[0].label} (${formatWeightKg(parts[0].weightPerBagKg)})`}

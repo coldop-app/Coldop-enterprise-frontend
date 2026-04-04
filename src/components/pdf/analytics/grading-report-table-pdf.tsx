@@ -282,7 +282,7 @@ function formatPdfWeightKgLikeWeb(value: number | undefined): string {
   return String(Math.round(value * 10) / 10);
 }
 
-/** Same stack as web bag-size cells: qty, (kg/bag), optional bag-type lines — no fill. */
+/** Qty, then Jute/Leno lines with kg/bag each; aggregate (kg/bag) only if no bag-type parts. */
 function GradedBagSizePdfCell({
   columnKey,
   row,
@@ -336,15 +336,17 @@ function GradedBagSizePdfCell({
         >
           {formatPdfNumLikeWeb(b.qty)}
         </Text>
-        <Text
-          style={[
-            styles.gradedBagWeightLine,
-            { textAlign: baseAlign ? 'left' : 'right' },
-          ]}
-          wrap
-        >
-          {`(${wLine})`}
-        </Text>
+        {parts.length === 0 ? (
+          <Text
+            style={[
+              styles.gradedBagWeightLine,
+              { textAlign: baseAlign ? 'left' : 'right' },
+            ]}
+            wrap
+          >
+            {`(${wLine})`}
+          </Text>
+        ) : null}
         {parts.length === 1 ? (
           <Text style={detailStyle} wrap>
             {`${parts[0].label} (${formatPdfWeightKgLikeWeb(parts[0].weightPerBagKg)})`}
