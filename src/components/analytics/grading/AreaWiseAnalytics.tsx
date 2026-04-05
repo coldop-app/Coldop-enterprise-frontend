@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type ColumnDef,
   flexRender,
@@ -26,7 +26,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { RefreshCw, MapPin, Layers, BarChart3, Users } from 'lucide-react';
+import {
+  RefreshCw,
+  MapPin,
+  Layers,
+  BarChart3,
+  Users,
+  FileDown,
+} from 'lucide-react';
 import {
   useGetAreaWiseAnalytics,
   type GetAreaWiseAnalyticsParams,
@@ -38,6 +45,8 @@ import type {
   AreaWiseVarietyItem,
 } from '@/types/analytics';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/stores/store';
+import { toast } from 'sonner';
 
 /** Preferred column order for size names (others appended alphabetically) */
 const SIZE_ORDER = [
@@ -79,6 +88,45 @@ function sizeMap(
   const m = new Map<string, number>();
   sizes.forEach((s) => m.set(s.name, s.value));
   return m;
+}
+
+interface AreaWiseMatrixForPdf {
+  sizeNames: string[];
+  rows: Array<{
+    area: string;
+    bags: number[];
+    total: number;
+  }>;
+  totals: Record<string, number>;
+  varietyTotal: number;
+}
+
+/** Shared by the on-screen table and PDF export. */
+function getAreaWiseMatrixForVariety(
+  item: VarietyTabData
+): AreaWiseMatrixForPdf {
+  const sizeNames = orderedSizeNames(item.areas);
+  const totals: Record<string, number> = {};
+  for (const size of sizeNames) {
+    totals[size] = 0;
+  }
+  const rows = item.areas.map((a) => {
+    const bySize = sizeMap(a.sizes);
+    const values: Record<string, number> = {};
+    for (const size of sizeNames) {
+      const v = bySize.get(size) ?? 0;
+      values[size] = v;
+      totals[size] = (totals[size] ?? 0) + v;
+    }
+    const total = a.sizes.reduce((sum, s) => sum + s.value, 0);
+    return {
+      area: a.area,
+      bags: sizeNames.map((s) => values[s] ?? 0),
+      total,
+    };
+  });
+  const varietyTotal = rows.reduce((sum, r) => sum + r.total, 0);
+  return { sizeNames, rows, totals, varietyTotal };
 }
 
 function aggregateVarietySizes(varietyItem: AreaWiseVarietyItem) {
@@ -157,6 +205,93 @@ const AreaWiseAnalytics = memo(function AreaWiseAnalytics({
   }, [chartData]);
   const hasData = varietyData.length > 0;
 
+  const coldStorage = useStore((s) => s.coldStorage);
+  const defaultVarietyTab = varietyData[0]?.variety ?? '';
+  const [varietyTab, setVarietyTab] = useState(defaultVarietyTab);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  useEffect(() => {
+    setVarietyTab((t) => {
+      if (varietyData.some((v) => v.variety === t)) return t;
+      return defaultVarietyTab;
+    });
+  }, [defaultVarietyTab, varietyData]);
+
+  const getDateRangeLabel = useCallback(() => {
+    if (dateParams.dateFrom && dateParams.dateTo) {
+      return `${dateParams.dateFrom} to ${dateParams.dateTo}`;
+    }
+    if (dateParams.dateFrom) return `From ${dateParams.dateFrom}`;
+    if (dateParams.dateTo) return `To ${dateParams.dateTo}`;
+    return 'All dates';
+  }, [dateParams.dateFrom, dateParams.dateTo]);
+
+  const currentVarietyItem = useMemo(
+    () => varietyData.find((v) => v.variety === varietyTab),
+    [varietyData, varietyTab]
+  );
+
+  const canExportAreaPdf =
+    !!currentVarietyItem &&
+    getAreaWiseMatrixForVariety(currentVarietyItem).sizeNames.length > 0;
+
+  const handleDownloadAreaPdf = useCallback(async () => {
+    if (!currentVarietyItem || !canExportAreaPdf) {
+      toast.error('Nothing to export', {
+        description: 'Select a variety with area data.',
+      });
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const [{ pdf }, { GradingAreaWiseTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/grading-area-wise-table-pdf'),
+      ]);
+      const { sizeNames, rows, totals, varietyTotal } =
+        getAreaWiseMatrixForVariety(currentVarietyItem);
+      const footerBags = sizeNames.map((s) => totals[s] ?? 0);
+      const blob = await pdf(
+        <GradingAreaWiseTablePdf
+          companyName={coldStorage?.name ?? 'Cold Storage'}
+          dateRangeLabel={getDateRangeLabel()}
+          variety={currentVarietyItem.variety}
+          sizeNames={sizeNames}
+          rows={rows}
+          footer={{ bags: footerBags, total: varietyTotal }}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('PDF opened in new tab', {
+        description: 'Area-wise distribution is ready to view or print.',
+      });
+    } catch {
+      printWindow?.close();
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    canExportAreaPdf,
+    coldStorage?.name,
+    currentVarietyItem,
+    getDateRangeLabel,
+  ]);
+
   if (isLoading) {
     return (
       <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm">
@@ -222,22 +357,42 @@ const AreaWiseAnalytics = memo(function AreaWiseAnalytics({
     );
   }
 
-  const defaultTab = varietyData[0]?.variety ?? '';
-
   return (
     <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <MapPin className="text-primary h-5 w-5" />
-          Area-wise Size Distribution
-        </CardTitle>
-        <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Bags by area and size for each variety. Click a cell to view area
-          breakdown.
-        </CardDescription>
+      <CardHeader className="space-y-3 pb-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
+              <MapPin className="text-primary h-5 w-5 shrink-0" />
+              Area-wise Size Distribution
+            </CardTitle>
+            <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
+              Bags by area and size for each variety. Click a cell to view area
+              breakdown.
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canExportAreaPdf || isGeneratingPdf}
+            onClick={handleDownloadAreaPdf}
+            className="font-custom focus-visible:ring-primary h-8 shrink-0 gap-2 rounded-lg px-3 focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label="Download area-wise table as PDF"
+          >
+            <FileDown
+              className={`h-4 w-4 shrink-0 ${isGeneratingPdf ? 'animate-pulse' : ''}`}
+            />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="min-w-0">
-        <Tabs defaultValue={defaultTab} className="font-custom w-full">
+        <Tabs
+          value={varietyTab}
+          onValueChange={setVarietyTab}
+          className="font-custom w-full"
+        >
           <TabsList className="font-custom mb-4 flex h-auto w-full flex-nowrap overflow-x-auto">
             {varietyData.map(({ variety }) => (
               <TabsTrigger
@@ -289,7 +444,6 @@ const VarietyAreaTable = memo(function VarietyAreaTable({
 }: VarietyAreaTableProps) {
   const navigate = useNavigate();
   const { variety, areas } = varietyItem;
-  const sizeNames = useMemo(() => orderedSizeNames(areas), [areas]);
   const [selectedArea, setSelectedArea] = useState<string>(
     areas[0]?.area ?? ''
   );
@@ -300,26 +454,22 @@ const VarietyAreaTable = memo(function VarietyAreaTable({
     }
   }, [areas, selectedArea]);
 
-  const { rows, totals, varietyTotal } = useMemo(() => {
-    const rowsData: TableRowData[] = [];
-    const totals: Record<string, number> = {};
-    for (const size of sizeNames) {
-      totals[size] = 0;
-    }
-    for (const a of areas) {
-      const bySize = sizeMap(a.sizes);
-      const total = a.sizes.reduce((sum, s) => sum + s.value, 0);
-      const values: Record<string, number> = {};
-      for (const size of sizeNames) {
-        const v = bySize.get(size) ?? 0;
-        values[size] = v;
-        totals[size] = (totals[size] ?? 0) + v;
-      }
-      rowsData.push({ area: a.area, values, total });
-    }
-    const varietyTotal = rowsData.reduce((sum, r) => sum + r.total, 0);
-    return { rows: rowsData, totals, varietyTotal };
-  }, [areas, sizeNames]);
+  const { sizeNames, rows, totals, varietyTotal } = useMemo(() => {
+    const m = getAreaWiseMatrixForVariety(varietyItem);
+    const rowsData: TableRowData[] = m.rows.map((r) => ({
+      area: r.area,
+      values: Object.fromEntries(
+        m.sizeNames.map((s, i) => [s, r.bags[i] ?? 0])
+      ),
+      total: r.total,
+    }));
+    return {
+      sizeNames: m.sizeNames,
+      rows: rowsData,
+      totals: m.totals,
+      varietyTotal: m.varietyTotal,
+    };
+  }, [varietyItem]);
 
   const columns = useMemo<ColumnDef<TableRowData>[]>(() => {
     const cols: ColumnDef<TableRowData>[] = [

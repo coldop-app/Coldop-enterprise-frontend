@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
 import {
   Card,
@@ -19,7 +19,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, PieChart as PieChartIcon } from 'lucide-react';
+import { RefreshCw, PieChart as PieChartIcon, FileDown } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -31,6 +31,8 @@ import {
   type GradingSizeDistributionSizeItem,
   type GetGradingSizeWiseDistributionParams,
 } from '@/services/store-admin/grading-gate-pass/useGetGradingSizeWiseDistribution';
+import { useStore } from '@/stores/store';
+import { toast } from 'sonner';
 
 const CHART_COLORS = [
   'var(--chart-1)',
@@ -135,6 +137,8 @@ function buildVarietyChartData(
 const SizeDistributionChart = memo(function SizeDistributionChart({
   dateParams,
 }: SizeDistributionChartProps) {
+  const coldStorage = useStore((s) => s.coldStorage);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { data, isLoading, isError, error, refetch } =
     useGetGradingSizeWiseDistribution(dateParams);
 
@@ -144,6 +148,94 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
   }, [data?.chartData]);
 
   const hasAnyData = varietyCharts.some((v) => v.pieData.length > 0);
+  const defaultVarietyTab = varietyCharts[0]?.variety ?? '';
+  const [varietyTab, setVarietyTab] = useState(defaultVarietyTab);
+
+  useEffect(() => {
+    setVarietyTab((t) => {
+      if (varietyCharts.some((v) => v.variety === t)) return t;
+      return defaultVarietyTab;
+    });
+  }, [defaultVarietyTab, varietyCharts]);
+
+  const getDateRangeLabel = useCallback(() => {
+    if (dateParams.dateFrom && dateParams.dateTo) {
+      return `${dateParams.dateFrom} to ${dateParams.dateTo}`;
+    }
+    if (dateParams.dateFrom) return `From ${dateParams.dateFrom}`;
+    if (dateParams.dateTo) return `To ${dateParams.dateTo}`;
+    return 'All dates';
+  }, [dateParams.dateFrom, dateParams.dateTo]);
+
+  const activeVarietyChart = useMemo(
+    () => varietyCharts.find((v) => v.variety === varietyTab),
+    [varietyCharts, varietyTab]
+  );
+
+  const canExportSizePdf =
+    !!activeVarietyChart && activeVarietyChart.pieData.length > 0;
+
+  const handleDownloadSizePdf = useCallback(async () => {
+    if (!activeVarietyChart || !canExportSizePdf) {
+      toast.error('Nothing to export', {
+        description: 'Select a variety with size data.',
+      });
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const [{ pdf }, { GradingSizeDistributionTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/grading-size-distribution-table-pdf'),
+      ]);
+      const { pieData, variety, totalWeightKg } = activeVarietyChart;
+      const totalBags = pieData.reduce((sum, s) => sum + s.bags, 0);
+      const rows = pieData.map((s) => ({
+        sizeName: s.name,
+        bags: s.bags,
+        weightKg: s.value,
+        pctVariety: s.percentage,
+      }));
+      const blob = await pdf(
+        <GradingSizeDistributionTablePdf
+          companyName={coldStorage?.name ?? 'Cold Storage'}
+          dateRangeLabel={getDateRangeLabel()}
+          variety={variety}
+          rows={rows}
+          totalBags={totalBags}
+          totalWeightKg={totalWeightKg}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('PDF opened in new tab', {
+        description: 'Size-wise distribution is ready to view or print.',
+      });
+    } catch {
+      printWindow?.close();
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    activeVarietyChart,
+    canExportSizePdf,
+    coldStorage?.name,
+    getDateRangeLabel,
+  ]);
 
   if (isLoading) {
     return (
@@ -210,21 +302,42 @@ const SizeDistributionChart = memo(function SizeDistributionChart({
     );
   }
 
-  const defaultTab = varietyCharts[0]?.variety ?? '';
-
   return (
     <Card className="font-custom border-border w-full min-w-0 overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-md">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <PieChartIcon className="text-primary h-5 w-5" />
-          Size-wise Distribution
-        </CardTitle>
-        <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
-          Percentage breakdown by grading size per variety (Excluding Bardana)
-        </CardDescription>
+      <CardHeader className="space-y-3 pb-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
+              <PieChartIcon className="text-primary h-5 w-5 shrink-0" />
+              Size-wise Distribution
+            </CardTitle>
+            <CardDescription className="font-custom text-muted-foreground text-xs sm:text-sm">
+              Percentage breakdown by grading size per variety (Excluding
+              Bardana)
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canExportSizePdf || isGeneratingPdf}
+            onClick={handleDownloadSizePdf}
+            className="font-custom focus-visible:ring-primary h-8 shrink-0 gap-2 rounded-lg px-3 focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label="Download size-wise distribution table as PDF"
+          >
+            <FileDown
+              className={`h-4 w-4 shrink-0 ${isGeneratingPdf ? 'animate-pulse' : ''}`}
+            />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4 sm:space-y-6">
-        <Tabs defaultValue={defaultTab} className="font-custom w-full">
+        <Tabs
+          value={varietyTab}
+          onValueChange={setVarietyTab}
+          className="font-custom w-full"
+        >
           <TabsList className="font-custom flex h-auto w-full flex-nowrap overflow-x-auto">
             {varietyCharts.map(({ variety }) => (
               <TabsTrigger

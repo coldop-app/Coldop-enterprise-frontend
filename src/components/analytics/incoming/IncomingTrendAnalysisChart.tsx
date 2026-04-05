@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
-import { RefreshCw, TrendingUp, Calendar } from 'lucide-react';
+import { RefreshCw, TrendingUp, Calendar, FileDown } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -35,6 +35,8 @@ import { useGetIncomingTrendAnalysis } from '@/services/store-admin/analytics/in
 import type { GetDailyMonthlyTrendParams } from '@/services/store-admin/analytics/incoming/useGetIncomingTrendAnalysis';
 import { formatDisplayDate } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/stores/store';
+import { toast } from 'sonner';
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-IN').format(value);
@@ -74,9 +76,11 @@ type TrendTab = 'daily' | 'monthly';
 const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
   dateParams,
 }: IncomingTrendAnalysisChartProps) {
+  const coldStorage = useStore((s) => s.coldStorage);
   const [tab, setTab] = useState<TrendTab>('daily');
   const [showDailyChart, setShowDailyChart] = useState(false);
   const [showMonthlyChart, setShowMonthlyChart] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { data, isLoading, isError, error, refetch } =
     useGetIncomingTrendAnalysis(dateParams);
 
@@ -238,6 +242,120 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
     return { perLocation, grandTotal };
   }, [monthlyLocations, monthlyTableData]);
 
+  const getDateRangeLabel = useCallback(() => {
+    if (dateParams.dateFrom && dateParams.dateTo) {
+      return `${dateParams.dateFrom} to ${dateParams.dateTo}`;
+    }
+    if (dateParams.dateFrom) return `From ${dateParams.dateFrom}`;
+    if (dateParams.dateTo) return `To ${dateParams.dateTo}`;
+    return 'All dates';
+  }, [dateParams.dateFrom, dateParams.dateTo]);
+
+  const canExportPdf =
+    tab === 'daily'
+      ? dailyTableData.length > 0 && dailyLocations.length > 0
+      : monthlyTableData.length > 0 && monthlyLocations.length > 0;
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!canExportPdf) {
+      toast.error('Nothing to export', {
+        description: 'There is no table data for the current view.',
+      });
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const [{ pdf }, { IncomingStockTrendTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/incoming-stock-trend-table-pdf'),
+      ]);
+      const companyName = coldStorage?.name ?? 'Cold Storage';
+      const dateRangeLabel = getDateRangeLabel();
+      if (tab === 'daily') {
+        const rows = dailyTableData.map((row) => ({
+          periodLabel: formatDisplayDate(row.date),
+          bags: dailyLocations.map((loc) => Number(row[loc] ?? 0)),
+          total: row.total,
+        }));
+        const footerBags = dailyLocations.map(
+          (loc) => dailyTotals.perLocation[loc] ?? 0
+        );
+        const blob = await pdf(
+          <IncomingStockTrendTablePdf
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            granularity="daily"
+            locations={dailyLocations}
+            rows={rows}
+            footer={{ bags: footerBags, total: dailyTotals.grandTotal }}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        const rows = monthlyTableData.map((row) => ({
+          periodLabel: row.monthLabel,
+          bags: monthlyLocations.map((loc) => Number(row[loc] ?? 0)),
+          total: row.total,
+        }));
+        const footerBags = monthlyLocations.map(
+          (loc) => monthlyTotals.perLocation[loc] ?? 0
+        );
+        const blob = await pdf(
+          <IncomingStockTrendTablePdf
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            granularity="monthly"
+            locations={monthlyLocations}
+            rows={rows}
+            footer={{ bags: footerBags, total: monthlyTotals.grandTotal }}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+      toast.success('PDF opened in new tab', {
+        description: 'Stock trend table is ready to view or print.',
+      });
+    } catch {
+      printWindow?.close();
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    canExportPdf,
+    coldStorage?.name,
+    dailyLocations,
+    dailyTableData,
+    dailyTotals.grandTotal,
+    dailyTotals.perLocation,
+    getDateRangeLabel,
+    monthlyLocations,
+    monthlyTableData,
+    monthlyTotals.grandTotal,
+    monthlyTotals.perLocation,
+    tab,
+  ]);
+
   if (isLoading) {
     return (
       <Card className="font-custom">
@@ -285,14 +403,32 @@ const IncomingTrendAnalysisChart = memo(function IncomingTrendAnalysisChart({
 
   return (
     <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <TrendingUp className="text-primary h-5 w-5" />
-          Stock Trend Analysis
-        </CardTitle>
-        <CardDescription>
-          Bags received over time (select daily or monthly)
-        </CardDescription>
+      <CardHeader className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
+              <TrendingUp className="text-primary h-5 w-5 shrink-0" />
+              Stock Trend Analysis
+            </CardTitle>
+            <CardDescription>
+              Bags received over time (select daily or monthly)
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canExportPdf || isGeneratingPdf}
+            onClick={handleDownloadPdf}
+            className="font-custom focus-visible:ring-primary h-8 shrink-0 gap-2 rounded-lg px-3 focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label="Download stock trend table as PDF"
+          >
+            <FileDown
+              className={`h-4 w-4 shrink-0 ${isGeneratingPdf ? 'animate-pulse' : ''}`}
+            />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs

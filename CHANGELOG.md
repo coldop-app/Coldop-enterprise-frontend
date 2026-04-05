@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.45.0] - 2026-04-05
+
+### Added
+- Analytics Grading: **PDF export** for the **area-wise** table (current variety tab) — dynamic `@react-pdf/renderer` document with cold storage name, applied date range, size columns, area rows, and totals; opens in a new tab with toast feedback
+- Analytics Grading: **PDF export** for **grading trend** summary tables (daily and monthly modes)
+- Analytics Grading: **PDF export** for **size distribution** summary tables
+- Analytics Incoming: **PDF export** for **stock trend** summary tables (daily and monthly modes)
+- PDF components: `grading-area-wise-table-pdf`, `grading-trend-table-pdf`, `grading-size-distribution-table-pdf`, `incoming-stock-trend-table-pdf` under `src/components/pdf/analytics/`
+
+### Changed
+- Farmer profile **grading gate pass** card: toolbar layout — date pickers and filter actions grouped for small screens; **Columns** / **Group by variety** in a labeled filter group with a left border on large viewports; **Show/Hide table data** and **Custom Report** grouped on the right; consistent header padding (`px-4` / `sm:px-6`) across loading, empty, and data states
+
 ## [0.44.0] - 2026-04-04
 
 ### Added

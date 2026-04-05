@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
-import { RefreshCw, TrendingUp, Calendar } from 'lucide-react';
+import { RefreshCw, TrendingUp, Calendar, FileDown } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -35,6 +35,8 @@ import { useGetGradingTrendAnalysis } from '@/services/store-admin/grading-gate-
 import type { GetGradingTrendParams } from '@/services/store-admin/grading-gate-pass/useGetGradingTrendAnalysis';
 import { formatDisplayDate } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/stores/store';
+import { toast } from 'sonner';
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-IN').format(value);
@@ -74,9 +76,11 @@ type TrendTab = 'daily' | 'monthly';
 const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
   dateParams,
 }: GradingTrendAnalysisChartProps) {
+  const coldStorage = useStore((s) => s.coldStorage);
   const [tab, setTab] = useState<TrendTab>('daily');
   const [showDailyChart, setShowDailyChart] = useState(false);
   const [showMonthlyChart, setShowMonthlyChart] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { data, isLoading, isError, error, refetch } =
     useGetGradingTrendAnalysis(dateParams);
 
@@ -249,6 +253,114 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
     return config;
   })();
 
+  const getDateRangeLabel = useCallback(() => {
+    if (dateParams.dateFrom && dateParams.dateTo) {
+      return `${dateParams.dateFrom} to ${dateParams.dateTo}`;
+    }
+    if (dateParams.dateFrom) return `From ${dateParams.dateFrom}`;
+    if (dateParams.dateTo) return `To ${dateParams.dateTo}`;
+    return 'All dates';
+  }, [dateParams.dateFrom, dateParams.dateTo]);
+
+  const canExportPdf =
+    tab === 'daily'
+      ? dailyTableData.length > 0 && dailyGraders.length > 0
+      : monthlyTableData.length > 0 && monthlyGraders.length > 0;
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!canExportPdf) {
+      toast.error('Nothing to export', {
+        description: 'There is no table data for the current view.',
+      });
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const [{ pdf }, { GradingTrendTablePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/grading-trend-table-pdf'),
+      ]);
+      const companyName = coldStorage?.name ?? 'Cold Storage';
+      const dateRangeLabel = getDateRangeLabel();
+      if (tab === 'daily') {
+        const rows = dailyTableData.map((row) => ({
+          periodLabel: formatDisplayDate(row.date),
+          bags: dailyGraders.map((g) => Number(row[g] ?? 0)),
+          total: row.total,
+        }));
+        const footerBags = dailyGraders.map((g) => dailyTotals[g] ?? 0);
+        const blob = await pdf(
+          <GradingTrendTablePdf
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            granularity="daily"
+            graders={dailyGraders}
+            rows={rows}
+            footer={{ bags: footerBags, total: dailyTotals.total ?? 0 }}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        const rows = monthlyTableData.map((row) => ({
+          periodLabel: row.monthLabel,
+          bags: monthlyGraders.map((g) => Number(row[g] ?? 0)),
+          total: row.total,
+        }));
+        const footerBags = monthlyGraders.map((g) => monthlyTotals[g] ?? 0);
+        const blob = await pdf(
+          <GradingTrendTablePdf
+            companyName={companyName}
+            dateRangeLabel={dateRangeLabel}
+            granularity="monthly"
+            graders={monthlyGraders}
+            rows={rows}
+            footer={{ bags: footerBags, total: monthlyTotals.total ?? 0 }}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+      toast.success('PDF opened in new tab', {
+        description: 'Grading trend table is ready to view or print.',
+      });
+    } catch {
+      printWindow?.close();
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    canExportPdf,
+    coldStorage?.name,
+    dailyGraders,
+    dailyTableData,
+    dailyTotals,
+    getDateRangeLabel,
+    monthlyGraders,
+    monthlyTableData,
+    monthlyTotals,
+    tab,
+  ]);
+
   if (isLoading) {
     return (
       <Card className="font-custom">
@@ -296,14 +408,32 @@ const GradingTrendAnalysisChart = memo(function GradingTrendAnalysisChart({
 
   return (
     <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <TrendingUp className="text-primary h-5 w-5" />
-          Grading Trend Analysis
-        </CardTitle>
-        <CardDescription>
-          Bags graded over time (select daily or monthly)
-        </CardDescription>
+      <CardHeader className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
+              <TrendingUp className="text-primary h-5 w-5 shrink-0" />
+              Grading Trend Analysis
+            </CardTitle>
+            <CardDescription>
+              Bags graded over time (select daily or monthly)
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canExportPdf || isGeneratingPdf}
+            onClick={handleDownloadPdf}
+            className="font-custom focus-visible:ring-primary h-8 shrink-0 gap-2 rounded-lg px-3 focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label="Download grading trend table as PDF"
+          >
+            <FileDown
+              className={`h-4 w-4 shrink-0 ${isGeneratingPdf ? 'animate-pulse' : ''}`}
+            />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs
