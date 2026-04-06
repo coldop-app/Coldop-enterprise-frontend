@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Hash, Edit, Loader2 } from 'lucide-react';
+import { Hash, Edit, Info, Loader2 } from 'lucide-react';
 import type { FarmerStorageLink } from '@/types/farmer';
 
 function getInitials(name: string) {
@@ -17,6 +17,7 @@ function getInitials(name: string) {
 export interface FarmerProfileHeaderCardProps {
   link: FarmerStorageLink;
   onEditClick: () => void;
+  onInfoClick: () => void;
   onViewFarmerReport: () => void;
   /** Opens the grading-table accounting report dialog (pass selection + PDF/Excel). */
   onOpenAccountingReport?: () => void;
@@ -27,14 +28,18 @@ export interface FarmerProfileHeaderCardProps {
 export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
   link,
   onEditClick,
+  onInfoClick,
   onViewFarmerReport,
   onOpenAccountingReport,
   isViewFarmerReportLoading = false,
 }: FarmerProfileHeaderCardProps) {
+  const iconButtonClassName =
+    'focus-visible:ring-primary rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-4">
           <Avatar className="h-16 w-16 shadow-md sm:h-20 sm:w-20">
             <AvatarFallback className="bg-primary text-primary-foreground font-custom text-xl font-bold sm:text-2xl">
               {getInitials(link.farmerId?.name ?? '')}
@@ -50,15 +55,28 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
             </Badge>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="focus-visible:ring-primary h-10 w-10 rounded-full focus-visible:ring-2 focus-visible:ring-offset-2"
-          onClick={onEditClick}
-          aria-label="Edit farmer"
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            className={iconButtonClassName}
+            onClick={onEditClick}
+            aria-label="Edit farmer"
+          >
+            <Edit className="h-4 w-4 shrink-0" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            className={`font-custom ${iconButtonClassName}`}
+            onClick={onInfoClick}
+            aria-label="Show details"
+          >
+            <Info className="h-4 w-4 shrink-0" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -91,6 +109,18 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
             Accounting Report
           </Button>
         ) : null}
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isViewFarmerReportLoading}
+          className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+          onClick={() => {
+            alert('button clicked');
+          }}
+          aria-label="Financial report"
+        >
+          Financial Report
+        </Button>
       </div>
     </div>
   );

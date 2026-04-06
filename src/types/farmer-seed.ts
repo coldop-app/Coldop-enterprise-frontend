@@ -47,3 +47,30 @@ export interface EditFarmerSeedApiResponse {
   data: FarmerSeedEntry | Record<string, unknown> | null;
   message?: string;
 }
+
+/** Embedded farmer–storage link on GET /farmer-seed/farmer-storage-link/:id */
+export interface FarmerSeedFarmerStorageLinkRef {
+  _id: string;
+  farmerId: string;
+  coldStorageId: string;
+  accountNumber: number;
+}
+
+/** Farmer seed row returned by GET /farmer-seed/farmer-storage-link/:farmerStorageLinkId */
+export interface FarmerSeedEntryByStorageLink {
+  _id: string;
+  farmerStorageLinkId: FarmerSeedFarmerStorageLinkRef;
+  variety: string;
+  generation: string;
+  bagSizes: FarmerSeedBagSize[];
+  createdAt: string;
+  updatedAt: string;
+  __v?: number;
+}
+
+/** API response for GET /farmer-seed/farmer-storage-link/:farmerStorageLinkId */
+export interface GetFarmerSeedApiResponse {
+  success: boolean;
+  data: FarmerSeedEntryByStorageLink | null;
+  message?: string;
+}

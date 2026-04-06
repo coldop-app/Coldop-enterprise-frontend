@@ -7,6 +7,7 @@ import {
   FARMER_REPORT_ROW_SPAN_COLUMN_IDS,
 } from '@/components/pdf/farmer-report/farmer-report-pdf-types';
 import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
+import SeedAmountPayableTablePdf from '@/components/pdf/SeedAmountPayableTablePdf';
 import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
@@ -522,6 +523,9 @@ export function AccountingStockLedgerPdf({
               </View>
             ))
           )}
+          {stockLedgerByVariety.length > 0 ? (
+            <SeedAmountPayableTablePdf />
+          ) : null}
         </Page>
       ) : null}
 

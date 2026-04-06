@@ -47,6 +47,7 @@ import {
   ArrowRightFromLine,
 } from 'lucide-react';
 import { FarmerProfileHeaderCard } from './FarmerProfileHeaderCard';
+import { FarmerProfileFarmerSeedInfoDialog } from './FarmerProfileFarmerSeedInfoDialog';
 import FarmerProfileCharts from './FarmerProfileCharts';
 import {
   FarmerProfileGradingGatePassTable,
@@ -215,6 +216,7 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const [_editModalOpen, setEditModalOpen] = useState(false);
   const [isGeneratingFarmerReportPdf, setIsGeneratingFarmerReportPdf] =
     useState(false);
+  const [detailsInfoDialogOpen, setDetailsInfoDialogOpen] = useState(false);
   const gradingGatePassTableRef =
     useRef<FarmerProfileGradingGatePassTableHandle>(null);
 
@@ -405,6 +407,7 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
               <FarmerProfileHeaderCard
                 link={link}
                 onEditClick={() => setEditModalOpen(true)}
+                onInfoClick={() => setDetailsInfoDialogOpen(true)}
                 onViewFarmerReport={handleViewFarmerReport}
                 onOpenAccountingReport={() =>
                   gradingGatePassTableRef.current?.openAccountingReportDialog()
@@ -1083,26 +1086,33 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
         </Tabs>
 
         {link && (
-          <EditFarmerModal
-            link={link}
-            open={_editModalOpen}
-            onOpenChange={setEditModalOpen}
-            onUpdated={({ name, address, mobileNumber, accountNumber }) => {
-              setLink((prev) => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  farmerId: {
-                    ...prev.farmerId,
-                    name,
-                    address,
-                    mobileNumber,
-                  },
-                  accountNumber,
-                };
-              });
-            }}
-          />
+          <>
+            <FarmerProfileFarmerSeedInfoDialog
+              open={detailsInfoDialogOpen}
+              onOpenChange={setDetailsInfoDialogOpen}
+              farmerStorageLinkId={link._id}
+            />
+            <EditFarmerModal
+              link={link}
+              open={_editModalOpen}
+              onOpenChange={setEditModalOpen}
+              onUpdated={({ name, address, mobileNumber, accountNumber }) => {
+                setLink((prev) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    farmerId: {
+                      ...prev.farmerId,
+                      name,
+                      address,
+                      mobileNumber,
+                    },
+                    accountNumber,
+                  };
+                });
+              }}
+            />
+          </>
         )}
       </div>
     </main>

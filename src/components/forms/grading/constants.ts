@@ -56,11 +56,18 @@ export const LENO_BAG_WEIGHT = 0.06;
 export const BAG_TYPES = ['JUTE', 'LENO'] as const;
 export type BagType = (typeof BAG_TYPES)[number];
 
+export type Variety = (typeof POTATO_VARIETIES)[number]['value'];
+
+/** Standard expected bags per acre (variety-wise baseline). */
+export const STANDARD_BAGS_PER_ACRE: Record<Variety, number> = {
+  Himalini: 30,
+  B101: 31,
+  Jyoti: 30,
+};
+
 /** =====================================================
  *  BUY BACK COST CONFIGURATION
  *  ===================================================== */
-
-export type Variety = (typeof POTATO_VARIETIES)[number]['value'];
 
 export type BuyBackCost = {
   variety: Variety;
