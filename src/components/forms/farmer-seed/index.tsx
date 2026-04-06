@@ -57,6 +57,11 @@ const formSchema = z
   .object({
     farmerStorageLinkId: z.string().min(1, 'Please select a farmer'),
     variety: z.string().min(1, 'Please select a variety'),
+    generation: z
+      .string()
+      .trim()
+      .min(1, 'Generation is required')
+      .max(100, 'Generation must not exceed 100 characters'),
     bagSizes: z.array(
       z.object({
         name: z.string().min(1, 'Bag size is required'),
@@ -117,6 +122,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
     defaultValues: {
       farmerStorageLinkId: '',
       variety: '',
+      generation: '',
       bagSizes: defaultBagSizes,
       extraBagSizeRows: [] as FarmerSeedExtraBagSizeRow[],
     },
@@ -128,6 +134,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         {
           farmerStorageLinkId: value.farmerStorageLinkId,
           variety: value.variety.trim(),
+          generation: value.generation.trim(),
           bagSizes: [
             ...value.bagSizes
               .filter((item) => (item.quantity ?? 0) > 0)
@@ -271,6 +278,51 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                     onSelect={(value) => field.handleChange(value ?? '')}
                     value={field.state.value}
                     buttonClassName="w-full justify-between"
+                  />
+                  {isInvalid && (
+                    <FieldError
+                      errors={field.state.meta.errors as FieldErrors}
+                    />
+                  )}
+                </Field>
+              );
+            }}
+          />
+
+          <form.Field
+            name="generation"
+            children={(field) => {
+              const hasSubmitError = Boolean(
+                field.state.meta.errorMap &&
+                'onSubmit' in field.state.meta.errorMap &&
+                field.state.meta.errorMap.onSubmit
+              );
+              const invalidFromValidation =
+                hasSubmitError ||
+                (field.state.meta.isTouched && !field.state.meta.isValid);
+              const isInvalid =
+                invalidFromValidation && !field.state.value.trim();
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel
+                    htmlFor="farmer-seed-generation"
+                    className="font-custom mb-2 block text-base font-semibold"
+                  >
+                    Generation
+                  </FieldLabel>
+                  <p className="font-custom text-muted-foreground mb-2 text-sm">
+                    Enter the seed generation for this entry (max 100
+                    characters)
+                  </p>
+                  <Input
+                    id="farmer-seed-generation"
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. G1, F1"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    className="font-custom focus-visible:ring-primary focus-visible:ring-offset-2"
                   />
                   {isInvalid && (
                     <FieldError
@@ -582,6 +634,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         selectedFarmer={selectedFarmer}
         formValues={{
           variety: form.state.values.variety,
+          generation: form.state.values.generation,
           bagSizes: [
             ...form.state.values.bagSizes,
             ...form.state.values.extraBagSizeRows.map(

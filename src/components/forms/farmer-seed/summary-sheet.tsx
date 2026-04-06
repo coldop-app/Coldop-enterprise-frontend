@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { FileText, Loader2, Package, User } from 'lucide-react';
+import { FileText, Layers, Loader2, Package, User } from 'lucide-react';
 import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-farmer-seed-amount';
 
 export interface FarmerSeedSummaryBagSize {
@@ -25,6 +25,7 @@ interface FarmerSeedSummarySheetProps {
   selectedFarmer: FarmerStorageLink | null;
   formValues: {
     variety: string;
+    generation: string;
     bagSizes: FarmerSeedSummaryBagSize[];
   };
   isPending: boolean;
@@ -90,6 +91,18 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                 </p>
                 <p className="text-foreground text-sm font-medium">
                   {formValues.variety || '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border px-3 py-2">
+              <Layers className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  Generation
+                </p>
+                <p className="text-foreground text-sm font-medium">
+                  {formValues.generation.trim() || '-'}
                 </p>
               </div>
             </div>

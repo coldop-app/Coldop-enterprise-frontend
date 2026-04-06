@@ -9,6 +9,7 @@ export interface FarmerSeedBagSize {
 export interface CreateFarmerSeedInput {
   farmerStorageLinkId: string;
   variety: string;
+  generation: string;
   bagSizes: FarmerSeedBagSize[];
 }
 
@@ -16,6 +17,7 @@ export interface CreateFarmerSeedInput {
 export interface EditFarmerSeedInput {
   farmerStorageLinkId?: string;
   variety?: string;
+  generation?: string;
   bagSizes?: FarmerSeedBagSize[];
 }
 
@@ -25,6 +27,7 @@ export interface FarmerSeedEntry {
   farmerStorageLinkId: string;
   createdBy: string;
   variety: string;
+  generation: string;
   bagSizes: FarmerSeedBagSize[];
   createdAt: string;
   updatedAt: string;
