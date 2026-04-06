@@ -8,6 +8,12 @@ export const POTATO_VARIETIES: { label: string; value: string }[] = [
   { label: 'Jyoti', value: 'Jyoti' },
 ];
 
+/** Farmer seed entry — seed generation (search-selector options). */
+export const FARMER_SEED_GENERATIONS: { label: string; value: string }[] = [
+  { label: 'G2', value: 'G2' },
+  { label: 'G3', value: 'G3' },
+];
+
 /** =====================================================
  *  GRADING SIZES (display / column order — matches operational spec sheet)
  *  ===================================================== */

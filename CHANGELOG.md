@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-04-06
+
+### Added
+- Analytics **Shed stock report**: **PDF export** ("View Report") — dynamic `@react-pdf/renderer` document with grading summary, storage, dispatch, and shed sections; cold storage name and applied date-range label; opens in a new tab with toast feedback
+- PDF component: `shed-stock-report-pdf` under `src/components/pdf/analytics/`
+
+### Changed
+- **Farmer seed** form: **generation** is **G2 / G3** only, selected via `SearchSelector` (replaces free-text input); shared options as `FARMER_SEED_GENERATIONS` in `grading/constants`
+- Shed stock report toolbar: **Updating…** indicator is right-aligned from the `sm` breakpoint upward
+
 ## [0.45.0] - 2026-04-05
 
 ### Added

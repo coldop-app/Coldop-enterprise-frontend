@@ -18,7 +18,9 @@ import { DatePicker } from '@/components/forms/date-picker';
 import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { queryClient } from '@/lib/queryClient';
+import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
+import { FileDown } from 'lucide-react';
 
 /** Same ordering as analytics storage tab (StorageAnalyticsScreen) */
 const SIZE_ORDER = [
@@ -92,9 +94,11 @@ function ReportSectionEmpty({
 }
 
 const ShedStockReportTable = () => {
+  const coldStorage = useStore((s) => s.coldStorage);
   const reportContentRef = useRef<HTMLDivElement>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [appliedRange, setAppliedRange] = useState<{
     dateFrom?: string;
     dateTo?: string;
@@ -149,6 +153,15 @@ const ShedStockReportTable = () => {
     toast.success('Date filters cleared. Report updated.');
   };
 
+  const getDateRangeLabel = () => {
+    if (appliedRange.dateFrom && appliedRange.dateTo) {
+      return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
+    }
+    if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
+    if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
+    return 'All dates';
+  };
+
   const grading = useMemo(() => data?.grading ?? [], [data]);
   const storage = useMemo(() => data?.storage ?? [], [data]);
   const dispatch = useMemo(() => data?.dispatch ?? [], [data]);
@@ -177,6 +190,75 @@ const ShedStockReportTable = () => {
     () => sourceVarietiesToStockSummary(dispatch, dispatchSizes),
     [dispatch, dispatchSizes]
   );
+
+  const handleDownloadPdf = async () => {
+    if (!data) return;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const [{ pdf }, { ShedStockReportPdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/analytics/shed-stock-report-pdf'),
+      ]);
+      const blob = await pdf(
+        <ShedStockReportPdf
+          companyName={coldStorage?.name ?? 'Cold Storage'}
+          dateRangeLabel={getDateRangeLabel()}
+          grading={{
+            title: 'Grading summary',
+            subtitle:
+              'Bags graded in the selected period, by variety and size.',
+            stockSummary: gradingSummary,
+            sizes: gradingSizes,
+          }}
+          storage={{
+            title: 'Storage',
+            subtitle:
+              'Bags moved to storage in the selected period, by variety and size.',
+            stockSummary: storageSummary,
+            sizes: storageSizes,
+          }}
+          dispatch={{
+            title: 'Dispatch',
+            subtitle:
+              'Bags dispatched in the selected period, by variety and size.',
+            stockSummary: dispatchSummary,
+            sizes: dispatchSizes,
+          }}
+          shed={
+            shedStock != null
+              ? {
+                  varieties: shedStock.varieties,
+                  sizes: shedSizes,
+                  totals: shedStock.totals,
+                }
+              : null
+          }
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('PDF opened in new tab', {
+        description: 'Shed stock report is ready to view or print.',
+      });
+    } catch {
+      toast.error('Could not generate PDF', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   if (isPending && !data) {
     return (
@@ -225,7 +307,7 @@ const ShedStockReportTable = () => {
             Shed stock report
           </h2>
           {isFetching && data != null && (
-            <span className="font-custom text-muted-foreground text-sm">
+            <span className="font-custom text-muted-foreground text-sm sm:text-right">
               Updating…
             </span>
           )}
@@ -267,6 +349,21 @@ const ShedStockReportTable = () => {
                 Clear
               </Button>
             )}
+            <Button
+              className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:ml-auto sm:w-auto"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || isPending}
+              aria-label={
+                isGeneratingPdf
+                  ? 'Generating PDF…'
+                  : isPending
+                    ? 'Loading report…'
+                    : 'View report'
+              }
+            >
+              <FileDown className="h-4 w-4 shrink-0" />
+              {isGeneratingPdf ? 'Generating…' : 'View Report'}
+            </Button>
           </CardContent>
         </Card>
 

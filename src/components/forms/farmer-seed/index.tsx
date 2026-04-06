@@ -8,6 +8,7 @@ import {
   type Option,
 } from '@/components/forms/search-selector';
 import {
+  FARMER_SEED_GENERATIONS,
   GRADING_SIZES,
   POTATO_VARIETIES,
 } from '@/components/forms/grading/constants';
@@ -57,11 +58,9 @@ const formSchema = z
   .object({
     farmerStorageLinkId: z.string().min(1, 'Please select a farmer'),
     variety: z.string().min(1, 'Please select a variety'),
-    generation: z
-      .string()
-      .trim()
-      .min(1, 'Generation is required')
-      .max(100, 'Generation must not exceed 100 characters'),
+    generation: z.enum(['G2', 'G3'], {
+      message: 'Please select a generation',
+    }),
     bagSizes: z.array(
       z.object({
         name: z.string().min(1, 'Bag size is required'),
@@ -134,7 +133,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         {
           farmerStorageLinkId: value.farmerStorageLinkId,
           variety: value.variety.trim(),
-          generation: value.generation.trim(),
+          generation: value.generation,
           bagSizes: [
             ...value.bagSizes
               .filter((item) => (item.quantity ?? 0) > 0)
@@ -300,29 +299,23 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
               const invalidFromValidation =
                 hasSubmitError ||
                 (field.state.meta.isTouched && !field.state.meta.isValid);
-              const isInvalid =
-                invalidFromValidation && !field.state.value.trim();
+              const isInvalid = invalidFromValidation && !field.state.value;
               return (
                 <Field data-invalid={isInvalid}>
-                  <FieldLabel
-                    htmlFor="farmer-seed-generation"
-                    className="font-custom mb-2 block text-base font-semibold"
-                  >
-                    Generation
+                  <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+                    Select Generation
                   </FieldLabel>
                   <p className="font-custom text-muted-foreground mb-2 text-sm">
-                    Enter the seed generation for this entry (max 100
-                    characters)
+                    Choose G2 or G3 for this farmer seed entry
                   </p>
-                  <Input
+                  <SearchSelector
                     id="farmer-seed-generation"
-                    type="text"
-                    maxLength={100}
-                    placeholder="e.g. G1, F1"
+                    options={FARMER_SEED_GENERATIONS}
+                    placeholder="Select generation"
+                    searchPlaceholder="Search generation..."
+                    onSelect={(value) => field.handleChange(value ?? '')}
                     value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-offset-2"
+                    buttonClassName="w-full justify-between"
                   />
                   {isInvalid && (
                     <FieldError
