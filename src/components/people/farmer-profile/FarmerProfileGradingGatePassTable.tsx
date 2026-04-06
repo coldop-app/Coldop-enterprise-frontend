@@ -36,6 +36,7 @@ import {
 import type { GradingSize } from '@/components/forms/grading/constants';
 import { DatePicker } from '@/components/forms/date-picker';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -905,7 +906,7 @@ export const FarmerProfileGradingGatePassTable = memo(
     >({});
     const [sortColumn, setSortColumn] = useState<SortColumnId | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [groupByVariety, setGroupByVariety] = useState(false);
+    const groupByVariety = false;
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [accountingReportDialogOpen, setAccountingReportDialogOpen] =
       useState(false);
@@ -1988,137 +1989,141 @@ export const FarmerProfileGradingGatePassTable = memo(
       <>
         <Card className="overflow-hidden rounded-xl border shadow-sm">
           <CardHeader className="bg-muted/30 border-b px-4 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:gap-x-4 lg:gap-y-3">
-                <div className="flex flex-wrap items-end gap-3">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="farmer-profile-grading-from"
+                    className="font-custom text-muted-foreground shrink-0 text-sm font-medium"
+                  >
+                    From
+                  </Label>
                   <DatePicker
                     id="farmer-profile-grading-from"
-                    label="From"
+                    label=""
                     value={fromDate}
                     onChange={setFromDate}
-                    compact
-                  />
-                  <DatePicker
-                    id="farmer-profile-grading-to"
-                    label="To"
-                    value={toDate}
-                    onChange={setToDate}
-                    compact
                   />
                 </div>
-                <div
-                  className="border-border flex flex-wrap items-center gap-2 lg:border-l lg:pl-4"
-                  role="group"
-                  aria-label="Date and column filters"
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="farmer-profile-grading-to"
+                    className="font-custom text-muted-foreground shrink-0 text-sm font-medium"
+                  >
+                    To
+                  </Label>
+                  <DatePicker
+                    id="farmer-profile-grading-to"
+                    label=""
+                    value={toDate}
+                    onChange={setToDate}
+                  />
+                </div>
+              </div>
+              <div
+                className="flex flex-wrap items-center gap-2"
+                role="group"
+                aria-label="Date and column filters"
+              >
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleApplyDates}
+                  disabled={!fromDate && !toDate}
                 >
+                  Apply
+                </Button>
+                {(fromDate ||
+                  toDate ||
+                  appliedRange.dateFrom ||
+                  appliedRange.dateTo) && (
                   <Button
-                    variant="default"
+                    variant="outline"
                     size="sm"
                     className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={handleApplyDates}
-                    disabled={!fromDate && !toDate}
+                    onClick={handleClearDates}
                   >
-                    Apply
+                    Clear
                   </Button>
-                  {(fromDate ||
-                    toDate ||
-                    appliedRange.dateFrom ||
-                    appliedRange.dateTo) && (
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                      onClick={handleClearDates}
+                      className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 gap-2 rounded-lg px-4 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                     >
-                      Clear
+                      <Settings2 className="size-4 shrink-0" />
+                      Columns
                     </Button>
-                  )}
-                  <Button
-                    variant={groupByVariety ? 'default' : 'outline'}
-                    size="sm"
-                    className="font-custom focus-visible:ring-primary h-10 min-h-10 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={() => setGroupByVariety((v) => !v)}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
                   >
-                    Group by variety
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-10 min-h-10 gap-2 rounded-lg px-4 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                    {[
+                      ...INCOMING_COLUMN_IDS,
+                      ...GRADING_FIXED_COLUMN_IDS,
+                      ...BAG_SIZE_COLUMN_IDS,
+                      ...LAST_COLUMN_IDS,
+                    ].map((id) => (
+                      <DropdownMenuCheckboxItem
+                        key={id}
+                        className="font-custom capitalize"
+                        checked={isColVisible(id)}
+                        onCheckedChange={(checked) =>
+                          setColumnVisibility((prev) => ({
+                            ...prev,
+                            [id]: checked,
+                          }))
+                        }
+                        onSelect={(e) => e.preventDefault()}
                       >
-                        <Settings2 className="size-4 shrink-0" />
-                        Columns
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="max-h-[min(70vh,24rem)] w-[220px] overflow-y-auto"
-                    >
-                      {[
-                        ...INCOMING_COLUMN_IDS,
-                        ...GRADING_FIXED_COLUMN_IDS,
-                        ...BAG_SIZE_COLUMN_IDS,
-                        ...LAST_COLUMN_IDS,
-                      ].map((id) => (
-                        <DropdownMenuCheckboxItem
-                          key={id}
-                          className="font-custom capitalize"
-                          checked={isColVisible(id)}
-                          onCheckedChange={(checked) =>
-                            setColumnVisibility((prev) => ({
-                              ...prev,
-                              [id]: checked,
-                            }))
-                          }
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div
-                  className="border-border flex flex-wrap items-center gap-2 pt-0.5 lg:ml-auto lg:border-l lg:pt-0 lg:pl-4"
-                  role="group"
-                  aria-label="Table visibility and export"
+                        {FARMER_GRADING_COLUMN_LABELS[id] ?? id}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div
+                className="flex flex-wrap items-center gap-2"
+                role="group"
+                aria-label="Table visibility and export"
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={() => setShowTableData((v) => !v)}
+                  aria-expanded={showTableData}
+                  aria-controls={
+                    showTableData
+                      ? 'farmer-profile-grading-table-body'
+                      : undefined
+                  }
                 >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="font-custom focus-visible:ring-primary h-10 min-h-10 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={() => setShowTableData((v) => !v)}
-                    aria-expanded={showTableData}
-                    aria-controls={
-                      showTableData
-                        ? 'farmer-profile-grading-table-body'
-                        : undefined
-                    }
-                  >
-                    <ChevronDown
-                      className={cn(
-                        'size-4 shrink-0 transition-transform duration-200 ease-in-out',
-                        showTableData && 'rotate-180'
-                      )}
-                      aria-hidden
-                    />
-                    {showTableData ? 'Hide' : 'Show'} table data
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="font-custom focus-visible:ring-primary h-10 min-h-10 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                    onClick={handleViewReport}
-                    disabled={isGeneratingPdf}
-                    aria-label="Custom Report"
-                  >
-                    <FileDown className="size-4 shrink-0" />
-                    {isGeneratingPdf ? 'Generating…' : 'Custom Report'}
-                  </Button>
-                </div>
+                  <ChevronDown
+                    className={cn(
+                      'size-4 shrink-0 transition-transform duration-200 ease-in-out',
+                      showTableData && 'rotate-180'
+                    )}
+                    aria-hidden
+                  />
+                  {showTableData ? 'Hide table' : 'Show table'}
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary h-10 min-h-10 gap-2 rounded-lg px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  onClick={handleViewReport}
+                  disabled={isGeneratingPdf}
+                  aria-label="Custom Report"
+                >
+                  <FileDown className="size-4 shrink-0" />
+                  {isGeneratingPdf ? 'Generating…' : 'Custom Report'}
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -2279,32 +2284,7 @@ export const FarmerProfileGradingGatePassTable = memo(
                         )}
                         {isColVisible('variety') && (
                           <TableHead className="font-custom border-border border-r px-4 py-3 font-semibold">
-                            <div className="flex items-center gap-1">
-                              <span className="font-custom font-semibold">
-                                Variety
-                              </span>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="font-custom focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                                    aria-label="Variety column options"
-                                  >
-                                    <MoreVertical className="h-4 w-4 text-gray-600" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                  <DropdownMenuItem
-                                    onClick={() => setGroupByVariety((v) => !v)}
-                                  >
-                                    {groupByVariety
-                                      ? 'Ungroup by Variety'
-                                      : 'Group by Variety'}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
+                            Variety
                           </TableHead>
                         )}
                         {isColVisible('bagsReceived') && (
