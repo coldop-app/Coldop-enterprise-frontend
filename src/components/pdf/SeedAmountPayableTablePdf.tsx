@@ -1,4 +1,9 @@
 import { Text, View, StyleSheet } from '@react-pdf/renderer';
+import type {
+  FarmerSeedBagSize,
+  FarmerSeedEntryByStorageLink,
+} from '@/types/farmer-seed';
+import { getFarmerSeedBagSizesForVariety } from '@/components/pdf/seedAmountPayablePdfHelpers';
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
@@ -22,16 +27,15 @@ export const NET_AMOUNT_PAYABLE_LEAF_COUNT =
  */
 export const SEED_AMOUNT_PAYABLE_LEAF_COLUMNS = [
   { id: 'seedAmountPayable', label: 'Seed Amount Payable', widthPct: 10 },
-  { id: 'rate', label: 'Rate', widthPct: 8 },
-  { id: 'amount', label: 'Amount', widthPct: 8 },
-  { id: 'date', label: 'Date', widthPct: 8 },
+  { id: 'bagsForPlantation', label: 'Bags For Plantation', widthPct: 10 },
+  { id: 'rate', label: 'Rate', widthPct: 10 },
+  { id: 'amount', label: 'Amount', widthPct: 10 },
+  { id: 'date', label: 'Date', widthPct: 10 },
   { id: 'amountReceived', label: 'Amount Received', widthPct: 10 },
   { id: 'seedAmountBalance', label: 'Seed Amount Balance', widthPct: 10 },
-  { id: 'farmerAmountBalance', label: 'Farmer Amount Balance', widthPct: 10 },
-  { id: 'farmerAmountPayable', label: 'Farmer Amount Payable', widthPct: 9 },
-  { id: 'amtPayable', label: 'AMT PAYABLE', widthPct: 9 },
-  { id: 'seedBalance', label: 'SEED BALANCE', widthPct: 9 },
-  { id: 'netAmt', label: 'NET AMT', widthPct: 9 },
+  { id: 'amtPayable', label: 'AMT PAYABLE', widthPct: 10 },
+  { id: 'seedBalance', label: 'SEED BALANCE', widthPct: 10 },
+  { id: 'netAmt', label: 'NET AMT', widthPct: 10 },
 ] as const;
 
 export type SeedAmountPayableColumnId =
@@ -43,6 +47,15 @@ export const SEED_AMOUNT_PAYABLE_COLUMNS = SEED_AMOUNT_PAYABLE_LEAF_COLUMNS;
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 10,
+  },
+  varietyHeading: {
+    fontSize: 6,
+    fontWeight: 700,
+    color: '#111827',
+    marginBottom: 4,
+    backgroundColor: '#e5e7eb',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
   },
   title: {
     fontSize: 7,
@@ -142,6 +155,126 @@ const styles = StyleSheet.create({
 
 const EMPTY = '—';
 
+function formatCommaNumber(n: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+function formatBagQuantity(q: number): string {
+  if (!Number.isFinite(q)) return EMPTY;
+  if (Number.isInteger(q)) return String(q);
+  return String(q);
+}
+
+function formatSeedRate(rate: number): string {
+  if (!Number.isFinite(rate)) return EMPTY;
+  if (Number.isInteger(rate)) return String(rate);
+  return rate.toFixed(2);
+}
+
+function getLineAmountNumber(bag: FarmerSeedBagSize): number | null {
+  if (!Number.isFinite(bag.quantity) || !Number.isFinite(bag.rate)) return null;
+  const total = bag.quantity * bag.rate;
+  return Number.isFinite(total) ? total : null;
+}
+
+/** Bags for plantation × rate (per bag size row), with thousands separators. */
+function formatSeedAmountLine(bag: FarmerSeedBagSize): string {
+  const total = getLineAmountNumber(bag);
+  if (total === null) return EMPTY;
+  return formatCommaNumber(total);
+}
+
+/** Same rules as Summary table `formatRightCellValue` for amountPayable (AMT PAY. total). */
+function formatSummaryAmtPayTotal(total: number | undefined): string {
+  if (total == null || !Number.isFinite(total)) return EMPTY;
+  if (total <= 0) return '—';
+  return total.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+type SeedTableCellContext = {
+  summaryAmountPayableTotal?: number;
+};
+
+function getSeedAmountBalanceNumber(bag: FarmerSeedBagSize): number | null {
+  const amount = getLineAmountNumber(bag);
+  if (amount === null) return null;
+  const received =
+    typeof bag.amountReceived === 'number' &&
+    Number.isFinite(bag.amountReceived)
+      ? bag.amountReceived
+      : 0;
+  const balance = amount - received;
+  return Number.isFinite(balance) ? balance : null;
+}
+
+/** Amount − amount received (same for “Seed Amount Balance” and Net Payable → SEED BALANCE). */
+function getSeedAmountBalanceDisplay(bag: FarmerSeedBagSize): string {
+  const balance = getSeedAmountBalanceNumber(bag);
+  if (balance === null) return EMPTY;
+  return formatCommaNumber(balance);
+}
+
+/** Net Amt = Amt Payable (summary total) − Seed Balance (row). */
+function getNetAmtPayableDisplay(
+  bag: FarmerSeedBagSize,
+  ctx: SeedTableCellContext
+): string {
+  const total = ctx.summaryAmountPayableTotal;
+  if (total == null || !Number.isFinite(total)) return EMPTY;
+  const seedBal = getSeedAmountBalanceNumber(bag);
+  if (seedBal === null) return EMPTY;
+  const net = total - seedBal;
+  if (!Number.isFinite(net)) return EMPTY;
+  return formatCommaNumber(net);
+}
+
+function getSeedTableCellText(
+  colId: SeedAmountPayableColumnId,
+  bag: FarmerSeedBagSize | null,
+  ctx: SeedTableCellContext
+): string {
+  if (colId === 'amtPayable') {
+    return formatSummaryAmtPayTotal(ctx.summaryAmountPayableTotal);
+  }
+  if (colId === 'netAmt') {
+    if (!bag) return EMPTY;
+    return getNetAmtPayableDisplay(bag, ctx);
+  }
+  if (colId === 'seedBalance') {
+    if (!bag) return EMPTY;
+    return getSeedAmountBalanceDisplay(bag);
+  }
+  if (!bag) return EMPTY;
+  switch (colId) {
+    case 'seedAmountPayable':
+      return bag.name?.trim() ? bag.name : EMPTY;
+    case 'bagsForPlantation':
+      return formatBagQuantity(bag.quantity);
+    case 'rate':
+      return formatSeedRate(bag.rate);
+    case 'amount':
+      return formatSeedAmountLine(bag);
+    case 'amountReceived':
+      if (
+        typeof bag.amountReceived !== 'number' ||
+        !Number.isFinite(bag.amountReceived)
+      ) {
+        return EMPTY;
+      }
+      return formatCommaNumber(bag.amountReceived);
+    case 'seedAmountBalance':
+      return getSeedAmountBalanceDisplay(bag);
+    default:
+      return EMPTY;
+  }
+}
+
 function HeaderSingleStack({
   widthPct,
   label,
@@ -203,19 +336,40 @@ function HeaderNetAmountPayableGroup({ widthPct }: { widthPct: number }) {
   );
 }
 
+export type SeedAmountPayableTablePdfProps = {
+  /** Grading subsection variety; compared to `farmerSeedEntry.variety` for matching bag rows. */
+  variety: string | null;
+  farmerSeedEntry?: FarmerSeedEntryByStorageLink | null;
+  /**
+   * Same value as Summary table “AMT PAY.” total for this variety’s stock-ledger rows
+   * (shown under Net Amount Payable → AMT PAYABLE).
+   */
+  summaryAmountPayableTotal?: number;
+};
+
 /**
  * Seed amount payable breakdown for the accounting stock ledger PDF.
- * Table shell with headers; data rows to be wired when figures are available.
+ * One data row per farmer-seed bag size when variety matches; otherwise a single empty row.
  */
-export default function SeedAmountPayableTablePdf() {
+export default function SeedAmountPayableTablePdf({
+  variety,
+  farmerSeedEntry = null,
+  summaryAmountPayableTotal,
+}: SeedAmountPayableTablePdfProps) {
   const splitIdx =
     SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - NET_AMOUNT_PAYABLE_LEAF_COUNT;
   const beforeNet = SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.slice(0, splitIdx);
   const netLeafs = SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.slice(splitIdx);
   const netGroupWidthPct = netLeafs.reduce((s, c) => s + c.widthPct, 0);
 
+  const bagRows = getFarmerSeedBagSizesForVariety(variety, farmerSeedEntry);
+  const netCtx: SeedTableCellContext = { summaryAmountPayableTotal };
+
+  const varietyLabel = variety?.trim() ? variety : '—';
+
   return (
     <View style={styles.wrap}>
+      <Text style={styles.varietyHeading}>Variety: {varietyLabel}</Text>
       <Text style={styles.title}>Seed Amount Payable</Text>
       <View style={styles.table}>
         <View style={styles.headerRow} wrap={false}>
@@ -229,22 +383,50 @@ export default function SeedAmountPayableTablePdf() {
           ))}
           <HeaderNetAmountPayableGroup widthPct={netGroupWidthPct} />
         </View>
-        <View style={[styles.dataRow, styles.dataRowLast]} wrap={false}>
-          {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
+        {bagRows.length === 0 ? (
+          <View style={[styles.dataRow, styles.dataRowLast]} wrap={false}>
+            {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
+              <View
+                key={`cell-${col.id}`}
+                style={[
+                  styles.cell,
+                  i === SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - 1
+                    ? styles.cellLast
+                    : {},
+                  { width: `${col.widthPct}%` },
+                ]}
+              >
+                <Text>{getSeedTableCellText(col.id, null, netCtx)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          bagRows.map((bag, rowIndex) => (
             <View
-              key={`cell-${col.id}`}
+              key={`seed-bag-${rowIndex}`}
               style={[
-                styles.cell,
-                i === SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - 1
-                  ? styles.cellLast
-                  : {},
-                { width: `${col.widthPct}%` },
+                styles.dataRow,
+                rowIndex === bagRows.length - 1 ? styles.dataRowLast : {},
               ]}
+              wrap={false}
             >
-              <Text>{EMPTY}</Text>
+              {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
+                <View
+                  key={col.id}
+                  style={[
+                    styles.cell,
+                    i === SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - 1
+                      ? styles.cellLast
+                      : {},
+                    { width: `${col.widthPct}%` },
+                  ]}
+                >
+                  <Text>{getSeedTableCellText(col.id, bag, netCtx)}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          ))
+        )}
       </View>
     </View>
   );

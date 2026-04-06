@@ -430,6 +430,7 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
           gradingPasses={gatePasses.grading.data ?? []}
           isLoading={gatePasses.grading.isLoading}
           farmerName={link?.farmerId?.name}
+          farmerStorageLinkId={link?._id}
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

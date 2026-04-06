@@ -9,7 +9,9 @@ import {
 import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
 import SeedAmountPayableTablePdf from '@/components/pdf/SeedAmountPayableTablePdf';
 import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
+import { computeSummaryAmountPayableTotal } from '@/components/pdf/summaryTablePdfCompute';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
 import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
 
 /** Incoming column ids (table 1): display up to and including Actual (kg). Omits system gate pass no.; excludes Tot bags / Tot gross / Tot tare / Tot net / Tot bardana. */
@@ -341,6 +343,11 @@ export interface AccountingStockLedgerPdfProps {
   stockLedgerRows: StockLedgerRow[];
   /** When true, omit the grading gate pass page (farmer report: incoming + summary only). */
   hideGradingPage?: boolean;
+  /**
+   * Farmer seed (GET /farmer-seed/farmer-storage-link/…), used for the Seed Amount Payable table
+   * (size name + bags for plantation per row when variety matches).
+   */
+  farmerSeedEntry?: FarmerSeedEntryByStorageLink | null;
 }
 
 /**
@@ -353,6 +360,7 @@ export function AccountingStockLedgerPdf({
   snapshot,
   stockLedgerRows,
   hideGradingPage = false,
+  farmerSeedEntry = null,
 }: AccountingStockLedgerPdfProps) {
   const {
     companyName,
@@ -520,12 +528,16 @@ export function AccountingStockLedgerPdf({
                   rows={varietyRows}
                   hideReportSummary
                 />
+                <SeedAmountPayableTablePdf
+                  variety={variety}
+                  farmerSeedEntry={farmerSeedEntry}
+                  summaryAmountPayableTotal={computeSummaryAmountPayableTotal(
+                    varietyRows
+                  )}
+                />
               </View>
             ))
           )}
-          {stockLedgerByVariety.length > 0 ? (
-            <SeedAmountPayableTablePdf />
-          ) : null}
         </Page>
       ) : null}
 

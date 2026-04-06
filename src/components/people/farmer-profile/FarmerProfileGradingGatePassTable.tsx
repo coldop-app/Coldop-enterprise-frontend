@@ -45,6 +45,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadAccountingReportExcel } from '@/utils/accountingReportExcel';
+import { queryClient } from '@/lib/queryClient';
+import { farmerSeedByFarmerStorageLinkQueryOptions } from '@/services/store-admin/farmer-seed/useGetFarmerSeed';
+import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
 import {
   AccountingReportGatePassDialog,
   type AccountingReportGatePassRow,
@@ -876,6 +879,8 @@ export interface FarmerProfileGradingGatePassTableProps {
   isLoading?: boolean;
   farmerName?: string;
   companyName?: string;
+  /** Used to load farmer seed for the Seed Amount Payable section of the accounting PDF. */
+  farmerStorageLinkId?: string;
 }
 
 export type FarmerProfileGradingGatePassTableHandle = {
@@ -892,6 +897,7 @@ export const FarmerProfileGradingGatePassTable = memo(
       isLoading = false,
       farmerName: farmerNameProp,
       companyName: companyNameProp,
+      farmerStorageLinkId,
     },
     ref
   ) {
@@ -1050,6 +1056,16 @@ export const FarmerProfileGradingGatePassTable = memo(
       setIsGeneratingPdf(true);
       try {
         const { snapshot, stockLedgerRowsSelected } = data;
+        let farmerSeedEntry: FarmerSeedEntryByStorageLink | null = null;
+        if (farmerStorageLinkId) {
+          try {
+            farmerSeedEntry = await queryClient.fetchQuery(
+              farmerSeedByFarmerStorageLinkQueryOptions(farmerStorageLinkId)
+            );
+          } catch {
+            farmerSeedEntry = null;
+          }
+        }
         const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
           import('@/components/pdf/AccountingStockLedgerPdf'),
@@ -1058,6 +1074,7 @@ export const FarmerProfileGradingGatePassTable = memo(
           <AccountingStockLedgerPdf
             snapshot={snapshot}
             stockLedgerRows={stockLedgerRowsSelected}
+            farmerSeedEntry={farmerSeedEntry}
           />
         ).toBlob();
         const url = URL.createObjectURL(blob);

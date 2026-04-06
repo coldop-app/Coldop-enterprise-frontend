@@ -3,6 +3,8 @@ export interface FarmerSeedBagSize {
   name: string;
   quantity: number;
   rate: number;
+  /** When set, used with line amount for seed balance on accounting PDF (Amount − Amount Received). */
+  amountReceived?: number;
 }
 
 /** Request body for POST /farmer-seed */
