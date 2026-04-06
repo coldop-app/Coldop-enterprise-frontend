@@ -53,6 +53,10 @@ export interface StorageSummaryTableProps {
   stockSummary: VarietyStockSummary[];
   /** Size column headers in display order */
   sizes: string[];
+  /** Card heading; default "Stock Summary" */
+  tableTitle?: string;
+  /** Replaces the default subtitle under the title */
+  subtitle?: string;
   /** When set, table shows only this mode and the tab row is hidden (e.g. when page-level tabs control the mode). */
   controlledTab?: 'current' | 'initial' | 'outgoing';
   /** When set, data cells are clickable and this is called with (variety, bagSize). Use bagSize 'all' for total column. */
@@ -79,6 +83,8 @@ function buildSizeMap(
 export function StorageSummaryTable({
   stockSummary,
   sizes,
+  tableTitle = 'Stock Summary',
+  subtitle,
   controlledTab,
   onCellClick,
   showStockFilterTabs,
@@ -217,9 +223,13 @@ export function StorageSummaryTable({
         <div className="flex flex-col gap-4">
           <div>
             <h2 className="font-custom text-xl font-bold tracking-tight sm:text-2xl">
-              Stock Summary
+              {tableTitle}
             </h2>
-            {controlledTab == null ? (
+            {subtitle != null && subtitle !== '' ? (
+              <p className="font-custom text-muted-foreground mt-1 text-sm">
+                {subtitle}
+              </p>
+            ) : controlledTab == null ? (
               <p className="font-custom text-muted-foreground mt-1 text-sm">
                 View stock by current inventory, initial quantities, or outgoing
                 quantities.

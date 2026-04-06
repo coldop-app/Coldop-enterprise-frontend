@@ -7,12 +7,14 @@ import GradingReportTable from './grading-report';
 import DispatchReportTable from './dispatch-report';
 import StorageReportsTable from './storage-report';
 import OutgoingReportTable from './outgoing-report';
+import ShedStockReportTable from './shed-stock-report';
 
 const REPORT_COMPONENTS: Record<AnalyticsReportType, React.ComponentType> = {
   incoming: IncomingReportTable,
   ungraded: UngradedReportTable,
   grading: GradingReportTable,
   stored: StorageReportsTable,
+  'shed-stock': ShedStockReportTable,
   dispatch: DispatchReportTable,
   outgoing: OutgoingReportTable,
 };

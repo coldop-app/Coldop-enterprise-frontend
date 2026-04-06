@@ -233,6 +233,7 @@ const OverviewContent = memo(function OverviewContent({
         value={formatNumber(shedStockBags)}
         description="Grading (initial) − stored − dispatch"
         icon={<Building2 className="h-5 w-5" />}
+        reportType="shed-stock"
       />
       <StatCard
         title="Dispatch"

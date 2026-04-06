@@ -7,6 +7,7 @@ const reportTypes: AnalyticsReportType[] = [
   'ungraded',
   'grading',
   'stored',
+  'shed-stock',
   'dispatch',
   'outgoing',
 ];

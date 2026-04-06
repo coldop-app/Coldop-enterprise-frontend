@@ -44,6 +44,7 @@ export type AnalyticsReportType =
   | 'ungraded'
   | 'grading'
   | 'stored'
+  | 'shed-stock'
   | 'dispatch'
   | 'outgoing';
 
@@ -737,5 +738,68 @@ export interface FarmersStockByFiltersData {
 export interface GetFarmersStockByFiltersApiResponse {
   success: boolean;
   data: FarmersStockByFiltersData;
+  message?: string;
+}
+
+// --- Shed stock report (GET /analytics/shed-stock-report) ---
+
+/** Size line in grading / storage / dispatch sections */
+export interface ShedStockReportSourceSize {
+  size: string;
+  bags: number;
+}
+
+/** Variety row in grading / storage / dispatch sections */
+export interface ShedStockReportSourceVariety {
+  variety: string;
+  totalBags: number;
+  sizes: ShedStockReportSourceSize[];
+}
+
+/** Per-size shed stock breakdown */
+export interface ShedStockReportShedSize {
+  size: string;
+  gradingInitial: number;
+  stored: number;
+  dispatched: number;
+  shedStock: number;
+}
+
+/** Per-variety shed stock row */
+export interface ShedStockReportShedVariety {
+  variety: string;
+  gradingInitial: number;
+  stored: number;
+  dispatched: number;
+  shedStock: number;
+  sizes: ShedStockReportShedSize[];
+}
+
+/** Grand totals for shed stock section */
+export interface ShedStockReportShedTotals {
+  gradingInitial: number;
+  stored: number;
+  dispatched: number;
+  shedStock: number;
+}
+
+/** Nested shed stock summary (varieties + totals) */
+export interface ShedStockReportShedSection {
+  varieties: ShedStockReportShedVariety[];
+  totals: ShedStockReportShedTotals;
+}
+
+/** Data shape for GET /analytics/shed-stock-report */
+export interface ShedStockReportData {
+  grading: ShedStockReportSourceVariety[];
+  storage: ShedStockReportSourceVariety[];
+  dispatch: ShedStockReportSourceVariety[];
+  shedStock: ShedStockReportShedSection;
+}
+
+/** API response for GET /analytics/shed-stock-report */
+export interface GetShedStockReportApiResponse {
+  success: boolean;
+  data: ShedStockReportData;
   message?: string;
 }
