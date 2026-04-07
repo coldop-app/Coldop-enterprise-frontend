@@ -38,12 +38,18 @@ import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
 type FieldErrors = Array<{ message?: string } | undefined>;
-type FarmerSeedBagSizeRow = { name: string; quantity: number; rate: number };
+type FarmerSeedBagSizeRow = {
+  name: string;
+  quantity: number;
+  rate: number;
+  acres: number;
+};
 type FarmerSeedExtraBagSizeRow = {
   id: string;
   name: string;
   quantity: number;
   rate: number;
+  acres: number;
 };
 
 /** Default bag size rows shown on the farmer seed form (not the full grading list). */
@@ -66,6 +72,7 @@ const formSchema = z
         name: z.string().min(1, 'Bag size is required'),
         quantity: z.number().int().min(0, 'Quantity must be non-negative'),
         rate: z.number().min(0, 'Rate must be non-negative'),
+        acres: z.number().min(0, 'Acres must be non-negative'),
       })
     ),
     extraBagSizeRows: z.array(
@@ -74,6 +81,7 @@ const formSchema = z
         name: z.string().min(1, 'Bag size is required'),
         quantity: z.number().int().min(0, 'Quantity must be non-negative'),
         rate: z.number().min(0, 'Rate must be non-negative'),
+        acres: z.number().min(0, 'Acres must be non-negative'),
       })
     ),
   })
@@ -92,8 +100,20 @@ const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
     name: size,
     quantity: 0,
     rate: 0,
+    acres: 0,
   })
 );
+
+const calculateSeedRate = (quantity: number, acres: number) => {
+  if (acres <= 0) return 0;
+  return quantity / acres;
+};
+
+const formatAcresValue = (value: number) => {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/\.?0+$/, '');
+};
 
 const FarmerSeedForm = memo(function FarmerSeedForm() {
   const navigate = useNavigate();
@@ -141,6 +161,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                 name: item.name,
                 quantity: Number(item.quantity ?? 0),
                 rate: Number(item.rate ?? 0),
+                acres: Number(item.acres ?? 0),
               })),
             ...value.extraBagSizeRows
               .filter((item) => (item.quantity ?? 0) > 0)
@@ -148,6 +169,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                 name: item.name,
                 quantity: Number(item.quantity ?? 0),
                 rate: Number(item.rate ?? 0),
+                acres: Number(item.acres ?? 0),
               })),
           ],
         },
@@ -355,6 +377,15 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                     0
                   );
                   const totalAmount = fixedAmount + extraAmount;
+                  const fixedAcres = bagSizes.reduce(
+                    (sum, row) => sum + (row.acres ?? 0),
+                    0
+                  );
+                  const extraAcres = extraBagSizeRows.reduce(
+                    (sum, row) => sum + (row.acres ?? 0),
+                    0
+                  );
+                  const totalAcres = fixedAcres + extraAcres;
                   const hasQty = totalQty > 0;
 
                   const defaultExtraName = GRADING_SIZES[0] ?? '';
@@ -367,6 +398,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                         name: defaultExtraName,
                         quantity: 0,
                         rate: 0,
+                        acres: 0,
                       },
                     ];
                     form.setFieldValue(
@@ -416,11 +448,13 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                             row.quantity === 0 ? '' : String(row.quantity);
                           const rateDisplay =
                             row.rate === 0 ? '' : String(row.rate);
+                          const acresDisplay =
+                            row.acres === 0 ? '' : String(row.acres);
 
                           return (
                             <div
                               key={`${row.name}-${index}`}
-                              className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center sm:gap-4"
+                              className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4"
                             >
                               <label
                                 htmlFor={`farmer-seed-size-${index}`}
@@ -442,9 +476,11 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                       ? 0
                                       : Math.max(0, parseInt(raw, 10) || 0);
                                   const next = [...bagSizes];
+                                  const currentAcres = next[index]?.acres ?? 0;
                                   next[index] = {
                                     ...next[index],
                                     quantity: num,
+                                    rate: calculateSeedRate(num, currentAcres),
                                   };
                                   field.handleChange(next);
                                 }}
@@ -455,7 +491,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                 type="number"
                                 min={0}
                                 step="0.01"
-                                placeholder="Rate"
+                                placeholder="Seed Rate"
                                 value={rateDisplay}
                                 onChange={(e) => {
                                   const raw = e.target.value;
@@ -470,6 +506,30 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                 onWheel={(e) => e.currentTarget.blur()}
                                 className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               />
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                placeholder="Acres"
+                                value={acresDisplay}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num =
+                                    raw === ''
+                                      ? 0
+                                      : Math.max(0, parseFloat(raw) || 0);
+                                  const next = [...bagSizes];
+                                  const currentQty = next[index]?.quantity ?? 0;
+                                  next[index] = {
+                                    ...next[index],
+                                    acres: num,
+                                    rate: calculateSeedRate(currentQty, num),
+                                  };
+                                  field.handleChange(next);
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
                             </div>
                           );
                         })}
@@ -478,10 +538,12 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                             row.quantity === 0 ? '' : String(row.quantity);
                           const rateDisplay =
                             row.rate === 0 ? '' : String(row.rate);
+                          const acresDisplay =
+                            row.acres === 0 ? '' : String(row.acres);
                           return (
                             <div
                               key={row.id}
-                              className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center sm:gap-4"
+                              className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4"
                             >
                               <div className="flex min-w-0 items-center gap-2">
                                 <select
@@ -523,7 +585,13 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                     raw === ''
                                       ? 0
                                       : Math.max(0, parseInt(raw, 10) || 0);
-                                  updateExtraRow(row.id, { quantity: num });
+                                  updateExtraRow(row.id, {
+                                    quantity: num,
+                                    rate: calculateSeedRate(
+                                      num,
+                                      row.acres ?? 0
+                                    ),
+                                  });
                                 }}
                                 onWheel={(e) => e.currentTarget.blur()}
                                 className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -532,7 +600,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                 type="number"
                                 min={0}
                                 step="0.01"
-                                placeholder="Rate"
+                                placeholder="Seed Rate"
                                 value={rateDisplay}
                                 onChange={(e) => {
                                   const raw = e.target.value;
@@ -541,6 +609,29 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                       ? 0
                                       : Math.max(0, parseFloat(raw) || 0);
                                   updateExtraRow(row.id, { rate: num });
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                placeholder="Acres"
+                                value={acresDisplay}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const num =
+                                    raw === ''
+                                      ? 0
+                                      : Math.max(0, parseFloat(raw) || 0);
+                                  updateExtraRow(row.id, {
+                                    acres: num,
+                                    rate: calculateSeedRate(
+                                      row.quantity ?? 0,
+                                      num
+                                    ),
+                                  });
                                 }}
                                 onWheel={(e) => e.currentTarget.blur()}
                                 className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -565,6 +656,14 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                           </span>
                           <span className="font-custom text-foreground text-base font-medium sm:text-right">
                             {totalQty}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="font-custom text-foreground text-base font-normal">
+                            Total Acres
+                          </span>
+                          <span className="font-custom text-foreground text-base font-medium sm:text-right">
+                            {formatAcresValue(totalAcres)}
                           </span>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -631,10 +730,11 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
           bagSizes: [
             ...form.state.values.bagSizes,
             ...form.state.values.extraBagSizeRows.map(
-              ({ name, quantity, rate }) => ({
+              ({ name, quantity, rate, acres }) => ({
                 name,
                 quantity,
                 rate,
+                acres,
               })
             ),
           ],

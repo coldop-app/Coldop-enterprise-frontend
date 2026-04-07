@@ -17,6 +17,7 @@ export interface FarmerSeedSummaryBagSize {
   name: string;
   quantity: number;
   rate: number;
+  acres: number;
 }
 
 interface FarmerSeedSummarySheetProps {
@@ -40,10 +41,19 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
   isPending,
   onSubmit,
 }: FarmerSeedSummarySheetProps) {
+  const formatAcresValue = (value: number) =>
+    Number.isInteger(value)
+      ? String(value)
+      : value.toFixed(2).replace(/\.?0+$/, '');
+
   const nonZeroRows = formValues.bagSizes.filter(
     (row) => (row.quantity ?? 0) > 0
   );
   const totalQuantity = nonZeroRows.reduce((sum, row) => sum + row.quantity, 0);
+  const totalAcres = nonZeroRows.reduce(
+    (sum, row) => sum + (row.acres ?? 0),
+    0
+  );
   const totalAmount = nonZeroRows.reduce(
     (sum, row) => sum + row.quantity * row.rate,
     0
@@ -124,7 +134,10 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                           Qty
                         </th>
                         <th className="text-muted-foreground px-3 py-2 text-right text-xs font-medium uppercase">
-                          Rate
+                          Seed Rate
+                        </th>
+                        <th className="text-muted-foreground px-3 py-2 text-right text-xs font-medium uppercase">
+                          Acres
                         </th>
                         <th className="text-muted-foreground px-3 py-2 text-right text-xs font-medium uppercase">
                           Amount
@@ -140,6 +153,9 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                           </td>
                           <td className="border-t px-3 py-2 text-right">
                             {row.rate.toFixed(2)}
+                          </td>
+                          <td className="border-t px-3 py-2 text-right">
+                            {formatAcresValue(row.acres ?? 0)}
                           </td>
                           <td className="border-t px-3 py-2 text-right">
                             {formatFarmerSeedAmount(row.quantity * row.rate)}
@@ -160,6 +176,14 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
               </span>
               <span className="font-custom text-foreground text-lg font-bold">
                 {totalQuantity}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-custom text-muted-foreground text-xs uppercase">
+                Total Acres
+              </span>
+              <span className="font-custom text-foreground text-lg font-bold">
+                {formatAcresValue(totalAcres)}
               </span>
             </div>
             <div className="flex items-center justify-between">

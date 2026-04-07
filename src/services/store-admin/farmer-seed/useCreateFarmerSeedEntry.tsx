@@ -37,10 +37,17 @@ export function useCreateFarmerSeedEntry() {
     mutationKey: [...farmerSeedKeys.all, 'create'],
 
     mutationFn: async (payload) => {
+      const normalizedPayload: CreateFarmerSeedInput = {
+        ...payload,
+        bagSizes: payload.bagSizes.map((item) => ({
+          ...item,
+          acres: Number(item.acres ?? 0),
+        })),
+      };
       const { data } =
         await storeAdminAxiosClient.post<CreateFarmerSeedApiResponse>(
           '/farmer-seed',
-          payload
+          normalizedPayload
         );
       return data;
     },
