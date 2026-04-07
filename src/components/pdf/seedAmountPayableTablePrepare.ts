@@ -40,11 +40,31 @@ function getCellText(
     name: string;
     quantity: number;
     rate: number;
+    acres?: number;
     amountReceived?: number;
   } | null,
   variety: string | null,
   summaryAmountPayableTotal?: number
 ): string {
+  const getBagAcresNumber = () => {
+    if (!bag || !Number.isFinite(bag.acres) || (bag.acres ?? 0) <= 0) {
+      return null;
+    }
+    return bag.acres as number;
+  };
+  const getBagsPerAcreNumber = () => {
+    const bagAcres = getBagAcresNumber();
+    if (
+      bag != null &&
+      bagAcres != null &&
+      Number.isFinite(bag.quantity) &&
+      bag.quantity > 0 &&
+      bagAcres > 0
+    ) {
+      return bag.quantity / bagAcres;
+    }
+    return getStandardBagsPerAcreNumber(variety);
+  };
   const getLineAmountNumber = () => {
     if (!bag || !Number.isFinite(bag.quantity) || !Number.isFinite(bag.rate))
       return null;
@@ -89,13 +109,16 @@ function getCellText(
     case 'bagsForPlantation':
       return Number.isFinite(bag.quantity) ? String(bag.quantity) : EMPTY;
     case 'bagsPerAcre': {
-      const n = getStandardBagsPerAcreNumber(variety);
-      return n == null ? EMPTY : String(n);
+      const n = getBagsPerAcreNumber();
+      return n == null ? EMPTY : formatCommaNumber(n);
     }
     case 'areaPlanted': {
+      const bagAcres = getBagAcresNumber();
+      if (bagAcres != null) return formatCommaNumber(bagAcres);
       const bpa = getStandardBagsPerAcreNumber(variety);
-      if (bpa == null || !Number.isFinite(bag.quantity) || bag.quantity <= 0)
+      if (bpa == null || !Number.isFinite(bag.quantity) || bag.quantity <= 0) {
         return EMPTY;
+      }
       return formatCommaNumber(bag.quantity / bpa);
     }
     case 'rate':

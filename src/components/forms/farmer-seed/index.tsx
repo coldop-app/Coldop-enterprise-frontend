@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 
@@ -36,6 +36,7 @@ import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-fa
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { Route as FarmerSeedRoute } from '@/routes/store-admin/_authenticated/farmer-seed';
 
 type FieldErrors = Array<{ message?: string } | undefined>;
 type FarmerSeedBagSizeRow = {
@@ -117,6 +118,8 @@ const formatAcresValue = (value: number) => {
 
 const FarmerSeedForm = memo(function FarmerSeedForm() {
   const navigate = useNavigate();
+  const { farmerStorageLinkId: farmerStorageLinkIdFromSearch } =
+    FarmerSeedRoute.useSearch();
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
   const {
     data: farmerLinks,
@@ -176,8 +179,18 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         {
           onSuccess: (data) => {
             if (data.success) {
+              const redirectFarmerStorageLinkId = value.farmerStorageLinkId;
               setIsSummarySheetOpen(false);
               form.reset();
+              if (redirectFarmerStorageLinkId) {
+                navigate({
+                  to: '/store-admin/people/$farmerStorageLinkId',
+                  params: {
+                    farmerStorageLinkId: redirectFarmerStorageLinkId,
+                  },
+                });
+                return;
+              }
               navigate({ to: '/store-admin/people' });
             }
           },
@@ -185,6 +198,22 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
       );
     },
   });
+
+  useEffect(() => {
+    if (!farmerStorageLinkIdFromSearch) return;
+    if (!farmerLinks || farmerLinks.length === 0) return;
+    if (form.state.values.farmerStorageLinkId) return;
+    const exists = farmerLinks.some(
+      (link) => link._id === farmerStorageLinkIdFromSearch
+    );
+    if (!exists) return;
+    form.setFieldValue('farmerStorageLinkId', farmerStorageLinkIdFromSearch);
+  }, [
+    farmerStorageLinkIdFromSearch,
+    farmerLinks,
+    form,
+    form.state.values.farmerStorageLinkId,
+  ]);
 
   const selectedFarmer = useMemo(() => {
     if (!form.state.values.farmerStorageLinkId || !farmerLinks) return null;

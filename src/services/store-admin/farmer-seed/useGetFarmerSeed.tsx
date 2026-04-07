@@ -25,7 +25,12 @@ function normalizeFarmerSeedRows(
     ...row,
     bagSizes: (row.bagSizes ?? []).map((bag) => ({
       ...bag,
-      acres: Number(bag.acres ?? 0),
+      acres:
+        bag.acres == null
+          ? undefined
+          : Number.isFinite(Number(bag.acres))
+            ? Number(bag.acres)
+            : undefined,
     })),
   }));
 }

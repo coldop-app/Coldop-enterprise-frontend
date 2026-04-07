@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Hash, Edit, Info, Loader2 } from 'lucide-react';
+import { Hash, Edit, Info, Loader2, Sprout } from 'lucide-react';
 import type { FarmerStorageLink } from '@/types/farmer';
 
 function getInitials(name: string) {
@@ -19,6 +19,7 @@ export interface FarmerProfileHeaderCardProps {
   onEditClick: () => void;
   onInfoClick: () => void;
   onViewFarmerReport: () => void;
+  onAddSeedClick: () => void;
   /** Opens the grading-table accounting report dialog (pass selection + PDF/Excel). */
   onOpenAccountingReport?: () => void;
   /** When true, disables the Farmer Report button and shows a spinner. */
@@ -30,6 +31,7 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
   onEditClick,
   onInfoClick,
   onViewFarmerReport,
+  onAddSeedClick,
   onOpenAccountingReport,
   isViewFarmerReportLoading = false,
 }: FarmerProfileHeaderCardProps) {
@@ -114,12 +116,11 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
           variant="secondary"
           disabled={isViewFarmerReportLoading}
           className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-          onClick={() => {
-            alert('button clicked');
-          }}
-          aria-label="Financial report"
+          onClick={onAddSeedClick}
+          aria-label="Add seed"
         >
-          Financial Report
+          <Sprout className="h-4 w-4 shrink-0" />
+          Add Seed
         </Button>
       </div>
     </div>

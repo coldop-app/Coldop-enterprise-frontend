@@ -1,5 +1,10 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouterState, Link, useParams } from '@tanstack/react-router';
+import {
+  useRouterState,
+  Link,
+  useNavigate,
+  useParams,
+} from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -65,6 +70,7 @@ import {
 } from './farmerProfileReportHelpers';
 
 export const FarmerProfilePage = memo(function FarmerProfilePage() {
+  const navigate = useNavigate();
   const { farmerStorageLinkId } = useParams({ strict: false });
   const routerLink = useRouterState({
     select: (state) =>
@@ -219,6 +225,15 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
                 onEditClick={() => setEditModalOpen(true)}
                 onInfoClick={() => setDetailsInfoDialogOpen(true)}
                 onViewFarmerReport={handleViewFarmerReport}
+                onAddSeedClick={() => {
+                  if (!effectiveFarmerStorageLinkId) return;
+                  navigate({
+                    to: '/store-admin/farmer-seed',
+                    search: {
+                      farmerStorageLinkId: effectiveFarmerStorageLinkId,
+                    },
+                  });
+                }}
                 onOpenAccountingReport={() =>
                   gradingGatePassTableRef.current?.openAccountingReportDialog()
                 }
