@@ -105,11 +105,6 @@ const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
   })
 );
 
-const calculateSeedRate = (quantity: number, acres: number) => {
-  if (acres <= 0) return 0;
-  return quantity / acres;
-};
-
 const formatAcresValue = (value: number) => {
   return Number.isInteger(value)
     ? String(value)
@@ -505,11 +500,9 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                       ? 0
                                       : Math.max(0, parseInt(raw, 10) || 0);
                                   const next = [...bagSizes];
-                                  const currentAcres = next[index]?.acres ?? 0;
                                   next[index] = {
                                     ...next[index],
                                     quantity: num,
-                                    rate: calculateSeedRate(num, currentAcres),
                                   };
                                   field.handleChange(next);
                                 }}
@@ -520,7 +513,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                 type="number"
                                 min={0}
                                 step="0.01"
-                                placeholder="Seed Rate"
+                                placeholder="Rate"
                                 value={rateDisplay}
                                 onChange={(e) => {
                                   const raw = e.target.value;
@@ -548,11 +541,9 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                       ? 0
                                       : Math.max(0, parseFloat(raw) || 0);
                                   const next = [...bagSizes];
-                                  const currentQty = next[index]?.quantity ?? 0;
                                   next[index] = {
                                     ...next[index],
                                     acres: num,
-                                    rate: calculateSeedRate(currentQty, num),
                                   };
                                   field.handleChange(next);
                                 }}
@@ -616,10 +607,6 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                       : Math.max(0, parseInt(raw, 10) || 0);
                                   updateExtraRow(row.id, {
                                     quantity: num,
-                                    rate: calculateSeedRate(
-                                      num,
-                                      row.acres ?? 0
-                                    ),
                                   });
                                 }}
                                 onWheel={(e) => e.currentTarget.blur()}
@@ -629,7 +616,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                 type="number"
                                 min={0}
                                 step="0.01"
-                                placeholder="Seed Rate"
+                                placeholder="Rate"
                                 value={rateDisplay}
                                 onChange={(e) => {
                                   const raw = e.target.value;
@@ -656,10 +643,6 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                                       : Math.max(0, parseFloat(raw) || 0);
                                   updateExtraRow(row.id, {
                                     acres: num,
-                                    rate: calculateSeedRate(
-                                      row.quantity ?? 0,
-                                      num
-                                    ),
                                   });
                                 }}
                                 onWheel={(e) => e.currentTarget.blur()}

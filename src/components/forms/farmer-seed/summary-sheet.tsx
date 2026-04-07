@@ -134,7 +134,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                           Qty
                         </th>
                         <th className="text-muted-foreground px-3 py-2 text-right text-xs font-medium uppercase">
-                          Seed Rate
+                          Rate
                         </th>
                         <th className="text-muted-foreground px-3 py-2 text-right text-xs font-medium uppercase">
                           Acres
