@@ -1,21 +1,12 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { GRADING_SIZES } from '@/components/forms/grading/constants';
 import { SIZE_HEADER_LABELS } from '@/components/pdf/gradingVoucherCalculations';
 import { STOCK_LEDGER_COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
+import type { SummaryRightValues } from '@/components/pdf/summaryTablePdfCompute';
 import {
-  type SummaryRightValues,
-  buildGroupedMap,
-  getSummaryRows,
-  buildSummaryRightValuesByRow,
-  computeSummaryTotalsFromRows,
-} from '@/components/pdf/summaryTablePdfCompute';
-
-export type {
-  SummaryRightValues,
-  SummaryTotals,
-  SummaryRow,
-} from '@/components/pdf/summaryTablePdfCompute';
+  type PreparedSummaryTableData,
+  prepareSummaryTablePdfData,
+} from '@/components/pdf/summaryTablePdfPrepare';
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
@@ -145,64 +136,15 @@ const styles = StyleSheet.create({
 });
 
 export interface SummaryTablePdfProps {
-  rows: StockLedgerRow[];
+  prepared?: PreparedSummaryTableData;
+  rows?: StockLedgerRow[];
 }
 
-function formatRightCellValue(
-  key: keyof SummaryRightValues,
-  value: number | undefined
-): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  if (key === 'rate') {
-    return value.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-  if (key === 'amountPayable') {
-    return value > 0
-      ? value.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : '—';
-  }
-  if (typeof value === 'number' && value > 0) {
-    return value.toLocaleString('en-IN');
-  }
-  return value === 0 ? '—' : value.toLocaleString('en-IN');
-}
-
-export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
-  const groupedMap = buildGroupedMap(rows);
-  const summaryRows = getSummaryRows(groupedMap);
-  const summaryRightValuesByRow = buildSummaryRightValuesByRow(summaryRows);
-  const summaryTotals = computeSummaryTotalsFromRows(
-    summaryRows,
-    summaryRightValuesByRow
-  );
-
-  const totalsBySize: Record<string, number> = {};
-  for (const size of GRADING_SIZES) {
-    totalsBySize[size] = 0;
-  }
-  for (const key of groupedMap.keys()) {
-    const [, size] = key.split('|');
-    totalsBySize[size] = (totalsBySize[size] ?? 0) + (groupedMap.get(key) ?? 0);
-  }
-
-  /** Only show size columns that have at least one bag (preserve GRADING_SIZES order). */
-  const sizesWithQuantities = GRADING_SIZES.filter(
-    (size) => (totalsBySize[size] ?? 0) > 0
-  );
-
-  const hasAnyPostGrading = rows.some(
-    (r) =>
-      (r.sizeBagsJute != null && Object.keys(r.sizeBagsJute).length > 0) ||
-      (r.sizeBagsLeno != null && Object.keys(r.sizeBagsLeno).length > 0) ||
-      (r.sizeBags != null && Object.keys(r.sizeBags).length > 0)
-  );
-  const showGroupedSummary = hasAnyPostGrading && summaryRows.length > 0;
+export default function SummaryTablePdf({
+  prepared,
+  rows = [],
+}: SummaryTablePdfProps) {
+  const data = prepared ?? prepareSummaryTablePdfData(rows);
 
   return (
     <View style={styles.section}>
@@ -211,7 +153,7 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
         <View style={[styles.headerCell, { width: TYPE_COL_WIDTH }]}>
           <Text style={styles.headerCellText}>Type</Text>
         </View>
-        {sizesWithQuantities.map((size) => (
+        {data.sizesWithQuantities.map((size) => (
           <View
             key={size}
             style={[styles.headerCell, { width: SIZE_COL_WIDTH }]}
@@ -239,16 +181,14 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
           <Text style={styles.headerCellText}>{PCT_GRADED_SIZES_LABEL}</Text>
         </View>
       </View>
-      {showGroupedSummary &&
-        summaryRows.map((row, rowIdx) => {
-          const rowValueKey = `${row.type}|${row.weightKey}|${row.size}|${row.variety}`;
-          const entry = summaryRightValuesByRow.get(rowValueKey);
+      {data.showGroupedSummary &&
+        data.rows.map((row, rowIdx) => {
           return (
-            <View key={`${rowValueKey}-${rowIdx}`} style={styles.dataRow}>
+            <View key={`${row.key}-${rowIdx}`} style={styles.dataRow}>
               <View style={[styles.cell, { width: TYPE_COL_WIDTH }]}>
                 <Text style={styles.cellCenter}>{row.type}</Text>
               </View>
-              {sizesWithQuantities.map((size) => (
+              {data.sizesWithQuantities.map((size) => (
                 <View
                   key={size}
                   style={[styles.cell, { width: SIZE_COL_WIDTH }]}
@@ -261,24 +201,17 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
                 </View>
               ))}
               <View style={[styles.cell, { width: WEIGHT_PER_BAG_COL_WIDTH }]}>
-                <Text style={styles.cellCenter}>
-                  {row.weightNum > 0 && !Number.isNaN(row.weightNum)
-                    ? String(row.weightNum)
-                    : '—'}
-                </Text>
+                <Text style={styles.cellCenter}>{row.weightDisplay}</Text>
               </View>
               {RIGHT_COLUMNS.map((col) => {
-                const val = entry ? entry[col.key] : undefined;
-                const str =
-                  val !== undefined
-                    ? formatRightCellValue(col.key, val as number | undefined)
-                    : '—';
                 return (
                   <View
                     key={col.key}
                     style={[styles.cell, { width: col.width }]}
                   >
-                    <Text style={styles.cellCenter}>{str}</Text>
+                    <Text style={styles.cellCenter}>
+                      {row.rightValues[col.key]}
+                    </Text>
                   </View>
                 );
               })}
@@ -289,24 +222,20 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
                   { width: PCT_GRADED_SIZES_COL_WIDTH },
                 ]}
               >
-                <Text style={styles.cellCenter}>
-                  {summaryTotals.totalActualWtOfPotato > 0 && entry
-                    ? `${((entry.actualWtOfPotato / summaryTotals.totalActualWtOfPotato) * 100).toFixed(2)}%`
-                    : '—'}
-                </Text>
+                <Text style={styles.cellCenter}>{row.pctOfGradedSizes}</Text>
               </View>
             </View>
           );
         })}
-      {showGroupedSummary && (
+      {data.showGroupedSummary && (
         <View style={styles.totalRow}>
           <View style={[styles.cell, { width: TYPE_COL_WIDTH }]}>
             <Text style={[styles.cellCenter, styles.totalCellText]}>Total</Text>
           </View>
-          {sizesWithQuantities.map((size) => (
+          {data.sizesWithQuantities.map((size) => (
             <View key={size} style={[styles.cell, { width: SIZE_COL_WIDTH }]}>
               <Text style={[styles.cellCenter, styles.totalCellText]}>
-                {(totalsBySize[size] ?? 0).toLocaleString('en-IN')}
+                {(data.totalsBySize[size] ?? 0).toLocaleString('en-IN')}
               </Text>
             </View>
           ))}
@@ -314,24 +243,10 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
             <Text style={[styles.cellCenter, styles.totalCellText]}>—</Text>
           </View>
           {RIGHT_COLUMNS.map((col) => {
-            const totalVal =
-              col.key === 'wtReceivedAfterGrading'
-                ? summaryTotals.totalWtReceivedAfterGrading
-                : col.key === 'lessBardanaAfterGrading'
-                  ? summaryTotals.totalLessBardanaAfterGrading
-                  : col.key === 'actualWtOfPotato'
-                    ? summaryTotals.totalActualWtOfPotato
-                    : col.key === 'rate'
-                      ? undefined
-                      : summaryTotals.totalAmountPayable;
-            const str = formatRightCellValue(
-              col.key,
-              totalVal as number | undefined
-            );
             return (
               <View key={col.key} style={[styles.cell, { width: col.width }]}>
                 <Text style={[styles.cellCenter, styles.totalCellText]}>
-                  {str}
+                  {data.totalsRightValues[col.key]}
                 </Text>
               </View>
             );
@@ -344,7 +259,7 @@ export default function SummaryTablePdf({ rows }: SummaryTablePdfProps) {
             ]}
           >
             <Text style={[styles.cellCenter, styles.totalCellText]}>
-              {summaryTotals.totalActualWtOfPotato > 0 ? '100.00%' : '—'}
+              {data.totalPctOfGradedSizes}
             </Text>
           </View>
         </View>

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-04-07
+
+### Added
+- Farmer profile reporting helpers: extracted filtering, sorting, aggregate, and voucher-prop mapping logic into `farmerProfileReportHelpers` to keep page/report orchestration centralized
+- PDF data-preparation helpers for render-only report components: `accountingStockLedgerPdfPrepare`, `summaryTablePdfPrepare`, and `seedAmountPayableTablePrepare`
+
+### Changed
+- Farmer seed by farmer-storage-link flow now handles array responses end-to-end (types, service hook, profile dialog, and accounting PDF seed matching)
+- Farmer profile page now fetches farmer seed data in the main container and passes it to child dialogs/report generation via props
+- Accounting/Farmer stock-ledger PDF pipeline now consumes precomputed prepared props for incoming sections, summary sections, and seed amount payable sections
+- Summary and seed amount payable PDF components refactored toward presentational rendering with prepared data inputs
+
+### Fixed
+- Farmer seed details dialog crash when seed response is empty/unpopulated (`accountNumber` access on undefined)
+- Farmer and accounting report generation after PDF refactor by resolving summary table typing/runtime issues
+- Removed noisy debug logs from report formatting and suppressed expected 404 warn noise in global query handler
+
 ## [0.46.0] - 2026-04-06
 
 ### Added

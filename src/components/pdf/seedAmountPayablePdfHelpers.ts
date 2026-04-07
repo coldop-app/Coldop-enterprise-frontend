@@ -12,9 +12,14 @@ function normalizeVariety(v: string | undefined | null): string {
  */
 export function getFarmerSeedBagSizesForVariety(
   variety: string | null,
-  entry: FarmerSeedEntryByStorageLink | null | undefined
+  entries: FarmerSeedEntryByStorageLink[] | null | undefined
 ): FarmerSeedBagSize[] {
-  if (!entry?.bagSizes?.length) return [];
-  if (normalizeVariety(variety) !== normalizeVariety(entry.variety)) return [];
-  return entry.bagSizes;
+  if (!entries?.length) return [];
+  return entries
+    .filter(
+      (entry) =>
+        normalizeVariety(variety) === normalizeVariety(entry.variety) &&
+        entry.bagSizes?.length
+    )
+    .flatMap((entry) => entry.bagSizes);
 }

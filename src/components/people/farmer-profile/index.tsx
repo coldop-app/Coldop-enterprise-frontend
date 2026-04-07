@@ -32,12 +32,7 @@ import {
   GradingVoucher,
   StorageVoucher,
   NikasiVoucher,
-  type IncomingVoucherData,
-  type PassVoucherData,
 } from '@/components/daybook/vouchers';
-import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
-import type { GradingGatePass } from '@/types/grading-gate-pass';
-import type { NikasiGatePass } from '@/types/nikasi-gate-pass';
 import {
   Receipt,
   ClipboardList,
@@ -59,143 +54,15 @@ import { EditFarmerModal } from '@/components/forms/edit-farmer-modal';
 import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { buildFarmerStockLedgerReportPayload } from './FarmerProfileGradingGatePassTable';
-
-/** Map incoming gate pass (by farmer) to IncomingVoucher props. Uses fallbackLink when API returns unpopulated refs. */
-function toIncomingVoucherProps(
-  pass: IncomingGatePassByFarmerStorageLinkItem & {
-    farmerStorageLinkId?:
-      | string
-      | {
-          farmerId?: { name?: string; address?: string; mobileNumber?: string };
-          accountNumber?: number;
-        };
-    createdBy?: string | { name?: string };
-  },
-  fallbackLink?: {
-    farmerId?: { name?: string; address?: string; mobileNumber?: string };
-    accountNumber?: number;
-  } | null
-) {
-  const link =
-    pass.farmerStorageLinkId != null &&
-    typeof pass.farmerStorageLinkId === 'object'
-      ? pass.farmerStorageLinkId
-      : (fallbackLink ?? null);
-  const voucher: IncomingVoucherData = {
-    _id: pass._id,
-    gatePassNo: pass.gatePassNo,
-    manualGatePassNumber: pass.manualGatePassNumber,
-    date: pass.date,
-    variety: pass.variety,
-    location: pass.location,
-    truckNumber: pass.truckNumber,
-    bagsReceived: pass.bagsReceived,
-    status: pass.status,
-    weightSlip: pass.weightSlip,
-    remarks: pass.remarks,
-    createdBy:
-      pass.createdBy != null && typeof pass.createdBy === 'object'
-        ? { name: (pass.createdBy as { name?: string }).name }
-        : undefined,
-  };
-  return {
-    voucher,
-    farmerName: link?.farmerId?.name,
-    farmerAccount: link?.accountNumber,
-    farmerAddress: link?.farmerId?.address,
-    farmerMobile: link?.farmerId?.mobileNumber,
-  };
-}
-
-/** Map grading gate pass to GradingVoucher props. Uses fallbackLink when API returns unpopulated refs. */
-function toGradingVoucherProps(
-  pass: GradingGatePass & {
-    incomingGatePassIds?: Array<{
-      farmerStorageLinkId?: unknown;
-      bagsReceived?: number;
-      weightSlip?: { grossWeightKg?: number; tareWeightKg?: number };
-    }>;
-  },
-  fallbackLink?: { farmerId?: { name?: string }; accountNumber?: number } | null
-) {
-  const firstIncoming = pass.incomingGatePassIds?.[0];
-  const link =
-    firstIncoming &&
-    typeof firstIncoming.farmerStorageLinkId === 'object' &&
-    firstIncoming.farmerStorageLinkId != null
-      ? (firstIncoming.farmerStorageLinkId as {
-          farmerId?: { name?: string };
-          accountNumber?: number;
-        })
-      : (fallbackLink ?? null);
-  const incomingBagsCount =
-    pass.incomingGatePassIds?.reduce(
-      (sum, inc) =>
-        sum +
-        (typeof inc === 'object' && inc && 'bagsReceived' in inc
-          ? (inc.bagsReceived ?? 0)
-          : 0),
-      0
-    ) ?? 0;
-  let incomingNetKg: number | undefined;
-  const firstWithSlip = pass.incomingGatePassIds?.find(
-    (inc) =>
-      typeof inc === 'object' &&
-      inc != null &&
-      'weightSlip' in inc &&
-      (inc as { weightSlip?: unknown }).weightSlip != null
-  ) as
-    | { weightSlip?: { grossWeightKg?: number; tareWeightKg?: number } }
-    | undefined;
-  if (firstWithSlip?.weightSlip) {
-    const { grossWeightKg = 0, tareWeightKg = 0 } = firstWithSlip.weightSlip;
-    incomingNetKg = grossWeightKg - tareWeightKg;
-  }
-  const voucher: PassVoucherData = {
-    _id: pass._id,
-    gatePassNo: pass.gatePassNo,
-    manualGatePassNumber: pass.manualGatePassNumber,
-    date: pass.date,
-    variety: pass.variety,
-    orderDetails: pass.orderDetails,
-    allocationStatus: pass.allocationStatus,
-    grader: pass.grader,
-    remarks: pass.remarks,
-    createdBy:
-      pass.createdBy != null && typeof pass.createdBy === 'object'
-        ? { name: (pass.createdBy as { name?: string }).name }
-        : undefined,
-  };
-  return {
-    voucher,
-    farmerName: link?.farmerId?.name,
-    farmerAccount: link?.accountNumber,
-    farmerStorageLinkId: pass.farmerStorageLinkId,
-    incomingNetKg,
-    incomingBagsCount,
-    incomingGatePassIds: pass.incomingGatePassIds ?? [],
-  };
-}
-
-/** Map nikasi gate pass to PassVoucherData for NikasiVoucher */
-function nikasiToPassVoucherData(pass: NikasiGatePass): PassVoucherData {
-  return {
-    _id: pass._id,
-    gatePassNo: pass.gatePassNo,
-    manualGatePassNumber: pass.manualGatePassNumber,
-    date: pass.date,
-    variety: pass.variety,
-    from: pass.from,
-    toField: pass.toField,
-    orderDetails: pass.orderDetails,
-    bagSize: pass.bagSize,
-    remarks: pass.remarks,
-    gradingGatePassIds:
-      pass.gradingGatePassIds as PassVoucherData['gradingGatePassIds'],
-    gradingGatePassSnapshots:
-      pass.gradingGatePassSnapshots as PassVoucherData['gradingGatePassSnapshots'],
-  };
-}
+import { useGetFarmerSeed } from '@/services/store-admin/farmer-seed/useGetFarmerSeed';
+import {
+  buildFarmerAggregates,
+  filterIncomingPasses,
+  filterSortablePasses,
+  nikasiToPassVoucherData,
+  toGradingVoucherProps,
+  toIncomingVoucherProps,
+} from './farmerProfileReportHelpers';
 
 export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const { farmerStorageLinkId } = useParams({ strict: false });
@@ -227,6 +94,9 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
     farmerStorageLinkId ??
     '') as string;
   const gatePasses = useGetAllGatePassesOfFarmer(effectiveFarmerStorageLinkId);
+  const farmerSeedQuery = useGetFarmerSeed(effectiveFarmerStorageLinkId, {
+    enabled: Boolean(effectiveFarmerStorageLinkId),
+  });
 
   const reportData = useMemo(() => {
     const fetchedData = {
@@ -247,99 +117,39 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   void reportData; // consumed by formatDataForReport; available for future report UI
 
   const incomingFiltered = useMemo(() => {
-    let list = gatePasses.incoming.data ?? [];
-    if (statusFilter === 'graded')
-      list = list.filter((p) => p.status === 'CLOSED');
-    if (statusFilter === 'ungraded')
-      list = list.filter((p) => p.status !== 'CLOSED');
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((p) => {
-        const no = String(p.gatePassNo ?? p.manualGatePassNumber ?? '');
-        const dateStr = p.date
-          ? new Date(p.date).toLocaleDateString('en-IN')
-          : '';
-        return (
-          no.toLowerCase().includes(q) || dateStr.toLowerCase().includes(q)
-        );
-      });
-    }
-    return [...list].sort((a, b) => {
-      const d = new Date(a.date).getTime() - new Date(b.date).getTime();
-      return sortOrder === 'desc' ? -d : d;
+    return filterIncomingPasses(gatePasses.incoming.data ?? [], {
+      statusFilter,
+      searchQuery,
+      sortOrder,
     });
   }, [gatePasses.incoming.data, searchQuery, sortOrder, statusFilter]);
 
   const gradingFiltered = useMemo(() => {
-    let list = gatePasses.grading.data ?? [];
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((p) => {
-        const no = String(p.gatePassNo ?? p.manualGatePassNumber ?? '');
-        const dateStr = p.date
-          ? new Date(p.date).toLocaleDateString('en-IN')
-          : '';
-        return (
-          no.toLowerCase().includes(q) || dateStr.toLowerCase().includes(q)
-        );
-      });
-    }
-    return [...list].sort((a, b) => {
-      const d = new Date(a.date).getTime() - new Date(b.date).getTime();
-      return sortOrder === 'desc' ? -d : d;
-    });
+    return filterSortablePasses(
+      gatePasses.grading.data ?? [],
+      searchQuery,
+      sortOrder
+    );
   }, [gatePasses.grading.data, searchQuery, sortOrder]);
 
   const storageFiltered = useMemo(() => {
-    let list = gatePasses.storage.data ?? [];
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((p) => {
-        const no = String(p.gatePassNo ?? p.manualGatePassNumber ?? '');
-        const dateStr = p.date
-          ? new Date(p.date).toLocaleDateString('en-IN')
-          : '';
-        return (
-          no.toLowerCase().includes(q) || dateStr.toLowerCase().includes(q)
-        );
-      });
-    }
-    return [...list].sort((a, b) => {
-      const d = new Date(a.date).getTime() - new Date(b.date).getTime();
-      return sortOrder === 'desc' ? -d : d;
-    });
+    return filterSortablePasses(
+      gatePasses.storage.data ?? [],
+      searchQuery,
+      sortOrder
+    );
   }, [gatePasses.storage.data, searchQuery, sortOrder]);
 
   const nikasiFiltered = useMemo(() => {
-    let list = gatePasses.nikasi.data ?? [];
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((p) => {
-        const no = String(p.gatePassNo ?? p.manualGatePassNumber ?? '');
-        const dateStr = p.date
-          ? new Date(p.date).toLocaleDateString('en-IN')
-          : '';
-        return (
-          no.toLowerCase().includes(q) || dateStr.toLowerCase().includes(q)
-        );
-      });
-    }
-    return [...list].sort((a, b) => {
-      const d = new Date(a.date).getTime() - new Date(b.date).getTime();
-      return sortOrder === 'desc' ? -d : d;
-    });
+    return filterSortablePasses(
+      gatePasses.nikasi.data ?? [],
+      searchQuery,
+      sortOrder
+    );
   }, [gatePasses.nikasi.data, searchQuery, sortOrder]);
 
   const aggregates = useMemo(() => {
-    const t = gatePasses.totals;
-    return {
-      totalBagsIncoming: t?.incoming ?? 0,
-      totalBagsUngraded: t?.totalUngraded ?? 0,
-      totalBagsGraded: t?.grading ?? 0,
-      totalBagsStored: t?.storage ?? 0,
-      totalBagsNikasi: t?.dispatch ?? 0,
-      totalBagsOutgoing: t?.outgoing ?? 0,
-    };
+    return buildFarmerAggregates(gatePasses.totals ?? null);
   }, [gatePasses.totals]);
 
   const handleViewFarmerReport = async () => {
@@ -430,7 +240,7 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
           gradingPasses={gatePasses.grading.data ?? []}
           isLoading={gatePasses.grading.isLoading}
           farmerName={link?.farmerId?.name}
-          farmerStorageLinkId={link?._id}
+          farmerSeedEntries={farmerSeedQuery.data ?? []}
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1091,7 +901,11 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
             <FarmerProfileFarmerSeedInfoDialog
               open={detailsInfoDialogOpen}
               onOpenChange={setDetailsInfoDialogOpen}
-              farmerStorageLinkId={link._id}
+              data={farmerSeedQuery.data}
+              isPending={farmerSeedQuery.isPending}
+              isFetching={farmerSeedQuery.isFetching}
+              isError={farmerSeedQuery.isError}
+              error={farmerSeedQuery.error}
             />
             <EditFarmerModal
               link={link}

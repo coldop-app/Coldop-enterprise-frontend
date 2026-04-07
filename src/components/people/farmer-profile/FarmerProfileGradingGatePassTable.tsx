@@ -45,8 +45,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadAccountingReportExcel } from '@/utils/accountingReportExcel';
-import { queryClient } from '@/lib/queryClient';
-import { farmerSeedByFarmerStorageLinkQueryOptions } from '@/services/store-admin/farmer-seed/useGetFarmerSeed';
 import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
 import {
   AccountingReportGatePassDialog,
@@ -63,6 +61,7 @@ import type {
 } from '@/components/pdf/farmer-report/farmer-report-pdf-types';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import { GRADING_SIZES } from '@/components/forms/grading/constants';
+import { prepareAccountingStockLedgerPdfData } from '@/components/pdf/accountingStockLedgerPdfPrepare';
 
 const DEFAULT_STORE = 'JICSPL-Bazpur';
 
@@ -879,8 +878,8 @@ export interface FarmerProfileGradingGatePassTableProps {
   isLoading?: boolean;
   farmerName?: string;
   companyName?: string;
-  /** Used to load farmer seed for the Seed Amount Payable section of the accounting PDF. */
-  farmerStorageLinkId?: string;
+  /** Farmer seed rows prepared in parent (main profile page). */
+  farmerSeedEntries?: FarmerSeedEntryByStorageLink[];
 }
 
 export type FarmerProfileGradingGatePassTableHandle = {
@@ -897,7 +896,7 @@ export const FarmerProfileGradingGatePassTable = memo(
       isLoading = false,
       farmerName: farmerNameProp,
       companyName: companyNameProp,
-      farmerStorageLinkId,
+      farmerSeedEntries = [],
     },
     ref
   ) {
@@ -1056,26 +1055,17 @@ export const FarmerProfileGradingGatePassTable = memo(
       setIsGeneratingPdf(true);
       try {
         const { snapshot, stockLedgerRowsSelected } = data;
-        let farmerSeedEntry: FarmerSeedEntryByStorageLink | null = null;
-        if (farmerStorageLinkId) {
-          try {
-            farmerSeedEntry = await queryClient.fetchQuery(
-              farmerSeedByFarmerStorageLinkQueryOptions(farmerStorageLinkId)
-            );
-          } catch {
-            farmerSeedEntry = null;
-          }
-        }
         const [{ pdf }, { AccountingStockLedgerPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
           import('@/components/pdf/AccountingStockLedgerPdf'),
         ]);
+        const preparedAccountingPdf = prepareAccountingStockLedgerPdfData({
+          snapshot,
+          stockLedgerRows: stockLedgerRowsSelected,
+          farmerSeedEntries,
+        });
         const blob = await pdf(
-          <AccountingStockLedgerPdf
-            snapshot={snapshot}
-            stockLedgerRows={stockLedgerRowsSelected}
-            farmerSeedEntry={farmerSeedEntry}
-          />
+          <AccountingStockLedgerPdf prepared={preparedAccountingPdf} />
         ).toBlob();
         const url = URL.createObjectURL(blob);
         if (printWindow) {

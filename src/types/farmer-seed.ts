@@ -73,6 +73,6 @@ export interface FarmerSeedEntryByStorageLink {
 /** API response for GET /farmer-seed/farmer-storage-link/:farmerStorageLinkId */
 export interface GetFarmerSeedApiResponse {
   success: boolean;
-  data: FarmerSeedEntryByStorageLink | null;
+  data: FarmerSeedEntryByStorageLink[];
   message?: string;
 }

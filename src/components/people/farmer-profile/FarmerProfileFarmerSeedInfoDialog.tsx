@@ -25,26 +25,29 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Sprout } from 'lucide-react';
-import { useGetFarmerSeed } from '@/services/store-admin/farmer-seed/useGetFarmerSeed';
 import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-farmer-seed-amount';
+import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
 
 export interface FarmerProfileFarmerSeedInfoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  farmerStorageLinkId: string;
+  data?: FarmerSeedEntryByStorageLink[];
+  isPending?: boolean;
+  isFetching?: boolean;
+  isError?: boolean;
+  error?: unknown;
 }
 
 export const FarmerProfileFarmerSeedInfoDialog = memo(
   function FarmerProfileFarmerSeedInfoDialog({
     open,
     onOpenChange,
-    farmerStorageLinkId,
+    data = [],
+    isPending = false,
+    isFetching = false,
+    isError = false,
+    error,
   }: FarmerProfileFarmerSeedInfoDialogProps) {
-    const { data, isPending, isError, error, isFetching } = useGetFarmerSeed(
-      farmerStorageLinkId,
-      { enabled: open && Boolean(farmerStorageLinkId) }
-    );
-
     const loading = isPending || (isFetching && data === undefined);
 
     return (
@@ -83,7 +86,7 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
-            ) : data == null ? (
+            ) : data.length === 0 ? (
               <Empty className="border-border rounded-xl border py-8">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -95,83 +98,99 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                 </EmptyHeader>
                 <EmptyContent>
                   <p className="font-custom text-muted-foreground text-center text-sm leading-relaxed">
-                    There is no farmer seed record for this account yet. Add
+                    There are no farmer seed records for this account yet. Add
                     seed details from the Farmer seed page when you have them.
                   </p>
                 </EmptyContent>
               </Empty>
             ) : (
               <div className="space-y-4">
-                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                      Variety
-                    </dt>
-                    <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                      {data.variety}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                      Generation
-                    </dt>
-                    <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                      {data.generation}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                      Account number
-                    </dt>
-                    <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                      #{data.farmerStorageLinkId.accountNumber}
-                    </dd>
-                  </div>
-                </dl>
+                {data.map((entry, entryIndex) => {
+                  const accountNumber =
+                    typeof entry.farmerStorageLinkId === 'object' &&
+                    entry.farmerStorageLinkId !== null &&
+                    'accountNumber' in entry.farmerStorageLinkId
+                      ? entry.farmerStorageLinkId.accountNumber
+                      : undefined;
+                  return (
+                    <div key={entry._id} className="space-y-4">
+                      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Variety
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {entry.variety}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Generation
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {entry.generation}
+                          </dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Account number
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {accountNumber != null ? `#${accountNumber}` : '—'}
+                          </dd>
+                        </div>
+                      </dl>
 
-                <Separator />
+                      <div>
+                        <p className="font-custom mb-2 text-sm font-medium text-[#333]">
+                          Bag sizes
+                        </p>
+                        {entry.bagSizes.length === 0 ? (
+                          <p className="font-custom text-muted-foreground text-sm">
+                            No bag sizes recorded.
+                          </p>
+                        ) : (
+                          <div className="rounded-lg border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                  <TableHead className="font-custom">
+                                    Size
+                                  </TableHead>
+                                  <TableHead className="font-custom text-right">
+                                    Qty
+                                  </TableHead>
+                                  <TableHead className="font-custom text-right">
+                                    Rate
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {entry.bagSizes.map((row, rowIndex) => (
+                                  <TableRow
+                                    key={`${entry._id}-${row.name}-${rowIndex}`}
+                                  >
+                                    <TableCell className="font-custom font-medium">
+                                      {row.name}
+                                    </TableCell>
+                                    <TableCell className="font-custom text-right tabular-nums">
+                                      {formatFarmerSeedAmount(row.quantity)}
+                                    </TableCell>
+                                    <TableCell className="font-custom text-right tabular-nums">
+                                      {formatFarmerSeedAmount(row.rate)}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </div>
 
-                <div>
-                  <p className="font-custom mb-2 text-sm font-medium text-[#333]">
-                    Bag sizes
-                  </p>
-                  {data.bagSizes.length === 0 ? (
-                    <p className="font-custom text-muted-foreground text-sm">
-                      No bag sizes recorded.
-                    </p>
-                  ) : (
-                    <div className="rounded-lg border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead className="font-custom">Size</TableHead>
-                            <TableHead className="font-custom text-right">
-                              Qty
-                            </TableHead>
-                            <TableHead className="font-custom text-right">
-                              Rate
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {data.bagSizes.map((row) => (
-                            <TableRow key={row.name}>
-                              <TableCell className="font-custom font-medium">
-                                {row.name}
-                              </TableCell>
-                              <TableCell className="font-custom text-right tabular-nums">
-                                {formatFarmerSeedAmount(row.quantity)}
-                              </TableCell>
-                              <TableCell className="font-custom text-right tabular-nums">
-                                {formatFarmerSeedAmount(row.rate)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      {entryIndex < data.length - 1 ? <Separator /> : null}
                     </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
             )}
           </div>

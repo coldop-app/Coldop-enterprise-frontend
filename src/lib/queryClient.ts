@@ -22,7 +22,7 @@ const queryCache = new QueryCache({
       // toast.error('Server error. Please try again later.');
     } else if (status === 404) {
       // Not found errors
-      console.warn('Resource not found');
+      // Intentionally silent to avoid noisy console for valid empty-state queries.
     }
   },
   onSuccess: (_data, _query) => {

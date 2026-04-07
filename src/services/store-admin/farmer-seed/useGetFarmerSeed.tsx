@@ -21,10 +21,10 @@ function getFetchErrorMessage(data: GetFarmerSeedError | undefined): string {
 export const farmerSeedByFarmerStorageLinkKey = (farmerStorageLinkId: string) =>
   [...farmerSeedKeys.all, 'farmer-storage-link', farmerStorageLinkId] as const;
 
-/** Returns seed row, or `null` when none exists (404 or empty payload). */
+/** Returns seed rows, or an empty list when none exists. */
 async function fetchFarmerSeedByFarmerStorageLink(
   farmerStorageLinkId: string
-): Promise<FarmerSeedEntryByStorageLink | null> {
+): Promise<FarmerSeedEntryByStorageLink[]> {
   try {
     const { data } = await storeAdminAxiosClient.get<
       GetFarmerSeedApiResponse | GetFarmerSeedError
@@ -38,14 +38,13 @@ async function fetchFarmerSeedByFarmerStorageLink(
       throw new Error(getFetchErrorMessage(data));
     }
 
-    if (!('data' in data)) {
-      return null;
+    if (!('data' in data) || !Array.isArray(data.data)) {
+      return [];
     }
-
-    return data.data ?? null;
+    return data.data;
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 404) {
-      return null;
+      return [];
     }
     const responseData = axios.isAxiosError(err)
       ? err.response?.data

@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import {
-  type FarmerReportPdfSnapshot,
   type FarmerReportPdfRow,
   FARMER_REPORT_PDF_COLUMN_LABELS,
   FARMER_REPORT_ROW_SPAN_COLUMN_IDS,
@@ -9,36 +8,7 @@ import {
 import GradingGatePassTablePdf from '@/components/pdf/grading-gate-pass-table-pdf';
 import SeedAmountPayableTablePdf from '@/components/pdf/SeedAmountPayableTablePdf';
 import SummaryTablePdf from '@/components/pdf/sumary-table-pdf';
-import { computeSummaryAmountPayableTotal } from '@/components/pdf/summaryTablePdfCompute';
-import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
-import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
-import { groupStockLedgerRowsByVariety } from '@/utils/accountingReportGrouping';
-
-/** Incoming column ids (table 1): display up to and including Actual (kg). Omits system gate pass no.; excludes Tot bags / Tot gross / Tot tare / Tot net / Tot bardana. */
-const INCOMING_COLUMN_IDS = [
-  'manualIncomingNo',
-  'incomingDate',
-  'store',
-  'truckNumber',
-  'variety',
-  'bagsReceived',
-  'weightSlipNo',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-  'lessBardanaKg',
-  'actualWeightKg',
-] as const;
-
-/** Incoming columns that are summed in the per-variety total row (exclude IDs, dates, text). */
-const INCOMING_SUM_COLUMN_IDS = new Set<string>([
-  'bagsReceived',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-  'lessBardanaKg',
-  'actualWeightKg',
-]);
+import { type PreparedAccountingStockLedgerPdfData } from '@/components/pdf/accountingStockLedgerPdfPrepare';
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
@@ -200,129 +170,8 @@ function parseQtyWeight(value: string): { qty: string; weight: string } | null {
   return null;
 }
 
-function parseLocaleNumber(raw: string): number | null {
-  const n = parseFloat(String(raw).replace(/,/g, '').trim());
-  return Number.isFinite(n) ? n : null;
-}
-
-type IncomingColumnTotal =
-  | { kind: 'none' }
-  | { kind: 'simple'; sum: number }
-  | { kind: 'qtyWeight'; qty: number; weight: number };
-
-function computeIncomingColumnTotals(
-  dataRows: (FarmerReportPdfRow & { type: 'data' })[],
-  incomingColumnIds: string[]
-): Record<string, IncomingColumnTotal> {
-  const out: Record<string, IncomingColumnTotal> = {};
-  for (const colId of incomingColumnIds) {
-    if (!INCOMING_SUM_COLUMN_IDS.has(colId)) {
-      out[colId] = { kind: 'none' };
-      continue;
-    }
-    let simpleSum = 0;
-    let qtySum = 0;
-    let weightSum = 0;
-    let anyQtyWeight = false;
-    let anySimple = false;
-    for (const row of dataRows) {
-      const raw = formatCellValue(row.cells[colId]);
-      if (raw === '—' || raw === '') continue;
-      const qw = parseQtyWeight(raw);
-      if (qw) {
-        anyQtyWeight = true;
-        const q = parseLocaleNumber(qw.qty);
-        const w = parseLocaleNumber(qw.weight);
-        if (q != null) qtySum += q;
-        if (w != null) weightSum += w;
-      } else {
-        const n = parseLocaleNumber(raw);
-        if (n != null) {
-          anySimple = true;
-          simpleSum += n;
-        }
-      }
-    }
-    if (anyQtyWeight) {
-      out[colId] = { kind: 'qtyWeight', qty: qtySum, weight: weightSum };
-    } else if (anySimple) {
-      out[colId] = { kind: 'simple', sum: simpleSum };
-    } else {
-      out[colId] = { kind: 'none' };
-    }
-  }
-  return out;
-}
-
 function formatIncomingTotalNumber(n: number): string {
   return String(Math.round(n * 10) / 10);
-}
-
-/**
- * Rows shown in PDF incoming table: variety headers + all incoming data rows.
- * We include any data row that has at least one incoming identifier/value so
- * multiple incoming gate passes linked to the same grading pass are preserved.
- */
-function filterIncomingPdfRows(
-  rows: FarmerReportPdfRow[]
-): FarmerReportPdfRow[] {
-  const hasIncomingIdentity = (row: FarmerReportPdfRow & { type: 'data' }) => {
-    const systemIncoming = formatCellValue(row.cells.systemIncomingNo);
-    const manualIncoming = formatCellValue(row.cells.manualIncomingNo);
-    return (
-      systemIncoming !== '—' ||
-      manualIncoming !== '—' ||
-      (row.passRowIndex ?? 0) === 0
-    );
-  };
-
-  return rows.filter(
-    (row) =>
-      row.type === 'variety' ||
-      (row.type === 'data' && hasIncomingIdentity(row))
-  );
-}
-
-/** Split into per-variety segments (or one segment when not grouped). */
-function getIncomingSegmentsForPdf(
-  filtered: FarmerReportPdfRow[],
-  groupByVariety: boolean
-): Array<{
-  variety: string | null;
-  dataRows: (FarmerReportPdfRow & { type: 'data' })[];
-}> {
-  if (!groupByVariety) {
-    const dataRows = filtered.filter(
-      (r): r is FarmerReportPdfRow & { type: 'data' } => r.type === 'data'
-    );
-    return dataRows.length ? [{ variety: null, dataRows }] : [];
-  }
-  const segments: Array<{
-    variety: string | null;
-    dataRows: (FarmerReportPdfRow & { type: 'data' })[];
-  }> = [];
-  let current: {
-    variety: string | null;
-    dataRows: (FarmerReportPdfRow & { type: 'data' })[];
-  } = { variety: null, dataRows: [] };
-
-  for (const row of filtered) {
-    if (row.type === 'variety') {
-      if (current.dataRows.length > 0) {
-        segments.push({
-          variety: current.variety,
-          dataRows: current.dataRows,
-        });
-      }
-      current = { variety: row.variety, dataRows: [] };
-    } else {
-      current.dataRows.push(row);
-    }
-  }
-  if (current.dataRows.length > 0) {
-    segments.push({ variety: current.variety, dataRows: current.dataRows });
-  }
-  return segments;
 }
 
 /** Farmer report: show manual incoming as "Gate Pass No". */
@@ -337,17 +186,7 @@ function getIncomingPdfColumnLabel(
 }
 
 export interface AccountingStockLedgerPdfProps {
-  /** Same snapshot as farmer report (used for table 1 – incoming details up to Actual kg). */
-  snapshot: FarmerReportPdfSnapshot;
-  /** Rows for grading summary and summary tables (tables 2 & 3). */
-  stockLedgerRows: StockLedgerRow[];
-  /** When true, omit the grading gate pass page (farmer report: incoming + summary only). */
-  hideGradingPage?: boolean;
-  /**
-   * Farmer seed (GET /farmer-seed/farmer-storage-link/…), used for the Seed Amount Payable table
-   * (size name + bags for plantation per row when variety matches).
-   */
-  farmerSeedEntry?: FarmerSeedEntryByStorageLink | null;
+  prepared: PreparedAccountingStockLedgerPdfData;
 }
 
 /**
@@ -357,42 +196,27 @@ export interface AccountingStockLedgerPdfProps {
  * 3. Summary (SummaryTablePdf), then Seed Amount Payable per variety below each summary table.
  */
 export function AccountingStockLedgerPdf({
-  snapshot,
-  stockLedgerRows,
-  hideGradingPage = false,
-  farmerSeedEntry = null,
+  prepared,
 }: AccountingStockLedgerPdfProps) {
+  const {
+    snapshot,
+    hideGradingPage,
+    incomingColumnIds,
+    incomingColWidthPct,
+    hasIncomingData,
+    incomingSegments,
+    varietySections,
+  } = prepared;
   const {
     companyName,
     farmerName,
     dateRangeLabel,
     reportTitle = 'Accounting Report',
-    visibleColumnIds,
-    rows,
     groupByVariety,
   } = snapshot;
-
-  /** Table 1: only incoming columns (up to and including actualWeightKg). */
-  const incomingColumnIds = visibleColumnIds.filter((id) =>
-    (INCOMING_COLUMN_IDS as readonly string[]).includes(id)
-  );
-  const hasIncomingData = rows.some(
-    (r) => r.type === 'data' || (r.type === 'variety' && groupByVariety)
-  );
-
-  const numIncomingCols = incomingColumnIds.length;
-  const incomingColWidthPct =
-    numIncomingCols > 0 ? `${(100 / numIncomingCols).toFixed(1)}%` : '100%';
   const getIncomingColWidth = () => incomingColWidthPct;
 
   const farmerDisplayName = farmerName ?? '';
-  const stockLedgerByVariety = groupStockLedgerRowsByVariety(stockLedgerRows);
-
-  const incomingPdfRows = filterIncomingPdfRows(rows);
-  const incomingSegments = getIncomingSegmentsForPdf(
-    incomingPdfRows,
-    groupByVariety
-  );
 
   return (
     <Document>
@@ -435,10 +259,6 @@ export function AccountingStockLedgerPdf({
                 </View>
                 {hasIncomingData ? (
                   incomingSegments.flatMap((segment, segIndex) => {
-                    const totals = computeIncomingColumnTotals(
-                      segment.dataRows,
-                      incomingColumnIds
-                    );
                     const keyBase = `inc-${segIndex}`;
                     const out: ReactElement[] = [];
                     if (groupByVariety) {
@@ -477,7 +297,7 @@ export function AccountingStockLedgerPdf({
                         <IncomingTotalRow
                           key={`${keyBase}-total`}
                           incomingColumnIds={incomingColumnIds}
-                          totals={totals}
+                          totals={segment.totals}
                           getColWidth={getIncomingColWidth}
                         />
                       );
@@ -515,10 +335,10 @@ export function AccountingStockLedgerPdf({
             <Text style={styles.dateRange}>{dateRangeLabel}</Text>
           </View>
           <Text style={styles.sectionTitle}>2. Grading Gate Pass</Text>
-          {stockLedgerByVariety.length === 0 ? (
+          {varietySections.length === 0 ? (
             <Text style={styles.sectionTitle}>No grading gate pass data.</Text>
           ) : (
-            stockLedgerByVariety.map(({ variety, rows: varietyRows }) => (
+            varietySections.map(({ variety, rows: varietyRows }) => (
               <View key={`ggp-${variety}`}>
                 <Text style={styles.varietySubsectionTitle}>
                   Variety: {variety}
@@ -549,22 +369,16 @@ export function AccountingStockLedgerPdf({
         <Text style={styles.sectionTitle}>
           {hideGradingPage ? '2. Summary' : '3. Summary'}
         </Text>
-        {stockLedgerByVariety.length === 0 ? (
+        {varietySections.length === 0 ? (
           <Text style={styles.sectionTitle}>No summary data.</Text>
         ) : (
-          stockLedgerByVariety.map(({ variety, rows: varietyRows }) => (
+          varietySections.map(({ variety, summaryPrepared, seedPrepared }) => (
             <View key={`sum-${variety}`}>
               <Text style={styles.varietySubsectionTitle}>
                 Variety: {variety}
               </Text>
-              <SummaryTablePdf rows={varietyRows} />
-              <SeedAmountPayableTablePdf
-                variety={variety}
-                farmerSeedEntry={farmerSeedEntry}
-                summaryAmountPayableTotal={computeSummaryAmountPayableTotal(
-                  varietyRows
-                )}
-              />
+              <SummaryTablePdf prepared={summaryPrepared} />
+              <SeedAmountPayableTablePdf prepared={seedPrepared} />
             </View>
           ))
         )}
@@ -579,7 +393,12 @@ function IncomingTotalRow({
   getColWidth,
 }: {
   incomingColumnIds: string[];
-  totals: Record<string, IncomingColumnTotal>;
+  totals: Record<
+    string,
+    | { kind: 'none' }
+    | { kind: 'simple'; sum: number }
+    | { kind: 'qtyWeight'; qty: number; weight: number }
+  >;
   getColWidth: () => string;
 }) {
   return (
