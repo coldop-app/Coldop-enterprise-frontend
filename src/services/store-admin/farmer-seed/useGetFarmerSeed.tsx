@@ -18,6 +18,18 @@ function getFetchErrorMessage(data: GetFarmerSeedError | undefined): string {
   return data?.error?.message ?? data?.message ?? 'Failed to fetch farmer seed';
 }
 
+function normalizeFarmerSeedRows(
+  rows: FarmerSeedEntryByStorageLink[]
+): FarmerSeedEntryByStorageLink[] {
+  return rows.map((row) => ({
+    ...row,
+    bagSizes: (row.bagSizes ?? []).map((bag) => ({
+      ...bag,
+      acres: Number(bag.acres ?? 0),
+    })),
+  }));
+}
+
 export const farmerSeedByFarmerStorageLinkKey = (farmerStorageLinkId: string) =>
   [...farmerSeedKeys.all, 'farmer-storage-link', farmerStorageLinkId] as const;
 
@@ -41,7 +53,7 @@ async function fetchFarmerSeedByFarmerStorageLink(
     if (!('data' in data) || !Array.isArray(data.data)) {
       return [];
     }
-    return data.data;
+    return normalizeFarmerSeedRows(data.data);
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 404) {
       return [];

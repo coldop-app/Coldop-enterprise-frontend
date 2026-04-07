@@ -106,12 +106,6 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
             ) : (
               <div className="space-y-4">
                 {data.map((entry, entryIndex) => {
-                  const accountNumber =
-                    typeof entry.farmerStorageLinkId === 'object' &&
-                    entry.farmerStorageLinkId !== null &&
-                    'accountNumber' in entry.farmerStorageLinkId
-                      ? entry.farmerStorageLinkId.accountNumber
-                      : undefined;
                   return (
                     <div key={entry._id} className="space-y-4">
                       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -129,14 +123,6 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                           </dt>
                           <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
                             {entry.generation}
-                          </dd>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Account number
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {accountNumber != null ? `#${accountNumber}` : '—'}
                           </dd>
                         </div>
                       </dl>
@@ -163,6 +149,9 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                                   <TableHead className="font-custom text-right">
                                     Rate
                                   </TableHead>
+                                  <TableHead className="font-custom text-right">
+                                    Acres
+                                  </TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -178,6 +167,9 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                                     </TableCell>
                                     <TableCell className="font-custom text-right tabular-nums">
                                       {formatFarmerSeedAmount(row.rate)}
+                                    </TableCell>
+                                    <TableCell className="font-custom text-right tabular-nums">
+                                      {formatFarmerSeedAmount(row.acres ?? 0)}
                                     </TableCell>
                                   </TableRow>
                                 ))}
