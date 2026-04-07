@@ -351,10 +351,10 @@ export interface AccountingStockLedgerPdfProps {
 }
 
 /**
- * Accounting Report PDF: three tables –
+ * Accounting Report PDF: three sections –
  * 1. Incoming details (up to Actual (kg)),
  * 2. Grading summary (GradingGatePassTablePdf),
- * 3. Summary (SummaryTablePdf).
+ * 3. Summary (SummaryTablePdf), then Seed Amount Payable per variety below each summary table.
  */
 export function AccountingStockLedgerPdf({
   snapshot,
@@ -528,13 +528,6 @@ export function AccountingStockLedgerPdf({
                   rows={varietyRows}
                   hideReportSummary
                 />
-                <SeedAmountPayableTablePdf
-                  variety={variety}
-                  farmerSeedEntry={farmerSeedEntry}
-                  summaryAmountPayableTotal={computeSummaryAmountPayableTotal(
-                    varietyRows
-                  )}
-                />
               </View>
             ))
           )}
@@ -565,6 +558,13 @@ export function AccountingStockLedgerPdf({
                 Variety: {variety}
               </Text>
               <SummaryTablePdf rows={varietyRows} />
+              <SeedAmountPayableTablePdf
+                variety={variety}
+                farmerSeedEntry={farmerSeedEntry}
+                summaryAmountPayableTotal={computeSummaryAmountPayableTotal(
+                  varietyRows
+                )}
+              />
             </View>
           ))
         )}

@@ -60,9 +60,9 @@ export type Variety = (typeof POTATO_VARIETIES)[number]['value'];
 
 /** Standard expected bags per acre (variety-wise baseline). */
 export const STANDARD_BAGS_PER_ACRE: Record<Variety, number> = {
-  Himalini: 30,
+  Himalini: 31,
   B101: 31,
-  Jyoti: 30,
+  Jyoti: 31,
 };
 
 /** =====================================================

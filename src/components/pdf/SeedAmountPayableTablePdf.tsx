@@ -1,4 +1,8 @@
 import { Text, View, StyleSheet } from '@react-pdf/renderer';
+import {
+  STANDARD_BAGS_PER_ACRE,
+  type Variety,
+} from '@/components/forms/grading/constants';
 import type {
   FarmerSeedBagSize,
   FarmerSeedEntryByStorageLink,
@@ -25,14 +29,17 @@ export const NET_AMOUNT_PAYABLE_LEAF_COUNT =
  * Leaf columns in table order (left → right). Widths sum to 100%.
  * The last `NET_AMOUNT_PAYABLE_LEAF_COUNT` columns are the Net Amount Payable group.
  */
+/** Widths sum to 100% (7×8% + 2×7% + 3×10%). */
 export const SEED_AMOUNT_PAYABLE_LEAF_COLUMNS = [
-  { id: 'seedAmountPayable', label: 'Seed Amount Payable', widthPct: 10 },
-  { id: 'bagsForPlantation', label: 'Bags For Plantation', widthPct: 10 },
-  { id: 'rate', label: 'Rate', widthPct: 10 },
-  { id: 'amount', label: 'Amount', widthPct: 10 },
-  { id: 'date', label: 'Date', widthPct: 10 },
-  { id: 'amountReceived', label: 'Amount Received', widthPct: 10 },
-  { id: 'seedAmountBalance', label: 'Seed Amount Balance', widthPct: 10 },
+  { id: 'seedAmountPayable', label: 'Seed Amount Payable', widthPct: 8 },
+  { id: 'bagsForPlantation', label: 'Bags For Plantation', widthPct: 8 },
+  { id: 'bagsPerAcre', label: 'Bags Per Acre', widthPct: 8 },
+  { id: 'areaPlanted', label: 'Area Planted', widthPct: 8 },
+  { id: 'rate', label: 'Rate', widthPct: 8 },
+  { id: 'amount', label: 'Amount', widthPct: 8 },
+  { id: 'date', label: 'Date', widthPct: 8 },
+  { id: 'amountReceived', label: 'Amount Received', widthPct: 7 },
+  { id: 'seedAmountBalance', label: 'Seed Amount Balance', widthPct: 7 },
   { id: 'amtPayable', label: 'AMT PAYABLE', widthPct: 10 },
   { id: 'seedBalance', label: 'SEED BALANCE', widthPct: 10 },
   { id: 'netAmt', label: 'NET AMT', widthPct: 10 },
@@ -155,6 +162,43 @@ const styles = StyleSheet.create({
 
 const EMPTY = '—';
 
+/** Standard bags/acre for the subsection variety, or null if unknown. */
+function getStandardBagsPerAcreNumber(
+  variety: string | null | undefined
+): number | null {
+  const t = (variety ?? '').trim();
+  if (!t) return null;
+  for (const key of Object.keys(STANDARD_BAGS_PER_ACRE) as Variety[]) {
+    if (key.toLowerCase() === t.toLowerCase()) {
+      const n = STANDARD_BAGS_PER_ACRE[key];
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+  }
+  return null;
+}
+
+/** Resolve grading subsection variety to `STANDARD_BAGS_PER_ACRE` (case-insensitive). */
+function formatBagsPerAcreForVariety(
+  variety: string | null | undefined
+): string {
+  const n = getStandardBagsPerAcreNumber(variety);
+  return n === null ? EMPTY : String(n);
+}
+
+/** Area (acres) = bags for plantation (row qty) ÷ standard bags per acre. */
+function formatAreaPlanted(
+  bag: FarmerSeedBagSize,
+  variety: string | null | undefined
+): string {
+  const bpa = getStandardBagsPerAcreNumber(variety);
+  if (bpa === null) return EMPTY;
+  const qty = bag.quantity;
+  if (!Number.isFinite(qty) || qty <= 0) return EMPTY;
+  const acres = qty / bpa;
+  if (!Number.isFinite(acres)) return EMPTY;
+  return formatCommaNumber(acres);
+}
+
 function formatCommaNumber(n: number): string {
   return new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 0,
@@ -199,6 +243,8 @@ function formatSummaryAmtPayTotal(total: number | undefined): string {
 
 type SeedTableCellContext = {
   summaryAmountPayableTotal?: number;
+  /** Grading subsection variety — for bags/acre from `STANDARD_BAGS_PER_ACRE`. */
+  variety: string | null;
 };
 
 function getSeedAmountBalanceNumber(bag: FarmerSeedBagSize): number | null {
@@ -249,6 +295,13 @@ function getSeedTableCellText(
   if (colId === 'seedBalance') {
     if (!bag) return EMPTY;
     return getSeedAmountBalanceDisplay(bag);
+  }
+  if (colId === 'bagsPerAcre') {
+    return formatBagsPerAcreForVariety(ctx.variety);
+  }
+  if (colId === 'areaPlanted') {
+    if (!bag) return EMPTY;
+    return formatAreaPlanted(bag, ctx.variety);
   }
   if (!bag) return EMPTY;
   switch (colId) {
@@ -363,7 +416,10 @@ export default function SeedAmountPayableTablePdf({
   const netGroupWidthPct = netLeafs.reduce((s, c) => s + c.widthPct, 0);
 
   const bagRows = getFarmerSeedBagSizesForVariety(variety, farmerSeedEntry);
-  const netCtx: SeedTableCellContext = { summaryAmountPayableTotal };
+  const netCtx: SeedTableCellContext = {
+    summaryAmountPayableTotal,
+    variety,
+  };
 
   const varietyLabel = variety?.trim() ? variety : '—';
 

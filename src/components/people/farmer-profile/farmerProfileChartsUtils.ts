@@ -8,31 +8,36 @@ import {
 /** Order for size names (string[] so indexOf/includes accept API string values) */
 export const SIZE_ORDER: readonly string[] = [...GRADING_SIZES];
 
-/** Aggregate variety distribution from grading passes (adjusted net kg per variety) */
+function getBardanaWeightPerBagKg(bagType: string | undefined): number {
+  return bagType === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
+}
+
+function getNetPotatoWeightKgForOrderDetail(
+  detail: NonNullable<GradingGatePass['orderDetails']>[number]
+): number {
+  // Keep chart math aligned with accounting report math: use initialQuantity and
+  // subtract bardana per bag from each size row's weight-per-bag.
+  const qty = detail.initialQuantity ?? 0;
+  const weightPerBagKg = detail.weightPerBagKg ?? 0;
+  const bardanaPerBagKg = getBardanaWeightPerBagKg(detail.bagType);
+  return qty * Math.max(0, weightPerBagKg - bardanaPerBagKg);
+}
+
+/** Aggregate variety distribution from grading passes using report-aligned logic. */
 export function computeVarietyDistribution(
   passes: GradingGatePass[]
 ): { name: string; value: number }[] {
   const byVariety = new Map<string, number>();
   for (const pass of passes) {
     const variety = pass.variety?.trim() || 'Unknown';
-    const totalBags = (pass.orderDetails ?? []).reduce(
-      (sum, d) => sum + (d.currentQuantity ?? d.initialQuantity ?? 0),
+    const actualWeightOfPotato = (pass.orderDetails ?? []).reduce(
+      (sum, detail) => sum + getNetPotatoWeightKgForOrderDetail(detail),
       0
     );
-    const totalNetWeightKg = (pass.incomingGatePassIds ?? []).reduce(
-      (sum, incoming) => {
-        const grossWeightKg = incoming.weightSlip?.grossWeightKg ?? 0;
-        const tareWeightKg = incoming.weightSlip?.tareWeightKg ?? 0;
-        return sum + (grossWeightKg - tareWeightKg);
-      },
-      0
-    );
-    const bardanaWeightKg = totalBags * JUTE_BAG_WEIGHT;
-    const adjustedNetWeightKg = Math.max(totalNetWeightKg - bardanaWeightKg, 0);
-    if (adjustedNetWeightKg > 0) {
+    if (actualWeightOfPotato > 0) {
       byVariety.set(
         variety,
-        (byVariety.get(variety) ?? 0) + adjustedNetWeightKg
+        (byVariety.get(variety) ?? 0) + actualWeightOfPotato
       );
     }
   }
@@ -53,13 +58,9 @@ export function computeSizeDistribution(
     }
     const sizeMap = byVariety.get(variety)!;
     for (const d of pass.orderDetails ?? []) {
-      const bagCount = d.currentQuantity ?? d.initialQuantity ?? 0;
-      const bagTypeWeight =
-        d.bagType === 'LENO' ? LENO_BAG_WEIGHT : JUTE_BAG_WEIGHT;
-      const adjustedWeightPerBagKg = (d.weightPerBagKg ?? 0) - bagTypeWeight;
-      const totalAdjustedWeightKg = bagCount * adjustedWeightPerBagKg;
-      if (totalAdjustedWeightKg > 0 && d.size) {
-        sizeMap.set(d.size, (sizeMap.get(d.size) ?? 0) + totalAdjustedWeightKg);
+      const netPotatoWeightKg = getNetPotatoWeightKgForOrderDetail(d);
+      if (netPotatoWeightKg > 0 && d.size) {
+        sizeMap.set(d.size, (sizeMap.get(d.size) ?? 0) + netPotatoWeightKg);
       }
     }
   }
