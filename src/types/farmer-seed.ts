@@ -11,8 +11,8 @@ export interface FarmerSeedBagSize {
 /** Request body for POST /farmer-seed */
 export interface CreateFarmerSeedInput {
   farmerStorageLinkId: string;
-  gatePassNo: number;
-  invoiceNumber: string;
+  gatePassNo?: number;
+  invoiceNumber?: string;
   date: string;
   variety: string;
   generation: string;

@@ -60,8 +60,11 @@ const formSchema = z
   .object({
     id: z.string(),
     farmerStorageLinkId: z.string(),
-    gatePassNo: z.number().int().min(1, 'Gate pass number is required'),
-    invoiceNumber: z.string().trim().min(1, 'Invoice number is required'),
+    gatePassNo: z
+      .number()
+      .int()
+      .min(0, 'Gate pass number must be non-negative'),
+    invoiceNumber: z.string().trim(),
     date: z
       .string()
       .regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Please select a valid date'),
@@ -193,8 +196,9 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
         {
           id: value.id,
           farmerStorageLinkId: value.farmerStorageLinkId || undefined,
-          gatePassNo: Number(value.gatePassNo ?? 0),
-          invoiceNumber: value.invoiceNumber.trim(),
+          gatePassNo:
+            value.gatePassNo > 0 ? Number(value.gatePassNo) : undefined,
+          invoiceNumber: value.invoiceNumber.trim() || undefined,
           date: formatDateToISO(value.date),
           variety: value.variety.trim(),
           generation: value.generation.trim(),
@@ -290,10 +294,11 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
               const isInvalid =
                 Boolean(field.state.meta.errorMap?.onSubmit) ||
                 (field.state.meta.isTouched && !field.state.meta.isValid);
+              const showInvalid = isInvalid && field.state.value < 0;
               const valueDisplay =
                 field.state.value === 0 ? '' : String(field.state.value);
               return (
-                <Field data-invalid={isInvalid}>
+                <Field data-invalid={showInvalid}>
                   <FieldLabel className="font-custom mb-2 block text-base font-semibold">
                     Gate Pass No
                   </FieldLabel>
@@ -313,7 +318,7 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
                     onWheel={(e) => e.currentTarget.blur()}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
-                  {isInvalid && (
+                  {showInvalid && (
                     <FieldError
                       errors={field.state.meta.errors as FieldErrors}
                     />
@@ -327,9 +332,8 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
             name="invoiceNumber"
             children={(field) => {
               const isInvalid =
-                (Boolean(field.state.meta.errorMap?.onSubmit) ||
-                  (field.state.meta.isTouched && !field.state.meta.isValid)) &&
-                !field.state.value.trim();
+                Boolean(field.state.meta.errorMap?.onSubmit) ||
+                (field.state.meta.isTouched && !field.state.meta.isValid);
               return (
                 <Field data-invalid={isInvalid}>
                   <FieldLabel className="font-custom mb-2 block text-base font-semibold">

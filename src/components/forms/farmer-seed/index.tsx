@@ -65,8 +65,11 @@ const FARMER_SEED_DEFAULT_SIZES = [
 const formSchema = z
   .object({
     farmerStorageLinkId: z.string().min(1, 'Please select a farmer'),
-    gatePassNo: z.number().int().min(1, 'Gate pass number is required'),
-    invoiceNumber: z.string().trim().min(1, 'Invoice number is required'),
+    gatePassNo: z
+      .number()
+      .int()
+      .min(0, 'Gate pass number must be non-negative'),
+    invoiceNumber: z.string().trim(),
     date: z
       .string()
       .regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Please select a valid date'),
@@ -158,8 +161,9 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
       createFarmerSeedEntry(
         {
           farmerStorageLinkId: value.farmerStorageLinkId,
-          gatePassNo: Number(value.gatePassNo ?? 0),
-          invoiceNumber: value.invoiceNumber.trim(),
+          gatePassNo:
+            value.gatePassNo > 0 ? Number(value.gatePassNo) : undefined,
+          invoiceNumber: value.invoiceNumber.trim() || undefined,
           date: formatDateToISO(value.date),
           variety: value.variety.trim(),
           generation: value.generation,
@@ -308,7 +312,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
               const invalidFromValidation =
                 hasSubmitError ||
                 (field.state.meta.isTouched && !field.state.meta.isValid);
-              const isInvalid = invalidFromValidation;
+              const isInvalid = invalidFromValidation && field.state.value < 0;
               const valueDisplay =
                 field.state.value === 0 ? '' : String(field.state.value);
               return (
@@ -353,8 +357,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
               const invalidFromValidation =
                 hasSubmitError ||
                 (field.state.meta.isTouched && !field.state.meta.isValid);
-              const isInvalid =
-                invalidFromValidation && !field.state.value.trim();
+              const isInvalid = invalidFromValidation;
               return (
                 <Field data-invalid={isInvalid}>
                   <FieldLabel className="font-custom mb-2 block text-base font-semibold">
