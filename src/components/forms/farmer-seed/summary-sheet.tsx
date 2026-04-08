@@ -25,12 +25,17 @@ interface FarmerSeedSummarySheetProps {
   onOpenChange: (open: boolean) => void;
   selectedFarmer: FarmerStorageLink | null;
   formValues: {
+    gatePassNo: number;
+    invoiceNumber: string;
+    date: string;
     variety: string;
     generation: string;
+    remarks?: string;
     bagSizes: FarmerSeedSummaryBagSize[];
   };
   isPending: boolean;
   onSubmit: () => void;
+  submitLabel?: string;
 }
 
 export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
@@ -40,6 +45,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
   formValues,
   isPending,
   onSubmit,
+  submitLabel = 'Create Farmer Seed Entry',
 }: FarmerSeedSummarySheetProps) {
   const formatAcresValue = (value: number) =>
     Number.isInteger(value)
@@ -97,6 +103,42 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
               <Package className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  Gate Pass No
+                </p>
+                <p className="text-foreground text-sm font-medium">
+                  {formValues.gatePassNo > 0 ? formValues.gatePassNo : '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border px-3 py-2">
+              <FileText className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  Invoice Number
+                </p>
+                <p className="text-foreground text-sm font-medium">
+                  {formValues.invoiceNumber.trim() || '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border px-3 py-2">
+              <FileText className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  Date
+                </p>
+                <p className="text-foreground text-sm font-medium">
+                  {formValues.date || '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border px-3 py-2">
+              <Package className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
                   Variety
                 </p>
                 <p className="text-foreground text-sm font-medium">
@@ -116,6 +158,20 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                 </p>
               </div>
             </div>
+
+            {formValues.remarks?.trim() && (
+              <div className="flex items-start gap-3 rounded-md border px-3 py-2">
+                <FileText className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                    Remarks
+                  </p>
+                  <p className="text-foreground text-sm font-medium">
+                    {formValues.remarks.trim()}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start gap-3 rounded-md border px-3 py-2">
               <FileText className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
@@ -221,7 +277,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                   Creating...
                 </span>
               ) : (
-                'Create Farmer Seed Entry'
+                submitLabel
               )}
             </Button>
           </div>

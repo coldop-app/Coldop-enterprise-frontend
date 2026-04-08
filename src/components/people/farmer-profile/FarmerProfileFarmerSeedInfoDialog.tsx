@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   Dialog,
   DialogContent,
@@ -24,9 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Sprout } from 'lucide-react';
+import { Pencil, Sprout } from 'lucide-react';
 import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-farmer-seed-amount';
 import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
+import { formatDisplayDate } from '@/lib/helpers';
+import { Button } from '@/components/ui/button';
 
 export interface FarmerProfileFarmerSeedInfoDialogProps {
   open: boolean;
@@ -48,6 +51,7 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
     isError = false,
     error,
   }: FarmerProfileFarmerSeedInfoDialogProps) {
+    const navigate = useNavigate();
     const loading = isPending || (isFetching && data === undefined);
 
     return (
@@ -108,7 +112,49 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                 {data.map((entry, entryIndex) => {
                   return (
                     <div key={entry._id} className="space-y-4">
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="font-custom"
+                          onClick={() => {
+                            navigate({
+                              to: '/store-admin/farmer-seed/edit',
+                              state: { farmerSeedEntry: entry } as never,
+                            });
+                            onOpenChange(false);
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                      </div>
                       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Gate Pass No
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {entry.gatePassNo > 0 ? entry.gatePassNo : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Invoice Number
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {entry.invoiceNumber?.trim() || '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Date
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {formatDisplayDate(entry.date)}
+                          </dd>
+                        </div>
                         <div>
                           <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                             Variety
@@ -123,6 +169,14 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
                           </dt>
                           <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
                             {entry.generation}
+                          </dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                            Remarks
+                          </dt>
+                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
+                            {entry.remarks?.trim() || '—'}
                           </dd>
                         </div>
                       </dl>

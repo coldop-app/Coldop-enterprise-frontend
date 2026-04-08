@@ -38,10 +38,24 @@ export function useEditFarmerSeedEntry() {
     mutationKey: [...farmerSeedKeys.all, 'edit'],
 
     mutationFn: async ({ id, ...payload }) => {
+      const normalizedPayload: EditFarmerSeedInput = {
+        ...payload,
+        gatePassNo:
+          payload.gatePassNo !== undefined
+            ? Number(payload.gatePassNo)
+            : undefined,
+        bagSizes: payload.bagSizes?.map((item) => ({
+          ...item,
+          quantity: Number(item.quantity),
+          rate: Number(item.rate),
+          acres: Number(item.acres ?? 0),
+        })),
+        remarks: payload.remarks?.trim() || undefined,
+      };
       const { data } =
         await storeAdminAxiosClient.put<EditFarmerSeedApiResponse>(
           `/farmer-seed/${id}`,
-          payload
+          normalizedPayload
         );
       return data;
     },

@@ -3,6 +3,7 @@ import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 
 import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
+import { DatePicker } from '@/components/forms/date-picker';
 import {
   SearchSelector,
   type Option,
@@ -37,6 +38,7 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Route as FarmerSeedRoute } from '@/routes/store-admin/_authenticated/farmer-seed';
+import { formatDate, formatDateToISO } from '@/lib/helpers';
 
 type FieldErrors = Array<{ message?: string } | undefined>;
 type FarmerSeedBagSizeRow = {
@@ -64,10 +66,13 @@ const FARMER_SEED_DEFAULT_SIZES = [
 const formSchema = z
   .object({
     farmerStorageLinkId: z.string().min(1, 'Please select a farmer'),
+    gatePassNo: z.number().int().min(1, 'Gate pass number is required'),
+    invoiceNumber: z.string().trim().min(1, 'Invoice number is required'),
+    date: z
+      .string()
+      .regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Please select a valid date'),
     variety: z.string().min(1, 'Please select a variety'),
-    generation: z.enum(['G2', 'G3'], {
-      message: 'Please select a generation',
-    }),
+    generation: z.string().min(1, 'Please select a generation'),
     bagSizes: z.array(
       z.object({
         name: z.string().min(1, 'Bag size is required'),
@@ -85,6 +90,7 @@ const formSchema = z
         acres: z.number().min(0, 'Acres must be non-negative'),
       })
     ),
+    remarks: z.string().trim(),
   })
   .refine(
     (data) =>
@@ -138,10 +144,14 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
   const form = useForm({
     defaultValues: {
       farmerStorageLinkId: '',
+      gatePassNo: 0,
+      invoiceNumber: '',
+      date: formatDate(new Date()),
       variety: '',
       generation: '',
       bagSizes: defaultBagSizes,
       extraBagSizeRows: [] as FarmerSeedExtraBagSizeRow[],
+      remarks: '',
     },
     validators: {
       onSubmit: formSchema,
@@ -150,6 +160,9 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
       createFarmerSeedEntry(
         {
           farmerStorageLinkId: value.farmerStorageLinkId,
+          gatePassNo: Number(value.gatePassNo ?? 0),
+          invoiceNumber: value.invoiceNumber.trim(),
+          date: formatDateToISO(value.date),
           variety: value.variety.trim(),
           generation: value.generation,
           bagSizes: [
@@ -170,6 +183,7 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                 acres: Number(item.acres ?? 0),
               })),
           ],
+          remarks: value.remarks?.trim() || undefined,
         },
         {
           onSuccess: (data) => {
@@ -297,6 +311,117 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
           />
 
           <form.Field
+            name="gatePassNo"
+            children={(field) => {
+              const hasSubmitError = Boolean(
+                field.state.meta.errorMap &&
+                'onSubmit' in field.state.meta.errorMap &&
+                field.state.meta.errorMap.onSubmit
+              );
+              const invalidFromValidation =
+                hasSubmitError ||
+                (field.state.meta.isTouched && !field.state.meta.isValid);
+              const isInvalid = invalidFromValidation;
+              const valueDisplay =
+                field.state.value === 0 ? '' : String(field.state.value);
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+                    Gate Pass No
+                  </FieldLabel>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="Enter gate pass number"
+                    value={valueDisplay}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const num =
+                        raw === '' ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+                      field.handleChange(num);
+                    }}
+                    onBlur={field.handleBlur}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                  {isInvalid && (
+                    <FieldError
+                      errors={field.state.meta.errors as FieldErrors}
+                    />
+                  )}
+                </Field>
+              );
+            }}
+          />
+
+          <form.Field
+            name="invoiceNumber"
+            children={(field) => {
+              const hasSubmitError = Boolean(
+                field.state.meta.errorMap &&
+                'onSubmit' in field.state.meta.errorMap &&
+                field.state.meta.errorMap.onSubmit
+              );
+              const invalidFromValidation =
+                hasSubmitError ||
+                (field.state.meta.isTouched && !field.state.meta.isValid);
+              const isInvalid =
+                invalidFromValidation && !field.state.value.trim();
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+                    Invoice Number
+                  </FieldLabel>
+                  <Input
+                    type="text"
+                    placeholder="Enter invoice number"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    className="font-custom"
+                  />
+                  {isInvalid && (
+                    <FieldError
+                      errors={field.state.meta.errors as FieldErrors}
+                    />
+                  )}
+                </Field>
+              );
+            }}
+          />
+
+          <form.Field
+            name="date"
+            children={(field) => {
+              const hasSubmitError = Boolean(
+                field.state.meta.errorMap &&
+                'onSubmit' in field.state.meta.errorMap &&
+                field.state.meta.errorMap.onSubmit
+              );
+              const invalidFromValidation =
+                hasSubmitError ||
+                (field.state.meta.isTouched && !field.state.meta.isValid);
+              const isInvalid = invalidFromValidation;
+              return (
+                <Field data-invalid={isInvalid}>
+                  <DatePicker
+                    id="farmer-seed-date"
+                    label="Date"
+                    value={field.state.value}
+                    onChange={(value) => field.handleChange(value)}
+                  />
+                  {isInvalid && (
+                    <FieldError
+                      errors={field.state.meta.errors as FieldErrors}
+                    />
+                  )}
+                </Field>
+              );
+            }}
+          />
+
+          <form.Field
             name="variety"
             children={(field) => {
               const hasSubmitError = Boolean(
@@ -371,6 +496,25 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
                 </Field>
               );
             }}
+          />
+
+          <form.Field
+            name="remarks"
+            children={(field) => (
+              <Field>
+                <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+                  Remarks (optional)
+                </FieldLabel>
+                <Input
+                  type="text"
+                  placeholder="Enter remarks"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className="font-custom"
+                />
+              </Field>
+            )}
           />
 
           <form.Field
@@ -737,8 +881,12 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         onOpenChange={setIsSummarySheetOpen}
         selectedFarmer={selectedFarmer}
         formValues={{
+          gatePassNo: form.state.values.gatePassNo,
+          invoiceNumber: form.state.values.invoiceNumber,
+          date: form.state.values.date,
           variety: form.state.values.variety,
           generation: form.state.values.generation,
+          remarks: form.state.values.remarks,
           bagSizes: [
             ...form.state.values.bagSizes,
             ...form.state.values.extraBagSizeRows.map(

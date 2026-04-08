@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-04-08
+
+### Added
+- Farmer seed create and edit forms now capture gate pass number, invoice number, entry date, and optional remarks, with these fields included in summary-sheet review before submit
+- Farmer profile seed details dialog now includes an inline Edit action for each farmer seed entry, with direct navigation to the dedicated edit route
+- Farmer seed generation options extended with **Foundation** and **Certified** in shared grading constants
+
+### Changed
+- Farmer seed edit route now provides a full edit experience (prefill existing values, update fixed/default and extra bag-size rows, and submit through `useEditFarmerSeedEntry`)
+- Farmer seed service/type contracts aligned to include gate pass number, invoice number, date, and remarks across create/edit inputs and returned entities
+- Farmer seed API normalization in `useGetFarmerSeed` now coerces numeric bag-size fields (`quantity`, `rate`) and top-level seed metadata to safer defaults for UI consumption
+
 ## [0.47.0] - 2026-04-07
 
 ### Added

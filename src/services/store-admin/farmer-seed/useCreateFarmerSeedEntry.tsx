@@ -39,8 +39,11 @@ export function useCreateFarmerSeedEntry() {
     mutationFn: async (payload) => {
       const normalizedPayload: CreateFarmerSeedInput = {
         ...payload,
+        gatePassNo: Number(payload.gatePassNo),
         bagSizes: payload.bagSizes.map((item) => ({
           ...item,
+          quantity: Number(item.quantity),
+          rate: Number(item.rate),
           acres: Number(item.acres ?? 0),
         })),
       };

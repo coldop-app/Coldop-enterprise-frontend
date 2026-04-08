@@ -11,17 +11,25 @@ export interface FarmerSeedBagSize {
 /** Request body for POST /farmer-seed */
 export interface CreateFarmerSeedInput {
   farmerStorageLinkId: string;
+  gatePassNo: number;
+  invoiceNumber: string;
+  date: string;
   variety: string;
   generation: string;
   bagSizes: FarmerSeedBagSize[];
+  remarks?: string;
 }
 
 /** Request body for PUT /farmer-seed/:id */
 export interface EditFarmerSeedInput {
   farmerStorageLinkId?: string;
+  gatePassNo?: number;
+  invoiceNumber?: string;
+  date?: string;
   variety?: string;
   generation?: string;
   bagSizes?: FarmerSeedBagSize[];
+  remarks?: string;
 }
 
 /** Farmer seed entity returned by create API */
@@ -29,9 +37,13 @@ export interface FarmerSeedEntry {
   _id: string;
   farmerStorageLinkId: string;
   createdBy: string;
+  gatePassNo: number;
+  invoiceNumber: string;
+  date: string;
   variety: string;
   generation: string;
   bagSizes: FarmerSeedBagSize[];
+  remarks?: string;
   createdAt: string;
   updatedAt: string;
   __v?: number;
@@ -63,9 +75,13 @@ export interface FarmerSeedFarmerStorageLinkRef {
 export interface FarmerSeedEntryByStorageLink {
   _id: string;
   farmerStorageLinkId: FarmerSeedFarmerStorageLinkRef;
+  gatePassNo: number;
+  invoiceNumber: string;
+  date: string;
   variety: string;
   generation: string;
   bagSizes: FarmerSeedBagSize[];
+  remarks?: string;
   createdAt: string;
   updatedAt: string;
   __v?: number;

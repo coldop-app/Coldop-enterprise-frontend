@@ -12,6 +12,8 @@ export const POTATO_VARIETIES: { label: string; value: string }[] = [
 export const FARMER_SEED_GENERATIONS: { label: string; value: string }[] = [
   { label: 'G2', value: 'G2' },
   { label: 'G3', value: 'G3' },
+  { label: 'Foundation', value: 'Foundation' },
+  { label: 'Certified', value: 'Certified' },
 ];
 
 /** =====================================================

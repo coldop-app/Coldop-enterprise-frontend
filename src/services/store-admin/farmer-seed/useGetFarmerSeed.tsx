@@ -23,8 +23,29 @@ function normalizeFarmerSeedRows(
 ): FarmerSeedEntryByStorageLink[] {
   return rows.map((row) => ({
     ...row,
+    gatePassNo:
+      row.gatePassNo == null
+        ? 0
+        : Number.isFinite(Number(row.gatePassNo))
+          ? Number(row.gatePassNo)
+          : 0,
+    invoiceNumber: String(row.invoiceNumber ?? '').trim(),
+    date: typeof row.date === 'string' ? row.date : '',
+    remarks: row.remarks?.trim() || undefined,
     bagSizes: (row.bagSizes ?? []).map((bag) => ({
       ...bag,
+      quantity:
+        bag.quantity == null
+          ? 0
+          : Number.isFinite(Number(bag.quantity))
+            ? Number(bag.quantity)
+            : 0,
+      rate:
+        bag.rate == null
+          ? 0
+          : Number.isFinite(Number(bag.rate))
+            ? Number(bag.rate)
+            : 0,
       acres:
         bag.acres == null
           ? undefined
