@@ -36,7 +36,6 @@ import { FarmerSeedSummarySheet } from '@/components/forms/farmer-seed/summary-s
 import { formatFarmerSeedAmount } from '@/components/forms/farmer-seed/format-farmer-seed-amount';
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 import { Route as FarmerSeedRoute } from '@/routes/store-admin/_authenticated/farmer-seed';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 
@@ -118,7 +117,6 @@ const formatAcresValue = (value: number) => {
 };
 
 const FarmerSeedForm = memo(function FarmerSeedForm() {
-  const navigate = useNavigate();
   const { farmerStorageLinkId: farmerStorageLinkIdFromSearch } =
     FarmerSeedRoute.useSearch();
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
@@ -188,19 +186,8 @@ const FarmerSeedForm = memo(function FarmerSeedForm() {
         {
           onSuccess: (data) => {
             if (data.success) {
-              const redirectFarmerStorageLinkId = value.farmerStorageLinkId;
               setIsSummarySheetOpen(false);
               form.reset();
-              if (redirectFarmerStorageLinkId) {
-                navigate({
-                  to: '/store-admin/people/$farmerStorageLinkId',
-                  params: {
-                    farmerStorageLinkId: redirectFarmerStorageLinkId,
-                  },
-                });
-                return;
-              }
-              navigate({ to: '/store-admin/people' });
             }
           },
         }
