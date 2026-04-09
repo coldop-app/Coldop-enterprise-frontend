@@ -96,7 +96,7 @@ export interface PassVoucherData {
   allocationStatus?: string;
   remarks?: string;
   /** Grading: createdBy/gradedBy; grader name when from list API */
-  createdBy?: string | { name?: string };
+  createdBy?: { name?: string };
   /** Grading list API: grader name (e.g. "Rama Jandu") */
   grader?: string;
   /** Storage/Nikasi: linked grading pass refs (IDs as string[] from bulk API or objects from list API) */
