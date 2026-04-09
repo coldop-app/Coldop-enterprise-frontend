@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.49.0] - 2026-04-09
+
+### Added
+- Nikasi (Dispatch) form now supports dynamic **Add Size** rows, allowing multiple size entries (including repeated sizes with different varieties) in one gate pass submission
+
+### Changed
+- Nikasi create form payload assembly now includes both fixed grading sizes and dynamic extra rows when building `bagSizes` for create requests
+- Nikasi gate pass list service (`useGetNikasiGatePasses`) now supports pagination and date-range query params (`page`, `limit`, `sortOrder`, `dateFrom`, `dateTo`) and returns `{ data, pagination }`
+- Nikasi gate pass types aligned to populated GET response shape with `farmerStorageLinkId` details and pagination metadata
+- Daybook **Dispatch** tab now uses live nikasi list API data with year-to-date filtering, search, sort, and pagination, and renders vouchers through `NikasiVoucher` (`variant="dispatch"`)
+
 ## [0.48.0] - 2026-04-08
 
 ### Added

@@ -3,16 +3,26 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetNikasiGatePassesApiResponse,
-  NikasiGatePass,
+  NikasiGatePassPagination,
+  NikasiGatePassWithLink,
 } from '@/types/nikasi-gate-pass';
 
 /** Query key prefix for nikasi gate pass – use for invalidation */
 export const nikasiGatePassKeys = {
   all: ['store-admin', 'nikasi-gate-pass'] as const,
+  lists: () => [...nikasiGatePassKeys.all, 'list'] as const,
+  list: (params: GetNikasiGatePassesParams) =>
+    [...nikasiGatePassKeys.lists(), params] as const,
 };
 
-/** Query key for the list of nikasi gate passes */
-const nikasiGatePassListKey = [...nikasiGatePassKeys.all, 'list'] as const;
+/** Params for GET /nikasi-gate-pass (date range in YYYY-MM-DD) */
+export interface GetNikasiGatePassesParams {
+  page?: number;
+  limit?: number;
+  sortOrder?: 'asc' | 'desc';
+  dateFrom?: string;
+  dateTo?: string;
+}
 
 /** GET error shape (e.g. 401): { success, error: { code, message } } */
 type GetNikasiGatePassesError = {
@@ -32,17 +42,43 @@ function getFetchErrorMessage(
 }
 
 /** Fetcher used by queryOptions and prefetch */
-async function fetchNikasiGatePasses(): Promise<NikasiGatePass[]> {
+export interface GetNikasiGatePassesResult {
+  data: NikasiGatePassWithLink[];
+  pagination: NikasiGatePassPagination;
+}
+
+/** Fetcher used by queryOptions and prefetch */
+async function fetchNikasiGatePasses(
+  params: GetNikasiGatePassesParams
+): Promise<GetNikasiGatePassesResult> {
   try {
     const { data } = await storeAdminAxiosClient.get<
       GetNikasiGatePassesApiResponse | GetNikasiGatePassesError
-    >('/nikasi-gate-pass');
+    >('/nikasi-gate-pass', {
+      params: {
+        page: params.page,
+        limit: params.limit,
+        sortOrder: params.sortOrder,
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+      },
+    });
 
     if (!data.success || !('data' in data) || data.data == null) {
       throw new Error(getFetchErrorMessage(data));
     }
 
-    return data.data;
+    const response = data as GetNikasiGatePassesApiResponse;
+    const list = response.data ?? [];
+    const pagination = response.pagination ?? {
+      page: params.page ?? 1,
+      limit: params.limit ?? 10,
+      total: list.length,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    };
+    return { data: list, pagination };
   } catch (err) {
     const responseData =
       err &&
@@ -58,18 +94,22 @@ async function fetchNikasiGatePasses(): Promise<NikasiGatePass[]> {
 }
 
 /** Query options – use with useQuery, prefetchQuery, or in loaders */
-export const nikasiGatePassesQueryOptions = () =>
+export const nikasiGatePassesQueryOptions = (
+  params: GetNikasiGatePassesParams = {}
+) =>
   queryOptions({
-    queryKey: nikasiGatePassListKey,
-    queryFn: fetchNikasiGatePasses,
+    queryKey: nikasiGatePassKeys.list(params),
+    queryFn: () => fetchNikasiGatePasses(params),
   });
 
-/** Hook to fetch all nikasi gate passes */
-export function useGetNikasiGatePasses() {
-  return useQuery(nikasiGatePassesQueryOptions());
+/** Hook to fetch nikasi gate passes with pagination */
+export function useGetNikasiGatePasses(params: GetNikasiGatePassesParams = {}) {
+  return useQuery(nikasiGatePassesQueryOptions(params));
 }
 
 /** Prefetch nikasi gate passes – e.g. on route hover or before navigation */
-export function prefetchNikasiGatePasses() {
-  return queryClient.prefetchQuery(nikasiGatePassesQueryOptions());
+export function prefetchNikasiGatePasses(
+  params: GetNikasiGatePassesParams = {}
+) {
+  return queryClient.prefetchQuery(nikasiGatePassesQueryOptions(params));
 }

@@ -2,6 +2,7 @@ import type {
   GradingGatePassIncomingGatePass,
   GradingGatePassOrderDetail,
 } from './grading-gate-pass';
+import type { FarmerStorageLinkFarmer } from './farmer';
 
 /** One bag size entry in the create nikasi request */
 export interface CreateNikasiGatePassBagSize {
@@ -124,6 +125,20 @@ export interface NikasiGatePassBagSizeItem {
   quantityIssued: number;
 }
 
+/** Admin user who linked the farmer-storage pair in GET /nikasi-gate-pass response */
+export interface NikasiGatePassLinkedByAdmin {
+  _id: string;
+  name: string;
+}
+
+/** Farmer storage link as returned in GET /nikasi-gate-pass response (populated) */
+export interface NikasiGatePassFarmerStorageLink {
+  _id: string;
+  farmerId: FarmerStorageLinkFarmer;
+  linkedById: NikasiGatePassLinkedByAdmin;
+  accountNumber: number;
+}
+
 /** Nikasi gate pass as returned by GET /nikasi-gate-pass */
 export interface NikasiGatePass {
   _id: string;
@@ -148,14 +163,44 @@ export interface NikasiGatePass {
   __v: number;
   /** Present when returned from GET /nikasi-gate-pass/grouped */
   manualGatePassNumber?: number;
-  farmerStorageLinkId?: string;
+  farmerStorageLinkId?: string | NikasiGatePassFarmerStorageLink;
   createdBy?: string;
+}
+
+/** Nikasi gate pass as returned by GET /nikasi-gate-pass (with populated farmerStorageLinkId) */
+export interface NikasiGatePassWithLink {
+  _id: string;
+  farmerStorageLinkId: NikasiGatePassFarmerStorageLink;
+  createdBy: string;
+  gatePassNo: number;
+  manualGatePassNumber?: number;
+  date: string;
+  from: string;
+  toField: string;
+  bagSize: NikasiGatePassBagSizeItem[];
+  remarks?: string;
+  netWeight?: number;
+  averageWeightPerBag?: number;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+/** Pagination as returned by GET /nikasi-gate-pass */
+export interface NikasiGatePassPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
 /** API response for GET /nikasi-gate-pass */
 export interface GetNikasiGatePassesApiResponse {
   success: boolean;
-  data: NikasiGatePass[];
+  data: NikasiGatePassWithLink[];
+  pagination: NikasiGatePassPagination;
   message?: string;
 }
 

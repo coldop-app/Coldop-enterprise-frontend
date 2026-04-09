@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useGetIncomingGatePasses } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
 import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
+import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
 import {
   IncomingTab,
   GradingTab,
@@ -90,6 +91,35 @@ const DaybookPage = memo(function DaybookPage() {
   const storageTotalPages = storagePagination?.totalPages ?? 1;
   const storageHasPrev = storagePagination?.hasPreviousPage ?? false;
   const storageHasNext = storagePagination?.hasNextPage ?? false;
+
+  const dispatchDateRange = useMemo(() => {
+    const now = new Date();
+    return {
+      dateFrom: `${now.getFullYear()}-01-01`,
+      dateTo: now.toISOString().slice(0, 10),
+    };
+  }, []);
+  const dispatchParams = useMemo(
+    () => ({
+      page,
+      limit,
+      sortOrder,
+      dateFrom: dispatchDateRange.dateFrom,
+      dateTo: dispatchDateRange.dateTo,
+    }),
+    [page, limit, sortOrder, dispatchDateRange]
+  );
+  const {
+    data: dispatchResult,
+    isLoading: dispatchLoading,
+    isError: dispatchError,
+    error: dispatchErrorDetail,
+  } = useGetNikasiGatePasses(dispatchParams);
+  const dispatchGatePassData = dispatchResult?.data;
+  const dispatchPagination = dispatchResult?.pagination;
+  const dispatchTotalPages = dispatchPagination?.totalPages ?? 1;
+  const dispatchHasPrev = dispatchPagination?.hasPreviousPage ?? false;
+  const dispatchHasNext = dispatchPagination?.hasNextPage ?? false;
 
   const setLimitAndResetPage = useCallback((newLimit: number) => {
     setLimit(newLimit);
@@ -227,7 +257,27 @@ const DaybookPage = memo(function DaybookPage() {
               value="dispatch"
               className="mt-0 flex flex-col gap-4 outline-none"
             >
-              <DispatchTab />
+              <DispatchTab
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                sortOrder={sortOrder}
+                onSortOrderChange={(v: 'asc' | 'desc') => {
+                  setSortOrder(v);
+                  setPage(1);
+                }}
+                page={page}
+                onPageChange={setPage}
+                limit={limit}
+                onLimitChange={setLimitAndResetPage}
+                data={dispatchGatePassData}
+                total={dispatchPagination?.total ?? 0}
+                isLoading={dispatchLoading}
+                isError={dispatchError}
+                error={dispatchErrorDetail}
+                totalPages={dispatchTotalPages}
+                hasPrev={dispatchHasPrev}
+                hasNext={dispatchHasNext}
+              />
             </TabsContent>
 
             <TabsContent

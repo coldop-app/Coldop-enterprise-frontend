@@ -37,7 +37,7 @@ import {
   NikasiSummarySheet,
   type NikasiSummaryFormValues,
 } from './summary-sheet';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 
 const defaultSizeQuantities = Object.fromEntries(
   GRADING_SIZES.map((s) => [s, 0])
@@ -51,6 +51,14 @@ const defaultSizeVarieties = Object.fromEntries(
 
 const numberInputClassName =
   'font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
+type ExtraQuantityRow = {
+  id: string;
+  size: string;
+  quantity: number;
+  bagType: string;
+  variety: string;
+};
 
 function preventArrowKeys(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
@@ -111,6 +119,9 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     useState<Record<string, string>>(defaultSizeBagTypes);
   const [sizeVarieties, setSizeVarieties] =
     useState<Record<string, string>>(defaultSizeVarieties);
+  const [extraQuantityRows, setExtraQuantityRows] = useState<
+    ExtraQuantityRow[]
+  >([]);
   const [netWeight, setNetWeight] = useState<number | undefined>(undefined);
   const [averageWeightPerBag, setAverageWeightPerBag] = useState<
     number | undefined
@@ -123,18 +134,30 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
   const gatePassNo = voucherNumber ?? 0;
 
   const totalQty = useMemo(
-    () => Object.values(sizeQuantities).reduce((sum, q) => sum + (q ?? 0), 0),
-    [sizeQuantities]
+    () =>
+      Object.values(sizeQuantities).reduce((sum, q) => sum + (q ?? 0), 0) +
+      extraQuantityRows.reduce((sum, row) => sum + (row.quantity ?? 0), 0),
+    [sizeQuantities, extraQuantityRows]
   );
 
   const summaryFormValues = useMemo((): NikasiSummaryFormValues => {
-    const allocations = (Object.entries(sizeQuantities) as [string, number][])
+    const fixedAllocations = (
+      Object.entries(sizeQuantities) as [string, number][]
+    )
       .filter(([, qty]) => (qty ?? 0) > 0)
       .map(([size, quantityToAllocate]) => ({
         size,
         quantityToAllocate,
         availableQuantity: quantityToAllocate,
       }));
+    const extraAllocations = extraQuantityRows
+      .filter((row) => (row.quantity ?? 0) > 0)
+      .map((row) => ({
+        size: row.size,
+        quantityToAllocate: row.quantity,
+        availableQuantity: row.quantity,
+      }));
+    const allocations = [...fixedAllocations, ...extraAllocations];
     return {
       passes: [
         {
@@ -145,17 +168,27 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
           gradingGatePasses: [
             {
               gradingGatePassId: '_direct',
-              variety:
-                Object.values(sizeVarieties)
-                  .find((v) => v?.trim())
-                  ?.trim() || '—',
+              variety: (
+                [
+                  ...Object.values(sizeVarieties),
+                  ...extraQuantityRows.map((row) => row.variety),
+                ].find((v) => v?.trim()) ?? '—'
+              ).trim(),
               allocations,
             },
           ],
         },
       ],
     };
-  }, [date, from, toField, remarks, sizeQuantities, sizeVarieties]);
+  }, [
+    date,
+    from,
+    toField,
+    remarks,
+    sizeQuantities,
+    sizeVarieties,
+    extraQuantityRows,
+  ]);
 
   const handleSubmit = useCallback(() => {
     if (!effectiveFarmerStorageLinkId?.trim()) {
@@ -163,13 +196,23 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
       return;
     }
     if (voucherNumber == null) return;
-    const bagSizes = (Object.entries(sizeQuantities) as [string, number][])
+    const bagSizesFromFixed = (
+      Object.entries(sizeQuantities) as [string, number][]
+    )
       .filter(([, qty]) => (qty ?? 0) > 0)
       .map(([size, quantityIssued]) => ({
         size,
         variety: (sizeVarieties[size] ?? '').trim() || 'Potato',
         quantityIssued: quantityIssued ?? 0,
       }));
+    const bagSizesFromExtra = extraQuantityRows
+      .filter((row) => (row.quantity ?? 0) > 0)
+      .map((row) => ({
+        size: row.size,
+        variety: row.variety.trim() || 'Potato',
+        quantityIssued: row.quantity ?? 0,
+      }));
+    const bagSizes = [...bagSizesFromFixed, ...bagSizesFromExtra];
     if (bagSizes.length === 0) {
       toast.error('Please enter at least one quantity.');
       return;
@@ -209,6 +252,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     toField,
     sizeQuantities,
     sizeVarieties,
+    extraQuantityRows,
     remarks,
     netWeight,
     averageWeightPerBag,
@@ -231,10 +275,37 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     setSizeQuantities({ ...defaultSizeQuantities });
     setSizeBagTypes({ ...defaultSizeBagTypes });
     setSizeVarieties({ ...defaultSizeVarieties });
+    setExtraQuantityRows([]);
     setNetWeight(undefined);
     setAverageWeightPerBag(undefined);
     setRemarks('');
   }, [isFixedFarmerMode, initialFarmerStorageLinkId]);
+
+  const addExtraRow = useCallback(() => {
+    setExtraQuantityRows((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        size: GRADING_SIZES[0] ?? '',
+        quantity: 0,
+        bagType: 'JUTE',
+        variety: '',
+      },
+    ]);
+  }, []);
+
+  const updateExtraRow = useCallback(
+    (id: string, updates: Partial<ExtraQuantityRow>) => {
+      setExtraQuantityRows((prev) =>
+        prev.map((row) => (row.id === id ? { ...row, ...updates } : row))
+      );
+    },
+    []
+  );
+
+  const removeExtraRow = useCallback((id: string) => {
+    setExtraQuantityRows((prev) => prev.filter((row) => row.id !== id));
+  }, []);
 
   return (
     <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
@@ -373,7 +444,8 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
                 Enter Quantities
               </CardTitle>
               <CardDescription className="font-custom text-muted-foreground text-sm">
-                Enter quantity and bag type for each size.
+                Enter size, quantity, bag type and variety. Add another variety
+                to dispatch multiple varieties in one gate pass.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -449,6 +521,95 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
                   </div>
                 );
               })}
+              {extraQuantityRows.map((row) => {
+                const displayValue =
+                  row.quantity === 0 ? '' : String(row.quantity);
+                return (
+                  <div
+                    key={row.id}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                  >
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:min-w-0 sm:flex-nowrap">
+                      <select
+                        aria-label="Select size"
+                        value={row.size}
+                        onChange={(e) =>
+                          updateExtraRow(row.id, { size: e.target.value })
+                        }
+                        className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:w-28"
+                      >
+                        {GRADING_SIZES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Qty"
+                        value={displayValue}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const num =
+                            raw === ''
+                              ? 0
+                              : Math.max(0, parseInt(raw, 10) || 0);
+                          updateExtraRow(row.id, { quantity: num });
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onKeyDown={preventArrowKeys}
+                        className={`w-full sm:w-24 ${numberInputClassName}`}
+                      />
+                      <select
+                        aria-label={`Bag type for ${row.size}`}
+                        value={row.bagType}
+                        onChange={(e) =>
+                          updateExtraRow(row.id, { bagType: e.target.value })
+                        }
+                        className="border-input bg-background focus-visible:ring-primary font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:w-28"
+                      >
+                        {BAG_TYPES.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <SearchSelector
+                        id={`nikasi-extra-variety-${row.id}`}
+                        options={POTATO_VARIETIES}
+                        placeholder="Variety"
+                        searchPlaceholder="Search variety..."
+                        value={row.variety}
+                        onSelect={(v) =>
+                          updateExtraRow(row.id, { variety: v ?? '' })
+                        }
+                        buttonClassName="font-custom h-9 w-full sm:w-28"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => removeExtraRow(row.id)}
+                        aria-label={`Remove ${row.size || 'size'} row`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addExtraRow}
+                className="font-custom w-full sm:w-auto"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Size
+              </Button>
               <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="font-custom text-foreground text-base font-normal">
                   Total
