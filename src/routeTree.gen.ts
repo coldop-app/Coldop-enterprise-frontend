@@ -22,6 +22,7 @@ import { Route as StoreAdminAuthenticatedIncomingIndexRouteImport } from './rout
 import { Route as StoreAdminAuthenticatedGroupedIndexRouteImport } from './routes/store-admin/_authenticated/grouped/index'
 import { Route as StoreAdminAuthenticatedGradingIndexRouteImport } from './routes/store-admin/_authenticated/grading/index'
 import { Route as StoreAdminAuthenticatedFarmerSeedIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/index'
+import { Route as StoreAdminAuthenticatedFarmerSeedHistoryIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-history/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
 import { Route as StoreAdminAuthenticatedAreaBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/area-breakdown/index'
 import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/index'
@@ -105,6 +106,12 @@ const StoreAdminAuthenticatedFarmerSeedIndexRoute =
     path: '/farmer-seed/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute =
+  StoreAdminAuthenticatedFarmerSeedHistoryIndexRouteImport.update({
+    id: '/farmer-seed-history/',
+    path: '/farmer-seed-history/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedDaybookIndexRoute =
   StoreAdminAuthenticatedDaybookIndexRouteImport.update({
     id: '/daybook/',
@@ -164,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/area-breakdown/': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/farmer-seed-history/': typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
   '/store-admin/farmer-seed/': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   '/store-admin/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/grouped/': typeof StoreAdminAuthenticatedGroupedIndexRoute
@@ -187,6 +195,7 @@ export interface FileRoutesByTo {
   '/store-admin/analytics': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/area-breakdown': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/farmer-seed-history': typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
   '/store-admin/farmer-seed': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   '/store-admin/grading': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/grouped': typeof StoreAdminAuthenticatedGroupedIndexRoute
@@ -211,6 +220,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/_authenticated/area-breakdown/': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/_authenticated/farmer-seed-history/': typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
   '/store-admin/_authenticated/farmer-seed/': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   '/store-admin/_authenticated/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
   '/store-admin/_authenticated/grouped/': typeof StoreAdminAuthenticatedGroupedIndexRoute
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/store-admin/analytics/'
     | '/store-admin/area-breakdown/'
     | '/store-admin/daybook/'
+    | '/store-admin/farmer-seed-history/'
     | '/store-admin/farmer-seed/'
     | '/store-admin/grading/'
     | '/store-admin/grouped/'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/store-admin/analytics'
     | '/store-admin/area-breakdown'
     | '/store-admin/daybook'
+    | '/store-admin/farmer-seed-history'
     | '/store-admin/farmer-seed'
     | '/store-admin/grading'
     | '/store-admin/grouped'
@@ -282,6 +294,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/analytics/'
     | '/store-admin/_authenticated/area-breakdown/'
     | '/store-admin/_authenticated/daybook/'
+    | '/store-admin/_authenticated/farmer-seed-history/'
     | '/store-admin/_authenticated/farmer-seed/'
     | '/store-admin/_authenticated/grading/'
     | '/store-admin/_authenticated/grouped/'
@@ -398,6 +411,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/farmer-seed-history/': {
+      id: '/store-admin/_authenticated/farmer-seed-history/'
+      path: '/farmer-seed-history'
+      fullPath: '/store-admin/farmer-seed-history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/daybook/': {
       id: '/store-admin/_authenticated/daybook/'
       path: '/daybook'
@@ -461,6 +481,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedAnalyticsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   StoreAdminAuthenticatedAreaBreakdownIndexRoute: typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
+  StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
   StoreAdminAuthenticatedFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
   StoreAdminAuthenticatedGradingIndexRoute: typeof StoreAdminAuthenticatedGradingIndexRoute
   StoreAdminAuthenticatedGroupedIndexRoute: typeof StoreAdminAuthenticatedGroupedIndexRoute
@@ -485,6 +506,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedAreaBreakdownIndexRoute,
     StoreAdminAuthenticatedDaybookIndexRoute:
       StoreAdminAuthenticatedDaybookIndexRoute,
+    StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute:
+      StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute,
     StoreAdminAuthenticatedFarmerSeedIndexRoute:
       StoreAdminAuthenticatedFarmerSeedIndexRoute,
     StoreAdminAuthenticatedGradingIndexRoute:

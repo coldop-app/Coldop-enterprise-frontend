@@ -62,7 +62,7 @@ function StorageGroupCard({ group }: { group: GroupedStorageGatePassGroup }) {
           </TableHeader>
           <TableBody>
             {group.passes.map((pass) => {
-              const totalBags = pass.orderDetails.reduce(
+              const totalBags = (pass.orderDetails ?? []).reduce(
                 (sum, o) => sum + (o.currentQuantity ?? o.initialQuantity ?? 0),
                 0
               );

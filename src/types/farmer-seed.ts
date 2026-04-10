@@ -93,3 +93,42 @@ export interface GetFarmerSeedApiResponse {
   data: FarmerSeedEntryByStorageLink[];
   message?: string;
 }
+
+/** Populated farmer on GET /farmer-seed/farmer-seed-entry */
+export interface FarmerSeedEntryListFarmerRef {
+  _id: string;
+  name: string;
+  address: string;
+}
+
+/** Populated farmer–storage link on GET /farmer-seed/farmer-seed-entry */
+export interface FarmerSeedEntryListStorageLink {
+  _id: string;
+  farmerId: FarmerSeedEntryListFarmerRef;
+  coldStorageId: string;
+  /** May be fractional (e.g. 62.3) for secondary accounts */
+  accountNumber: number;
+}
+
+/** Row from GET /farmer-seed/farmer-seed-entry (all entries for the cold store) */
+export interface FarmerSeedEntryListItem {
+  _id: string;
+  farmerStorageLinkId: FarmerSeedEntryListStorageLink;
+  gatePassNo: number | null;
+  invoiceNumber: string;
+  date: string;
+  variety: string;
+  generation: string;
+  bagSizes: FarmerSeedBagSize[];
+  remarks?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  __v?: number;
+}
+
+/** API response for GET /farmer-seed/farmer-seed-entry */
+export interface GetAllFarmerSeedEntriesApiResponse {
+  success: boolean;
+  data: FarmerSeedEntryListItem[];
+  message?: string;
+}
