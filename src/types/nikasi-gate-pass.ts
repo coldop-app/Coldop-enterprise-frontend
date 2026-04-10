@@ -84,6 +84,26 @@ export interface CreateNikasiGatePassApiResponse {
   data: CreatedNikasiGatePass;
 }
 
+/** Request body for PATCH /nikasi-gate-pass/:id */
+export interface EditNikasiGatePassInput {
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  date?: string;
+  from?: string;
+  toField?: string;
+  bagSizes?: CreateNikasiGatePassBagSize[];
+  remarks?: string;
+  netWeight?: number;
+  averageWeightPerBag?: number;
+}
+
+/** API response for PATCH /nikasi-gate-pass/:id */
+export interface EditNikasiGatePassApiResponse {
+  success: boolean;
+  data: Record<string, unknown>;
+  message?: string;
+}
+
 /** Request body for POST /nikasi-gate-pass/bulk */
 export interface CreateBulkNikasiGatePassInput {
   passes: CreateNikasiGatePassInput[];

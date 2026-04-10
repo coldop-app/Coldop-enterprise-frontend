@@ -88,6 +88,10 @@ export interface PassVoucherData {
   manualGatePassNumber?: number;
   date?: string;
   variety?: string;
+  /** Nikasi: total net weight */
+  netWeight?: number;
+  /** Nikasi: computed average weight per bag */
+  averageWeightPerBag?: number;
   orderDetails?: OrderDetailRow[];
   /** Nikasi list API: size/variety/quantityIssued per row */
   bagSize?: NikasiBagSizeRow[];

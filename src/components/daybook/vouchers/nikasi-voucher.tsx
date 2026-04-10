@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   ChevronDown,
   ChevronUp,
+  Pencil,
   Printer,
   User,
   MapPin,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import { DetailRow } from './detail-row';
 import { formatVoucherDate } from './format-date';
+import { NikasiEditSheet } from './nikasi-edit-sheet';
 import type { PassVoucherData } from './types';
 import type { NikasiOrderDetailRow } from './types';
 import {
@@ -34,6 +36,7 @@ const NikasiVoucher = memo(function NikasiVoucher({
   variant = 'default',
 }: NikasiVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const isDispatch = variant === 'dispatch';
   const dotClass = isDispatch ? 'bg-destructive' : 'bg-primary';
   const accentClass = isDispatch ? 'text-destructive' : 'text-primary';
@@ -71,6 +74,16 @@ const NikasiVoucher = memo(function NikasiVoucher({
 
   const orderDetails = (voucher.orderDetails ?? []) as NikasiOrderDetailRow[];
   const bagSizeRows = voucher.bagSize ?? [];
+  const netWeightDisplay =
+    voucher.netWeight != null
+      ? Number(voucher.netWeight).toLocaleString('en-IN')
+      : null;
+  const averageWeightPerBagDisplay =
+    voucher.averageWeightPerBag != null
+      ? Number(voucher.averageWeightPerBag).toLocaleString('en-IN', {
+          maximumFractionDigits: 3,
+        })
+      : null;
 
   return (
     <Card
@@ -155,15 +168,27 @@ const NikasiVoucher = memo(function NikasiVoucher({
             )}
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="h-8 w-8 p-0"
-            aria-label="Print gate pass"
-          >
-            <Printer className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditSheetOpen(true)}
+              className="h-8 w-8 p-0"
+              aria-label="Edit gate pass"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="h-8 w-8 p-0"
+              aria-label="Print gate pass"
+            >
+              <Printer className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         {isExpanded && (
@@ -324,6 +349,32 @@ const NikasiVoucher = memo(function NikasiVoucher({
                 </div>
               </section>
 
+              {(netWeightDisplay != null ||
+                averageWeightPerBagDisplay != null) && (
+                <>
+                  <Separator />
+                  <section>
+                    <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
+                      Weight Details
+                    </h4>
+                    <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2">
+                      {netWeightDisplay != null && (
+                        <DetailRow
+                          label="Net Weight"
+                          value={netWeightDisplay}
+                        />
+                      )}
+                      {averageWeightPerBagDisplay != null && (
+                        <DetailRow
+                          label="Average Weight/Bag"
+                          value={averageWeightPerBagDisplay}
+                        />
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
+
               {voucher.remarks != null && voucher.remarks !== '' && (
                 <>
                   <Separator />
@@ -343,6 +394,14 @@ const NikasiVoucher = memo(function NikasiVoucher({
           </>
         )}
       </div>
+
+      {isEditSheetOpen && (
+        <NikasiEditSheet
+          open={isEditSheetOpen}
+          onOpenChange={setIsEditSheetOpen}
+          voucher={voucher}
+        />
+      )}
     </Card>
   );
 });
