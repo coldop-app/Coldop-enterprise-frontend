@@ -803,3 +803,53 @@ export interface GetShedStockReportApiResponse {
   data: ShedStockReportData;
   message?: string;
 }
+
+/** Seed size line on a contract farming farmer row */
+export interface ContractFarmingSizeRow {
+  name: string;
+  quantity: number;
+  acres: number;
+  amountPayable: number;
+}
+
+/** Buy-back bags / weight for one variety key */
+export interface ContractFarmingBuyBackSummary {
+  bags: number;
+  netWeightKg: number;
+}
+
+/** One grading bucket (e.g. "30–40", "Above 50") */
+export interface ContractFarmingGradingBucket {
+  initialBags: number;
+  netWeightKg: number;
+}
+
+/**
+ * One farmer row under a variety in GET /analytics/contract-farming-report.
+ * `grading` is keyed by variety name, then by size bucket label.
+ */
+export interface ContractFarmingFarmerRow {
+  id: string;
+  name: string;
+  address: string;
+  mobileNumber: string;
+  accountNumber: number;
+  acresPlanted: number;
+  totalSeedAmountPayable: number;
+  generations: string[];
+  sizes: ContractFarmingSizeRow[];
+  'buy-back-bags': Record<string, ContractFarmingBuyBackSummary>;
+  grading: Record<string, Record<string, ContractFarmingGradingBucket>>;
+}
+
+/** Payload for GET /analytics/contract-farming-report */
+export interface ContractFarmingReportData {
+  byVariety: Record<string, ContractFarmingFarmerRow[]>;
+}
+
+/** API response for GET /analytics/contract-farming-report */
+export interface GetContractFarmingReportApiResponse {
+  success: boolean;
+  data: ContractFarmingReportData;
+  message?: string;
+}
