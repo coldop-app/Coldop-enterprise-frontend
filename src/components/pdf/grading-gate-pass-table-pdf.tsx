@@ -13,18 +13,18 @@ const HEADER_BG = '#f9fafb';
 
 /** Column widths: base columns + per-size (Qty with size name as header, Wt in Kg, Bag Type) + Total. */
 const COL_WIDTHS = {
-  incomingGatePassNo: 22,
-  manualIncomingVoucherNo: 22,
-  gradingGatePassNo: 22,
-  manualGradingGatePassNo: 22,
-  farmerName: 48,
-  variety: 32,
-  date: 30,
+  incomingGatePassNo: 34,
+  manualIncomingVoucherNo: 34,
+  gradingGatePassNo: 34,
+  manualGradingGatePassNo: 34,
+  farmerName: 80,
+  variety: 48,
+  date: 44,
   /** Single column: header = size name (e.g. 35-40), cell = quantity */
-  sizeQty: 22,
-  wtInKg: 18,
-  bagType: 16,
-  total: 20,
+  sizeQty: 34,
+  wtInKg: 26,
+  bagType: 24,
+  total: 32,
 } as const;
 
 const styles = StyleSheet.create({
@@ -33,11 +33,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 2,
-    padding: 6,
+    padding: 10,
     backgroundColor: '#fafafa',
   },
   title: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: 700,
     color: '#333',
     marginBottom: 4,
@@ -51,10 +51,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerCell: {
-    paddingVertical: 1,
-    paddingHorizontal: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 3,
     fontWeight: 700,
-    fontSize: 3.5,
+    fontSize: 6,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
@@ -76,8 +76,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   cell: {
-    paddingVertical: 1,
-    paddingHorizontal: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 3,
     borderRightWidth: 1,
     borderColor: BORDER,
     flexShrink: 0,
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   /** Stacked sub-row inside a split column (incoming / repeated identity cols). */
   splitSubRow: {
-    minHeight: 9,
+    minHeight: 14,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     width: '100%',
@@ -124,11 +124,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 2,
-    padding: 4,
+    padding: 6,
     backgroundColor: '#f5f5f5',
   },
   summaryTitle: {
-    fontSize: 6,
+    fontSize: 8,
     fontWeight: 700,
     marginBottom: 3,
     color: '#333',
@@ -143,18 +143,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#e8e8e8',
     borderBottomWidth: 1,
     borderColor: BORDER,
-    paddingVertical: 1,
-    paddingHorizontal: 1,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
   },
   summaryDataRow: {
     flexDirection: 'row',
     borderBottomWidth: 0.5,
     borderColor: BORDER,
-    paddingVertical: 1,
-    paddingHorizontal: 1,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
   },
   summaryCell: {
-    fontSize: 3.5,
+    fontSize: 5,
     paddingHorizontal: 1,
     borderRightWidth: 0.5,
     borderColor: BORDER,
@@ -170,7 +170,7 @@ function formatGgpValue(value: number | string | undefined): string {
 }
 
 /** One stacked sub-line height inside a merged grading-pass row (matches grading-report-table-pdf pattern). */
-const PDF_SUB_ROW_HEIGHT = 9;
+const PDF_SUB_ROW_HEIGHT = 16;
 
 function formatLedgerGradingDate(row: StockLedgerRow): string {
   if (
@@ -659,8 +659,8 @@ function GradingTableSummarySection({
     rows,
     sizesWithQty
   );
-  const nameWidth = 80;
-  const numWidth = 28;
+  const nameWidth = 100;
+  const numWidth = 40;
   return (
     <View style={styles.summarySection}>
       <Text style={styles.summaryTitle}>Report Summary</Text>

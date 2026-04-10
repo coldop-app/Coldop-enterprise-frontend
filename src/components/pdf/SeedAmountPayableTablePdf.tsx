@@ -7,8 +7,8 @@ import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
-const HEADER_ROW1_MIN = 16;
-const HEADER_ROW2_MIN = 14;
+const HEADER_ROW1_MIN = 20;
+const HEADER_ROW2_MIN = 18;
 
 /** Sub-columns under the merged “Net Amount Payable” header (image: AMT PAYABLE | SEED BALANCE | NET AMT). */
 export const NET_AMOUNT_PAYABLE_SUB_COLUMNS = [
@@ -47,12 +47,29 @@ export type SeedAmountPayableColumnId =
 /** @deprecated Use `SEED_AMOUNT_PAYABLE_LEAF_COLUMNS` (includes net-payable sub-columns). */
 export const SEED_AMOUNT_PAYABLE_COLUMNS = SEED_AMOUNT_PAYABLE_LEAF_COLUMNS;
 
+function parseNumericCellValue(value: string): number | null {
+  const normalized = value.replace(/,/g, '').trim();
+  if (!normalized || normalized === '—') return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatTotalNumber(value: number): string {
+  if (Number.isInteger(value)) {
+    return value.toLocaleString('en-IN');
+  }
+  return value.toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 10,
   },
   varietyHeading: {
-    fontSize: 6,
+    fontSize: 8,
     fontWeight: 700,
     color: '#111827',
     marginBottom: 4,
@@ -61,7 +78,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   title: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: 700,
     color: '#333',
     marginBottom: 4,
@@ -78,7 +95,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
   },
   headerUpper: {
-    fontSize: 3.2,
+    fontSize: 5,
     fontWeight: 700,
     color: '#111827',
     textTransform: 'uppercase',
@@ -86,7 +103,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerPlain: {
-    fontSize: 3.2,
+    fontSize: 5,
     fontWeight: 700,
     color: '#333',
     textAlign: 'center',
@@ -95,8 +112,8 @@ const styles = StyleSheet.create({
     minHeight: HEADER_ROW1_MIN,
     borderBottomWidth: 1,
     borderColor: BORDER,
-    paddingVertical: 2,
-    paddingHorizontal: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -114,8 +131,8 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 2,
+    paddingVertical: 3,
+    paddingHorizontal: 3,
   },
   netGroupBottomRow: {
     flexDirection: 'row',
@@ -127,8 +144,8 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 2,
   },
   netSubCellLast: {
     borderRightWidth: 0,
@@ -142,14 +159,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   cell: {
-    paddingVertical: 2,
-    paddingHorizontal: 2,
-    fontSize: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 3,
+    fontSize: 6,
     color: '#374151',
     borderRightWidth: 1,
     borderColor: BORDER,
     textAlign: 'center',
-    minHeight: 12,
+    minHeight: 16,
   },
   cellLast: {
     borderRightWidth: 0,
@@ -249,6 +266,23 @@ export default function SeedAmountPayableTablePdf({
       columnIds: SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((c) => c.id),
     });
 
+  const shouldShowTotalRow = data.rowCells.length > 1;
+  const totalRowCells = shouldShowTotalRow
+    ? SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((_, colIdx) => {
+        if (colIdx === 0) return 'Total';
+        let sum = 0;
+        let foundNumeric = false;
+        for (const row of data.rowCells) {
+          const numeric = parseNumericCellValue(String(row[colIdx] ?? ''));
+          if (numeric != null) {
+            sum += numeric;
+            foundNumeric = true;
+          }
+        }
+        return foundNumeric ? formatTotalNumber(sum) : '—';
+      })
+    : null;
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.varietyHeading}>Variety: {data.varietyLabel}</Text>
@@ -290,6 +324,24 @@ export default function SeedAmountPayableTablePdf({
             ))}
           </View>
         ))}
+        {shouldShowTotalRow && totalRowCells ? (
+          <View style={[styles.dataRow, styles.dataRowLast]} wrap={false}>
+            {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
+              <View
+                key={`seed-total-${col.id}`}
+                style={[
+                  styles.cell,
+                  i === SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - 1
+                    ? styles.cellLast
+                    : {},
+                  { width: `${col.widthPct}%`, fontWeight: 700 },
+                ]}
+              >
+                <Text style={{ fontWeight: 700 }}>{totalRowCells[i]}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </View>
   );

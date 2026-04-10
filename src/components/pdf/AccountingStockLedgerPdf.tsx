@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingBottom: 60,
     fontFamily: 'Helvetica',
-    fontSize: 4,
+    fontSize: 6,
   },
   header: {
     borderBottomWidth: 2,
@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   sectionTitle: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: 700,
     color: '#333',
     marginTop: 10,
     marginBottom: 4,
   },
   varietySubsectionTitle: {
-    fontSize: 6,
+    fontSize: 8,
     fontWeight: 700,
     color: '#111827',
     marginTop: 6,
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   cell: {
     paddingVertical: 1,
     paddingHorizontal: 1,
-    fontSize: 4,
+    fontSize: 6,
     textAlign: 'center',
     borderRightWidth: 1,
     borderColor: BORDER,
@@ -115,12 +115,12 @@ const styles = StyleSheet.create({
   varietyCell: {
     paddingVertical: 1,
     paddingHorizontal: 2,
-    fontSize: 3.5,
+    fontSize: 5.5,
     fontWeight: 'bold',
   },
   headerCell: {
     fontWeight: 700,
-    fontSize: 3.5,
+    fontSize: 5.5,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
@@ -129,11 +129,11 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   cellQtyLine: {
-    fontSize: 4,
+    fontSize: 6,
     textAlign: 'center',
   },
   cellWeightLine: {
-    fontSize: 3,
+    fontSize: 5,
     color: '#6b7280',
     textAlign: 'center',
     marginTop: 0,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   totalCell: {
     paddingVertical: 1,
     paddingHorizontal: 1,
-    fontSize: 4,
+    fontSize: 6,
     fontWeight: 700,
     textAlign: 'center',
     borderRightWidth: 1,

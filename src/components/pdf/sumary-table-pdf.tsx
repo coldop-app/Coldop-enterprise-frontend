@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { SIZE_HEADER_LABELS } from '@/components/pdf/gradingVoucherCalculations';
-import { STOCK_LEDGER_COL_WIDTHS } from '@/components/pdf/stockLedgerColumnWidths';
 import type { StockLedgerRow } from '@/components/pdf/stockLedgerTypes';
 import type { SummaryRightValues } from '@/components/pdf/summaryTablePdfCompute';
 import {
@@ -11,10 +10,9 @@ import {
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
 
-const TYPE_COL_WIDTH = STOCK_LEDGER_COL_WIDTHS.bagType;
-const WEIGHT_PER_BAG_COL_WIDTH = 20;
-const SIZE_COL_WIDTH = STOCK_LEDGER_COL_WIDTHS.sizeColumn;
-const W = STOCK_LEDGER_COL_WIDTHS;
+const TYPE_COL_WIDTH = 28;
+const WEIGHT_PER_BAG_COL_WIDTH = 28;
+const SIZE_COL_WIDTH = 24;
 
 /** Right-hand columns after Wt/Bag (same order as main table). */
 const RIGHT_COLUMNS: {
@@ -24,24 +22,24 @@ const RIGHT_COLUMNS: {
 }[] = [
   {
     label: 'WT REC.',
-    width: W.wtReceivedAfterGrading,
+    width: 42,
     key: 'wtReceivedAfterGrading',
   },
   {
     label: 'LESS BARD.',
-    width: W.lessBardanaAfterGrading,
+    width: 36,
     key: 'lessBardanaAfterGrading',
   },
   {
     label: 'ACTUAL WT',
-    width: W.actualWtOfPotato,
+    width: 42,
     key: 'actualWtOfPotato',
   },
-  { label: 'RATE', width: 20, key: 'rate' },
-  { label: 'AMT PAY.', width: W.amountPayable, key: 'amountPayable' },
+  { label: 'RATE', width: 28, key: 'rate' },
+  { label: 'AMT PAY.', width: 40, key: 'amountPayable' },
 ];
 
-const PCT_GRADED_SIZES_COL_WIDTH = 28;
+const PCT_GRADED_SIZES_COL_WIDTH = 40;
 const PCT_GRADED_SIZES_LABEL = '% of Graded Sizes';
 
 const styles = StyleSheet.create({
@@ -50,11 +48,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 2,
-    padding: 8,
+    padding: 10,
     backgroundColor: '#f9fafb',
   },
   title: {
-    fontSize: 6,
+    fontSize: 8,
     fontWeight: 700,
     color: '#333',
     marginBottom: 4,
@@ -67,10 +65,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerCell: {
-    paddingVertical: 2,
-    paddingHorizontal: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 2,
     fontWeight: 700,
-    fontSize: 3.5,
+    fontSize: 5,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
@@ -84,7 +82,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   headerCellText: {
-    fontSize: 3.5,
+    fontSize: 5,
     fontWeight: 700,
     color: '#333',
     textTransform: 'uppercase',
@@ -98,8 +96,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   cell: {
-    paddingVertical: 1,
-    paddingHorizontal: 1,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
     borderRightWidth: 1,
     borderColor: BORDER,
     flexShrink: 0,
@@ -118,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellSub: {
-    fontSize: 2.5,
+    fontSize: 4,
     color: '#6b7280',
   },
   totalRow: {
