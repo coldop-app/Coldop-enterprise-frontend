@@ -2,15 +2,28 @@ import {
   STANDARD_BAGS_PER_ACRE,
   type Variety,
 } from '@/components/forms/grading/constants';
-import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
+import type {
+  FarmerSeedBagSize,
+  FarmerSeedEntryByStorageLink,
+} from '@/types/farmer-seed';
 import type { SeedAmountPayableColumnId } from '@/components/pdf/SeedAmountPayableTablePdf';
-import { getFarmerSeedBagSizesForVariety } from '@/components/pdf/seedAmountPayablePdfHelpers';
+import {
+  getFarmerSeedEntriesForVarietyOrdered,
+  mergeFarmerSeedBagsByName,
+} from '@/components/pdf/seedAmountPayablePdfHelpers';
+import { formatOrdinalDateEn } from '@/lib/helpers';
 
 const EMPTY = '—';
 
 export type PreparedSeedAmountPayableData = {
   varietyLabel: string;
-  rowCells: string[][];
+  /** One row per bag line per seed-given record (entries kept separate). */
+  detailRowCells: string[][];
+  /**
+   * Variety-wise clubbed rows (bag names merged). Populated when there is more than one
+   * seed-given record for this variety so totals are not double-counted with detail.
+   */
+  clubbedRowCells: string[][];
 };
 
 function formatCommaNumber(n: number): string {
@@ -44,7 +57,8 @@ function getCellText(
     amountReceived?: number;
   } | null,
   variety: string | null,
-  summaryAmountPayableTotal?: number
+  summaryAmountPayableTotal?: number,
+  options?: { entryDate?: string }
 ): string {
   const getBagAcresNumber = () => {
     if (!bag || !Number.isFinite(bag.acres) || (bag.acres ?? 0) <= 0) {
@@ -131,7 +145,7 @@ function getCellText(
       return n == null ? EMPTY : formatCommaNumber(n);
     }
     case 'date':
-      return EMPTY;
+      return formatOrdinalDateEn(options?.entryDate);
     case 'amountReceived':
       return typeof bag.amountReceived === 'number' &&
         Number.isFinite(bag.amountReceived)
@@ -160,6 +174,25 @@ function getCellText(
   }
 }
 
+function buildRowCellsForBags(
+  bags: Array<FarmerSeedBagSize | null>,
+  columnIds: SeedAmountPayableColumnId[],
+  variety: string | null,
+  summaryAmountPayableTotal: number | undefined,
+  entryDate: string | undefined
+): string[][] {
+  const rowsSource = bags.length
+    ? bags
+    : ([null] as Array<FarmerSeedBagSize | null>);
+  return rowsSource.map((bag) =>
+    columnIds.map((colId) =>
+      getCellText(colId, bag, variety, summaryAmountPayableTotal, {
+        entryDate,
+      })
+    )
+  );
+}
+
 export function prepareSeedAmountPayableTableData(params: {
   variety: string | null;
   farmerSeedEntries?: FarmerSeedEntryByStorageLink[] | null;
@@ -168,17 +201,55 @@ export function prepareSeedAmountPayableTableData(params: {
 }): PreparedSeedAmountPayableData {
   const { variety, farmerSeedEntries, summaryAmountPayableTotal, columnIds } =
     params;
-  const bagRows = getFarmerSeedBagSizesForVariety(variety, farmerSeedEntries);
   const varietyLabel = variety?.trim() ? variety : '—';
 
-  const rowsSource = bagRows.length
-    ? bagRows
-    : ([null] as Array<(typeof bagRows)[number] | null>);
-  const rowCells = rowsSource.map((bag) =>
-    columnIds.map((colId) =>
-      getCellText(colId, bag, variety, summaryAmountPayableTotal)
-    )
+  const matchingEntries = getFarmerSeedEntriesForVarietyOrdered(
+    variety,
+    farmerSeedEntries
   );
 
-  return { varietyLabel, rowCells };
+  const detailRowCells: string[][] = [];
+  for (const entry of matchingEntries) {
+    const bags = entry.bagSizes ?? [];
+    for (const bag of bags) {
+      detailRowCells.push(
+        columnIds.map((colId) =>
+          getCellText(colId, bag, variety, summaryAmountPayableTotal, {
+            entryDate: entry.date,
+          })
+        )
+      );
+    }
+  }
+
+  const emptyDetailPlaceholder: string[][] =
+    detailRowCells.length > 0
+      ? []
+      : [
+          columnIds.map((colId) =>
+            getCellText(colId, null, variety, summaryAmountPayableTotal, {})
+          ),
+        ];
+
+  const detailFinal =
+    detailRowCells.length > 0 ? detailRowCells : emptyDetailPlaceholder;
+
+  const allBags = matchingEntries.flatMap((e) => e.bagSizes ?? []);
+  const clubbedBags =
+    matchingEntries.length > 1
+      ? mergeFarmerSeedBagsByName(allBags)
+      : ([] as FarmerSeedBagSize[]);
+
+  const clubbedRowCells =
+    clubbedBags.length > 0
+      ? buildRowCellsForBags(
+          clubbedBags,
+          columnIds,
+          variety,
+          summaryAmountPayableTotal,
+          undefined
+        )
+      : [];
+
+  return { varietyLabel, detailRowCells: detailFinal, clubbedRowCells };
 }

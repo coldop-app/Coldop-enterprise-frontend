@@ -48,6 +48,8 @@ import {
   RefreshCw,
   Sprout,
   FileBarChart,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 const PeoplePage = memo(function PeoplePage() {
@@ -65,6 +67,8 @@ const PeoplePage = memo(function PeoplePage() {
   const [sortBy, setSortBy] = useState<'Name' | 'Account Number'>('Name');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isGeneratingCfReportPdf, setIsGeneratingCfReportPdf] = useState(false);
+  const [showContractFarmingTable, setShowContractFarmingTable] =
+    useState(true);
 
   const handleSearchFocus = useCallback(() => setIsSearchFocused(true), []);
   const handleSearchBlur = useCallback(() => setIsSearchFocused(false), []);
@@ -280,6 +284,27 @@ const PeoplePage = memo(function PeoplePage() {
               <Button
                 type="button"
                 variant="outline"
+                onClick={() =>
+                  setShowContractFarmingTable((visible) => !visible)
+                }
+                aria-pressed={showContractFarmingTable}
+                aria-label={
+                  showContractFarmingTable
+                    ? 'Hide contract farming table'
+                    : 'Show contract farming table'
+                }
+                className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+              >
+                {showContractFarmingTable ? (
+                  <EyeOff className="h-4 w-4 shrink-0" />
+                ) : (
+                  <Eye className="h-4 w-4 shrink-0" />
+                )}
+                {showContractFarmingTable ? 'Hide' : 'Show'} C.F. table
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 disabled={isGeneratingCfReportPdf}
                 onClick={handleOpenContractFarmingReportPdf}
                 className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
@@ -302,12 +327,14 @@ const PeoplePage = memo(function PeoplePage() {
           </ItemFooter>
         </Item>
 
-        <ContractFarmingReportDigitalTable
-          isLoading={isCfReportLoading}
-          isError={isCfReportError}
-          error={cfReportError}
-          groups={contractFarmingGroups}
-        />
+        {showContractFarmingTable ? (
+          <ContractFarmingReportDigitalTable
+            isLoading={isCfReportLoading}
+            isError={isCfReportError}
+            error={cfReportError}
+            groups={contractFarmingGroups}
+          />
+        ) : null}
 
         {/* List */}
         {filteredLinks.length === 0 ? (

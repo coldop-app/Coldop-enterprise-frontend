@@ -1,3 +1,5 @@
+import { format, parseISO } from 'date-fns';
+
 export const capitalizeFirstLetter = (value: string) => {
   if (!value) return value;
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
@@ -6,6 +8,30 @@ export const capitalizeFirstLetter = (value: string) => {
 // Helper to format date → dd.mm.yyyy
 export const formatDate = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+
+/**
+ * Fix malformed ISO strings such as `2025-11-14-T00:00:00.000Z` (extra hyphen before `T`).
+ */
+function normalizeIsoLikeDateString(raw: string): string {
+  return raw.trim().replace(/(\d{4}-\d{2}-\d{2})-T/i, '$1T');
+}
+
+/**
+ * Display date with English ordinal day, e.g. "14th Nov 2025".
+ * Accepts standard ISO and common malformed variants from APIs.
+ */
+export function formatOrdinalDateEn(
+  dateStr: string | undefined | null
+): string {
+  if (dateStr == null || !String(dateStr).trim()) return '—';
+  const normalized = normalizeIsoLikeDateString(String(dateStr));
+  let d = parseISO(normalized);
+  if (isNaN(d.getTime())) {
+    d = new Date(normalized);
+  }
+  if (isNaN(d.getTime())) return '—';
+  return format(d, 'do MMM yyyy');
+}
 
 /** Format ISO date string for display (e.g. "29 Jan 2026") */
 export const formatDisplayDate = (dateStr: string | undefined): string => {

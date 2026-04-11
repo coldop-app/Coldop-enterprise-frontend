@@ -171,6 +171,22 @@ const styles = StyleSheet.create({
   cellLast: {
     borderRightWidth: 0,
   },
+  sectionLabel: {
+    fontSize: 6,
+    fontWeight: 700,
+    color: '#374151',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  clubbedDividerRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderTopWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
 });
 
 function HeaderSingleStack({
@@ -243,7 +259,8 @@ export type SeedAmountPayableTablePdfProps = {
 
 /**
  * Seed amount payable breakdown for the accounting stock ledger PDF.
- * One data row per farmer-seed bag size when variety matches; otherwise a single empty row.
+ * Each seed-given record lists its bag lines separately; when there are multiple
+ * records for the variety, a variety-wise clubbed summary (by bag size name) follows.
  */
 export default function SeedAmountPayableTablePdf({
   prepared,
@@ -266,13 +283,17 @@ export default function SeedAmountPayableTablePdf({
       columnIds: SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((c) => c.id),
     });
 
-  const shouldShowTotalRow = data.rowCells.length > 1;
+  const { detailRowCells, clubbedRowCells } = data;
+  const showClubbedBlock = clubbedRowCells.length > 0;
+  const rowsForTotal = showClubbedBlock ? clubbedRowCells : detailRowCells;
+
+  const shouldShowTotalRow = rowsForTotal.length > 1;
   const totalRowCells = shouldShowTotalRow
     ? SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((_, colIdx) => {
         if (colIdx === 0) return 'Total';
         let sum = 0;
         let foundNumeric = false;
-        for (const row of data.rowCells) {
+        for (const row of rowsForTotal) {
           const numeric = parseNumericCellValue(String(row[colIdx] ?? ''));
           if (numeric != null) {
             sum += numeric;
@@ -287,6 +308,9 @@ export default function SeedAmountPayableTablePdf({
     <View style={styles.wrap}>
       <Text style={styles.varietyHeading}>Variety: {data.varietyLabel}</Text>
       <Text style={styles.title}>Seed Amount Payable</Text>
+      {showClubbedBlock ? (
+        <Text style={styles.sectionLabel}>Seed given (by entry)</Text>
+      ) : null}
       <View style={styles.table}>
         <View style={styles.headerRow} wrap={false}>
           {beforeNet.map((col) => (
@@ -299,12 +323,16 @@ export default function SeedAmountPayableTablePdf({
           ))}
           <HeaderNetAmountPayableGroup widthPct={netGroupWidthPct} />
         </View>
-        {data.rowCells.map((rowCells, rowIndex) => (
+        {detailRowCells.map((rowCells, rowIndex) => (
           <View
-            key={`seed-bag-${rowIndex}`}
+            key={`seed-detail-${rowIndex}`}
             style={[
               styles.dataRow,
-              rowIndex === data.rowCells.length - 1 ? styles.dataRowLast : {},
+              rowIndex === detailRowCells.length - 1 &&
+              !showClubbedBlock &&
+              !shouldShowTotalRow
+                ? styles.dataRowLast
+                : {},
             ]}
             wrap={false}
           >
@@ -324,8 +352,53 @@ export default function SeedAmountPayableTablePdf({
             ))}
           </View>
         ))}
+        {showClubbedBlock ? (
+          <>
+            <View style={styles.clubbedDividerRow}>
+              <Text style={{ fontSize: 6, fontWeight: 700, color: '#111827' }}>
+                Variety-wise summary (clubbed by bag size)
+              </Text>
+            </View>
+            {clubbedRowCells.map((rowCells, rowIndex) => (
+              <View
+                key={`seed-clubbed-${rowIndex}`}
+                style={[
+                  styles.dataRow,
+                  rowIndex === clubbedRowCells.length - 1 && !shouldShowTotalRow
+                    ? styles.dataRowLast
+                    : {},
+                ]}
+                wrap={false}
+              >
+                {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
+                  <View
+                    key={col.id}
+                    style={[
+                      styles.cell,
+                      i === SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - 1
+                        ? styles.cellLast
+                        : {},
+                      { width: `${col.widthPct}%` },
+                    ]}
+                  >
+                    <Text>{rowCells[i] ?? '—'}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </>
+        ) : null}
         {shouldShowTotalRow && totalRowCells ? (
-          <View style={[styles.dataRow, styles.dataRowLast]} wrap={false}>
+          <View
+            style={[
+              styles.dataRow,
+              styles.dataRowLast,
+              showClubbedBlock
+                ? { borderTopWidth: 1, borderColor: BORDER }
+                : {},
+            ]}
+            wrap={false}
+          >
             {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
               <View
                 key={`seed-total-${col.id}`}
