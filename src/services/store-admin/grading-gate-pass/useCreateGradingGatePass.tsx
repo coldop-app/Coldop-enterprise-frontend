@@ -8,6 +8,8 @@ import type {
   CreateGradingGatePassApiResponse,
 } from '@/types/grading-gate-pass';
 import { gradingGatePassReportKeys } from '@/services/store-admin/analytics/grading/useGetGradingGatePassReports';
+import { incomingGatePassesByFarmerKey } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePassesOfSingleFarmer';
+import { voucherNumberKeys } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { gradingGatePassKeys } from './useGetGradingGatePasses';
 import { daybookKeys } from './useGetDaybook';
 
@@ -49,13 +51,21 @@ export function useCreateGradingGatePass() {
       return data;
     },
 
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data.success) {
         toast.success(data.message ?? 'Grading gate pass created successfully');
         queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
         queryClient.invalidateQueries({
           queryKey: gradingGatePassReportKeys.all,
+        });
+        queryClient.invalidateQueries({
+          queryKey: voucherNumberKeys.detail('grading-gate-pass'),
+        });
+        queryClient.invalidateQueries({
+          queryKey: incomingGatePassesByFarmerKey(
+            variables.farmerStorageLinkId
+          ),
         });
       } else {
         toast.error(data.message ?? 'Failed to create grading gate pass');
