@@ -347,6 +347,7 @@ export function AccountingStockLedgerPdf({
                   farmerName={farmerDisplayName}
                   rows={varietyRows}
                   hideReportSummary
+                  hideFarmerNameColumn
                 />
               </View>
             ))

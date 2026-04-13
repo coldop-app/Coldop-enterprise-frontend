@@ -246,14 +246,19 @@ function GroupedGradingDataRow({
   group,
   farmerName,
   sizesWithQty,
+  hideFarmerNameColumn,
 }: {
   group: StockLedgerRow[];
   farmerName: string;
   sizesWithQty: string[];
+  hideFarmerNameColumn: boolean;
 }) {
   const groupHeight = group.length * PDF_SUB_ROW_HEIGHT;
   const first = group[0]!;
-  const rowTotal = getRowTotal(first);
+  const hasBifurcation = hasMixedBagTypesInAnySize(first, sizesWithQty);
+  const rowTotal = hasBifurcation
+    ? getRowTotalMainLine(first, sizesWithQty)
+    : getRowTotal(first);
 
   return (
     <View style={[styles.dataRow, { minHeight: groupHeight }]}>
@@ -283,11 +288,13 @@ function GroupedGradingDataRow({
           {formatGgpValue(first.manualGradingGatePassNo)}
         </Text>
       </SpanGgpColumn>
-      <SplitGgpColumn
-        width={COL_WIDTHS.farmerName}
-        group={group}
-        getText={() => farmerName}
-      />
+      {!hideFarmerNameColumn ? (
+        <SplitGgpColumn
+          width={COL_WIDTHS.farmerName}
+          group={group}
+          getText={() => farmerName}
+        />
+      ) : null}
       <SplitGgpColumn
         width={COL_WIDTHS.variety}
         group={group}
@@ -299,8 +306,7 @@ function GroupedGradingDataRow({
         getText={(r) => formatLedgerGradingDate(r)}
       />
       {sizesWithQty.map((size) => {
-        const { wt, type } = getSizeWtAndType(first, size);
-        const qty = getSizeQty(first, size);
+        const { qty, wt, type } = getMainRowSizeCells(first, size);
         return (
           <Fragment key={size}>
             <SpanGgpColumn width={COL_WIDTHS.sizeQty} minHeight={groupHeight}>
@@ -372,6 +378,143 @@ function getSizeQty(row: StockLedgerRow, size: string): number {
   return row.sizeBags?.[size] ?? 0;
 }
 
+type BagType = 'JUTE' | 'LENO';
+
+function isBifurcatedSize(row: StockLedgerRow, size: string): boolean {
+  return (
+    (row.sizeBagsJute?.[size] ?? 0) > 0 && (row.sizeBagsLeno?.[size] ?? 0) > 0
+  );
+}
+
+function getBagTypeQty(
+  row: StockLedgerRow,
+  size: string,
+  bagType: BagType
+): number {
+  if (bagType === 'JUTE') return row.sizeBagsJute?.[size] ?? 0;
+  return row.sizeBagsLeno?.[size] ?? 0;
+}
+
+function getBagTypeWt(
+  row: StockLedgerRow,
+  size: string,
+  bagType: BagType
+): string {
+  const qty = getBagTypeQty(row, size, bagType);
+  if (qty <= 0) return '—';
+  const wt =
+    bagType === 'JUTE'
+      ? row.sizeWeightPerBagJute?.[size]
+      : row.sizeWeightPerBagLeno?.[size];
+  if (wt == null || Number.isNaN(wt) || wt <= 0) return '—';
+  return String(wt);
+}
+
+function hasMixedBagTypesInAnySize(
+  row: StockLedgerRow,
+  sizesWithQty: string[]
+): boolean {
+  return sizesWithQty.some((size) => isBifurcatedSize(row, size));
+}
+
+/** Main table row: for sizes with both JUTE and LENO, show JUTE-only; else combined/unified as before. */
+function getMainRowSizeCells(
+  row: StockLedgerRow,
+  size: string
+): { qty: number; wt: string; type: string } {
+  if (isBifurcatedSize(row, size)) {
+    const qty = getBagTypeQty(row, size, 'JUTE');
+    return {
+      qty,
+      wt: getBagTypeWt(row, size, 'JUTE'),
+      type: 'JUTE',
+    };
+  }
+  const { wt, type } = getSizeWtAndType(row, size);
+  return { qty: getSizeQty(row, size), wt, type };
+}
+
+/** Total bags shown on the main line (JUTE portion for bifurcated sizes). */
+function getRowTotalMainLine(
+  row: StockLedgerRow,
+  sizesWithQty: string[]
+): number {
+  return sizesWithQty.reduce((sum, size) => {
+    if (isBifurcatedSize(row, size)) {
+      return sum + getBagTypeQty(row, size, 'JUTE');
+    }
+    return sum + getSizeQty(row, size);
+  }, 0);
+}
+
+function EmptyTableCell({
+  width,
+  last = false,
+}: {
+  width: number;
+  last?: boolean;
+}) {
+  return (
+    <View style={[styles.cell, last ? styles.cellLast : {}, { width }]}>
+      <Text style={styles.cellCenter} />
+    </View>
+  );
+}
+
+/** Second line for bifurcated sizes: blank except LENO qty/wt/type in those size columns. */
+function LenoBifurcationContinuationRow({
+  row,
+  sizesWithQty,
+  hideFarmerNameColumn,
+}: {
+  row: StockLedgerRow;
+  sizesWithQty: string[];
+  hideFarmerNameColumn: boolean;
+}) {
+  return (
+    <View style={styles.dataRow}>
+      <EmptyTableCell width={COL_WIDTHS.incomingGatePassNo} />
+      <EmptyTableCell width={COL_WIDTHS.manualIncomingVoucherNo} />
+      <EmptyTableCell width={COL_WIDTHS.gradingGatePassNo} />
+      <EmptyTableCell width={COL_WIDTHS.manualGradingGatePassNo} />
+      {!hideFarmerNameColumn ? (
+        <EmptyTableCell width={COL_WIDTHS.farmerName} />
+      ) : null}
+      <EmptyTableCell width={COL_WIDTHS.variety} />
+      <EmptyTableCell width={COL_WIDTHS.date} />
+      {sizesWithQty.map((size) => {
+        if (!isBifurcatedSize(row, size)) {
+          return (
+            <Fragment key={size}>
+              <EmptyTableCell width={COL_WIDTHS.sizeQty} />
+              <EmptyTableCell width={COL_WIDTHS.wtInKg} />
+              <EmptyTableCell width={COL_WIDTHS.bagType} />
+            </Fragment>
+          );
+        }
+        const qty = getBagTypeQty(row, size, 'LENO');
+        const wt = getBagTypeWt(row, size, 'LENO');
+        return (
+          <Fragment key={size}>
+            <View style={[styles.cell, { width: COL_WIDTHS.sizeQty }]}>
+              <Text style={styles.cellCenter}>
+                {qty > 0 ? qty.toLocaleString('en-IN') : '—'}
+              </Text>
+            </View>
+            <View style={[styles.cell, { width: COL_WIDTHS.wtInKg }]}>
+              <Text style={styles.cellCenter}>{wt}</Text>
+            </View>
+            <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
+              <Text style={styles.cellCenter}>{qty > 0 ? 'LENO' : '—'}</Text>
+            </View>
+          </Fragment>
+        );
+      })}
+      <EmptyTableCell width={COL_WIDTHS.total} last />
+    </View>
+  );
+}
+
 /** Sum of all size quantities for a row. */
 function getRowTotal(row: StockLedgerRow): number {
   return GRADING_SIZES.reduce((sum, size) => sum + getSizeQty(row, size), 0);
@@ -435,12 +578,15 @@ export interface GradingGatePassTablePdfProps {
   rows: StockLedgerRow[];
   /** When true, hide the Report Summary (Variety / Size / Farmer) below the table. */
   hideReportSummary?: boolean;
+  /** When true, omit the Farmer Name column (e.g. accounting ledger PDF where farmer is in the header). */
+  hideFarmerNameColumn?: boolean;
 }
 
 function GradingGatePassTablePdf({
   farmerName,
   rows,
   hideReportSummary = false,
+  hideFarmerNameColumn = false,
 }: GradingGatePassTablePdfProps) {
   const rowsWithGgp = rows.filter(
     (row) =>
@@ -485,9 +631,11 @@ function GradingGatePassTablePdf({
         >
           <Text style={styles.cellCenter}>Grading GP Number</Text>
         </View>
-        <View style={[styles.headerCell, { width: COL_WIDTHS.farmerName }]}>
-          <Text style={styles.cellCenter}>Farmer Name</Text>
-        </View>
+        {!hideFarmerNameColumn ? (
+          <View style={[styles.headerCell, { width: COL_WIDTHS.farmerName }]}>
+            <Text style={styles.cellCenter}>Farmer Name</Text>
+          </View>
+        ) : null}
         <View style={[styles.headerCell, { width: COL_WIDTHS.variety }]}>
           <Text style={styles.cellCenter}>Variety</Text>
         </View>
@@ -523,98 +671,133 @@ function GradingGatePassTablePdf({
       {rowGroups.map((group, gi) => {
         const keyBase = `ggp-${group[0]?.gradingGatePassNo ?? gi}-${group[0]?.incomingGatePassNo ?? ''}`;
         if (group.length > 1) {
+          const first = group[0]!;
+          const shouldShowSplitRows = hasMixedBagTypesInAnySize(
+            first,
+            sizesWithQty
+          );
           return (
-            <GroupedGradingDataRow
-              key={`${keyBase}-grp`}
-              group={group}
-              farmerName={farmerName}
-              sizesWithQty={sizesWithQty}
-            />
+            <Fragment key={`${keyBase}-grp-wrap`}>
+              <GroupedGradingDataRow
+                key={`${keyBase}-grp`}
+                group={group}
+                farmerName={farmerName}
+                sizesWithQty={sizesWithQty}
+                hideFarmerNameColumn={hideFarmerNameColumn}
+              />
+              {shouldShowSplitRows ? (
+                <LenoBifurcationContinuationRow
+                  row={first}
+                  sizesWithQty={sizesWithQty}
+                  hideFarmerNameColumn={hideFarmerNameColumn}
+                />
+              ) : null}
+            </Fragment>
           );
         }
         const row = group[0]!;
-        const rowTotal = getRowTotal(row);
+        const shouldShowSplitRows = hasMixedBagTypesInAnySize(
+          row,
+          sizesWithQty
+        );
+        const rowTotal = shouldShowSplitRows
+          ? getRowTotalMainLine(row, sizesWithQty)
+          : getRowTotal(row);
         return (
-          <View key={`${keyBase}-1`} style={styles.dataRow}>
-            <View
-              style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}
-            >
-              <Text style={styles.cellCenter}>
-                {formatGgpValue(row.incomingGatePassNo)}
-              </Text>
+          <Fragment key={`${keyBase}-1-wrap`}>
+            <View key={`${keyBase}-1`} style={styles.dataRow}>
+              <View
+                style={[styles.cell, { width: COL_WIDTHS.incomingGatePassNo }]}
+              >
+                <Text style={styles.cellCenter}>
+                  {formatGgpValue(row.incomingGatePassNo)}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.cell,
+                  { width: COL_WIDTHS.manualIncomingVoucherNo },
+                ]}
+              >
+                <Text style={styles.cellCenter}>
+                  {formatGgpValue(row.manualIncomingVoucherNo)}
+                </Text>
+              </View>
+              <View
+                style={[styles.cell, { width: COL_WIDTHS.gradingGatePassNo }]}
+              >
+                <Text style={styles.cellCenter}>
+                  {formatGgpValue(row.gradingGatePassNo)}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.cell,
+                  { width: COL_WIDTHS.manualGradingGatePassNo },
+                ]}
+              >
+                <Text style={styles.cellCenter}>
+                  {formatGgpValue(row.manualGradingGatePassNo)}
+                </Text>
+              </View>
+              {!hideFarmerNameColumn ? (
+                <View style={[styles.cell, { width: COL_WIDTHS.farmerName }]}>
+                  <Text style={styles.cellCenter}>{farmerName}</Text>
+                </View>
+              ) : null}
+              <View style={[styles.cell, { width: COL_WIDTHS.variety }]}>
+                <Text style={styles.cellCenter}>{varietyDisplay(row)}</Text>
+              </View>
+              <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
+                <Text style={styles.cellCenter}>
+                  {formatLedgerGradingDate(row)}
+                </Text>
+              </View>
+              {sizesWithQty.map((size) => {
+                const { qty, wt, type } = getMainRowSizeCells(row, size);
+                return (
+                  <Fragment key={size}>
+                    <View style={[styles.cell, { width: COL_WIDTHS.sizeQty }]}>
+                      <Text style={styles.cellCenter}>
+                        {qty > 0 ? qty.toLocaleString('en-IN') : '—'}
+                      </Text>
+                    </View>
+                    <View style={[styles.cell, { width: COL_WIDTHS.wtInKg }]}>
+                      <Text style={styles.cellCenter}>{wt}</Text>
+                    </View>
+                    <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
+                      <Text style={styles.cellCenter}>{type}</Text>
+                    </View>
+                  </Fragment>
+                );
+              })}
+              <View
+                style={[
+                  styles.cell,
+                  styles.cellLast,
+                  { width: COL_WIDTHS.total },
+                ]}
+              >
+                <Text style={styles.cellCenter}>
+                  {rowTotal > 0 ? rowTotal.toLocaleString('en-IN') : '—'}
+                </Text>
+              </View>
             </View>
-            <View
-              style={[
-                styles.cell,
-                { width: COL_WIDTHS.manualIncomingVoucherNo },
-              ]}
-            >
-              <Text style={styles.cellCenter}>
-                {formatGgpValue(row.manualIncomingVoucherNo)}
-              </Text>
-            </View>
-            <View
-              style={[styles.cell, { width: COL_WIDTHS.gradingGatePassNo }]}
-            >
-              <Text style={styles.cellCenter}>
-                {formatGgpValue(row.gradingGatePassNo)}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.cell,
-                { width: COL_WIDTHS.manualGradingGatePassNo },
-              ]}
-            >
-              <Text style={styles.cellCenter}>
-                {formatGgpValue(row.manualGradingGatePassNo)}
-              </Text>
-            </View>
-            <View style={[styles.cell, { width: COL_WIDTHS.farmerName }]}>
-              <Text style={styles.cellCenter}>{farmerName}</Text>
-            </View>
-            <View style={[styles.cell, { width: COL_WIDTHS.variety }]}>
-              <Text style={styles.cellCenter}>{varietyDisplay(row)}</Text>
-            </View>
-            <View style={[styles.cell, { width: COL_WIDTHS.date }]}>
-              <Text style={styles.cellCenter}>
-                {formatLedgerGradingDate(row)}
-              </Text>
-            </View>
-            {sizesWithQty.map((size) => {
-              const { wt, type } = getSizeWtAndType(row, size);
-              const qty = getSizeQty(row, size);
-              return (
-                <Fragment key={size}>
-                  <View style={[styles.cell, { width: COL_WIDTHS.sizeQty }]}>
-                    <Text style={styles.cellCenter}>
-                      {qty > 0 ? qty.toLocaleString('en-IN') : '—'}
-                    </Text>
-                  </View>
-                  <View style={[styles.cell, { width: COL_WIDTHS.wtInKg }]}>
-                    <Text style={styles.cellCenter}>{wt}</Text>
-                  </View>
-                  <View style={[styles.cell, { width: COL_WIDTHS.bagType }]}>
-                    <Text style={styles.cellCenter}>{type}</Text>
-                  </View>
-                </Fragment>
-              );
-            })}
-            <View
-              style={[
-                styles.cell,
-                styles.cellLast,
-                { width: COL_WIDTHS.total },
-              ]}
-            >
-              <Text style={styles.cellCenter}>
-                {rowTotal > 0 ? rowTotal.toLocaleString('en-IN') : '—'}
-              </Text>
-            </View>
-          </View>
+            {shouldShowSplitRows ? (
+              <LenoBifurcationContinuationRow
+                row={row}
+                sizesWithQty={sizesWithQty}
+                hideFarmerNameColumn={hideFarmerNameColumn}
+              />
+            ) : null}
+          </Fragment>
         );
       })}
-      <TotalRow rows={rowsWithGgp} sizesWithQty={sizesWithQty} />
+      <TotalRow
+        rows={rowsWithGgp}
+        sizesWithQty={sizesWithQty}
+        hideFarmerNameColumn={hideFarmerNameColumn}
+      />
       {!hideReportSummary && (
         <GradingTableSummarySection
           farmerName={farmerName}
@@ -806,9 +989,11 @@ function GradingTableSummarySection({
 function TotalRow({
   rows,
   sizesWithQty,
+  hideFarmerNameColumn,
 }: {
   rows: StockLedgerRow[];
   sizesWithQty: string[];
+  hideFarmerNameColumn: boolean;
 }) {
   const totalsBySize: Record<string, number> = {};
   for (const size of GRADING_SIZES) {
@@ -837,9 +1022,11 @@ function TotalRow({
       >
         <Text style={styles.cellCenter}>—</Text>
       </View>
-      <View style={[styles.cell, { width: COL_WIDTHS.farmerName }]}>
-        <Text style={styles.cellCenter}>—</Text>
-      </View>
+      {!hideFarmerNameColumn ? (
+        <View style={[styles.cell, { width: COL_WIDTHS.farmerName }]}>
+          <Text style={styles.cellCenter}>—</Text>
+        </View>
+      ) : null}
       <View style={[styles.cell, { width: COL_WIDTHS.variety }]}>
         <Text style={styles.cellCenter}>—</Text>
       </View>

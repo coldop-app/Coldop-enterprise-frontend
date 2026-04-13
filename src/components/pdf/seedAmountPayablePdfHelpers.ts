@@ -31,6 +31,21 @@ export function getFarmerSeedEntriesForVarietyOrdered(
     });
 }
 
+/** Drop duplicate API rows so the same seed entry is not listed twice in PDF tables. */
+export function dedupeFarmerSeedEntriesById(
+  entries: FarmerSeedEntryByStorageLink[]
+): FarmerSeedEntryByStorageLink[] {
+  const seen = new Set<string>();
+  const out: FarmerSeedEntryByStorageLink[] = [];
+  for (const e of entries) {
+    const id = String(e._id ?? '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(e);
+  }
+  return out;
+}
+
 /**
  * Merge bag lines that share the same name (case-insensitive) for variety-wise clubbed totals.
  */

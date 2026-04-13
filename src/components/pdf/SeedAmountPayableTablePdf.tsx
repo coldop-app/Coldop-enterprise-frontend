@@ -64,6 +64,87 @@ function formatTotalNumber(value: number): string {
   });
 }
 
+/** Columns where summing detail/clubbed rows is misleading for the footer row. */
+const SEED_TOTAL_ROW_DASH_COLUMNS = new Set<SeedAmountPayableColumnId>([
+  'rate',
+  'bagsPerAcre',
+  'date',
+]);
+
+/**
+ * Footer row: AMT PAYABLE is a global total (repeated on each line) — show once, do not sum.
+ * NET AMT footer = summaryAmountPayableTotal − sum(SEED BALANCE column).
+ */
+function buildSeedAmountPayableTotalRowCells(
+  rowsForTotal: string[][],
+  columnMetas: readonly { id: SeedAmountPayableColumnId; widthPct: number }[],
+  summaryAmountPayableTotal: number | undefined
+): string[] {
+  const idx = (id: SeedAmountPayableColumnId) =>
+    columnMetas.findIndex((c) => c.id === id);
+
+  const sumColumn = (colId: SeedAmountPayableColumnId): number | null => {
+    const i = idx(colId);
+    if (i < 0) return null;
+    let sum = 0;
+    let found = false;
+    for (const row of rowsForTotal) {
+      const n = parseNumericCellValue(String(row[i] ?? ''));
+      if (n != null) {
+        sum += n;
+        found = true;
+      }
+    }
+    return found ? sum : null;
+  };
+
+  return columnMetas.map((col, colIdx) => {
+    if (col.id === 'seedAmountPayable') return 'Total';
+
+    if (col.id === 'amtPayable') {
+      if (
+        summaryAmountPayableTotal != null &&
+        Number.isFinite(summaryAmountPayableTotal) &&
+        summaryAmountPayableTotal > 0
+      ) {
+        return summaryAmountPayableTotal.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      }
+      return '—';
+    }
+    if (col.id === 'seedBalance') {
+      const s = sumColumn('seedBalance');
+      return s != null ? formatTotalNumber(s) : '—';
+    }
+    if (col.id === 'netAmt') {
+      if (
+        summaryAmountPayableTotal == null ||
+        !Number.isFinite(summaryAmountPayableTotal)
+      ) {
+        return '—';
+      }
+      const seedBalSum = sumColumn('seedBalance');
+      if (seedBalSum == null) return '—';
+      return formatTotalNumber(summaryAmountPayableTotal - seedBalSum);
+    }
+
+    if (SEED_TOTAL_ROW_DASH_COLUMNS.has(col.id)) return '—';
+
+    let sum = 0;
+    let foundNumeric = false;
+    for (const row of rowsForTotal) {
+      const numeric = parseNumericCellValue(String(row[colIdx] ?? ''));
+      if (numeric != null) {
+        sum += numeric;
+        foundNumeric = true;
+      }
+    }
+    return foundNumeric ? formatTotalNumber(sum) : '—';
+  });
+}
+
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 10,
@@ -171,22 +252,6 @@ const styles = StyleSheet.create({
   cellLast: {
     borderRightWidth: 0,
   },
-  sectionLabel: {
-    fontSize: 6,
-    fontWeight: 700,
-    color: '#374151',
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  clubbedDividerRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderTopWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: '#f3f4f6',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
 });
 
 function HeaderSingleStack({
@@ -259,14 +324,13 @@ export type SeedAmountPayableTablePdfProps = {
 
 /**
  * Seed amount payable breakdown for the accounting stock ledger PDF.
- * Each seed-given record lists its bag lines separately; when there are multiple
- * records for the variety, a variety-wise clubbed summary (by bag size name) follows.
+ * One row per bag line per seed entry; a total row follows when there are multiple lines.
  */
 export default function SeedAmountPayableTablePdf({
   prepared,
   variety = null,
   farmerSeedEntries = null,
-  summaryAmountPayableTotal,
+  summaryAmountPayableTotal: summaryAmountPayableTotalProp,
 }: SeedAmountPayableTablePdfProps) {
   const splitIdx =
     SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - NET_AMOUNT_PAYABLE_LEAF_COUNT;
@@ -279,38 +343,28 @@ export default function SeedAmountPayableTablePdf({
     prepareSeedAmountPayableTableData({
       variety,
       farmerSeedEntries,
-      summaryAmountPayableTotal,
+      summaryAmountPayableTotal: summaryAmountPayableTotalProp,
       columnIds: SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((c) => c.id),
     });
 
-  const { detailRowCells, clubbedRowCells } = data;
-  const showClubbedBlock = clubbedRowCells.length > 0;
-  const rowsForTotal = showClubbedBlock ? clubbedRowCells : detailRowCells;
+  const { detailRowCells, summaryAmountPayableTotal: preparedSummary } = data;
+  const summaryAmountPayableTotal =
+    preparedSummary ?? summaryAmountPayableTotalProp;
+  const rowsForTotal = detailRowCells;
 
   const shouldShowTotalRow = rowsForTotal.length > 1;
   const totalRowCells = shouldShowTotalRow
-    ? SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((_, colIdx) => {
-        if (colIdx === 0) return 'Total';
-        let sum = 0;
-        let foundNumeric = false;
-        for (const row of rowsForTotal) {
-          const numeric = parseNumericCellValue(String(row[colIdx] ?? ''));
-          if (numeric != null) {
-            sum += numeric;
-            foundNumeric = true;
-          }
-        }
-        return foundNumeric ? formatTotalNumber(sum) : '—';
-      })
+    ? buildSeedAmountPayableTotalRowCells(
+        rowsForTotal,
+        SEED_AMOUNT_PAYABLE_LEAF_COLUMNS,
+        summaryAmountPayableTotal
+      )
     : null;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.varietyHeading}>Variety: {data.varietyLabel}</Text>
       <Text style={styles.title}>Seed Amount Payable</Text>
-      {showClubbedBlock ? (
-        <Text style={styles.sectionLabel}>Seed given (by entry)</Text>
-      ) : null}
       <View style={styles.table}>
         <View style={styles.headerRow} wrap={false}>
           {beforeNet.map((col) => (
@@ -328,9 +382,7 @@ export default function SeedAmountPayableTablePdf({
             key={`seed-detail-${rowIndex}`}
             style={[
               styles.dataRow,
-              rowIndex === detailRowCells.length - 1 &&
-              !showClubbedBlock &&
-              !shouldShowTotalRow
+              rowIndex === detailRowCells.length - 1 && !shouldShowTotalRow
                 ? styles.dataRowLast
                 : {},
             ]}
@@ -352,50 +404,12 @@ export default function SeedAmountPayableTablePdf({
             ))}
           </View>
         ))}
-        {showClubbedBlock ? (
-          <>
-            <View style={styles.clubbedDividerRow}>
-              <Text style={{ fontSize: 6, fontWeight: 700, color: '#111827' }}>
-                Variety-wise summary (clubbed by bag size)
-              </Text>
-            </View>
-            {clubbedRowCells.map((rowCells, rowIndex) => (
-              <View
-                key={`seed-clubbed-${rowIndex}`}
-                style={[
-                  styles.dataRow,
-                  rowIndex === clubbedRowCells.length - 1 && !shouldShowTotalRow
-                    ? styles.dataRowLast
-                    : {},
-                ]}
-                wrap={false}
-              >
-                {SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.map((col, i) => (
-                  <View
-                    key={col.id}
-                    style={[
-                      styles.cell,
-                      i === SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.length - 1
-                        ? styles.cellLast
-                        : {},
-                      { width: `${col.widthPct}%` },
-                    ]}
-                  >
-                    <Text>{rowCells[i] ?? '—'}</Text>
-                  </View>
-                ))}
-              </View>
-            ))}
-          </>
-        ) : null}
         {shouldShowTotalRow && totalRowCells ? (
           <View
             style={[
               styles.dataRow,
               styles.dataRowLast,
-              showClubbedBlock
-                ? { borderTopWidth: 1, borderColor: BORDER }
-                : {},
+              { borderTopWidth: 1, borderColor: BORDER },
             ]}
             wrap={false}
           >

@@ -2,14 +2,11 @@ import {
   STANDARD_BAGS_PER_ACRE,
   type Variety,
 } from '@/components/forms/grading/constants';
-import type {
-  FarmerSeedBagSize,
-  FarmerSeedEntryByStorageLink,
-} from '@/types/farmer-seed';
+import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
 import type { SeedAmountPayableColumnId } from '@/components/pdf/SeedAmountPayableTablePdf';
 import {
+  dedupeFarmerSeedEntriesById,
   getFarmerSeedEntriesForVarietyOrdered,
-  mergeFarmerSeedBagsByName,
 } from '@/components/pdf/seedAmountPayablePdfHelpers';
 import { formatOrdinalDateEn } from '@/lib/helpers';
 
@@ -20,10 +17,10 @@ export type PreparedSeedAmountPayableData = {
   /** One row per bag line per seed-given record (entries kept separate). */
   detailRowCells: string[][];
   /**
-   * Variety-wise clubbed rows (bag names merged). Populated when there is more than one
-   * seed-given record for this variety so totals are not double-counted with detail.
+   * Global amount payable (same value shown on each row’s AMT PAYABLE column).
+   * PDF total row must not sum this column across rows.
    */
-  clubbedRowCells: string[][];
+  summaryAmountPayableTotal?: number;
 };
 
 function formatCommaNumber(n: number): string {
@@ -174,25 +171,6 @@ function getCellText(
   }
 }
 
-function buildRowCellsForBags(
-  bags: Array<FarmerSeedBagSize | null>,
-  columnIds: SeedAmountPayableColumnId[],
-  variety: string | null,
-  summaryAmountPayableTotal: number | undefined,
-  entryDate: string | undefined
-): string[][] {
-  const rowsSource = bags.length
-    ? bags
-    : ([null] as Array<FarmerSeedBagSize | null>);
-  return rowsSource.map((bag) =>
-    columnIds.map((colId) =>
-      getCellText(colId, bag, variety, summaryAmountPayableTotal, {
-        entryDate,
-      })
-    )
-  );
-}
-
 export function prepareSeedAmountPayableTableData(params: {
   variety: string | null;
   farmerSeedEntries?: FarmerSeedEntryByStorageLink[] | null;
@@ -203,9 +181,8 @@ export function prepareSeedAmountPayableTableData(params: {
     params;
   const varietyLabel = variety?.trim() ? variety : '—';
 
-  const matchingEntries = getFarmerSeedEntriesForVarietyOrdered(
-    variety,
-    farmerSeedEntries
+  const matchingEntries = dedupeFarmerSeedEntriesById(
+    getFarmerSeedEntriesForVarietyOrdered(variety, farmerSeedEntries)
   );
 
   const detailRowCells: string[][] = [];
@@ -234,22 +211,9 @@ export function prepareSeedAmountPayableTableData(params: {
   const detailFinal =
     detailRowCells.length > 0 ? detailRowCells : emptyDetailPlaceholder;
 
-  const allBags = matchingEntries.flatMap((e) => e.bagSizes ?? []);
-  const clubbedBags =
-    matchingEntries.length > 1
-      ? mergeFarmerSeedBagsByName(allBags)
-      : ([] as FarmerSeedBagSize[]);
-
-  const clubbedRowCells =
-    clubbedBags.length > 0
-      ? buildRowCellsForBags(
-          clubbedBags,
-          columnIds,
-          variety,
-          summaryAmountPayableTotal,
-          undefined
-        )
-      : [];
-
-  return { varietyLabel, detailRowCells: detailFinal, clubbedRowCells };
+  return {
+    varietyLabel,
+    detailRowCells: detailFinal,
+    summaryAmountPayableTotal,
+  };
 }

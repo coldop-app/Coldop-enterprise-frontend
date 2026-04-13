@@ -884,6 +884,7 @@ export interface FarmerProfileGradingGatePassTableProps {
 
 export type FarmerProfileGradingGatePassTableHandle = {
   openAccountingReportDialog: () => void;
+  openFarmerReportDialog: () => void;
 };
 
 export const FarmerProfileGradingGatePassTable = memo(
@@ -915,10 +916,15 @@ export const FarmerProfileGradingGatePassTable = memo(
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [accountingReportDialogOpen, setAccountingReportDialogOpen] =
       useState(false);
+    const [farmerReportDialogOpen, setFarmerReportDialogOpen] = useState(false);
     const [showTableData, setShowTableData] = useState(false);
     const [
       selectedGradingPassIdsForAccounting,
       setSelectedGradingPassIdsForAccounting,
+    ] = useState<Set<string>>(new Set());
+    const [
+      selectedGradingPassIdsForFarmer,
+      setSelectedGradingPassIdsForFarmer,
     ] = useState<Set<string>>(new Set());
 
     const coldStorage = useStore((s) => s.coldStorage);
@@ -1030,6 +1036,61 @@ export const FarmerProfileGradingGatePassTable = memo(
         });
       } catch {
         toast.error('Could not generate PDF', {
+          description: 'Please try again.',
+        });
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+    };
+
+    const handleFarmerReportGenerate = async (selectedIds: Set<string>) => {
+      const selectedPasses = filteredGradingPasses.filter((p) =>
+        selectedIds.has(p._id)
+      );
+      if (selectedPasses.length === 0) {
+        toast.error('No gate passes selected', {
+          description: 'Select at least one grading gate pass.',
+        });
+        return;
+      }
+      setFarmerReportDialogOpen(false);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(
+          '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+        );
+      }
+      setIsGeneratingPdf(true);
+      try {
+        const { snapshot, stockLedgerRows } =
+          buildFarmerStockLedgerReportPayload(selectedPasses, {
+            companyName,
+            farmerName: farmerName || '',
+            dateRangeLabel: getDateRangeLabel(),
+          });
+        const [{ pdf }, { FarmerStockLedgerPdf }] = await Promise.all([
+          import('@react-pdf/renderer'),
+          import('@/components/pdf/FarmerStockLedgerPdf'),
+        ]);
+        const blob = await pdf(
+          <FarmerStockLedgerPdf
+            snapshot={snapshot}
+            stockLedgerRows={stockLedgerRows}
+          />
+        ).toBlob();
+        const url = URL.createObjectURL(blob);
+        if (printWindow) {
+          printWindow.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        toast.success('Farmer report opened in new tab', {
+          description: 'Report is ready to view or print.',
+        });
+      } catch {
+        printWindow?.close();
+        toast.error('Could not generate farmer report', {
           description: 'Please try again.',
         });
       } finally {
@@ -1199,12 +1260,20 @@ export const FarmerProfileGradingGatePassTable = memo(
       setAccountingReportDialogOpen(true);
     }, [filteredGradingPasses]);
 
+    const handleOpenFarmerReportDialog = useCallback(() => {
+      setSelectedGradingPassIdsForFarmer(
+        new Set(filteredGradingPasses.map((p) => p._id))
+      );
+      setFarmerReportDialogOpen(true);
+    }, [filteredGradingPasses]);
+
     useImperativeHandle(
       ref,
       () => ({
         openAccountingReportDialog: handleOpenAccountingReportDialog,
+        openFarmerReportDialog: handleOpenFarmerReportDialog,
       }),
-      [handleOpenAccountingReportDialog]
+      [handleOpenAccountingReportDialog, handleOpenFarmerReportDialog]
     );
 
     const sortedAndGroupedPasses = useMemo(() => {
@@ -2718,6 +2787,27 @@ export const FarmerProfileGradingGatePassTable = memo(
           }
           onDownloadExcel={handleAccountingReportDownloadExcel}
           isGeneratingPdf={isGeneratingPdf}
+        />
+        <AccountingReportGatePassDialog
+          open={farmerReportDialogOpen}
+          onOpenChange={setFarmerReportDialogOpen}
+          rows={accountingReportDialogRows}
+          selectedPassIds={selectedGradingPassIdsForFarmer}
+          onSelectionChange={setSelectedGradingPassIdsForFarmer}
+          onSelectAll={() =>
+            setSelectedGradingPassIdsForFarmer(
+              new Set(filteredGradingPasses.map((p) => p._id))
+            )
+          }
+          onDeselectAll={() => setSelectedGradingPassIdsForFarmer(new Set())}
+          onGenerate={() =>
+            handleFarmerReportGenerate(selectedGradingPassIdsForFarmer)
+          }
+          onDownloadExcel={() => {}}
+          isGeneratingPdf={isGeneratingPdf}
+          title="Select grading gate passes for Farmer Report"
+          descriptionId="farmer-report-dialog-description"
+          showDownloadExcel={false}
         />
       </>
     );

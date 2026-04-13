@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Hash, Edit, Info, Loader2, Sprout } from 'lucide-react';
+import { Hash, Edit, Info, Sprout } from 'lucide-react';
 import type { FarmerStorageLink } from '@/types/farmer';
 
 function getInitials(name: string) {
@@ -22,8 +22,6 @@ export interface FarmerProfileHeaderCardProps {
   onAddSeedClick: () => void;
   /** Opens the grading-table accounting report dialog (pass selection + PDF/Excel). */
   onOpenAccountingReport?: () => void;
-  /** When true, disables the Farmer Report button and shows a spinner. */
-  isViewFarmerReportLoading?: boolean;
 }
 
 export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
@@ -33,7 +31,6 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
   onViewFarmerReport,
   onAddSeedClick,
   onOpenAccountingReport,
-  isViewFarmerReportLoading = false,
 }: FarmerProfileHeaderCardProps) {
   const iconButtonClassName =
     'focus-visible:ring-primary rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
@@ -85,26 +82,16 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
         <Button
           type="button"
           variant="default"
-          disabled={isViewFarmerReportLoading}
-          className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+          className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           onClick={onViewFarmerReport}
-          aria-busy={isViewFarmerReportLoading}
         >
-          {isViewFarmerReportLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-              Generating…
-            </>
-          ) : (
-            'Farmer Report'
-          )}
+          Farmer Report
         </Button>
         {onOpenAccountingReport != null ? (
           <Button
             type="button"
             variant="secondary"
-            disabled={isViewFarmerReportLoading}
-            className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+            className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
             onClick={onOpenAccountingReport}
             aria-label="Accounting report"
           >
@@ -114,8 +101,7 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
         <Button
           type="button"
           variant="secondary"
-          disabled={isViewFarmerReportLoading}
-          className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+          className="font-custom focus-visible:ring-primary inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           onClick={onAddSeedClick}
           aria-label="Add seed"
         >

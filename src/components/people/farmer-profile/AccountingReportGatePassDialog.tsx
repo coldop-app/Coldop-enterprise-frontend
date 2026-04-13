@@ -28,6 +28,10 @@ export interface AccountingReportGatePassRow {
   totalGradingBags: number;
 }
 
+const DEFAULT_TITLE = 'Select grading gate passes for Accounting Report';
+const DEFAULT_DESCRIPTION =
+  'Choose which grading gate passes to include in the report. The report will show only the selected passes.';
+
 export interface AccountingReportGatePassDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +43,14 @@ export interface AccountingReportGatePassDialogProps {
   onGenerate: () => void;
   onDownloadExcel: () => void;
   isGeneratingPdf: boolean;
+  /** Override dialog title (e.g. Farmer Report). */
+  title?: string;
+  /** Override description under the title. */
+  description?: string;
+  /** Stable id for DialogDescription (use unique values when multiple dialogs exist on the page). */
+  descriptionId?: string;
+  /** When false, hides the Excel download action (e.g. Farmer Report PDF-only). */
+  showDownloadExcel?: boolean;
 }
 
 export const AccountingReportGatePassDialog = memo(
@@ -53,6 +65,10 @@ export const AccountingReportGatePassDialog = memo(
     onGenerate,
     onDownloadExcel,
     isGeneratingPdf,
+    title = DEFAULT_TITLE,
+    description = DEFAULT_DESCRIPTION,
+    descriptionId = 'accounting-report-dialog-description',
+    showDownloadExcel = true,
   }: AccountingReportGatePassDialogProps) {
     const togglePass = (passId: string) => {
       onSelectionChange(
@@ -69,15 +85,14 @@ export const AccountingReportGatePassDialog = memo(
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className="font-custom flex max-h-[90vh] max-w-4xl flex-col overflow-hidden"
-          aria-describedby="accounting-report-dialog-description"
+          aria-describedby={descriptionId}
         >
           <DialogHeader>
             <DialogTitle className="font-custom font-semibold">
-              Select grading gate passes for Accounting Report
+              {title}
             </DialogTitle>
-            <DialogDescription id="accounting-report-dialog-description">
-              Choose which grading gate passes to include in the report. The
-              report will show only the selected passes.
+            <DialogDescription id={descriptionId}>
+              {description}
             </DialogDescription>
           </DialogHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -191,17 +206,19 @@ export const AccountingReportGatePassDialog = memo(
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="font-custom"
-              disabled={selectedPassIds.size === 0}
-              onClick={onDownloadExcel}
-              aria-label="Download Excel"
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4 shrink-0" />
-              Download Excel
-            </Button>
+            {showDownloadExcel ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="font-custom"
+                disabled={selectedPassIds.size === 0}
+                onClick={onDownloadExcel}
+                aria-label="Download Excel"
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4 shrink-0" />
+                Download Excel
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="default"
