@@ -333,6 +333,7 @@ const PeoplePage = memo(function PeoplePage() {
             isError={isCfReportError}
             error={cfReportError}
             groups={contractFarmingGroups}
+            companyName={companyName}
           />
         ) : null}
 

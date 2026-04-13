@@ -1,9 +1,5 @@
-import { memo } from 'react';
-import type {
-  ContractFarmingFarmerRow,
-  ContractFarmingGradingBucket,
-  ContractFarmingSizeRow,
-} from '@/types/analytics';
+import { memo, useCallback } from 'react';
+import { toast } from 'sonner';
 import {
   Card,
   CardContent,
@@ -21,15 +17,35 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { BUY_BACK_COST } from '@/components/forms/grading/constants';
+import { Button } from '@/components/ui/button';
+import { FileSpreadsheet } from 'lucide-react';
+import { downloadContractFarmingReportExcel } from '@/utils/contractFarmingReportExcel';
+import type {
+  ContractFarmingFarmerRow,
+  ContractFarmingSizeRow,
+} from '@/types/analytics';
+import type { ContractFarmingReportDigitalVarietyGroup } from '@/utils/contractFarmingReportShared';
+import {
+  CONTRACT_FARMING_GRADING_COLUMNS,
+  CONTRACT_FARMING_IN_LOCALE,
+  expandFarmerRowsForSizes,
+  acresPlantedForSeedLine,
+  generationLabelForSeedLine,
+  findGradingBucket,
+  formatGradingBagsQty,
+  formatTotalGradingBags,
+  formatNetWeightAfterGrading,
+  formatBuyBackAmount,
+  formatTotalSeedAmount,
+  formatNetAmountPayable,
+  formatNetAmountPerAcre,
+  aggregateBuyBackBagsForReportVariety,
+  hasBuyBackBagsEntryForReportVariety,
+  mergeGradingSizeMapsForReportVariety,
+  computeVarietyTableTotals,
+} from '@/utils/contractFarmingReportShared';
 
-/** Indian numbering: lakh/crore-style grouping (e.g. 1,00,000). */
-const IN_LOCALE = 'en-IN';
-
-export type ContractFarmingReportDigitalVarietyGroup = {
-  variety: string;
-  rows: ContractFarmingFarmerRow[];
-};
+export type { ContractFarmingReportDigitalVarietyGroup };
 
 export interface ContractFarmingReportDigitalTableProps {
   isLoading: boolean;
@@ -37,409 +53,37 @@ export interface ContractFarmingReportDigitalTableProps {
   error: unknown;
   /** One group per variety; each group renders its own table. */
   groups: ContractFarmingReportDigitalVarietyGroup[];
+  companyName?: string;
 }
 
-/**
- * Temporary on-screen table for contract farming analytics (People page).
- * Parent supplies data from `useGetContractFarmingReport`.
- */
-function expandFarmerRowsForSizes(
-  farmers: ContractFarmingFarmerRow[]
-): { farmer: ContractFarmingFarmerRow; size: ContractFarmingSizeRow | null }[] {
-  return farmers.flatMap((farmer) => {
-    if (farmer.sizes.length === 0) {
-      return [{ farmer, size: null as ContractFarmingSizeRow | null }];
-    }
-    return farmer.sizes.map((size) => ({ farmer, size }));
-  });
-}
-
-/**
- * Grading size columns for contract farming (display header + API key variants).
- * Order matches product spec; keys use en-dash as in grading forms (`30–40`) with hyphen fallbacks.
- */
-const CONTRACT_FARMING_GRADING_COLUMNS: {
-  header: string;
-  matchKeys: string[];
-}[] = [
-  { header: 'Below 30', matchKeys: ['Below 30'] },
-  { header: '30-40', matchKeys: ['30–40', '30-40'] },
-  { header: '35-40', matchKeys: ['35–40', '35-40'] },
-  { header: '40-45', matchKeys: ['40–45', '40-45'] },
-  { header: '45-50', matchKeys: ['45–50', '45-50'] },
-  { header: '50-55', matchKeys: ['50–55', '50-55'] },
-  { header: 'Above 50', matchKeys: ['Above 50'] },
-  { header: 'Above 55', matchKeys: ['Above 55'] },
-  { header: 'Cut', matchKeys: ['Cut'] },
-];
-
-function normalizeGradingSizeKey(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/\s+/g, ' ');
-}
-
-function toGradingBucket(obj: object): ContractFarmingGradingBucket {
-  const r = obj as Record<string, unknown>;
-  return {
-    initialBags: typeof r.initialBags === 'number' ? r.initialBags : 0,
-    netWeightKg: typeof r.netWeightKg === 'number' ? r.netWeightKg : 0,
-  };
-}
-
-/**
- * Flattens `grading` into one map keyed by size label.
- * Supports nested API shape: sub-variety (e.g. B101, Himalini) → size → bucket,
- * merging duplicate size keys across sub-varieties by summing bags and weights.
- * Also supports a flat map: size → bucket.
- */
-function mergeGradingSizeMaps(
-  farmer: ContractFarmingFarmerRow
-): Record<string, ContractFarmingGradingBucket> {
-  const out: Record<string, ContractFarmingGradingBucket> = {};
-  const g = farmer.grading;
-  if (!g || typeof g !== 'object') return out;
-
-  const add = (sizeKey: string, b: ContractFarmingGradingBucket) => {
-    const prev = out[sizeKey];
-    const ib = Number.isFinite(b.initialBags) ? b.initialBags : 0;
-    const nw = Number.isFinite(b.netWeightKg) ? b.netWeightKg : 0;
-    if (prev) {
-      const pib = Number.isFinite(prev.initialBags) ? prev.initialBags : 0;
-      const pnw = Number.isFinite(prev.netWeightKg) ? prev.netWeightKg : 0;
-      out[sizeKey] = {
-        initialBags: pib + ib,
-        netWeightKg: pnw + nw,
-      };
-    } else {
-      out[sizeKey] = { initialBags: ib, netWeightKg: nw };
-    }
-  };
-
-  for (const [topKey, inner] of Object.entries(g)) {
-    if (!inner || typeof inner !== 'object') continue;
-    const innerRec = inner as Record<string, unknown>;
-    const looksLikeBucket =
-      typeof innerRec.initialBags === 'number' ||
-      typeof innerRec.netWeightKg === 'number';
-    if (looksLikeBucket) {
-      add(topKey, toGradingBucket(inner));
-      continue;
-    }
-    for (const [sizeKey, bucket] of Object.entries(innerRec)) {
-      if (
-        bucket &&
-        typeof bucket === 'object' &&
-        ('initialBags' in bucket || 'netWeightKg' in bucket)
-      ) {
-        add(sizeKey, bucket as ContractFarmingGradingBucket);
-      }
-    }
+/** One row per seed size line; post-seed columns merge vertically per farmer (`rowSpan`). */
+function buildVarietyBodyRows(rows: ContractFarmingFarmerRow[]) {
+  const out: {
+    farmer: ContractFarmingFarmerRow;
+    size: ContractFarmingSizeRow | null;
+    sizeLineIndex: number;
+    postSeedRowSpan: number;
+    showPostSeedCells: boolean;
+  }[] = [];
+  for (const farmer of rows) {
+    const expanded = expandFarmerRowsForSizes([farmer]);
+    const span = expanded.length;
+    expanded.forEach((e, i) => {
+      out.push({
+        farmer: e.farmer,
+        size: e.size,
+        sizeLineIndex: e.sizeLineIndex,
+        postSeedRowSpan: span,
+        showPostSeedCells: i === 0,
+      });
+    });
   }
   return out;
 }
 
-function findGradingBucket(
-  bySize: Record<string, ContractFarmingGradingBucket> | undefined,
-  matchKeys: string[]
-): ContractFarmingGradingBucket | undefined {
-  if (!bySize) return undefined;
-  const entries = Object.entries(bySize);
-  const normMap = new Map(
-    entries.map(([k, v]) => [normalizeGradingSizeKey(k), v])
-  );
-  for (const mk of matchKeys) {
-    const hit = normMap.get(normalizeGradingSizeKey(mk));
-    if (hit) return hit;
-  }
-  for (const mk of matchKeys) {
-    const want = normalizeGradingSizeKey(mk);
-    for (const [k, v] of entries) {
-      if (normalizeGradingSizeKey(k) === want) return v;
-    }
-  }
-  return undefined;
-}
-
-function formatGradingBagsQty(
-  bucket: ContractFarmingGradingBucket | undefined
-): string {
-  if (bucket == null) return '—';
-  const n = bucket.initialBags;
-  if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString(IN_LOCALE, { maximumFractionDigits: 0 });
-}
-
-/** Sum of `initialBags` across merged grading size buckets. */
-function formatTotalGradingBags(
-  bySize: Record<string, ContractFarmingGradingBucket>
-): string {
-  if (Object.keys(bySize).length === 0) return '—';
-  const n = Object.values(bySize).reduce((sum, b) => {
-    const q = b.initialBags;
-    return sum + (Number.isFinite(q) ? q : 0);
-  }, 0);
-  return n.toLocaleString(IN_LOCALE, { maximumFractionDigits: 0 });
-}
-
-/** Sum of `netWeightKg` across all grading buckets (nested sub-varieties merged by size). */
-function formatNetWeightAfterGrading(
-  bySize: Record<string, ContractFarmingGradingBucket>
-): string {
-  if (Object.keys(bySize).length === 0) return '—';
-  const n = Object.values(bySize).reduce((sum, b) => {
-    const w = b.netWeightKg;
-    return sum + (Number.isFinite(w) ? w : 0);
-  }, 0);
-  return n.toLocaleString(IN_LOCALE, { maximumFractionDigits: 2 });
-}
-
-/** ₹/kg style rate from `BUY_BACK_COST` for a potato variety + grading size label. */
-function resolveBuyBackRatePerKg(
-  potatoVariety: string,
-  sizeKey: string
-): number | undefined {
-  const v = potatoVariety.trim();
-  const entry = BUY_BACK_COST.find(
-    (e) => e.variety.toLowerCase() === v.toLowerCase()
-  );
-  if (!entry) return undefined;
-  const rates = entry.sizeRates as Record<string, number>;
-  if (Object.prototype.hasOwnProperty.call(rates, sizeKey))
-    return rates[sizeKey];
-  const want = normalizeGradingSizeKey(sizeKey);
-  for (const [k, val] of Object.entries(rates)) {
-    if (normalizeGradingSizeKey(k) === want) return val;
-  }
-  return undefined;
-}
-
-/**
- * Σ (netWeightKg × buy-back rate) per bucket. `null` when there is no grading data.
- */
-function computeBuyBackAmountNumber(
-  farmer: ContractFarmingFarmerRow,
-  reportVariety: string
-): number | null {
-  const g = farmer.grading;
-  if (!g || typeof g !== 'object' || Object.keys(g).length === 0) return null;
-
-  let total = 0;
-
-  for (const [topKey, inner] of Object.entries(g)) {
-    if (!inner || typeof inner !== 'object') continue;
-    const innerRec = inner as Record<string, unknown>;
-    const looksLikeBucket =
-      typeof innerRec.initialBags === 'number' ||
-      typeof innerRec.netWeightKg === 'number';
-
-    if (looksLikeBucket) {
-      const bucket = toGradingBucket(inner);
-      const nw = Number.isFinite(bucket.netWeightKg) ? bucket.netWeightKg : 0;
-      const rate = resolveBuyBackRatePerKg(reportVariety, topKey);
-      if (rate != null && Number.isFinite(rate)) total += nw * rate;
-      continue;
-    }
-
-    for (const [sizeKey, bucket] of Object.entries(innerRec)) {
-      if (
-        !bucket ||
-        typeof bucket !== 'object' ||
-        !('initialBags' in bucket || 'netWeightKg' in bucket)
-      ) {
-        continue;
-      }
-      const b = bucket as ContractFarmingGradingBucket;
-      const nw = Number.isFinite(b.netWeightKg) ? b.netWeightKg : 0;
-      const rate = resolveBuyBackRatePerKg(topKey, sizeKey);
-      if (rate != null && Number.isFinite(rate)) total += nw * rate;
-    }
-  }
-
-  return total;
-}
-
-function formatBuyBackAmount(
-  farmer: ContractFarmingFarmerRow,
-  reportVariety: string
-): string {
-  const n = computeBuyBackAmountNumber(farmer, reportVariety);
-  if (n === null) return '—';
-  return n.toLocaleString(IN_LOCALE, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-/** Sum of `amountPayable` across `sizes`; `null` when there are no size lines. */
-function computeTotalSeedAmountNumber(
-  farmer: ContractFarmingFarmerRow
-): number | null {
-  const sizes = farmer.sizes ?? [];
-  if (sizes.length === 0) return null;
-  return sizes.reduce((sum, s) => {
-    const a = s.amountPayable;
-    return sum + (Number.isFinite(a) ? a : 0);
-  }, 0);
-}
-
-function formatTotalSeedAmount(farmer: ContractFarmingFarmerRow): string {
-  const n = computeTotalSeedAmountNumber(farmer);
-  if (n === null) return '—';
-  return n.toLocaleString(IN_LOCALE, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-/** Buy back amount − total seed amount (treat missing operands as 0 unless both missing). */
-function formatNetAmountPayable(
-  farmer: ContractFarmingFarmerRow,
-  reportVariety: string
-): string {
-  const buyBack = computeBuyBackAmountNumber(farmer, reportVariety);
-  const seed = computeTotalSeedAmountNumber(farmer);
-  if (buyBack === null && seed === null) return '—';
-  const net = (buyBack ?? 0) - (seed ?? 0);
-  return net.toLocaleString(IN_LOCALE, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-/** Acres for per-acre net: sum of `sizes[].acres`, else `acresPlanted` when that sum is 0. */
-function resolveAcresForNetPerAcre(farmer: ContractFarmingFarmerRow): number {
-  const sizes = farmer.sizes ?? [];
-  const sum = sizes.reduce(
-    (s, x) => s + (Number.isFinite(x.acres) ? x.acres : 0),
-    0
-  );
-  if (sum > 0) return sum;
-  return Number.isFinite(farmer.acresPlanted) ? farmer.acresPlanted : 0;
-}
-
-/** Net amount payable ÷ acres (from seed size lines when present). */
-function formatNetAmountPerAcre(
-  farmer: ContractFarmingFarmerRow,
-  reportVariety: string
-): string {
-  const buyBack = computeBuyBackAmountNumber(farmer, reportVariety);
-  const seed = computeTotalSeedAmountNumber(farmer);
-  if (buyBack === null && seed === null) return '—';
-  const net = (buyBack ?? 0) - (seed ?? 0);
-  const acres = resolveAcresForNetPerAcre(farmer);
-  if (acres <= 0) return '—';
-  const per = net / acres;
-  return per.toLocaleString(IN_LOCALE, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-type VarietyTableTotals = {
-  acresPlanted: number;
-  seedBags: number;
-  buyBackBags: number;
-  buyBackNetWeightKg: number;
-  gradingByColumn: number[];
-  totalGradingBags: number;
-  netWeightAfterGrading: number;
-  buyBackAmount: number;
-  totalSeedAmount: number;
-  netAmountPayable: number;
-  netAmountPerAcre: number;
-};
-
-/** Sums numeric columns once per farmer (not per expanded size row). */
-function computeVarietyTableTotals(
-  farmers: ContractFarmingFarmerRow[],
-  variety: string
-): VarietyTableTotals {
-  const gradingSums = CONTRACT_FARMING_GRADING_COLUMNS.map(() => 0);
-  let acresPlanted = 0;
-  let seedBags = 0;
-  let buyBackBags = 0;
-  let buyBackNetWeightKg = 0;
-  let totalGradingBags = 0;
-  let netWeightAfterGrading = 0;
-  let buyBackAmount = 0;
-  let totalSeedAmount = 0;
-  let netAmountPayable = 0;
-  let sumAcresForNetPerAcre = 0;
-
-  for (const farmer of farmers) {
-    acresPlanted += Number.isFinite(farmer.acresPlanted)
-      ? farmer.acresPlanted
-      : 0;
-    for (const s of farmer.sizes ?? []) {
-      seedBags += Number.isFinite(s.quantity) ? s.quantity : 0;
-    }
-
-    const bbAgg = aggregateBuyBackBags(farmer);
-    buyBackBags += bbAgg.totalBags;
-    buyBackNetWeightKg += bbAgg.totalNetWeightKg;
-
-    const gradingBySize = mergeGradingSizeMaps(farmer);
-    CONTRACT_FARMING_GRADING_COLUMNS.forEach((col, i) => {
-      const bucket = findGradingBucket(gradingBySize, col.matchKeys);
-      const q = bucket?.initialBags;
-      const add = typeof q === 'number' && Number.isFinite(q) ? q : 0;
-      gradingSums[i] = (gradingSums[i] ?? 0) + add;
-    });
-
-    totalGradingBags += Object.values(gradingBySize).reduce(
-      (s, b) => s + (Number.isFinite(b.initialBags) ? b.initialBags : 0),
-      0
-    );
-    netWeightAfterGrading += Object.values(gradingBySize).reduce(
-      (s, b) => s + (Number.isFinite(b.netWeightKg) ? b.netWeightKg : 0),
-      0
-    );
-
-    const bba = computeBuyBackAmountNumber(farmer, variety);
-    buyBackAmount += bba ?? 0;
-
-    const seedAmt = computeTotalSeedAmountNumber(farmer);
-    totalSeedAmount += seedAmt ?? 0;
-
-    netAmountPayable += (bba ?? 0) - (seedAmt ?? 0);
-    sumAcresForNetPerAcre += resolveAcresForNetPerAcre(farmer);
-  }
-
-  const netAmountPerAcre =
-    sumAcresForNetPerAcre > 0 ? netAmountPayable / sumAcresForNetPerAcre : 0;
-
-  return {
-    acresPlanted,
-    seedBags,
-    buyBackBags,
-    buyBackNetWeightKg,
-    gradingByColumn: gradingSums,
-    totalGradingBags,
-    netWeightAfterGrading,
-    buyBackAmount,
-    totalSeedAmount,
-    netAmountPayable,
-    netAmountPerAcre,
-  };
-}
-
-/** Sums `bags` and `netWeightKg` across all keys in `buy-back-bags`. */
-function aggregateBuyBackBags(farmer: ContractFarmingFarmerRow): {
-  totalBags: number;
-  totalNetWeightKg: number;
-} {
-  const entries = Object.values(farmer['buy-back-bags'] ?? {});
-  return entries.reduce(
-    (acc, e) => ({
-      totalBags: acc.totalBags + e.bags,
-      totalNetWeightKg: acc.totalNetWeightKg + e.netWeightKg,
-    }),
-    { totalBags: 0, totalNetWeightKg: 0 }
-  );
-}
+/** Left edge of post-seed block (partition after Seed bags). */
+const postSeedSectionFirstCol = 'border-primary/50 border-l-2 align-middle';
+const postSeedMergedCol = 'align-middle';
 
 const varietyTableHead = (
   <>
@@ -461,7 +105,10 @@ const varietyTableHead = (
     <TableHead className="font-custom bg-muted/95 sticky top-0 z-10 text-right text-xs font-semibold backdrop-blur-sm">
       Seed bags
     </TableHead>
-    <TableHead className="font-custom bg-muted/95 sticky top-0 z-10 text-right text-xs font-semibold backdrop-blur-sm">
+    <TableHead
+      className="font-custom bg-muted/95 border-primary/50 sticky top-0 z-10 border-l-2 text-right text-xs font-semibold backdrop-blur-sm"
+      title="Buy-back and grading (merged per farmer when multiple seed lines)"
+    >
       Buy back bags
     </TableHead>
     <TableHead className="font-custom bg-muted/95 sticky top-0 z-10 text-right text-xs font-semibold backdrop-blur-sm">
@@ -502,22 +149,44 @@ export const ContractFarmingReportDigitalTable = memo(
     isError,
     error,
     groups,
+    companyName,
   }: ContractFarmingReportDigitalTableProps) {
     const totalRows = groups.reduce(
       (n, g) => n + expandFarmerRowsForSizes(g.rows).length,
       0
     );
 
+    const handleDownloadExcel = useCallback(() => {
+      downloadContractFarmingReportExcel(groups, { companyName });
+      toast.success('Excel downloaded', {
+        description:
+          'Farmers are listed A–Z; buy-back and grading columns merge per farmer when there are multiple seed lines.',
+      });
+    }, [groups, companyName]);
+
     return (
       <Card className="overflow-hidden rounded-xl border-dashed">
-        <CardHeader className="pb-2">
-          <CardTitle className="font-custom text-base font-semibold">
-            Contract farming report
-          </CardTitle>
-          <CardDescription className="font-custom">
-            Temporary Preview For Contract Farming Report Before Generating Pdf
-            report
-          </CardDescription>
+        <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0 space-y-1.5">
+            <CardTitle className="font-custom text-base font-semibold">
+              Contract farming report
+            </CardTitle>
+            <CardDescription className="font-custom">
+              Temporary Preview For Contract Farming Report Before Generating
+              Pdf report
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoading || isError || groups.length === 0}
+            onClick={handleDownloadExcel}
+            className="font-custom focus-visible:ring-primary h-9 shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          >
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+            Download Excel
+          </Button>
         </CardHeader>
         <CardContent className="pt-0">
           {isLoading ? (
@@ -560,14 +229,32 @@ export const ContractFarmingReportDigitalTable = memo(
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {expandFarmerRowsForSizes(rows).map(
-                            ({ farmer, size }, idx) => {
-                              const buyBack = aggregateBuyBackBags(farmer);
+                          {buildVarietyBodyRows(rows).map(
+                            (
+                              {
+                                farmer,
+                                size,
+                                sizeLineIndex,
+                                postSeedRowSpan,
+                                showPostSeedCells,
+                              },
+                              idx
+                            ) => {
+                              const buyBack =
+                                aggregateBuyBackBagsForReportVariety(
+                                  farmer,
+                                  variety
+                                );
                               const hasBuyBack =
-                                Object.keys(farmer['buy-back-bags'] ?? {})
-                                  .length > 0;
+                                hasBuyBackBagsEntryForReportVariety(
+                                  farmer,
+                                  variety
+                                );
                               const gradingBySize =
-                                mergeGradingSizeMaps(farmer);
+                                mergeGradingSizeMapsForReportVariety(
+                                  farmer,
+                                  variety
+                                );
                               return (
                                 <TableRow
                                   key={`${variety}-${farmer.id}-${size?.name ?? 'no-size'}-${idx}`}
@@ -579,15 +266,21 @@ export const ContractFarmingReportDigitalTable = memo(
                                     {farmer.name}
                                   </TableCell>
                                   <TableCell className="font-custom text-right text-xs tabular-nums">
-                                    {farmer.acresPlanted.toLocaleString(
-                                      IN_LOCALE,
+                                    {acresPlantedForSeedLine(
+                                      farmer,
+                                      size
+                                    ).toLocaleString(
+                                      CONTRACT_FARMING_IN_LOCALE,
                                       {
                                         maximumFractionDigits: 2,
                                       }
                                     )}
                                   </TableCell>
                                   <TableCell className="font-custom text-xs whitespace-nowrap">
-                                    {farmer.generations.join(', ')}
+                                    {generationLabelForSeedLine(
+                                      farmer,
+                                      sizeLineIndex
+                                    )}
                                   </TableCell>
                                   <TableCell className="font-custom text-xs whitespace-nowrap">
                                     {size?.name ?? '—'}
@@ -595,62 +288,99 @@ export const ContractFarmingReportDigitalTable = memo(
                                   <TableCell className="font-custom text-right text-xs tabular-nums">
                                     {size != null
                                       ? size.quantity.toLocaleString(
-                                          IN_LOCALE,
+                                          CONTRACT_FARMING_IN_LOCALE,
                                           {
                                             maximumFractionDigits: 0,
                                           }
                                         )
                                       : '—'}
                                   </TableCell>
-                                  <TableCell className="font-custom text-right text-xs tabular-nums">
-                                    {hasBuyBack
-                                      ? buyBack.totalBags.toLocaleString(
-                                          IN_LOCALE,
-                                          { maximumFractionDigits: 0 }
-                                        )
-                                      : '—'}
-                                  </TableCell>
-                                  <TableCell className="font-custom text-right text-xs tabular-nums">
-                                    {hasBuyBack
-                                      ? buyBack.totalNetWeightKg.toLocaleString(
-                                          IN_LOCALE,
-                                          { maximumFractionDigits: 2 }
-                                        )
-                                      : '—'}
-                                  </TableCell>
-                                  {CONTRACT_FARMING_GRADING_COLUMNS.map(
-                                    (col) => (
+                                  {showPostSeedCells ? (
+                                    <>
                                       <TableCell
-                                        key={col.header}
-                                        className="font-custom text-right text-xs tabular-nums"
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs tabular-nums ${postSeedSectionFirstCol}`}
                                       >
-                                        {formatGradingBagsQty(
-                                          findGradingBucket(
-                                            gradingBySize,
-                                            col.matchKeys
-                                          )
+                                        {hasBuyBack
+                                          ? buyBack.totalBags.toLocaleString(
+                                              CONTRACT_FARMING_IN_LOCALE,
+                                              { maximumFractionDigits: 0 }
+                                            )
+                                          : '—'}
+                                      </TableCell>
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {hasBuyBack
+                                          ? buyBack.totalNetWeightKg.toLocaleString(
+                                              CONTRACT_FARMING_IN_LOCALE,
+                                              { maximumFractionDigits: 2 }
+                                            )
+                                          : '—'}
+                                      </TableCell>
+                                      {CONTRACT_FARMING_GRADING_COLUMNS.map(
+                                        (col) => (
+                                          <TableCell
+                                            key={col.header}
+                                            rowSpan={postSeedRowSpan}
+                                            className={`font-custom text-right text-xs tabular-nums ${postSeedMergedCol}`}
+                                          >
+                                            {formatGradingBagsQty(
+                                              findGradingBucket(
+                                                gradingBySize,
+                                                col.matchKeys
+                                              )
+                                            )}
+                                          </TableCell>
+                                        )
+                                      )}
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs font-semibold tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {formatTotalGradingBags(gradingBySize)}
+                                      </TableCell>
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs font-semibold tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {formatNetWeightAfterGrading(
+                                          gradingBySize
                                         )}
                                       </TableCell>
-                                    )
-                                  )}
-                                  <TableCell className="font-custom text-right text-xs font-semibold tabular-nums">
-                                    {formatTotalGradingBags(gradingBySize)}
-                                  </TableCell>
-                                  <TableCell className="font-custom text-right text-xs font-semibold tabular-nums">
-                                    {formatNetWeightAfterGrading(gradingBySize)}
-                                  </TableCell>
-                                  <TableCell className="font-custom text-right text-xs font-semibold tabular-nums">
-                                    {formatBuyBackAmount(farmer, variety)}
-                                  </TableCell>
-                                  <TableCell className="font-custom text-right text-xs font-semibold tabular-nums">
-                                    {formatTotalSeedAmount(farmer)}
-                                  </TableCell>
-                                  <TableCell className="font-custom text-right text-xs font-semibold tabular-nums">
-                                    {formatNetAmountPayable(farmer, variety)}
-                                  </TableCell>
-                                  <TableCell className="font-custom text-right text-xs font-semibold tabular-nums">
-                                    {formatNetAmountPerAcre(farmer, variety)}
-                                  </TableCell>
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs font-semibold tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {formatBuyBackAmount(farmer, variety)}
+                                      </TableCell>
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs font-semibold tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {formatTotalSeedAmount(farmer)}
+                                      </TableCell>
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs font-semibold tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {formatNetAmountPayable(
+                                          farmer,
+                                          variety
+                                        )}
+                                      </TableCell>
+                                      <TableCell
+                                        rowSpan={postSeedRowSpan}
+                                        className={`font-custom text-right text-xs font-semibold tabular-nums ${postSeedMergedCol}`}
+                                      >
+                                        {formatNetAmountPerAcre(
+                                          farmer,
+                                          variety
+                                        )}
+                                      </TableCell>
+                                    </>
+                                  ) : null}
                                 </TableRow>
                               );
                             }
@@ -667,7 +397,7 @@ export const ContractFarmingReportDigitalTable = memo(
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.acresPlanted.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   maximumFractionDigits: 2,
                                 }
@@ -681,15 +411,17 @@ export const ContractFarmingReportDigitalTable = memo(
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.seedBags.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   maximumFractionDigits: 0,
                                 }
                               )}
                             </TableCell>
-                            <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
+                            <TableCell
+                              className={`font-custom text-right text-xs font-bold tabular-nums ${postSeedSectionFirstCol}`}
+                            >
                               {varietyTotals.buyBackBags.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   maximumFractionDigits: 0,
                                 }
@@ -697,7 +429,7 @@ export const ContractFarmingReportDigitalTable = memo(
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.buyBackNetWeightKg.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 { maximumFractionDigits: 2 }
                               )}
                             </TableCell>
@@ -708,26 +440,29 @@ export const ContractFarmingReportDigitalTable = memo(
                                 }
                                 className="font-custom text-right text-xs font-bold tabular-nums"
                               >
-                                {qty.toLocaleString(IN_LOCALE, {
-                                  maximumFractionDigits: 0,
-                                })}
+                                {qty.toLocaleString(
+                                  CONTRACT_FARMING_IN_LOCALE,
+                                  {
+                                    maximumFractionDigits: 0,
+                                  }
+                                )}
                               </TableCell>
                             ))}
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.totalGradingBags.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 { maximumFractionDigits: 0 }
                               )}
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.netWeightAfterGrading.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 { maximumFractionDigits: 2 }
                               )}
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.buyBackAmount.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
@@ -736,7 +471,7 @@ export const ContractFarmingReportDigitalTable = memo(
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.totalSeedAmount.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
@@ -745,7 +480,7 @@ export const ContractFarmingReportDigitalTable = memo(
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.netAmountPayable.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
@@ -754,7 +489,7 @@ export const ContractFarmingReportDigitalTable = memo(
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.netAmountPerAcre.toLocaleString(
-                                IN_LOCALE,
+                                CONTRACT_FARMING_IN_LOCALE,
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
