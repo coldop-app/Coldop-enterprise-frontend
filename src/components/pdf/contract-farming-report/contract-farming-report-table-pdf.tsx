@@ -297,8 +297,11 @@ export function ContractFarmingReportTablePdf({
     <Document>
       {groups.map((group, pageIndex) => {
         const totals = totalsValue(group.rows, group.variety);
-        const renderedRows = expandFarmerRowsForSizes(group.rows).map((entry) =>
-          rowValue(entry.farmer, group.variety, entry.sizeLineIndex)
+        const renderedRows = expandFarmerRowsForSizes(group.rows).map(
+          (entry, rowIndex): Record<string, string> => ({
+            ...rowValue(entry.farmer, group.variety, entry.sizeLineIndex),
+            sNo: String(rowIndex + 1),
+          })
         );
         return (
           <Page

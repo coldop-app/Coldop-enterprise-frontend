@@ -28,10 +28,32 @@ import Overview from './overview';
 import IncomingGatePassAnalyticsScreen from './incoming';
 import GradingGatePassAnalyticsScreen from './grading';
 import StorageAnalyticsScreen from './storage';
+import SeedAnalyticsTab from './seed';
+
+const ANALYTICS_TAB_STORAGE_KEY = 'analytics-active-tab';
+const ANALYTICS_TABS = [
+  'seed',
+  'incoming',
+  'grading',
+  'storage',
+  'dispatch',
+  'outgoing',
+] as const;
+
+type AnalyticsTabValue = (typeof ANALYTICS_TABS)[number];
+
+function isAnalyticsTabValue(value: string): value is AnalyticsTabValue {
+  return ANALYTICS_TABS.includes(value as AnalyticsTabValue);
+}
 
 const AnalyticsPage = () => {
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
+  const [activeTab, setActiveTab] = useState<AnalyticsTabValue>(() => {
+    if (typeof window === 'undefined') return 'incoming';
+    const storedTab = window.localStorage.getItem(ANALYTICS_TAB_STORAGE_KEY);
+    return storedTab && isAnalyticsTabValue(storedTab) ? storedTab : 'incoming';
+  });
   const [appliedDateParams, setAppliedDateParams] = useState<
     { dateFrom: string; dateTo: string } | Record<string, never>
   >({});
@@ -178,8 +200,23 @@ const AnalyticsPage = () => {
         </Item>
 
         <Overview dateParams={appliedDateParams} />
-        <Tabs defaultValue="incoming" className="font-custom w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(nextTab) => {
+            if (!isAnalyticsTabValue(nextTab)) return;
+            setActiveTab(nextTab);
+            window.localStorage.setItem(ANALYTICS_TAB_STORAGE_KEY, nextTab);
+          }}
+          className="font-custom w-full"
+        >
           <TabsList className="font-custom flex h-auto w-full flex-nowrap overflow-x-auto">
+            <TabsTrigger
+              value="seed"
+              className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+            >
+              <span className="sm:hidden">See</span>
+              <span className="hidden sm:inline">Seed</span>
+            </TabsTrigger>
             <TabsTrigger
               value="incoming"
               className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
@@ -217,6 +254,9 @@ const AnalyticsPage = () => {
             </TabsTrigger>
           </TabsList>
           <div className="p-4">
+            <TabsContent value="seed" className="mt-0 outline-none">
+              <SeedAnalyticsTab />
+            </TabsContent>
             <TabsContent value="incoming" className="mt-0 outline-none">
               <IncomingGatePassAnalyticsScreen
                 queryResult={incomingQuery}

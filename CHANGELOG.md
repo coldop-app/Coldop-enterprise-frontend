@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.51.0] - 2026-04-14
 
+## [0.52.0] - 2026-04-14
+
+### Added
+- Analytics now includes a dedicated **Seed** tab with contract-farming table search plus report export actions (PDF/Excel) moved from Daybook seed view
+- Analytics tab selection now persists via local storage (`analytics-active-tab`)
+
+### Changed
+- Daybook **Seed** tab now focuses on farmer seed voucher browsing and search, while contract-farming report tooling is handled in Analytics
+- Contract farming PDF rows now render stable serial numbers per expanded row
+
+### Removed
+- Removed the standalone `/store-admin/farmer-seed-history` route/screen and its topbar navigation entry
+
+## [0.51.0] - 2026-04-14
+
 ### Added
 - Daybook seed tab now shows grouped farmer seed vouchers, including account-level grouping and voucher rendering via the new `FarmerSeedVoucher` component
 - Daybook tab header now uses mobile-friendly Lucide icons and persists the active tab (`daybook-active-tab`) in local storage
