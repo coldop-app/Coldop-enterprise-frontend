@@ -128,6 +128,13 @@ export interface GetGradingGatePassesApiResponse {
   message?: string;
 }
 
+/** API response for GET /grading-gate-pass/search/:gatePassNo */
+export interface SearchGradingGatePassApiResponse {
+  success: boolean;
+  data: GradingGatePass[];
+  message?: string;
+}
+
 /** Order detail for POST /grading-gate-pass (size name can vary) */
 export interface CreateGradingGatePassOrderDetail {
   size: string;

@@ -34,6 +34,8 @@ import { TabSummaryBar, LIMIT_OPTIONS } from './shared';
 export interface DispatchTabProps {
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
+  /** True when debounced gate-pass search is active (API search mode) */
+  isSearchActive?: boolean;
   sortOrder: 'asc' | 'desc';
   onSortOrderChange: (value: 'asc' | 'desc') => void;
   page: number;
@@ -53,6 +55,7 @@ export interface DispatchTabProps {
 const DispatchTab = memo(function DispatchTab({
   searchQuery,
   onSearchQueryChange,
+  isSearchActive = false,
   sortOrder,
   onSortOrderChange,
   page,
@@ -70,10 +73,15 @@ const DispatchTab = memo(function DispatchTab({
 }: DispatchTabProps) {
   const filteredBySearch = useMemo(() => {
     if (!dispatchGatePassData?.length) return dispatchGatePassData ?? [];
+    if (isSearchActive) return dispatchGatePassData;
     const q = searchQuery.trim().toLowerCase();
     if (!q) return dispatchGatePassData;
     return dispatchGatePassData.filter((pass) => {
       const no = String(pass.gatePassNo ?? '');
+      const manualNo =
+        pass.manualGatePassNumber != null
+          ? String(pass.manualGatePassNumber)
+          : '';
       const dateStr = pass.date
         ? new Date(pass.date).toLocaleDateString('en-IN')
         : '';
@@ -81,11 +89,12 @@ const DispatchTab = memo(function DispatchTab({
         pass.farmerStorageLinkId?.farmerId?.name?.toLowerCase() ?? '';
       return (
         no.toLowerCase().includes(q) ||
+        manualNo.toLowerCase().includes(q) ||
         dateStr.toLowerCase().includes(q) ||
         farmerName.includes(q)
       );
     });
-  }, [dispatchGatePassData, searchQuery]);
+  }, [dispatchGatePassData, searchQuery, isSearchActive]);
 
   return (
     <>
@@ -101,7 +110,11 @@ const DispatchTab = memo(function DispatchTab({
         <div className="relative w-full">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
-            placeholder="Search by gate pass number, date, or farmer"
+            placeholder={
+              isSearchActive
+                ? 'Search by gate pass number'
+                : 'Search by gate pass number, date, or farmer'
+            }
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
@@ -174,15 +187,26 @@ const DispatchTab = memo(function DispatchTab({
                   <EmptyMedia variant="icon">
                     <Truck className="size-6" />
                   </EmptyMedia>
-                  <EmptyTitle>No dispatch vouchers yet</EmptyTitle>
+                  <EmptyTitle>
+                    {isSearchActive
+                      ? 'No dispatch gate passes match this number'
+                      : 'No dispatch vouchers yet'}
+                  </EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                    asChild
-                  >
-                    <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
-                  </Button>
+                  {isSearchActive ? (
+                    <p className="font-custom text-sm text-gray-600">
+                      Try another gate pass number or clear the search to see
+                      the full list.
+                    </p>
+                  ) : (
+                    <Button
+                      className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                      asChild
+                    >
+                      <Link to="/store-admin/nikasi">Add Dispatch voucher</Link>
+                    </Button>
+                  )}
                 </EmptyContent>
               </Empty>
             </CardContent>

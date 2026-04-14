@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.0] - 2026-04-14
+
+### Added
+- Daybook: debounced search by gate pass number on **Incoming**, **Grading**, **Storage**, and **Dispatch** (nikasi) tabs, switching to search API results when the user types a number
+- Store admin React Query hooks for gate-pass-by-number search: `useSearchIncomingGatePassNumber`, `useSearchGradingGatePassNumber`, `useSearchStorageGatePass`, and `useSearchNikasiGatePass`
+- Contract farming contract report: **Address** column in the digital table and in the Excel export (merge column index adjusted for the extra column)
+
+### Changed
+- Daybook tabs: props and empty-copy for active search vs full list; gate pass types extended for search response usage where applicable
+
+### Fixed
+- TypeScript: added `@types/lodash` so `lodash/debounce` used by the daybook page type-checks
+- Incoming daybook tab: safe handling of `bagSizes` and `gradingSummary` when list items are either full GET list shapes or farmer-storage-link search result items
+- ESLint: documented daybook debounce sync for `react-hooks/set-state-in-effect`; removed unused `pageIndex` tracking in grading gate pass PDF; exported `InnerApp` from `main.tsx` for Fast Refresh
+
 ## [0.49.0] - 2026-04-09
 
 ### Added

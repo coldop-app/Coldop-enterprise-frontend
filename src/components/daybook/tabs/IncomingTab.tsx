@@ -28,20 +28,29 @@ import {
 } from '@/components/ui/empty';
 import { IncomingVoucher } from '../vouchers';
 import type { IncomingVoucherData } from '../vouchers';
-import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
+import type {
+  IncomingGatePassByFarmerStorageLinkItem,
+  IncomingGatePassWithLink,
+} from '@/types/incoming-gate-pass';
 import {
   TabSummaryBar,
   LIMIT_OPTIONS,
   type IncomingStatusFilter,
 } from './shared';
 
+type IncomingTabListItem =
+  | IncomingGatePassWithLink
+  | IncomingGatePassByFarmerStorageLinkItem;
+
 /** Map API incoming gate pass to IncomingVoucher props (voucher + farmer info) */
-function toIncomingVoucherProps(pass: IncomingGatePassWithLink) {
+function toIncomingVoucherProps(pass: IncomingTabListItem) {
   const link = pass.farmerStorageLinkId;
   const farmer = link?.farmerId;
   const bagsReceived =
     pass.bagsReceived ??
-    pass.bagSizes?.reduce((s, b) => s + (b.initialQuantity ?? 0), 0) ??
+    ('bagSizes' in pass
+      ? pass.bagSizes.reduce((s, b) => s + (b.initialQuantity ?? 0), 0)
+      : undefined) ??
     0;
   const voucher: IncomingVoucherData = {
     _id: pass._id,
@@ -55,7 +64,7 @@ function toIncomingVoucherProps(pass: IncomingGatePassWithLink) {
     status: pass.status,
     weightSlip: pass.weightSlip,
     remarks: pass.remarks,
-    gradingSummary: pass.gradingSummary,
+    gradingSummary: 'gradingSummary' in pass ? pass.gradingSummary : undefined,
     createdBy:
       typeof pass.createdBy === 'object' &&
       pass.createdBy != null &&
@@ -75,6 +84,8 @@ function toIncomingVoucherProps(pass: IncomingGatePassWithLink) {
 export interface IncomingTabProps {
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
+  /** True when a debounced gate-pass search is active (API search mode) */
+  isSearchActive?: boolean;
   sortOrder: 'asc' | 'desc';
   onSortOrderChange: (value: 'asc' | 'desc') => void;
   statusFilter: IncomingStatusFilter;
@@ -83,7 +94,7 @@ export interface IncomingTabProps {
   onPageChange: (page: number) => void;
   limit: number;
   onLimitChange: (limit: number) => void;
-  data: IncomingGatePassWithLink[] | undefined;
+  data: IncomingTabListItem[] | undefined;
   total: number;
   isLoading: boolean;
   isError: boolean;
@@ -96,6 +107,7 @@ export interface IncomingTabProps {
 const IncomingTab = memo(function IncomingTab({
   searchQuery,
   onSearchQueryChange,
+  isSearchActive = false,
   sortOrder,
   onSortOrderChange,
   statusFilter,
@@ -235,15 +247,28 @@ const IncomingTab = memo(function IncomingTab({
                   <EmptyMedia variant="icon">
                     <ArrowUpFromLine className="size-6" />
                   </EmptyMedia>
-                  <EmptyTitle>No incoming vouchers yet</EmptyTitle>
+                  <EmptyTitle>
+                    {isSearchActive
+                      ? 'No gate passes match this number'
+                      : 'No incoming vouchers yet'}
+                  </EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                    asChild
-                  >
-                    <Link to="/store-admin/incoming">Add Incoming voucher</Link>
-                  </Button>
+                  {isSearchActive ? (
+                    <p className="font-custom text-sm text-gray-600">
+                      Try another gate pass number or clear the search to see
+                      the full list.
+                    </p>
+                  ) : (
+                    <Button
+                      className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                      asChild
+                    >
+                      <Link to="/store-admin/incoming">
+                        Add Incoming voucher
+                      </Link>
+                    </Button>
+                  )}
                 </EmptyContent>
               </Empty>
             </CardContent>

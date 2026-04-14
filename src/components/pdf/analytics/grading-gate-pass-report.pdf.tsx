@@ -242,7 +242,6 @@ export function GradingGatePassReportPdf({
   const baseTitle = `${companyName} — Grading (Initial) Gate Pass Report — ${dateRangeLabel}`;
 
   if (isGroupedByVarietyAndFarmer(data)) {
-    let pageIndex = 0;
     return (
       <Document>
         {data.length === 0 ? (
@@ -260,7 +259,6 @@ export function GradingGatePassReportPdf({
                 gradingReportItemToStockLedgerRow(pass, i + 1)
               );
               const sortedRows = sortRowsByGatePassNo(rows);
-              pageIndex++;
               const showVarietyHeader = farmerIndex === 0;
               return (
                 <Page

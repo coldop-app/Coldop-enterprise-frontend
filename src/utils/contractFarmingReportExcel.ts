@@ -23,14 +23,15 @@ import {
   hasBuyBackBagsEntryForReportVariety,
 } from '@/utils/contractFarmingReportShared';
 
-/** Columns 0–6: S.No. … Seed bags. Column 7+ merged per farmer when multiple seed lines. */
-const EXCEL_MERGE_COL_START = 7;
+/** Columns 0–7: S.No. … Seed bags. Column 8+ merged per farmer when multiple seed lines. */
+const EXCEL_MERGE_COL_START = 8;
 
 function buildHeaderRow(): string[] {
   return [
     'S. No.',
     'Variety',
     'Name',
+    'Address',
     'Acres planted',
     'Generation',
     'Size name',
@@ -91,6 +92,7 @@ function buildSeedColumns(
     serial,
     variety,
     farmer.name,
+    farmer.address,
     acresPlantedForSeedLine(farmer, size).toLocaleString(
       CONTRACT_FARMING_IN_LOCALE,
       {

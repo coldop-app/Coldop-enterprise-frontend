@@ -146,6 +146,13 @@ export interface GetStorageGatePassesApiResponse {
   message?: string;
 }
 
+/** API response for GET /storage-gate-pass/search/:gatePassNo */
+export interface SearchStorageGatePassApiResponse {
+  success: boolean;
+  data: StorageGatePassWithLink[];
+  message?: string;
+}
+
 /** One group from GET /storage-gate-pass/grouped (by manualGatePassNumber and date) */
 export interface GroupedStorageGatePassGroup {
   manualGatePassNumber: number | null;

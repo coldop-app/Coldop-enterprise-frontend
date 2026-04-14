@@ -224,6 +224,13 @@ export interface GetNikasiGatePassesApiResponse {
   message?: string;
 }
 
+/** API response for GET /nikasi-gate-pass/search/:gatePassNo */
+export interface SearchNikasiGatePassApiResponse {
+  success: boolean;
+  data: NikasiGatePassWithLink[];
+  message?: string;
+}
+
 /** One group from GET /nikasi-gate-pass/grouped (by manualGatePassNumber and date) */
 export interface GroupedNikasiGatePassGroup {
   manualGatePassNumber: number | null;

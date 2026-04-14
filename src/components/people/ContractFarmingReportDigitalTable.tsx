@@ -93,6 +93,9 @@ const varietyTableHead = (
     <TableHead className="font-custom bg-muted/95 sticky top-0 z-10 text-xs font-semibold whitespace-nowrap backdrop-blur-sm">
       Name
     </TableHead>
+    <TableHead className="font-custom bg-muted/95 sticky top-0 z-10 min-w-32 text-xs font-semibold backdrop-blur-sm">
+      Address
+    </TableHead>
     <TableHead className="font-custom bg-muted/95 sticky top-0 z-10 text-right text-xs font-semibold backdrop-blur-sm">
       Acres planted
     </TableHead>
@@ -265,6 +268,9 @@ export const ContractFarmingReportDigitalTable = memo(
                                   <TableCell className="font-custom max-w-48 truncate text-xs">
                                     {farmer.name}
                                   </TableCell>
+                                  <TableCell className="font-custom max-w-40 text-xs wrap-break-word sm:max-w-56">
+                                    {farmer.address}
+                                  </TableCell>
                                   <TableCell className="font-custom text-right text-xs tabular-nums">
                                     {acresPlantedForSeedLine(
                                       farmer,
@@ -394,6 +400,9 @@ export const ContractFarmingReportDigitalTable = memo(
                             />
                             <TableCell className="font-custom max-w-48 truncate text-xs font-bold">
                               Total
+                            </TableCell>
+                            <TableCell className="font-custom text-xs font-bold">
+                              —
                             </TableCell>
                             <TableCell className="font-custom text-right text-xs font-bold tabular-nums">
                               {varietyTotals.acresPlanted.toLocaleString(

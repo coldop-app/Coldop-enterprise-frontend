@@ -199,3 +199,10 @@ export interface GetIncomingGatePassesByFarmerStorageLinkApiResponse {
   data: IncomingGatePassByFarmerStorageLinkItem[];
   pagination: IncomingGatePassPagination;
 }
+
+/** API response for GET /incoming-gate-pass/search/:gatePassNo */
+export interface SearchIncomingGatePassApiResponse {
+  success: boolean;
+  data: IncomingGatePassByFarmerStorageLinkItem[];
+  message?: string;
+}

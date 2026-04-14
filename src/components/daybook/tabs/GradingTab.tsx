@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { Item, ItemFooter } from '@/components/ui/item';
@@ -88,6 +88,8 @@ function toGradingVoucherProps(pass: GradingGatePass): GradingVoucherProps {
 export interface GradingTabProps {
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
+  /** True when debounced gate-pass search is active (API search mode) */
+  isSearchActive?: boolean;
   sortOrder: 'asc' | 'desc';
   onSortOrderChange: (value: 'asc' | 'desc') => void;
   page: number;
@@ -107,6 +109,7 @@ export interface GradingTabProps {
 const GradingTab = memo(function GradingTab({
   searchQuery,
   onSearchQueryChange,
+  isSearchActive = false,
   sortOrder,
   onSortOrderChange,
   page,
@@ -122,19 +125,6 @@ const GradingTab = memo(function GradingTab({
   hasPrev,
   hasNext,
 }: GradingTabProps) {
-  const filteredBySearch = useMemo(() => {
-    if (!gradingGatePassData?.length) return gradingGatePassData ?? [];
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return gradingGatePassData;
-    return gradingGatePassData.filter((pass) => {
-      const no = String(pass.gatePassNo ?? '');
-      const dateStr = pass.date
-        ? new Date(pass.date).toLocaleDateString('en-IN')
-        : '';
-      return no.toLowerCase().includes(q) || dateStr.toLowerCase().includes(q);
-    });
-  }, [gradingGatePassData, searchQuery]);
-
   return (
     <>
       <TabSummaryBar
@@ -214,7 +204,7 @@ const GradingTab = memo(function GradingTab({
               </Empty>
             </CardContent>
           </Card>
-        ) : !filteredBySearch?.length ? (
+        ) : !gradingGatePassData?.length ? (
           <Card>
             <CardContent className="py-8 pt-6">
               <Empty className="font-custom">
@@ -222,22 +212,33 @@ const GradingTab = memo(function GradingTab({
                   <EmptyMedia variant="icon">
                     <ClipboardList className="size-6" />
                   </EmptyMedia>
-                  <EmptyTitle>No grading vouchers yet</EmptyTitle>
+                  <EmptyTitle>
+                    {isSearchActive
+                      ? 'No grading gate passes match this number'
+                      : 'No grading vouchers yet'}
+                  </EmptyTitle>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button
-                    className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
-                    asChild
-                  >
-                    <Link to="/store-admin/grading">Add Grading voucher</Link>
-                  </Button>
+                  {isSearchActive ? (
+                    <p className="font-custom text-sm text-gray-600">
+                      Try another gate pass number or clear the search to see
+                      the full list.
+                    </p>
+                  ) : (
+                    <Button
+                      className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                      asChild
+                    >
+                      <Link to="/store-admin/grading">Add Grading voucher</Link>
+                    </Button>
+                  )}
                 </EmptyContent>
               </Empty>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-6">
-            {filteredBySearch.map((pass) => {
+            {gradingGatePassData.map((pass) => {
               const props = toGradingVoucherProps(pass);
               return (
                 <GradingVoucher
@@ -257,7 +258,7 @@ const GradingTab = memo(function GradingTab({
           </div>
         )}
 
-        {(filteredBySearch?.length ?? 0) > 0 && (
+        {(gradingGatePassData?.length ?? 0) > 0 && (
           <Item
             variant="outline"
             size="sm"

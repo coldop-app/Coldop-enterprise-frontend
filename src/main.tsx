@@ -25,7 +25,7 @@ declare module '@tanstack/react-router' {
 }
 
 // Inner component that provides auth context to the router
-function InnerApp() {
+export function InnerApp() {
   const { admin, token } = useStore();
   const isAuthenticated = !!(admin && token);
 
