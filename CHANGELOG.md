@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.0] - 2026-04-14
+
+### Added
+- Daybook seed tab now shows grouped farmer seed vouchers, including account-level grouping and voucher rendering via the new `FarmerSeedVoucher` component
+- Daybook tab header now uses mobile-friendly Lucide icons and persists the active tab (`daybook-active-tab`) in local storage
+
+### Changed
+- Daybook data flow moved from centralized parent-state orchestration to tab-local state in `Incoming`, `Grading`, `Storage`, and `Dispatch`, with each tab handling its own search, sorting, pagination, and refresh actions
+- Daybook and sidebar navigation active-path behavior now treats `/store-admin/farmer-seed` as part of Daybook instead of People
+
+### Removed
+- Deleted unused store file `src/stores/useBearStore.ts`
+
 ## [0.50.0] - 2026-04-14
 
 ### Added

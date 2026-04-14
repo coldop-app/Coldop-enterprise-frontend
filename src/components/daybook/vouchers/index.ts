@@ -13,6 +13,9 @@ export type { NikasiVoucherProps } from './nikasi-voucher';
 export { OutgoingVoucher } from './outgoing-voucher';
 export type { OutgoingVoucherProps } from './outgoing-voucher';
 
+export { FarmerSeedVoucher } from './farmer-seed-voucher';
+export type { FarmerSeedVoucherProps } from './farmer-seed-voucher';
+
 export { DetailRow } from './detail-row';
 
 export {

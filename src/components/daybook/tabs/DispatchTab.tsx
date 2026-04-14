@@ -1,5 +1,7 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Item, ItemFooter } from '@/components/ui/item';
 import { Input } from '@/components/ui/input';
@@ -29,78 +31,152 @@ import { Search, ChevronDown, Truck } from 'lucide-react';
 import { NikasiVoucher } from '../vouchers';
 import type { NikasiGatePassWithLink } from '@/types/nikasi-gate-pass';
 import type { PassVoucherData } from '../vouchers/types';
+import { nikasiGatePassesQueryOptions } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
+import { useSearchNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useSearchNikasiGatePass';
 import { TabSummaryBar, LIMIT_OPTIONS } from './shared';
 
 export interface DispatchTabProps {
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  /** True when debounced gate-pass search is active (API search mode) */
-  isSearchActive?: boolean;
-  sortOrder: 'asc' | 'desc';
-  onSortOrderChange: (value: 'asc' | 'desc') => void;
-  page: number;
-  onPageChange: (page: number) => void;
-  limit: number;
-  onLimitChange: (limit: number) => void;
-  data: NikasiGatePassWithLink[] | undefined;
-  total: number;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
+  initialPage?: number;
 }
 
 const DispatchTab = memo(function DispatchTab({
-  searchQuery,
-  onSearchQueryChange,
-  isSearchActive = false,
-  sortOrder,
-  onSortOrderChange,
-  page,
-  onPageChange,
-  limit,
-  onLimitChange,
-  data: dispatchGatePassData,
-  total,
-  isLoading: dispatchLoading,
-  isError: dispatchError,
-  error: dispatchErrorDetail,
-  totalPages,
-  hasPrev,
-  hasNext,
+  initialPage = 1,
 }: DispatchTabProps) {
-  const filteredBySearch = useMemo(() => {
-    if (!dispatchGatePassData?.length) return dispatchGatePassData ?? [];
-    if (isSearchActive) return dispatchGatePassData;
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return dispatchGatePassData;
-    return dispatchGatePassData.filter((pass) => {
-      const no = String(pass.gatePassNo ?? '');
-      const manualNo =
-        pass.manualGatePassNumber != null
-          ? String(pass.manualGatePassNumber)
-          : '';
-      const dateStr = pass.date
-        ? new Date(pass.date).toLocaleDateString('en-IN')
-        : '';
-      const farmerName =
-        pass.farmerStorageLinkId?.farmerId?.name?.toLowerCase() ?? '';
-      return (
-        no.toLowerCase().includes(q) ||
-        manualNo.toLowerCase().includes(q) ||
-        dateStr.toLowerCase().includes(q) ||
-        farmerName.includes(q)
-      );
+  const [page, setPage] = useState(initialPage);
+  const [limit, setLimit] = useState(10);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useDebounceValue('', 400);
+
+  const isSearchActive = debouncedSearch.trim().length > 0;
+  const searchTerm = debouncedSearch.trim();
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    return {
+      dateFrom: `${now.getFullYear()}-01-01`,
+      dateTo: now.toISOString().slice(0, 10),
+    };
+  }, []);
+
+  const dispatchParams = useMemo(
+    () => ({
+      page,
+      limit,
+      sortOrder,
+      dateFrom: dateRange.dateFrom,
+      dateTo: dateRange.dateTo,
+    }),
+    [page, limit, sortOrder, dateRange]
+  );
+
+  const {
+    data: dispatchResult,
+    isLoading: dispatchListLoading,
+    isFetching: dispatchListFetching,
+    isError: dispatchListError,
+    error: dispatchListErrorDetail,
+    refetch: refetchDispatchList,
+  } = useQuery({
+    ...nikasiGatePassesQueryOptions(dispatchParams),
+    enabled: !isSearchActive,
+  });
+
+  const {
+    data: dispatchSearchRows,
+    isLoading: dispatchSearchLoading,
+    isFetching: dispatchSearchFetching,
+    isError: dispatchSearchError,
+    error: dispatchSearchErrorDetail,
+    refetch: refetchDispatchSearch,
+  } = useSearchNikasiGatePass(isSearchActive ? searchTerm : null);
+
+  const processedDispatchSearchRows = useMemo(() => {
+    if (!dispatchSearchRows) {
+      return [];
+    }
+    const rows = [...dispatchSearchRows];
+    rows.sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      return sortOrder === 'desc' ? db - da : da - db;
     });
-  }, [dispatchGatePassData, searchQuery, isSearchActive]);
+    return rows;
+  }, [dispatchSearchRows, sortOrder]);
+
+  const paginatedDispatchSearchRows = useMemo(() => {
+    const start = (page - 1) * limit;
+    return processedDispatchSearchRows.slice(start, start + limit);
+  }, [processedDispatchSearchRows, page, limit]);
+
+  const dispatchGatePassData: NikasiGatePassWithLink[] | undefined =
+    isSearchActive ? paginatedDispatchSearchRows : dispatchResult?.data;
+
+  const dispatchPagination = dispatchResult?.pagination;
+  const dispatchSearchTotal = processedDispatchSearchRows.length;
+  const dispatchSearchTotalPages = Math.max(
+    1,
+    Math.ceil(dispatchSearchTotal / limit)
+  );
+  const total = isSearchActive
+    ? dispatchSearchTotal
+    : (dispatchPagination?.total ?? 0);
+
+  const dispatchLoading = isSearchActive
+    ? dispatchSearchLoading
+    : dispatchListLoading;
+  const dispatchError = isSearchActive
+    ? dispatchSearchError
+    : dispatchListError;
+  const dispatchErrorDetail = isSearchActive
+    ? dispatchSearchErrorDetail
+    : dispatchListErrorDetail;
+
+  const totalPages = isSearchActive
+    ? dispatchSearchTotalPages
+    : (dispatchPagination?.totalPages ?? 1);
+  const hasPrev = isSearchActive
+    ? page > 1
+    : (dispatchPagination?.hasPreviousPage ?? false);
+  const hasNext = isSearchActive
+    ? page < dispatchSearchTotalPages
+    : (dispatchPagination?.hasNextPage ?? false);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setDebouncedSearch(value);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: 'asc' | 'desc') => {
+    setSortOrder(value);
+    setPage(1);
+  };
+
+  const handleLimitChange = (value: number) => {
+    setLimit(value);
+    setPage(1);
+  };
+
+  const isRefreshing = isSearchActive
+    ? dispatchSearchFetching
+    : dispatchListFetching;
+
+  const handleRefresh = () => {
+    if (isSearchActive) {
+      void refetchDispatchSearch();
+      return;
+    }
+    void refetchDispatchList();
+  };
 
   return (
     <>
       <TabSummaryBar
         count={dispatchLoading ? 0 : total}
         icon={<Truck className="text-primary h-5 w-5" />}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
       <Item
         variant="outline"
@@ -116,7 +192,7 @@ const DispatchTab = memo(function DispatchTab({
                 : 'Search by gate pass number, date, or farmer'
             }
             value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
           />
         </div>
@@ -133,10 +209,10 @@ const DispatchTab = memo(function DispatchTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="font-custom">
-              <DropdownMenuItem onClick={() => onSortOrderChange('asc')}>
+              <DropdownMenuItem onClick={() => handleSortChange('asc')}>
                 Oldest first
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSortOrderChange('desc')}>
+              <DropdownMenuItem onClick={() => handleSortChange('desc')}>
                 Latest first
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -179,7 +255,7 @@ const DispatchTab = memo(function DispatchTab({
               </Empty>
             </CardContent>
           </Card>
-        ) : !filteredBySearch?.length ? (
+        ) : !dispatchGatePassData?.length ? (
           <Card>
             <CardContent className="py-8 pt-6">
               <Empty className="font-custom">
@@ -213,7 +289,7 @@ const DispatchTab = memo(function DispatchTab({
           </Card>
         ) : (
           <div className="space-y-6">
-            {filteredBySearch.map((pass) => {
+            {dispatchGatePassData.map((pass) => {
               const voucher: PassVoucherData = {
                 ...pass,
                 createdBy: undefined,
@@ -231,7 +307,7 @@ const DispatchTab = memo(function DispatchTab({
           </div>
         )}
 
-        {(filteredBySearch?.length ?? 0) > 0 && (
+        {(dispatchGatePassData?.length ?? 0) > 0 && (
           <Item
             variant="outline"
             size="sm"
@@ -250,7 +326,10 @@ const DispatchTab = memo(function DispatchTab({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {LIMIT_OPTIONS.map((n) => (
-                  <DropdownMenuItem key={n} onClick={() => onLimitChange(n)}>
+                  <DropdownMenuItem
+                    key={n}
+                    onClick={() => handleLimitChange(n)}
+                  >
                     {n} per page
                   </DropdownMenuItem>
                 ))}
@@ -265,7 +344,7 @@ const DispatchTab = memo(function DispatchTab({
                     aria-disabled={!hasPrev}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasPrev) onPageChange(Math.max(1, page - 1));
+                      if (hasPrev) setPage(Math.max(1, page - 1));
                     }}
                     style={
                       !hasPrev
@@ -291,7 +370,7 @@ const DispatchTab = memo(function DispatchTab({
                     aria-disabled={!hasNext}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasNext) onPageChange(Math.min(totalPages, page + 1));
+                      if (hasNext) setPage(Math.min(totalPages, page + 1));
                     }}
                     style={
                       !hasNext

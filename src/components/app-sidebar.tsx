@@ -47,6 +47,7 @@ const navigationItems: NavigationItem[] = [
       '/store-admin/nikasi',
       '/store-admin/outgoing',
       '/store-admin/grading',
+      '/store-admin/farmer-seed',
     ],
     icon: BookOpen,
   },
@@ -54,7 +55,7 @@ const navigationItems: NavigationItem[] = [
     name: 'People',
     href: '/store-admin/people',
     icon: Users,
-    activePaths: ['/store-admin/people', '/store-admin/farmer-seed'],
+    activePaths: ['/store-admin/people'],
   },
   {
     name: 'Analytics',

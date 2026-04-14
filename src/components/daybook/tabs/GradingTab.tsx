@@ -1,5 +1,7 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Item, ItemFooter } from '@/components/ui/item';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,8 @@ import {
 import { GradingVoucher } from '../vouchers';
 import type { GradingVoucherProps } from '../vouchers';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
+import { gradingGatePassesQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
+import { useSearchGradingGatePassNumber } from '@/services/store-admin/grading-gate-pass/useSearchGradingGatePassNumber';
 import { TabSummaryBar, LIMIT_OPTIONS } from './shared';
 
 /** Map API grading gate pass to GradingVoucher props */
@@ -86,50 +90,131 @@ function toGradingVoucherProps(pass: GradingGatePass): GradingVoucherProps {
 }
 
 export interface GradingTabProps {
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  /** True when debounced gate-pass search is active (API search mode) */
-  isSearchActive?: boolean;
-  sortOrder: 'asc' | 'desc';
-  onSortOrderChange: (value: 'asc' | 'desc') => void;
-  page: number;
-  onPageChange: (page: number) => void;
-  limit: number;
-  onLimitChange: (limit: number) => void;
-  data: GradingGatePass[] | undefined;
-  total: number;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
+  initialPage?: number;
 }
 
 const GradingTab = memo(function GradingTab({
-  searchQuery,
-  onSearchQueryChange,
-  isSearchActive = false,
-  sortOrder,
-  onSortOrderChange,
-  page,
-  onPageChange,
-  limit,
-  onLimitChange,
-  data: gradingGatePassData,
-  total,
-  isLoading: gradingLoading,
-  isError: gradingError,
-  error: gradingErrorDetail,
-  totalPages,
-  hasPrev,
-  hasNext,
+  initialPage = 1,
 }: GradingTabProps) {
+  const [page, setPage] = useState(initialPage);
+  const [limit, setLimit] = useState(10);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useDebounceValue('', 400);
+
+  const isSearchActive = debouncedSearch.trim().length > 0;
+  const searchTerm = debouncedSearch.trim();
+
+  const gradingParams = useMemo(
+    () => ({ page, limit, sortOrder }),
+    [page, limit, sortOrder]
+  );
+
+  const {
+    data: gradingListResult,
+    isLoading: gradingListLoading,
+    isFetching: gradingListFetching,
+    isError: gradingListError,
+    error: gradingListErrorDetail,
+    refetch: refetchGradingList,
+  } = useQuery({
+    ...gradingGatePassesQueryOptions(gradingParams),
+    enabled: !isSearchActive,
+  });
+
+  const {
+    data: gradingSearchRows,
+    isLoading: gradingSearchLoading,
+    isFetching: gradingSearchFetching,
+    isError: gradingSearchError,
+    error: gradingSearchErrorDetail,
+    refetch: refetchGradingSearch,
+  } = useSearchGradingGatePassNumber(isSearchActive ? searchTerm : null);
+
+  const processedGradingSearchRows = useMemo(() => {
+    if (!gradingSearchRows) {
+      return [];
+    }
+    const rows = [...gradingSearchRows];
+    rows.sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      return sortOrder === 'desc' ? db - da : da - db;
+    });
+    return rows;
+  }, [gradingSearchRows, sortOrder]);
+
+  const paginatedGradingSearchRows = useMemo(() => {
+    const start = (page - 1) * limit;
+    return processedGradingSearchRows.slice(start, start + limit);
+  }, [processedGradingSearchRows, page, limit]);
+
+  const gradingGatePassData: GradingGatePass[] | undefined = isSearchActive
+    ? paginatedGradingSearchRows
+    : gradingListResult?.data;
+
+  const gradingPagination = gradingListResult?.pagination;
+  const gradingSearchTotal = processedGradingSearchRows.length;
+  const gradingSearchTotalPages = Math.max(
+    1,
+    Math.ceil(gradingSearchTotal / limit)
+  );
+  const total = isSearchActive
+    ? gradingSearchTotal
+    : (gradingPagination?.total ?? 0);
+
+  const gradingLoading = isSearchActive
+    ? gradingSearchLoading
+    : gradingListLoading;
+  const gradingError = isSearchActive ? gradingSearchError : gradingListError;
+  const gradingErrorDetail = isSearchActive
+    ? gradingSearchErrorDetail
+    : gradingListErrorDetail;
+
+  const totalPages = isSearchActive
+    ? gradingSearchTotalPages
+    : (gradingPagination?.totalPages ?? 1);
+  const hasPrev = isSearchActive
+    ? page > 1
+    : (gradingPagination?.hasPreviousPage ?? false);
+  const hasNext = isSearchActive
+    ? page < gradingSearchTotalPages
+    : (gradingPagination?.hasNextPage ?? false);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setDebouncedSearch(value);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: 'asc' | 'desc') => {
+    setSortOrder(value);
+    setPage(1);
+  };
+
+  const handleLimitChange = (value: number) => {
+    setLimit(value);
+    setPage(1);
+  };
+
+  const isRefreshing = isSearchActive
+    ? gradingSearchFetching
+    : gradingListFetching;
+
+  const handleRefresh = () => {
+    if (isSearchActive) {
+      void refetchGradingSearch();
+      return;
+    }
+    void refetchGradingList();
+  };
   return (
     <>
       <TabSummaryBar
         count={gradingLoading ? 0 : total}
         icon={<ClipboardList className="text-primary h-5 w-5" />}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
       <Item
         variant="outline"
@@ -141,7 +226,7 @@ const GradingTab = memo(function GradingTab({
           <Input
             placeholder="Search by gate pass number"
             value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
           />
         </div>
@@ -158,10 +243,10 @@ const GradingTab = memo(function GradingTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="font-custom">
-              <DropdownMenuItem onClick={() => onSortOrderChange('asc')}>
+              <DropdownMenuItem onClick={() => handleSortChange('asc')}>
                 Oldest first
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSortOrderChange('desc')}>
+              <DropdownMenuItem onClick={() => handleSortChange('desc')}>
                 Latest first
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -277,7 +362,10 @@ const GradingTab = memo(function GradingTab({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {LIMIT_OPTIONS.map((n) => (
-                  <DropdownMenuItem key={n} onClick={() => onLimitChange(n)}>
+                  <DropdownMenuItem
+                    key={n}
+                    onClick={() => handleLimitChange(n)}
+                  >
                     {n} per page
                   </DropdownMenuItem>
                 ))}
@@ -292,7 +380,7 @@ const GradingTab = memo(function GradingTab({
                     aria-disabled={!hasPrev}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasPrev) onPageChange(Math.max(1, page - 1));
+                      if (hasPrev) setPage(Math.max(1, page - 1));
                     }}
                     style={
                       !hasPrev
@@ -318,7 +406,7 @@ const GradingTab = memo(function GradingTab({
                     aria-disabled={!hasNext}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasNext) onPageChange(Math.min(totalPages, page + 1));
+                      if (hasNext) setPage(Math.min(totalPages, page + 1));
                     }}
                     style={
                       !hasNext

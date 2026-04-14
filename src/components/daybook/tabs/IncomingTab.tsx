@@ -1,5 +1,7 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Item, ItemFooter } from '@/components/ui/item';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,8 @@ import type {
   IncomingGatePassByFarmerStorageLinkItem,
   IncomingGatePassWithLink,
 } from '@/types/incoming-gate-pass';
+import { incomingGatePassesQueryOptions } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
+import { useSearchIncomingGatePassNumber } from '@/services/store-admin/incoming-gate-pass/useSearchIncomingGatePassNumber';
 import {
   TabSummaryBar,
   LIMIT_OPTIONS,
@@ -82,54 +86,154 @@ function toIncomingVoucherProps(pass: IncomingTabListItem) {
 }
 
 export interface IncomingTabProps {
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  /** True when a debounced gate-pass search is active (API search mode) */
-  isSearchActive?: boolean;
-  sortOrder: 'asc' | 'desc';
-  onSortOrderChange: (value: 'asc' | 'desc') => void;
-  statusFilter: IncomingStatusFilter;
-  onStatusFilterChange: (value: IncomingStatusFilter) => void;
-  page: number;
-  onPageChange: (page: number) => void;
-  limit: number;
-  onLimitChange: (limit: number) => void;
-  data: IncomingTabListItem[] | undefined;
-  total: number;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
+  initialPage?: number;
 }
 
 const IncomingTab = memo(function IncomingTab({
-  searchQuery,
-  onSearchQueryChange,
-  isSearchActive = false,
-  sortOrder,
-  onSortOrderChange,
-  statusFilter,
-  onStatusFilterChange,
-  page,
-  onPageChange,
-  limit,
-  onLimitChange,
-  data: incomingGatePassData,
-  total,
-  isLoading: incomingLoading,
-  isError: incomingError,
-  error: incomingErrorDetail,
-  totalPages,
-  hasPrev,
-  hasNext,
+  initialPage = 1,
 }: IncomingTabProps) {
+  const [page, setPage] = useState(initialPage);
+  const [limit, setLimit] = useState(10);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [statusFilter, setStatusFilter] = useState<IncomingStatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useDebounceValue('', 400);
+
+  const isSearchActive = debouncedSearch.trim().length > 0;
+  const searchTerm = debouncedSearch.trim();
+
+  const incomingParams = useMemo(
+    () => ({
+      page,
+      limit,
+      sortOrder,
+      status:
+        statusFilter === 'ungraded'
+          ? 'NOT_GRADED'
+          : statusFilter === 'graded'
+            ? 'GRADED'
+            : undefined,
+    }),
+    [page, limit, sortOrder, statusFilter]
+  );
+
+  const {
+    data: incomingListResult,
+    isLoading: incomingListLoading,
+    isFetching: incomingListFetching,
+    isError: incomingListError,
+    error: incomingListErrorDetail,
+    refetch: refetchIncomingList,
+  } = useQuery({
+    ...incomingGatePassesQueryOptions(incomingParams),
+    enabled: !isSearchActive,
+  });
+
+  const {
+    data: incomingSearchRows,
+    isLoading: incomingSearchLoading,
+    isFetching: incomingSearchFetching,
+    isError: incomingSearchError,
+    error: incomingSearchErrorDetail,
+    refetch: refetchIncomingSearch,
+  } = useSearchIncomingGatePassNumber(isSearchActive ? searchTerm : null);
+
+  const processedIncomingSearchRows = useMemo(() => {
+    if (!incomingSearchRows) {
+      return [];
+    }
+    const rows = incomingSearchRows.filter((pass) => {
+      if (statusFilter === 'graded') return pass.status === 'GRADED';
+      if (statusFilter === 'ungraded') return pass.status === 'NOT_GRADED';
+      return true;
+    });
+    rows.sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      return sortOrder === 'desc' ? db - da : da - db;
+    });
+    return rows;
+  }, [incomingSearchRows, statusFilter, sortOrder]);
+
+  const paginatedIncomingSearchRows = useMemo(() => {
+    const start = (page - 1) * limit;
+    return processedIncomingSearchRows.slice(start, start + limit);
+  }, [processedIncomingSearchRows, page, limit]);
+
+  const incomingGatePassData: IncomingTabListItem[] | undefined = isSearchActive
+    ? paginatedIncomingSearchRows
+    : incomingListResult?.data;
+
+  const incomingPagination = incomingListResult?.pagination;
+  const incomingSearchTotal = processedIncomingSearchRows.length;
+  const incomingSearchTotalPages = Math.max(
+    1,
+    Math.ceil(incomingSearchTotal / limit)
+  );
+  const total = isSearchActive
+    ? incomingSearchTotal
+    : (incomingPagination?.total ?? incomingGatePassData?.length ?? 0);
+
+  const incomingLoading = isSearchActive
+    ? incomingSearchLoading
+    : incomingListLoading;
+  const incomingError = isSearchActive
+    ? incomingSearchError
+    : incomingListError;
+  const incomingErrorDetail = isSearchActive
+    ? incomingSearchErrorDetail
+    : incomingListErrorDetail;
+
+  const totalPages = isSearchActive
+    ? incomingSearchTotalPages
+    : (incomingPagination?.totalPages ?? 1);
+  const hasPrev = isSearchActive
+    ? page > 1
+    : (incomingPagination?.hasPreviousPage ?? false);
+  const hasNext = isSearchActive
+    ? page < incomingSearchTotalPages
+    : (incomingPagination?.hasNextPage ?? false);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setDebouncedSearch(value);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: 'asc' | 'desc') => {
+    setSortOrder(value);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (value: IncomingStatusFilter) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleLimitChange = (value: number) => {
+    setLimit(value);
+    setPage(1);
+  };
+
+  const isRefreshing = isSearchActive
+    ? incomingSearchFetching
+    : incomingListFetching;
+
+  const handleRefresh = () => {
+    if (isSearchActive) {
+      void refetchIncomingSearch();
+      return;
+    }
+    void refetchIncomingList();
+  };
+
   return (
     <>
       <TabSummaryBar
         count={incomingLoading ? 0 : total}
         icon={<Receipt className="text-primary h-5 w-5" />}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
       <Item
         variant="outline"
@@ -141,7 +245,7 @@ const IncomingTab = memo(function IncomingTab({
           <Input
             placeholder="Search by gate pass number"
             value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
           />
         </div>
@@ -159,10 +263,10 @@ const IncomingTab = memo(function IncomingTab({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="font-custom">
-                <DropdownMenuItem onClick={() => onSortOrderChange('asc')}>
+                <DropdownMenuItem onClick={() => handleSortChange('asc')}>
                   Oldest first
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortOrderChange('desc')}>
+                <DropdownMenuItem onClick={() => handleSortChange('desc')}>
                   Latest first
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -183,16 +287,18 @@ const IncomingTab = memo(function IncomingTab({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="font-custom">
-                <DropdownMenuItem onClick={() => onStatusFilterChange('all')}>
+                <DropdownMenuItem
+                  onClick={() => handleStatusFilterChange('all')}
+                >
                   All
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onStatusFilterChange('graded')}
+                  onClick={() => handleStatusFilterChange('graded')}
                 >
                   Graded
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onStatusFilterChange('ungraded')}
+                  onClick={() => handleStatusFilterChange('ungraded')}
                 >
                   Ungraded
                 </DropdownMenuItem>
@@ -310,7 +416,10 @@ const IncomingTab = memo(function IncomingTab({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {LIMIT_OPTIONS.map((n) => (
-                  <DropdownMenuItem key={n} onClick={() => onLimitChange(n)}>
+                  <DropdownMenuItem
+                    key={n}
+                    onClick={() => handleLimitChange(n)}
+                  >
                     {n} per page
                   </DropdownMenuItem>
                 ))}
@@ -325,7 +434,7 @@ const IncomingTab = memo(function IncomingTab({
                     aria-disabled={!hasPrev}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasPrev) onPageChange(Math.max(1, page - 1));
+                      if (hasPrev) setPage(Math.max(1, page - 1));
                     }}
                     style={
                       !hasPrev
@@ -351,7 +460,7 @@ const IncomingTab = memo(function IncomingTab({
                     aria-disabled={!hasNext}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasNext) onPageChange(Math.min(totalPages, page + 1));
+                      if (hasNext) setPage(Math.min(totalPages, page + 1));
                     }}
                     style={
                       !hasNext

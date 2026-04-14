@@ -16,12 +16,13 @@ const navigationItems: NavigationItem[] = [
     name: 'Daybook',
     href: '/store-admin/daybook',
     icon: BookOpen,
+    activePaths: ['/store-admin/farmer-seed'],
   },
   {
     name: 'People',
     href: '/store-admin/people',
     icon: Users,
-    activePaths: ['/store-admin/people', '/store-admin/farmer-seed'],
+    activePaths: ['/store-admin/people'],
   },
   {
     name: 'Analytics',

@@ -1,5 +1,7 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Item, ItemFooter } from '@/components/ui/item';
 import { Input } from '@/components/ui/input';
@@ -28,78 +30,150 @@ import {
 } from '@/components/ui/empty';
 import { StorageVoucher } from '../vouchers';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
+import { storageGatePassesQueryOptions } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
+import { useSearchStorageGatePass } from '@/services/store-admin/storage-gate-pass/useSearchStorageGatePass';
 import { TabSummaryBar, LIMIT_OPTIONS } from './shared';
 
 export interface StorageTabProps {
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  /** True when debounced gate-pass search is active (API search mode) */
-  isSearchActive?: boolean;
-  sortOrder: 'asc' | 'desc';
-  onSortOrderChange: (value: 'asc' | 'desc') => void;
-  page: number;
-  onPageChange: (page: number) => void;
-  limit: number;
-  onLimitChange: (limit: number) => void;
-  data: StorageGatePassWithLink[] | undefined;
-  total: number;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
+  initialPage?: number;
 }
 
 const StorageTab = memo(function StorageTab({
-  searchQuery,
-  onSearchQueryChange,
-  isSearchActive = false,
-  sortOrder,
-  onSortOrderChange,
-  page,
-  onPageChange,
-  limit,
-  onLimitChange,
-  data: storageGatePassData,
-  total,
-  isLoading: storageLoading,
-  isError: storageError,
-  error: storageErrorDetail,
-  totalPages,
-  hasPrev,
-  hasNext,
+  initialPage = 1,
 }: StorageTabProps) {
-  const filteredBySearch = useMemo(() => {
-    if (!storageGatePassData?.length) return storageGatePassData ?? [];
-    if (isSearchActive) return storageGatePassData;
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return storageGatePassData;
-    return storageGatePassData.filter((pass) => {
-      const no = String(pass.gatePassNo ?? '');
-      const manualNo =
-        pass.manualGatePassNumber != null
-          ? String(pass.manualGatePassNumber)
-          : '';
-      const dateStr = pass.date
-        ? new Date(pass.date).toLocaleDateString('en-IN')
-        : '';
-      const farmerName =
-        pass.farmerStorageLinkId?.farmerId?.name?.toLowerCase() ?? '';
-      return (
-        no.toLowerCase().includes(q) ||
-        manualNo.toLowerCase().includes(q) ||
-        dateStr.toLowerCase().includes(q) ||
-        farmerName.includes(q)
-      );
+  const [page, setPage] = useState(initialPage);
+  const [limit, setLimit] = useState(10);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useDebounceValue('', 400);
+
+  const isSearchActive = debouncedSearch.trim().length > 0;
+  const searchTerm = debouncedSearch.trim();
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    return {
+      dateFrom: `${now.getFullYear()}-01-01`,
+      dateTo: now.toISOString().slice(0, 10),
+    };
+  }, []);
+
+  const storageParams = useMemo(
+    () => ({
+      page,
+      limit,
+      sortOrder,
+      dateFrom: dateRange.dateFrom,
+      dateTo: dateRange.dateTo,
+    }),
+    [page, limit, sortOrder, dateRange]
+  );
+
+  const {
+    data: storageResult,
+    isLoading: storageListLoading,
+    isFetching: storageListFetching,
+    isError: storageListError,
+    error: storageListErrorDetail,
+    refetch: refetchStorageList,
+  } = useQuery({
+    ...storageGatePassesQueryOptions(storageParams),
+    enabled: !isSearchActive,
+  });
+
+  const {
+    data: storageSearchRows,
+    isLoading: storageSearchLoading,
+    isFetching: storageSearchFetching,
+    isError: storageSearchError,
+    error: storageSearchErrorDetail,
+    refetch: refetchStorageSearch,
+  } = useSearchStorageGatePass(isSearchActive ? searchTerm : null);
+
+  const processedStorageSearchRows = useMemo(() => {
+    if (!storageSearchRows) {
+      return [];
+    }
+    const rows = [...storageSearchRows];
+    rows.sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      return sortOrder === 'desc' ? db - da : da - db;
     });
-  }, [storageGatePassData, searchQuery, isSearchActive]);
+    return rows;
+  }, [storageSearchRows, sortOrder]);
+
+  const paginatedStorageSearchRows = useMemo(() => {
+    const start = (page - 1) * limit;
+    return processedStorageSearchRows.slice(start, start + limit);
+  }, [processedStorageSearchRows, page, limit]);
+
+  const storageGatePassData: StorageGatePassWithLink[] | undefined =
+    isSearchActive ? paginatedStorageSearchRows : storageResult?.data;
+
+  const storagePagination = storageResult?.pagination;
+  const storageSearchTotal = processedStorageSearchRows.length;
+  const storageSearchTotalPages = Math.max(
+    1,
+    Math.ceil(storageSearchTotal / limit)
+  );
+  const total = isSearchActive
+    ? storageSearchTotal
+    : (storagePagination?.total ?? 0);
+
+  const storageLoading = isSearchActive
+    ? storageSearchLoading
+    : storageListLoading;
+  const storageError = isSearchActive ? storageSearchError : storageListError;
+  const storageErrorDetail = isSearchActive
+    ? storageSearchErrorDetail
+    : storageListErrorDetail;
+
+  const totalPages = isSearchActive
+    ? storageSearchTotalPages
+    : (storagePagination?.totalPages ?? 1);
+  const hasPrev = isSearchActive
+    ? page > 1
+    : (storagePagination?.hasPreviousPage ?? false);
+  const hasNext = isSearchActive
+    ? page < storageSearchTotalPages
+    : (storagePagination?.hasNextPage ?? false);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setDebouncedSearch(value);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: 'asc' | 'desc') => {
+    setSortOrder(value);
+    setPage(1);
+  };
+
+  const handleLimitChange = (value: number) => {
+    setLimit(value);
+    setPage(1);
+  };
+
+  const isRefreshing = isSearchActive
+    ? storageSearchFetching
+    : storageListFetching;
+
+  const handleRefresh = () => {
+    if (isSearchActive) {
+      void refetchStorageSearch();
+      return;
+    }
+    void refetchStorageList();
+  };
 
   return (
     <>
       <TabSummaryBar
         count={storageLoading ? 0 : total}
         icon={<Package className="text-primary h-5 w-5" />}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
       <Item
         variant="outline"
@@ -115,7 +189,7 @@ const StorageTab = memo(function StorageTab({
                 : 'Search by gate pass number, date, or farmer'
             }
             value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
           />
         </div>
@@ -132,10 +206,10 @@ const StorageTab = memo(function StorageTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="font-custom">
-              <DropdownMenuItem onClick={() => onSortOrderChange('asc')}>
+              <DropdownMenuItem onClick={() => handleSortChange('asc')}>
                 Oldest first
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSortOrderChange('desc')}>
+              <DropdownMenuItem onClick={() => handleSortChange('desc')}>
                 Latest first
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -178,7 +252,7 @@ const StorageTab = memo(function StorageTab({
               </Empty>
             </CardContent>
           </Card>
-        ) : !filteredBySearch?.length ? (
+        ) : !storageGatePassData?.length ? (
           <Card>
             <CardContent className="py-8 pt-6">
               <Empty className="font-custom">
@@ -212,13 +286,13 @@ const StorageTab = memo(function StorageTab({
           </Card>
         ) : (
           <div className="space-y-6">
-            {filteredBySearch.map((pass) => (
+            {storageGatePassData.map((pass) => (
               <StorageVoucher key={pass._id} voucher={pass} />
             ))}
           </div>
         )}
 
-        {(filteredBySearch?.length ?? 0) > 0 && (
+        {(storageGatePassData?.length ?? 0) > 0 && (
           <Item
             variant="outline"
             size="sm"
@@ -237,7 +311,10 @@ const StorageTab = memo(function StorageTab({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {LIMIT_OPTIONS.map((n) => (
-                  <DropdownMenuItem key={n} onClick={() => onLimitChange(n)}>
+                  <DropdownMenuItem
+                    key={n}
+                    onClick={() => handleLimitChange(n)}
+                  >
                     {n} per page
                   </DropdownMenuItem>
                 ))}
@@ -252,7 +329,7 @@ const StorageTab = memo(function StorageTab({
                     aria-disabled={!hasPrev}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasPrev) onPageChange(Math.max(1, page - 1));
+                      if (hasPrev) setPage(Math.max(1, page - 1));
                     }}
                     style={
                       !hasPrev
@@ -278,7 +355,7 @@ const StorageTab = memo(function StorageTab({
                     aria-disabled={!hasNext}
                     onClick={(e) => {
                       e.preventDefault();
-                      if (hasNext) onPageChange(Math.min(totalPages, page + 1));
+                      if (hasNext) setPage(Math.min(totalPages, page + 1));
                     }}
                     style={
                       !hasNext
