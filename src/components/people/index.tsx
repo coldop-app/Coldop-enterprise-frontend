@@ -1,11 +1,8 @@
 import { memo, useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
-import { useGetContractFarmingReport } from '@/services/store-admin/analytics/Contract-farming-report/useGetContractFarmingReport';
 import type { FarmerStorageLink } from '@/types/farmer';
-import { useStore } from '@/stores/store';
 
 import {
   Card,
@@ -34,10 +31,6 @@ import {
 
 import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
 import {
-  ContractFarmingReportDigitalTable,
-  type ContractFarmingReportDigitalVarietyGroup,
-} from '@/components/people/ContractFarmingReportDigitalTable';
-import {
   User,
   Phone,
   MapPin,
@@ -46,77 +39,17 @@ import {
   Search,
   ChevronDown,
   RefreshCw,
-  Sprout,
-  FileBarChart,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 
 const PeoplePage = memo(function PeoplePage() {
   const { data, isLoading, error, refetch, isFetching } = useGetAllFarmers();
-  const {
-    data: cfReportData,
-    isLoading: isCfReportLoading,
-    isError: isCfReportError,
-    error: cfReportError,
-  } = useGetContractFarmingReport();
-  const coldStorage = useStore((s) => s.coldStorage);
-  const companyName = coldStorage?.name ?? 'Cold Storage';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'Name' | 'Account Number'>('Name');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isGeneratingCfReportPdf, setIsGeneratingCfReportPdf] = useState(false);
-  const [showContractFarmingTable, setShowContractFarmingTable] =
-    useState(true);
 
   const handleSearchFocus = useCallback(() => setIsSearchFocused(true), []);
   const handleSearchBlur = useCallback(() => setIsSearchFocused(false), []);
-
-  const handleOpenContractFarmingReportPdf = useCallback(async () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(
-        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
-      );
-    }
-    setIsGeneratingCfReportPdf(true);
-    const dateRangeLabel = `As of ${new Date().toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })}`;
-    try {
-      const [{ pdf }, { ContractFarmingReportPdf }] = await Promise.all([
-        import('@react-pdf/renderer'),
-        import('@/components/pdf/contract-farming-report/contract-farming-report-pdf'),
-      ]);
-      const blob = await pdf(
-        <ContractFarmingReportPdf
-          companyName={companyName}
-          dateRangeLabel={dateRangeLabel}
-          reportTitle="Contract Farming Report"
-        />
-      ).toBlob();
-      const url = URL.createObjectURL(blob);
-      if (printWindow) {
-        printWindow.location.href = url;
-      } else {
-        window.location.href = url;
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      toast.success('PDF opened in new tab', {
-        description: 'Contract farming report is ready to view or print.',
-      });
-    } catch {
-      printWindow?.close();
-      toast.error('Could not generate PDF', {
-        description: 'Please try again.',
-      });
-    } finally {
-      setIsGeneratingCfReportPdf(false);
-    }
-  }, [companyName]);
 
   const links = useMemo(() => data ?? [], [data]);
 
@@ -142,18 +75,6 @@ const PeoplePage = memo(function PeoplePage() {
 
     return sorted;
   }, [links, searchQuery, sortBy]);
-
-  const contractFarmingGroups =
-    useMemo((): ContractFarmingReportDigitalVarietyGroup[] => {
-      const by = cfReportData?.byVariety;
-      if (!by) return [];
-      return Object.entries(by)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([variety, farmers]) => ({
-          variety,
-          rows: [...farmers].sort((x, y) => x.name.localeCompare(y.name)),
-        }));
-    }, [cfReportData]);
 
   if (isLoading) {
     return (
@@ -281,61 +202,10 @@ const PeoplePage = memo(function PeoplePage() {
             </DropdownMenu>
 
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end sm:gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setShowContractFarmingTable((visible) => !visible)
-                }
-                aria-pressed={showContractFarmingTable}
-                aria-label={
-                  showContractFarmingTable
-                    ? 'Hide contract farming table'
-                    : 'Show contract farming table'
-                }
-                className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-              >
-                {showContractFarmingTable ? (
-                  <EyeOff className="h-4 w-4 shrink-0" />
-                ) : (
-                  <Eye className="h-4 w-4 shrink-0" />
-                )}
-                {showContractFarmingTable ? 'Hide' : 'Show'} C.F. table
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isGeneratingCfReportPdf}
-                onClick={handleOpenContractFarmingReportPdf}
-                className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-              >
-                <FileBarChart className="h-4 w-4 shrink-0" />
-                C.F. Report
-              </Button>
-              <Button
-                variant="outline"
-                className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-                asChild
-              >
-                <Link to="/store-admin/farmer-seed">
-                  <Sprout className="h-4 w-4 shrink-0" />
-                  Add Seed
-                </Link>
-              </Button>
               <AddFarmerModal links={links} />
             </div>
           </ItemFooter>
         </Item>
-
-        {showContractFarmingTable ? (
-          <ContractFarmingReportDigitalTable
-            isLoading={isCfReportLoading}
-            isError={isCfReportError}
-            error={cfReportError}
-            groups={contractFarmingGroups}
-            companyName={companyName}
-          />
-        ) : null}
 
         {/* List */}
         {filteredLinks.length === 0 ? (

@@ -1,3 +1,4 @@
+export { default as SeedTab } from './SeedTab';
 export { default as IncomingTab } from './IncomingTab';
 export type { IncomingTabProps } from './IncomingTab';
 export { default as GradingTab } from './GradingTab';

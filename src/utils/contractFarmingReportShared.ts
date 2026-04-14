@@ -96,6 +96,9 @@ export const CONTRACT_FARMING_GRADING_COLUMNS: {
   { header: 'Cut', matchKeys: ['Cut'] },
 ];
 
+const BELOW_40_BUCKET_HEADERS = new Set(['Below 30', '30-40', '35-40']);
+const RANGE_40_TO_50_BUCKET_HEADERS = new Set(['40-45', '45-50']);
+
 function normalizeGradingSizeKey(s: string): string {
   return s
     .trim()
@@ -267,6 +270,84 @@ export function formatNetWeightAfterGrading(
   });
 }
 
+export function computeYieldPerAcreQuintals(
+  bySize: Record<string, ContractFarmingGradingBucket>,
+  acresPlanted: number
+): number | null {
+  if (!Number.isFinite(acresPlanted) || acresPlanted <= 0) return null;
+  const netWeightAfterGradingKg = Object.values(bySize).reduce(
+    (sum, bucket) => {
+      const weight = bucket.netWeightKg;
+      return sum + (Number.isFinite(weight) ? weight : 0);
+    },
+    0
+  );
+  return netWeightAfterGradingKg / acresPlanted / 100;
+}
+
+export function formatYieldPerAcreQuintals(
+  value: number | null | undefined
+): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return value.toLocaleString(CONTRACT_FARMING_IN_LOCALE, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatPercentage(value: number): string {
+  return `${value.toLocaleString(CONTRACT_FARMING_IN_LOCALE, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
+}
+
+export function computeGradingRangePercentages(
+  bySize: Record<string, ContractFarmingGradingBucket>
+): {
+  below40: number | null;
+  range40To50: number | null;
+  above50: number | null;
+} {
+  let below40 = 0;
+  let range40To50 = 0;
+  let above50 = 0;
+  let total = 0;
+
+  CONTRACT_FARMING_GRADING_COLUMNS.forEach((col) => {
+    const bucket = findGradingBucket(bySize, col.matchKeys);
+    const qty =
+      bucket && Number.isFinite(bucket.initialBags) ? bucket.initialBags : 0;
+    total += qty;
+    if (BELOW_40_BUCKET_HEADERS.has(col.header)) {
+      below40 += qty;
+      return;
+    }
+    if (RANGE_40_TO_50_BUCKET_HEADERS.has(col.header)) {
+      range40To50 += qty;
+      return;
+    }
+    above50 += qty;
+  });
+
+  if (total <= 0) {
+    return { below40: null, range40To50: null, above50: null };
+  }
+
+  return {
+    below40: (below40 / total) * 100,
+    range40To50: (range40To50 / total) * 100,
+    above50: (above50 / total) * 100,
+  };
+}
+
+export function formatGradingRangePercentage(
+  value: number | null | undefined
+): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return formatPercentage(value);
+}
+
 /** ₹/kg style rate from `BUY_BACK_COST` for a potato variety + grading size label. */
 function resolveBuyBackRatePerKg(
   potatoVariety: string,
@@ -427,11 +508,15 @@ export type VarietyTableTotals = {
   buyBackNetWeightKg: number;
   gradingByColumn: number[];
   totalGradingBags: number;
+  below40Percent: number | null;
+  range40To50Percent: number | null;
+  above50Percent: number | null;
   netWeightAfterGrading: number;
   buyBackAmount: number;
   totalSeedAmount: number;
   netAmountPayable: number;
   netAmountPerAcre: number;
+  yieldPerAcreQuintals: number | null;
 };
 
 /**
@@ -533,6 +618,16 @@ export function computeVarietyTableTotals(
 
   const netAmountPerAcre =
     sumAcresForNetPerAcre > 0 ? netAmountPayable / sumAcresForNetPerAcre : 0;
+  const totalPercentBase = totalGradingBags;
+  const below40Bags =
+    (gradingSums[0] ?? 0) + (gradingSums[1] ?? 0) + (gradingSums[2] ?? 0);
+  const range40To50Bags = (gradingSums[3] ?? 0) + (gradingSums[4] ?? 0);
+  const above50Bags = Math.max(
+    0,
+    totalPercentBase - below40Bags - range40To50Bags
+  );
+  const yieldPerAcreQuintals =
+    acresPlanted > 0 ? netWeightAfterGrading / acresPlanted / 100 : null;
 
   return {
     acresPlanted,
@@ -541,10 +636,17 @@ export function computeVarietyTableTotals(
     buyBackNetWeightKg,
     gradingByColumn: gradingSums,
     totalGradingBags,
+    below40Percent:
+      totalPercentBase > 0 ? (below40Bags / totalPercentBase) * 100 : null,
+    range40To50Percent:
+      totalPercentBase > 0 ? (range40To50Bags / totalPercentBase) * 100 : null,
+    above50Percent:
+      totalPercentBase > 0 ? (above50Bags / totalPercentBase) * 100 : null,
     netWeightAfterGrading,
     buyBackAmount,
     totalSeedAmount,
     netAmountPayable,
     netAmountPerAcre,
+    yieldPerAcreQuintals,
   };
 }

@@ -1,7 +1,9 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
+import { toast } from 'sonner';
 import {
   AlertCircle,
+  FileText,
   History,
   MapPin,
   RefreshCw,
@@ -32,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { useGetAllFarmerSeedEntries } from '@/services/store-admin/farmer-seed/useGetAllFarmerSeedEntries';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/stores/store';
 
 function formatDate(dateStr: string) {
   try {
@@ -276,6 +279,11 @@ const FarmerSeedScreen = memo(function FarmerSeedScreen() {
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetAllFarmerSeedEntries();
   const [searchQuery, setSearchQuery] = useState('');
+  const [
+    isGeneratingDispatchSeedReportPdf,
+    setIsGeneratingDispatchSeedReportPdf,
+  ] = useState(false);
+  const coldStorage = useStore((s) => s.coldStorage);
 
   const entries = useMemo(() => data ?? [], [data]);
 
@@ -306,6 +314,60 @@ const FarmerSeedScreen = memo(function FarmerSeedScreen() {
     [filtered]
   );
 
+  const handleOpenDispatchSeedReportPdf = useCallback(async () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(
+        '<html><body style="font-family:sans-serif;padding:2rem;text-align:center;color:#666;">Generating PDF…</body></html>'
+      );
+    }
+
+    setIsGeneratingDispatchSeedReportPdf(true);
+    const dateRangeLabel = `As of ${new Date().toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })}`;
+
+    try {
+      const [{ pdf }, { DispatchSeedReportPdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/pdf/farmer-seed/dispatch-seed-report-pdf'),
+      ]);
+
+      const blob = await pdf(
+        <DispatchSeedReportPdf
+          companyName={coldStorage?.name ?? 'Cold Storage'}
+          dateRangeLabel={dateRangeLabel}
+          reportTitle="Dispatch Seed Report"
+          entries={filtered}
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      if (printWindow) {
+        printWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      toast.success('PDF opened in new tab', {
+        description: 'Dispatch seed report is ready to view or print.',
+      });
+    } catch (err) {
+      console.error('Dispatch seed PDF generation failed', err);
+      printWindow?.close();
+      const description =
+        err instanceof Error && err.message ? err.message : 'Please try again.';
+      toast.error('Could not generate PDF', {
+        description,
+      });
+    } finally {
+      setIsGeneratingDispatchSeedReportPdf(false);
+    }
+  }, [coldStorage?.name, filtered]);
+
   return (
     <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
       <div className="space-y-6">
@@ -320,6 +382,26 @@ const FarmerSeedScreen = memo(function FarmerSeedScreen() {
               </ItemTitle>
             </div>
             <ItemActions className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={
+                  isGeneratingDispatchSeedReportPdf ||
+                  isLoading ||
+                  isError ||
+                  filtered.length === 0
+                }
+                onClick={handleOpenDispatchSeedReportPdf}
+                className="font-custom focus-visible:ring-primary h-8 gap-2 rounded-lg px-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              >
+                <FileText className="h-4 w-4 shrink-0" />
+                <span>
+                  {isGeneratingDispatchSeedReportPdf
+                    ? 'Generating…'
+                    : 'Dispatch Seed Report'}
+                </span>
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

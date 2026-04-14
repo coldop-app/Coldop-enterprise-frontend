@@ -11,6 +11,7 @@ import { useSearchStorageGatePass } from '@/services/store-admin/storage-gate-pa
 import { nikasiGatePassesQueryOptions } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
 import { useSearchNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useSearchNikasiGatePass';
 import {
+  SeedTab,
   IncomingTab,
   GradingTab,
   StorageTab,
@@ -508,6 +509,12 @@ const DaybookPage = memo(function DaybookPage() {
           <Tabs defaultValue="incoming" className="w-full">
             <TabsList className="font-custom mb-4 flex h-auto w-full flex-nowrap overflow-x-auto rounded-xl">
               <TabsTrigger
+                value="seed"
+                className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+              >
+                Seed
+              </TabsTrigger>
+              <TabsTrigger
                 value="incoming"
                 className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
               >
@@ -538,6 +545,13 @@ const DaybookPage = memo(function DaybookPage() {
                 Outgoing
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent
+              value="seed"
+              className="mt-0 flex flex-col gap-4 outline-none"
+            >
+              <SeedTab />
+            </TabsContent>
 
             <TabsContent
               value="incoming"

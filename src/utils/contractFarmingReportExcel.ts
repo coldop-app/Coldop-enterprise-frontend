@@ -14,11 +14,16 @@ import {
   findGradingBucket,
   formatGradingBagsQty,
   formatTotalGradingBags,
+  computeGradingRangePercentages,
+  formatGradingRangePercentage,
   formatNetWeightAfterGrading,
   formatBuyBackAmount,
   formatTotalSeedAmount,
   formatNetAmountPayable,
   formatNetAmountPerAcre,
+  computeYieldPerAcreQuintals,
+  formatYieldPerAcreQuintals,
+  resolveAcresForNetPerAcre,
   aggregateBuyBackBagsForReportVariety,
   hasBuyBackBagsEntryForReportVariety,
 } from '@/utils/contractFarmingReportShared';
@@ -40,11 +45,15 @@ function buildHeaderRow(): string[] {
     'Wt. without bardana',
     ...CONTRACT_FARMING_GRADING_COLUMNS.map((c) => c.header),
     'Total grading bags',
+    'Below 40 %',
+    '40-50 %',
+    'Above 50 %',
     'Net weight after grading (kg)',
     'Buy back amount',
     'Total seed amount',
     'Net amount payable',
     'Net amount / acre',
+    'Yield per acre (in quintals)',
   ];
 }
 
@@ -58,6 +67,11 @@ function buildPostSeedSectionRow(
 
   const gradingCells = CONTRACT_FARMING_GRADING_COLUMNS.map((col) =>
     formatGradingBagsQty(findGradingBucket(gradingBySize, col.matchKeys))
+  );
+  const percentages = computeGradingRangePercentages(gradingBySize);
+  const yieldPerAcreQuintals = computeYieldPerAcreQuintals(
+    gradingBySize,
+    resolveAcresForNetPerAcre(farmer)
   );
 
   return [
@@ -73,11 +87,15 @@ function buildPostSeedSectionRow(
       : '—',
     ...gradingCells,
     formatTotalGradingBags(gradingBySize),
+    formatGradingRangePercentage(percentages.below40),
+    formatGradingRangePercentage(percentages.range40To50),
+    formatGradingRangePercentage(percentages.above50),
     formatNetWeightAfterGrading(gradingBySize),
     formatBuyBackAmount(farmer, variety),
     formatTotalSeedAmount(farmer),
     formatNetAmountPayable(farmer, variety),
     formatNetAmountPerAcre(farmer, variety),
+    formatYieldPerAcreQuintals(yieldPerAcreQuintals),
   ];
 }
 
