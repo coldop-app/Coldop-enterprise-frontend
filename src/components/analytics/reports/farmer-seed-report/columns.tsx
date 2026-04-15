@@ -1,6 +1,10 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { CellContext, ColumnDef } from '@tanstack/table-core';
 import { ChevronDown, ChevronRight, MoreVertical } from 'lucide-react';
+import {
+  GRADING_REPORT_BAG_SIZE_LABELS,
+  orderBagSizesByGradingReport,
+} from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,8 +25,12 @@ export interface FarmerSeedReportRow {
   generation: string;
   totalBags: number;
   bagSizeQtyByName: Record<string, number>;
-  bagSizesSummary: string;
   remarks: string;
+}
+
+export function farmerSeedBagSizeColumnId(size: string): string {
+  const short = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
+  return `farmerSeedBagSize_${short}`;
 }
 
 function GroupableHeader({
@@ -103,70 +111,93 @@ function GroupableCell({
   );
 }
 
-export const columns: ColumnDef<FarmerSeedReportRow>[] = [
-  {
-    accessorKey: 'farmerName',
-    header: ({ column }) => <GroupableHeader column={column} label="Farmer" />,
-    cell: GroupableCell,
-  },
-  {
-    accessorKey: 'accountNumber',
-    header: 'Account No.',
-    cell: ({ row }) => row.original.accountNumber,
-  },
-  {
-    accessorKey: 'farmerAddress',
-    header: 'Address',
-    cell: ({ row }) => row.original.farmerAddress,
-  },
-  {
-    accessorKey: 'gatePassNo',
-    header: 'Gate Pass No.',
-    cell: ({ row }) => row.original.gatePassNo,
-  },
-  {
-    accessorKey: 'invoiceNumber',
-    header: 'Invoice No.',
-    cell: ({ row }) => row.original.invoiceNumber,
-  },
-  {
-    accessorKey: 'date',
-    header: ({ column }) => <GroupableHeader column={column} label="Date" />,
-    cell: GroupableCell,
-  },
-  {
-    accessorKey: 'variety',
-    header: ({ column }) => <GroupableHeader column={column} label="Variety" />,
-    cell: GroupableCell,
-  },
-  {
-    accessorKey: 'generation',
-    header: ({ column }) => (
-      <GroupableHeader column={column} label="Generation" />
-    ),
-    cell: GroupableCell,
-  },
-  {
-    accessorKey: 'bagSizesSummary',
-    header: 'Bag Sizes',
-    cell: ({ row }) => (
-      <span className="font-custom text-sm">
-        {row.original.bagSizesSummary}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'totalBags',
-    header: 'Total Bags',
-    cell: ({ row }) => (
-      <span className="font-custom text-right font-semibold">
-        {row.original.totalBags.toLocaleString('en-IN')}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'remarks',
-    header: 'Remarks',
-    cell: ({ row }) => row.original.remarks,
-  },
-];
+export function createFarmerSeedReportColumns(
+  visibleBagSizes: readonly string[]
+): ColumnDef<FarmerSeedReportRow>[] {
+  const bagSizeColumns: ColumnDef<FarmerSeedReportRow>[] =
+    orderBagSizesByGradingReport(visibleBagSizes).map((size) => {
+      const columnId = farmerSeedBagSizeColumnId(size);
+      const label = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
+      return {
+        id: columnId,
+        accessorFn: (row) => row.bagSizeQtyByName?.[size] ?? 0,
+        header: () => <div className="font-custom text-right">{label}</div>,
+        cell: ({ row }) => {
+          const qty = row.original.bagSizeQtyByName?.[size] ?? 0;
+          return (
+            <span className="font-custom block text-right font-semibold">
+              {qty > 0 ? qty.toLocaleString('en-IN') : ''}
+            </span>
+          );
+        },
+        aggregationFn: 'sum',
+      };
+    });
+
+  return [
+    {
+      accessorKey: 'farmerName',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Farmer" />
+      ),
+      cell: GroupableCell,
+    },
+    {
+      accessorKey: 'accountNumber',
+      header: 'Account No.',
+      cell: ({ row }) => row.original.accountNumber,
+    },
+    {
+      accessorKey: 'farmerAddress',
+      header: 'Address',
+      cell: ({ row }) => row.original.farmerAddress,
+    },
+    {
+      accessorKey: 'gatePassNo',
+      header: 'Gate Pass No.',
+      cell: ({ row }) => row.original.gatePassNo,
+    },
+    {
+      accessorKey: 'invoiceNumber',
+      header: 'Invoice No.',
+      cell: ({ row }) => row.original.invoiceNumber,
+    },
+    {
+      accessorKey: 'date',
+      header: ({ column }) => <GroupableHeader column={column} label="Date" />,
+      cell: GroupableCell,
+    },
+    {
+      accessorKey: 'variety',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Variety" />
+      ),
+      cell: GroupableCell,
+    },
+    {
+      accessorKey: 'generation',
+      header: ({ column }) => (
+        <GroupableHeader column={column} label="Generation" />
+      ),
+      cell: GroupableCell,
+    },
+    ...bagSizeColumns,
+    {
+      accessorKey: 'totalBags',
+      header: 'Total Bags',
+      cell: ({ row }) => (
+        <span className="font-custom text-right font-semibold">
+          {row.original.totalBags.toLocaleString('en-IN')}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'remarks',
+      header: 'Remarks',
+      cell: ({ row }) => row.original.remarks,
+    },
+  ];
+}
+
+export const columns: ColumnDef<FarmerSeedReportRow>[] =
+  createFarmerSeedReportColumns([]);

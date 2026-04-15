@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { FileDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,8 +12,16 @@ import { formatDateToYYYYMMDD } from '@/lib/helpers';
 import { useGetAllFarmerSeedEntries } from '@/services/store-admin/farmer-seed/useGetAllFarmerSeedEntries';
 import { useStore } from '@/stores/store';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
-import { columns, type FarmerSeedReportRow } from './columns';
-import { DataTable } from './data-table';
+import {
+  createFarmerSeedReportColumns,
+  farmerSeedBagSizeColumnId,
+  type FarmerSeedReportRow,
+} from './columns';
+import {
+  DataTable,
+  type GradingReportDataTableRef,
+  type GradingReportPdfSnapshot,
+} from './data-table';
 
 function formatDateValue(value: string | undefined): string {
   if (!value) return '—';
@@ -35,10 +43,6 @@ function mapEntriesToRows(
       (sum, bagSize) => sum + (bagSize.quantity ?? 0),
       0
     );
-    const bagSizesSummary = entry.bagSizes
-      .map((bagSize) => `${bagSize.name}: ${bagSize.quantity}`)
-      .join(' | ');
-
     return {
       id: entry._id,
       farmerName: entry.farmerStorageLinkId?.farmerId?.name ?? '—',
@@ -51,7 +55,6 @@ function mapEntriesToRows(
       generation: entry.generation || '—',
       totalBags,
       bagSizeQtyByName,
-      bagSizesSummary: bagSizesSummary || '—',
       remarks: entry.remarks || '—',
     };
   });
@@ -60,6 +63,7 @@ function mapEntriesToRows(
 const FarmerSeedReportTable = () => {
   const { data, isLoading, error } = useGetAllFarmerSeedEntries();
   const coldStorage = useStore((s) => s.coldStorage);
+  const tableRef = useRef<GradingReportDataTableRef<FarmerSeedReportRow>>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -87,6 +91,29 @@ const FarmerSeedReportTable = () => {
       return parsed >= fromTs && parsed <= toTs;
     });
   }, [appliedRange.dateFrom, appliedRange.dateTo, rows]);
+
+  const visibleBagSizes = useMemo(() => {
+    const sizes = new Set<string>();
+    for (const row of filteredRows) {
+      Object.entries(row.bagSizeQtyByName ?? {}).forEach(([size, qty]) => {
+        if ((qty ?? 0) > 0) sizes.add(size);
+      });
+    }
+    return Array.from(sizes);
+  }, [filteredRows]);
+
+  const reportColumns = useMemo(
+    () => createFarmerSeedReportColumns(visibleBagSizes),
+    [visibleBagSizes]
+  );
+
+  const totalColumnIds = useMemo(
+    () => [
+      'totalBags',
+      ...visibleBagSizes.map((s) => farmerSeedBagSizeColumnId(s)),
+    ],
+    [visibleBagSizes]
+  );
 
   const handleApplyDates = () => {
     setAppliedRange({
@@ -120,9 +147,11 @@ const FarmerSeedReportTable = () => {
 
     setIsGeneratingPdf(true);
     try {
+      const snapshot: GradingReportPdfSnapshot<FarmerSeedReportRow> | null =
+        tableRef.current?.getPdfSnapshot() ?? null;
       const [{ pdf }, { FarmerSeedReportTablePdf }] = await Promise.all([
         import('@react-pdf/renderer'),
-        import('@/components/pdf/analytics/farmer-seed-report-table-pdf.tsx'),
+        import('@/components/pdf/analytics/farmer-seed-report-table-pdf'),
       ]);
 
       const blob = await pdf(
@@ -131,6 +160,7 @@ const FarmerSeedReportTable = () => {
           dateRangeLabel={getDateRangeLabel()}
           reportTitle="Farmer Seed Report"
           rows={filteredRows}
+          tableSnapshot={snapshot}
         />
       ).toBlob();
 
@@ -195,9 +225,10 @@ const FarmerSeedReportTable = () => {
           Farmer Seed Report
         </h2>
         <DataTable
-          columns={columns}
+          ref={tableRef}
+          columns={reportColumns}
           data={filteredRows}
-          totalColumnIds={['totalBags']}
+          totalColumnIds={totalColumnIds}
           toolbarLeftContent={
             <>
               <DatePicker
