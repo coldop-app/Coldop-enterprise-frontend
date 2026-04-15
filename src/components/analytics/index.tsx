@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Item,
@@ -10,24 +10,23 @@ import {
 } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { BarChart3, RefreshCw, Download } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 import { DatePicker } from '@/components/forms/date-picker';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
-import { queryClient } from '@/lib/queryClient';
-import {
-  useGetOverview,
-  analyticsOverviewQueryOptions,
-} from '@/services/store-admin/analytics/useGetOverview';
-import { incomingGatePassesQueryOptions } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
-import { useGetGradingGatePasses } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
-import { gradingSizeWiseDistributionQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetGradingSizeWiseDistribution';
-import { areaWiseAnalyticsQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetAreaWiseAnalytics';
-import { gradingTrendQueryOptions } from '@/services/store-admin/grading-gate-pass/useGetGradingTrendAnalysis';
-import { storageTrendQueryOptions } from '@/services/store-admin/analytics/storage/useGetStorageTrendAnalysis';
+import { analyticsOverviewKeys } from '@/services/store-admin/analytics/useGetOverview';
+import { incomingGatePassKeys } from '@/services/store-admin/incoming-gate-pass/useCreateIncomingGatePass';
+import { gradingGatePassKeys } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePasses';
+import { gradingSizeWiseDistributionKeys } from '@/services/store-admin/grading-gate-pass/useGetGradingSizeWiseDistribution';
+import { areaWiseAnalyticsKeys } from '@/services/store-admin/grading-gate-pass/useGetAreaWiseAnalytics';
+import { gradingTrendKeys } from '@/services/store-admin/grading-gate-pass/useGetGradingTrendAnalysis';
+import { storageTrendKeys } from '@/services/store-admin/analytics/storage/useGetStorageTrendAnalysis';
+import { storageSummaryKeys } from '@/services/store-admin/analytics/storage/useGetStorageSummary';
+import { nikasiGatePassSummaryKeys } from '@/services/store-admin/analytics/nikasi/useGetNikasiGatePassSummary';
 import Overview from './overview';
 import IncomingGatePassAnalyticsScreen from './incoming';
 import GradingGatePassAnalyticsScreen from './grading';
 import StorageAnalyticsScreen from './storage';
+import DispatchAnalyticsScreen from './dispatch';
 import SeedAnalyticsTab from './seed';
 
 const ANALYTICS_TAB_STORAGE_KEY = 'analytics-active-tab';
@@ -47,6 +46,7 @@ function isAnalyticsTabValue(value: string): value is AnalyticsTabValue {
 }
 
 const AnalyticsPage = () => {
+  const queryClient = useQueryClient();
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState<AnalyticsTabValue>(() => {
@@ -58,63 +58,40 @@ const AnalyticsPage = () => {
     { dateFrom: string; dateTo: string } | Record<string, never>
   >({});
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!fromDate || !toDate) return;
     const newParams = {
       dateFrom: formatDateToYYYYMMDD(fromDate),
       dateTo: formatDateToYYYYMMDD(toDate),
     };
-    const fetchPromise = Promise.all([
-      queryClient.fetchQuery(analyticsOverviewQueryOptions(newParams)),
-      queryClient.fetchQuery(incomingGatePassesQueryOptions(newParams)),
-      queryClient.fetchQuery(
-        gradingSizeWiseDistributionQueryOptions(newParams)
-      ),
-      queryClient.fetchQuery(areaWiseAnalyticsQueryOptions(newParams)),
-      queryClient.fetchQuery(gradingTrendQueryOptions(newParams)),
-      queryClient.fetchQuery(storageTrendQueryOptions(newParams)),
-    ]);
-    toast.promise(fetchPromise, {
-      loading: 'Applying date filters…',
-      success: 'Date filters applied. Data updated.',
-      error: 'Failed to load data for the selected range.',
-    });
-    try {
-      await fetchPromise;
-      setAppliedDateParams(newParams);
-    } catch {
-      // Toast already shown by toast.promise
-    }
+    setAppliedDateParams(newParams);
+    toast.success('Date filters applied.');
   };
 
-  const { refetch, isFetching } = useGetOverview(appliedDateParams);
-  const incomingQuery = useQuery(
-    incomingGatePassesQueryOptions(appliedDateParams)
-  );
-  const gradingQuery = useGetGradingGatePasses(appliedDateParams);
+  const handleResetDates = () => {
+    setFromDate(undefined);
+    setToDate(undefined);
+    setAppliedDateParams({});
+    toast.success('Date filters cleared.');
+  };
 
-  const handleResetDates = async () => {
-    const fetchPromise = Promise.all([
-      queryClient.fetchQuery(analyticsOverviewQueryOptions({})),
-      queryClient.fetchQuery(incomingGatePassesQueryOptions({})),
-      queryClient.fetchQuery(gradingSizeWiseDistributionQueryOptions({})),
-      queryClient.fetchQuery(areaWiseAnalyticsQueryOptions({})),
-      queryClient.fetchQuery(gradingTrendQueryOptions({})),
-      queryClient.fetchQuery(storageTrendQueryOptions({})),
+  const handleRefresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: analyticsOverviewKeys.all }),
+      queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all }),
+      queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all }),
+      queryClient.invalidateQueries({
+        queryKey: gradingSizeWiseDistributionKeys.all,
+      }),
+      queryClient.invalidateQueries({ queryKey: areaWiseAnalyticsKeys.all }),
+      queryClient.invalidateQueries({ queryKey: gradingTrendKeys.all }),
+      queryClient.invalidateQueries({ queryKey: storageTrendKeys.all }),
+      queryClient.invalidateQueries({ queryKey: storageSummaryKeys.all }),
+      queryClient.invalidateQueries({
+        queryKey: nikasiGatePassSummaryKeys.all,
+      }),
     ]);
-    toast.promise(fetchPromise, {
-      loading: 'Clearing date filters…',
-      success: 'Date filters cleared. Data updated.',
-      error: 'Failed to refetch data.',
-    });
-    try {
-      await fetchPromise;
-      setFromDate(undefined);
-      setToDate(undefined);
-      setAppliedDateParams({});
-    } catch {
-      // Toast already shown by toast.promise
-    }
+    toast.success('Analytics refreshed.');
   };
 
   return (
@@ -135,15 +112,10 @@ const AnalyticsPage = () => {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={isFetching}
-                onClick={() => refetch()}
+                onClick={() => void handleRefresh()}
                 className="font-custom h-8 gap-2 rounded-lg px-3"
               >
-                <RefreshCw
-                  className={`h-4 w-4 shrink-0 ${
-                    isFetching ? 'animate-spin' : ''
-                  }`}
-                />
+                <RefreshCw className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">Refresh</span>
               </Button>
             </ItemActions>
@@ -189,13 +161,6 @@ const AnalyticsPage = () => {
                 Reset
               </Button>
             </div>
-            <Button
-              variant="default"
-              className="font-custom ml-auto shrink-0 gap-2 rounded-lg"
-            >
-              <Download className="h-4 w-4 shrink-0" />
-              Export report
-            </Button>
           </div>
         </Item>
 
@@ -258,25 +223,16 @@ const AnalyticsPage = () => {
               <SeedAnalyticsTab />
             </TabsContent>
             <TabsContent value="incoming" className="mt-0 outline-none">
-              <IncomingGatePassAnalyticsScreen
-                queryResult={incomingQuery}
-                dateParams={appliedDateParams}
-              />
+              <IncomingGatePassAnalyticsScreen dateParams={appliedDateParams} />
             </TabsContent>
             <TabsContent value="grading" className="mt-0 outline-none">
-              <GradingGatePassAnalyticsScreen
-                queryResult={gradingQuery}
-                dateParams={appliedDateParams}
-              />
+              <GradingGatePassAnalyticsScreen dateParams={appliedDateParams} />
             </TabsContent>
             <TabsContent value="storage" className="mt-0 outline-none">
               <StorageAnalyticsScreen dateParams={appliedDateParams} />
             </TabsContent>
             <TabsContent value="dispatch" className="mt-0 outline-none">
-              <p className="font-custom text-sm leading-relaxed text-gray-600">
-                Dispatch (nikasi) analytics content will appear here. This
-                section will show gate pass and dispatch summaries.
-              </p>
+              <DispatchAnalyticsScreen dateParams={appliedDateParams} />
             </TabsContent>
             <TabsContent value="outgoing" className="mt-0 outline-none">
               <p className="font-custom text-sm leading-relaxed text-gray-600">

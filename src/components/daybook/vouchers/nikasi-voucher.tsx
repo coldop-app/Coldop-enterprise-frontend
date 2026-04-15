@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   ChevronDown,
   ChevronUp,
+  CircleUser,
   Pencil,
   Printer,
   User,
@@ -32,7 +33,7 @@ export interface NikasiVoucherProps extends VoucherFarmerInfo {
 const NikasiVoucher = memo(function NikasiVoucher({
   voucher,
   farmerName,
-  farmerAccount,
+  farmerAccount: _farmerAccount,
   variant = 'default',
 }: NikasiVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -74,6 +75,26 @@ const NikasiVoucher = memo(function NikasiVoucher({
 
   const orderDetails = (voucher.orderDetails ?? []) as NikasiOrderDetailRow[];
   const bagSizeRows = voucher.bagSize ?? [];
+
+  const varietyDisplay = useMemo(() => {
+    if (hasBagSize && bagSizeRows.length > 0) {
+      const names = [
+        ...new Set(
+          bagSizeRows
+            .map((b) => b.variety?.trim())
+            .filter((v): v is string => Boolean(v && v.length > 0))
+        ),
+      ];
+      if (names.length > 0) return names.join(', ');
+    }
+    if (voucher.variety != null && voucher.variety !== '') {
+      return voucher.variety;
+    }
+    return null;
+  }, [hasBagSize, bagSizeRows, voucher.variety]);
+
+  const createdByName = voucher.createdBy?.name?.trim();
+
   const netWeightDisplay =
     voucher.netWeight != null
       ? Number(voucher.netWeight).toLocaleString('en-IN')
@@ -130,8 +151,8 @@ const NikasiVoucher = memo(function NikasiVoucher({
           {farmerName != null && (
             <DetailRow label="Farmer" value={farmerName} icon={User} />
           )}
-          {farmerAccount != null && (
-            <DetailRow label="Account" value={`#${farmerAccount}`} />
+          {varietyDisplay != null && (
+            <DetailRow label="Variety" value={varietyDisplay} />
           )}
           {voucher.from != null && (
             <DetailRow label="From" value={voucher.from} icon={MapPin} />
@@ -195,6 +216,42 @@ const NikasiVoucher = memo(function NikasiVoucher({
           <>
             <Separator className="my-4" />
             <div className="space-y-4">
+              {(voucher.from != null ||
+                (voucher.toField != null && voucher.toField !== '')) && (
+                <section>
+                  <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
+                    Route
+                  </h4>
+                  <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2">
+                    {voucher.from != null && (
+                      <DetailRow
+                        label="From"
+                        value={voucher.from}
+                        icon={MapPin}
+                      />
+                    )}
+                    {voucher.toField != null && voucher.toField !== '' && (
+                      <DetailRow label="To" value={voucher.toField} />
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {createdByName != null && createdByName !== '' && (
+                <section>
+                  <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
+                    Record
+                  </h4>
+                  <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2">
+                    <DetailRow
+                      label="Created by"
+                      value={createdByName}
+                      icon={CircleUser}
+                    />
+                  </div>
+                </section>
+              )}
+
               <section>
                 <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-semibold tracking-wider uppercase">
                   Detailed Breakdown

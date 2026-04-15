@@ -292,7 +292,12 @@ const DispatchTab = memo(function DispatchTab({
             {dispatchGatePassData.map((pass) => {
               const voucher: PassVoucherData = {
                 ...pass,
-                createdBy: undefined,
+                createdBy:
+                  pass.createdBy != null && typeof pass.createdBy === 'object'
+                    ? {
+                        name: (pass.createdBy as { name?: string }).name,
+                      }
+                    : undefined,
               };
               return (
                 <NikasiVoucher

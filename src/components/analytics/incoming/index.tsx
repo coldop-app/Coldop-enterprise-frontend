@@ -1,5 +1,3 @@
-import type { UseQueryResult } from '@tanstack/react-query';
-import type { GetIncomingGatePassesResult } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import VarietyDistributionChart from './VarietyDistributionChart';
 import IncomingTrendAnalysisChart from './IncomingTrendAnalysisChart';
 
@@ -9,12 +7,10 @@ export interface IncomingDateParams {
 }
 
 export interface IncomingGatePassAnalyticsScreenProps {
-  queryResult: UseQueryResult<GetIncomingGatePassesResult, Error>;
   dateParams?: IncomingDateParams;
 }
 
 export default function IncomingGatePassAnalyticsScreen({
-  queryResult: _queryResult,
   dateParams = {},
 }: IncomingGatePassAnalyticsScreenProps) {
   return (

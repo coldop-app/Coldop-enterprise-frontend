@@ -16,7 +16,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -56,20 +55,22 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
 
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="font-custom sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-custom text-lg font-semibold">
-              Farmer seed details
-            </DialogTitle>
-            <DialogDescription className="font-custom text-muted-foreground text-sm">
-              Variety, generation, and bag sizes on file for this account.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="font-custom flex max-h-[min(72vh,32rem)] w-[calc(100%-2rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+          <div className="border-border shrink-0 space-y-2 border-b px-6 pt-6 pr-14 pb-4">
+            <DialogHeader className="text-left">
+              <DialogTitle className="font-custom text-base font-semibold">
+                Farmer seed details
+              </DialogTitle>
+              <DialogDescription className="font-custom text-muted-foreground text-sm">
+                Variety, generation, and bag sizes on file for this account.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="min-h-32">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
             {loading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-10">
-                <Spinner className="text-primary h-8 w-8" />
+              <div className="flex min-h-32 flex-col items-center justify-center gap-3 py-8">
+                <Spinner className="text-primary h-7 w-7" />
                 <p className="font-custom text-muted-foreground text-sm">
                   Loading seed info…
                 </p>
@@ -109,134 +110,133 @@ export const FarmerProfileFarmerSeedInfoDialog = memo(
               </Empty>
             ) : (
               <div className="space-y-4">
-                {data.map((entry, entryIndex) => {
-                  return (
-                    <div key={entry._id} className="space-y-4">
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="font-custom"
-                          onClick={() => {
-                            navigate({
-                              to: '/store-admin/farmer-seed/edit',
-                              state: { farmerSeedEntry: entry } as never,
-                            });
-                            onOpenChange(false);
-                          }}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </Button>
-                      </div>
-                      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Gate Pass No
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {entry.gatePassNo > 0 ? entry.gatePassNo : '—'}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Invoice Number
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {entry.invoiceNumber?.trim() || '—'}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Date
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {formatDisplayDate(entry.date)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Variety
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {entry.variety}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Generation
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {entry.generation}
-                          </dd>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <dt className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                            Remarks
-                          </dt>
-                          <dd className="font-custom mt-0.5 text-base font-medium text-[#333]">
-                            {entry.remarks?.trim() || '—'}
-                          </dd>
-                        </div>
-                      </dl>
-
-                      <div>
-                        <p className="font-custom mb-2 text-sm font-medium text-[#333]">
-                          Bag sizes
-                        </p>
-                        {entry.bagSizes.length === 0 ? (
-                          <p className="font-custom text-muted-foreground text-sm">
-                            No bag sizes recorded.
-                          </p>
-                        ) : (
-                          <div className="rounded-lg border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="hover:bg-transparent">
-                                  <TableHead className="font-custom">
-                                    Size
-                                  </TableHead>
-                                  <TableHead className="font-custom text-right">
-                                    Qty
-                                  </TableHead>
-                                  <TableHead className="font-custom text-right">
-                                    Rate
-                                  </TableHead>
-                                  <TableHead className="font-custom text-right">
-                                    Acres
-                                  </TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {entry.bagSizes.map((row, rowIndex) => (
-                                  <TableRow
-                                    key={`${entry._id}-${row.name}-${rowIndex}`}
-                                  >
-                                    <TableCell className="font-custom font-medium">
-                                      {row.name}
-                                    </TableCell>
-                                    <TableCell className="font-custom text-right tabular-nums">
-                                      {formatFarmerSeedAmount(row.quantity)}
-                                    </TableCell>
-                                    <TableCell className="font-custom text-right tabular-nums">
-                                      {formatFarmerSeedAmount(row.rate)}
-                                    </TableCell>
-                                    <TableCell className="font-custom text-right tabular-nums">
-                                      {formatFarmerSeedAmount(row.acres ?? 0)}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        )}
-                      </div>
-
-                      {entryIndex < data.length - 1 ? <Separator /> : null}
+                {data.map((entry) => (
+                  <div
+                    key={entry._id}
+                    className="bg-muted/30 space-y-3 rounded-lg border p-3"
+                  >
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="font-custom h-8"
+                        onClick={() => {
+                          navigate({
+                            to: '/store-admin/farmer-seed/edit',
+                            state: { farmerSeedEntry: entry } as never,
+                          });
+                          onOpenChange(false);
+                        }}
+                      >
+                        <Pencil className="mr-2 h-3.5 w-3.5" />
+                        Edit
+                      </Button>
                     </div>
-                  );
-                })}
+
+                    <div className="bg-background overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium whitespace-nowrap">
+                              Gate pass
+                            </TableHead>
+                            <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium whitespace-nowrap">
+                              Invoice
+                            </TableHead>
+                            <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium whitespace-nowrap">
+                              Date
+                            </TableHead>
+                            <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium whitespace-nowrap">
+                              Variety
+                            </TableHead>
+                            <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium whitespace-nowrap">
+                              Gen.
+                            </TableHead>
+                            <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium">
+                              Remarks
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow className="hover:bg-muted/40">
+                            <TableCell className="font-custom text-sm font-medium whitespace-nowrap text-[#333]">
+                              {entry.gatePassNo > 0 ? entry.gatePassNo : '—'}
+                            </TableCell>
+                            <TableCell className="font-custom max-w-22 text-sm whitespace-nowrap text-[#333]">
+                              {entry.invoiceNumber?.trim() || '—'}
+                            </TableCell>
+                            <TableCell className="font-custom text-sm whitespace-nowrap text-[#333]">
+                              {formatDisplayDate(entry.date)}
+                            </TableCell>
+                            <TableCell className="font-custom max-w-24 text-sm wrap-break-word text-[#333]">
+                              {entry.variety}
+                            </TableCell>
+                            <TableCell className="font-custom max-w-16 text-sm wrap-break-word text-[#333]">
+                              {entry.generation}
+                            </TableCell>
+                            <TableCell className="font-custom text-muted-foreground max-w-36 text-sm wrap-break-word">
+                              {entry.remarks?.trim() || '—'}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div>
+                      <p className="font-custom mb-1.5 text-xs font-semibold tracking-wide text-[#333] uppercase">
+                        Bag sizes
+                      </p>
+                      {entry.bagSizes.length === 0 ? (
+                        <p className="font-custom text-muted-foreground text-sm">
+                          No bag sizes recorded.
+                        </p>
+                      ) : (
+                        <div className="bg-background overflow-x-auto rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className="font-custom text-muted-foreground h-9 text-xs font-medium">
+                                  Size
+                                </TableHead>
+                                <TableHead className="font-custom text-muted-foreground h-9 text-right text-xs font-medium">
+                                  Qty
+                                </TableHead>
+                                <TableHead className="font-custom text-muted-foreground h-9 text-right text-xs font-medium">
+                                  Rate
+                                </TableHead>
+                                <TableHead className="font-custom text-muted-foreground h-9 text-right text-xs font-medium">
+                                  Acres
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {entry.bagSizes.map((row, rowIndex) => (
+                                <TableRow
+                                  key={`${entry._id}-${row.name}-${rowIndex}`}
+                                  className="hover:bg-muted/40"
+                                >
+                                  <TableCell className="font-custom py-2 text-sm font-medium">
+                                    {row.name}
+                                  </TableCell>
+                                  <TableCell className="font-custom py-2 text-right text-sm tabular-nums">
+                                    {formatFarmerSeedAmount(row.quantity)}
+                                  </TableCell>
+                                  <TableCell className="font-custom py-2 text-right text-sm tabular-nums">
+                                    {formatFarmerSeedAmount(row.rate)}
+                                  </TableCell>
+                                  <TableCell className="font-custom py-2 text-right text-sm tabular-nums">
+                                    {formatFarmerSeedAmount(row.acres ?? 0)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

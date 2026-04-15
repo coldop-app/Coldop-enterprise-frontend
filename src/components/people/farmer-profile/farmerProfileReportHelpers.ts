@@ -222,5 +222,9 @@ export function nikasiToPassVoucherData(pass: NikasiGatePass): PassVoucherData {
       pass.gradingGatePassIds as PassVoucherData['gradingGatePassIds'],
     gradingGatePassSnapshots:
       pass.gradingGatePassSnapshots as PassVoucherData['gradingGatePassSnapshots'],
+    createdBy:
+      pass.createdBy != null && typeof pass.createdBy === 'object'
+        ? { name: (pass.createdBy as { name?: string }).name }
+        : undefined,
   };
 }

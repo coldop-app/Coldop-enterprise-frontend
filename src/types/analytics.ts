@@ -436,6 +436,31 @@ export interface GetNikasiGatePassReportApiResponse {
   message?: string;
 }
 
+// --- Nikasi summary by variety/size (GET /analytics/nikasi-summary) ---
+
+/** One size bucket in nikasi summary */
+export interface NikasiSummarySizeItem {
+  size: string;
+  quantityIssued: number;
+}
+
+/** One variety row in GET /analytics/nikasi-summary */
+export interface NikasiSummaryVarietyItem {
+  variety: string;
+  quantityIssued: number;
+  sizes: NikasiSummarySizeItem[];
+}
+
+/** Data shape for GET /analytics/nikasi-summary */
+export type NikasiGatePassSummaryData = NikasiSummaryVarietyItem[];
+
+/** API response for GET /analytics/nikasi-summary */
+export interface GetNikasiGatePassSummaryApiResponse {
+  success: boolean;
+  data: NikasiGatePassSummaryData;
+  message?: string;
+}
+
 // --- Top farmers by bags (GET /analytics/top-farmers-by-bags) ---
 
 /** Single farmer entry in GET /analytics/top-farmers-by-bags chartData */

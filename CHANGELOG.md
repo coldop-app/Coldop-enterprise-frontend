@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.51.0] - 2026-04-14
+## [0.53.0] - 2026-04-15
+
+### Added
+- Analytics **Dispatch** tab: nikasi (dispatch) **summary** by variety and size — `DispatchAnalyticsScreen`, `DispatchSummaryTable`, and React Query hook **`useGetNikasiGatePassSummary`** for GET `/analytics/nikasi-summary` (optional `dateFrom` / `dateTo`); types `NikasiGatePassSummaryData` and related shapes in `analytics.ts`
+- Analytics **Refresh** now also invalidates the nikasi gate pass summary query
+
+### Changed
+- Analytics layout and tab wiring updated for the Dispatch tab alongside Seed, Incoming, Grading, Storage, and Outgoing
+- Daybook **Dispatch** tab and **nikasi voucher**: small UX/copy adjustments for dispatch listings
+- **Nikasi edit sheet** (daybook): size and variety rows use **`SearchSelector`** backed by grading sizes and potato varieties, with support for values not in the standard lists; new rows default to the first grading size instead of an empty string
+- Farmer profile **farmer seed** details dialog refactored for clearer structure; **`farmerProfileReportHelpers`** extended to support report flows
 
 ## [0.52.0] - 2026-04-14
 

@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/forms/date-picker';
+import { SearchSelector } from '@/components/forms/search-selector';
+import {
+  GRADING_SIZES,
+  POTATO_VARIETIES,
+} from '@/components/forms/grading/constants';
 import {
   Sheet,
   SheetContent,
@@ -41,6 +46,26 @@ function isoToDdMmYyyy(value: string | undefined): string {
   return formatDate(d);
 }
 
+const GRADING_SIZE_LIST = GRADING_SIZES as readonly string[];
+const FIRST_GRADING_SIZE = GRADING_SIZES[0] ?? '';
+
+function sizeOptionsFor(current: string): string[] {
+  const s = current?.trim() ?? '';
+  if (s && !GRADING_SIZE_LIST.includes(s)) {
+    return [s, ...GRADING_SIZE_LIST];
+  }
+  return [...GRADING_SIZE_LIST];
+}
+
+function varietyOptionsFor(currentVariety: string) {
+  const v = currentVariety?.trim();
+  const base = [...POTATO_VARIETIES];
+  if (v && !base.some((o) => o.value === v)) {
+    return [{ label: v, value: v }, ...base];
+  }
+  return base;
+}
+
 export const NikasiEditSheet = memo(function NikasiEditSheet({
   open,
   onOpenChange,
@@ -71,15 +96,16 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
       ? String(voucher.averageWeightPerBag)
       : ''
   );
+
   const [bagSizes, setBagSizes] = useState<NikasiEditRow[]>(
     Array.isArray(voucher.bagSize) && voucher.bagSize.length > 0
       ? voucher.bagSize.map((row) => ({
-          size: row.size ?? '',
+          size: (row.size ?? '').trim() || FIRST_GRADING_SIZE,
           variety: row.variety ?? voucher.variety ?? '',
           quantityIssued: row.quantityIssued ?? 0,
         }))
       : (voucher.orderDetails ?? []).map((row) => ({
-          size: row.size ?? '',
+          size: (row.size ?? '').trim() || FIRST_GRADING_SIZE,
           variety: voucher.variety ?? '',
           quantityIssued: row.quantityIssued ?? 0,
         }))
@@ -218,7 +244,7 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
                   setBagSizes((prev) => [
                     ...prev,
                     {
-                      size: '',
+                      size: FIRST_GRADING_SIZE,
                       variety: voucher.variety ?? '',
                       quantityIssued: 0,
                     },
@@ -231,55 +257,74 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
             </div>
 
             <div className="space-y-2">
-              {bagSizes.map((row, index) => (
-                <div
-                  key={index}
-                  className="bg-muted/20 grid grid-cols-1 gap-2 rounded-md border p-2 sm:grid-cols-12"
-                >
-                  <Input
-                    value={row.size}
-                    onChange={(e) =>
-                      handleBagSizeChange(index, 'size', e.target.value)
-                    }
-                    placeholder="Size"
-                    className="font-custom sm:col-span-3"
-                  />
-                  <Input
-                    value={row.variety}
-                    onChange={(e) =>
-                      handleBagSizeChange(index, 'variety', e.target.value)
-                    }
-                    placeholder="Variety"
-                    className="font-custom sm:col-span-5"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    value={row.quantityIssued}
-                    onChange={(e) =>
-                      handleBagSizeChange(
-                        index,
-                        'quantityIssued',
-                        e.target.value
-                      )
-                    }
-                    placeholder="Qty"
-                    className="font-custom [appearance:textfield] sm:col-span-3 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="sm:col-span-1"
-                    onClick={() =>
-                      setBagSizes((prev) => prev.filter((_, i) => i !== index))
-                    }
-                    aria-label="Remove bag size row"
+              {bagSizes.map((row, index) => {
+                const sizeChoices = sizeOptionsFor(row.size);
+                const sizeSelectValue = sizeChoices.includes(row.size)
+                  ? row.size
+                  : (sizeChoices[0] ?? '');
+                return (
+                  <div
+                    key={index}
+                    className="bg-muted/20 grid grid-cols-1 gap-2 rounded-md border p-2 sm:grid-cols-12"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                    <select
+                      aria-label={`Size row ${index + 1}`}
+                      value={sizeSelectValue}
+                      onChange={(e) =>
+                        handleBagSizeChange(index, 'size', e.target.value)
+                      }
+                      className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:col-span-3"
+                    >
+                      {sizeChoices.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="min-w-0 sm:col-span-5">
+                      <SearchSelector
+                        id={`nikasi-edit-variety-${index}`}
+                        options={varietyOptionsFor(row.variety)}
+                        placeholder="Variety"
+                        searchPlaceholder="Search variety..."
+                        value={row.variety}
+                        onSelect={(v) =>
+                          handleBagSizeChange(index, 'variety', v ?? '')
+                        }
+                        buttonClassName="font-custom h-9 w-full justify-between"
+                      />
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={row.quantityIssued}
+                      onChange={(e) =>
+                        handleBagSizeChange(
+                          index,
+                          'quantityIssued',
+                          e.target.value
+                        )
+                      }
+                      placeholder="Qty"
+                      className="font-custom [appearance:textfield] sm:col-span-3 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="sm:col-span-1"
+                      onClick={() =>
+                        setBagSizes((prev) =>
+                          prev.filter((_, i) => i !== index)
+                        )
+                      }
+                      aria-label="Remove bag size row"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
