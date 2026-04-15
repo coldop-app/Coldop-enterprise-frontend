@@ -92,6 +92,22 @@ type PdfColumn = {
   width: number;
 };
 
+/**
+ * These columns are tied to an individual seed-size line and should repeat for
+ * every expanded row of the same farmer.
+ */
+const SIZE_LINE_REPEAT_COLUMNS = new Set<string>([
+  'sNo',
+  'acresPlanted',
+  'generation',
+  'sizeName',
+  'seedBags',
+]);
+
+/** Keep a stable number of data entries per page in the PDF table. */
+const PDF_ENTRIES_PER_PAGE = 18;
+const PDF_ROW_HEIGHT = 18;
+
 function visibleColumns(
   columnVisibility: ContractFarmingColumnVisibility
 ): PdfColumn[] {
@@ -293,65 +309,106 @@ export function ContractFarmingReportTablePdf({
   columnVisibility,
 }: ContractFarmingReportTablePdfProps) {
   const cols = visibleColumns(columnVisibility);
+  const alignStyle = (align: PdfColumn['align']) =>
+    align === 'left'
+      ? styles.left
+      : align === 'center'
+        ? styles.center
+        : styles.right;
+
   return (
     <Document>
-      {groups.map((group, pageIndex) => {
+      {groups.flatMap((group, groupIndex) => {
         const totals = totalsValue(group.rows, group.variety);
-        const renderedRows = expandFarmerRowsForSizes(group.rows).map(
-          (entry, rowIndex): Record<string, string> => ({
+        let serialNumber = 1;
+        const farmerGroups = group.rows.map((farmer, farmerIndex) => {
+          const expandedLines = expandFarmerRowsForSizes([farmer]);
+          const lines = expandedLines.map((entry) => ({
             ...rowValue(entry.farmer, group.variety, entry.sizeLineIndex),
-            sNo: String(rowIndex + 1),
-          })
-        );
-        return (
-          <Page
-            key={`${group.variety}-${pageIndex}`}
-            size="A4"
-            orientation="landscape"
-            style={styles.page}
-          >
-            {pageIndex === 0 ? (
-              <View style={styles.header}>
-                <Text style={styles.company}>{companyName}</Text>
-                <Text style={styles.title}>{reportTitle}</Text>
-                {dateRangeLabel ? (
-                  <Text style={styles.date}>{dateRangeLabel}</Text>
-                ) : null}
-              </View>
-            ) : null}
-            <Text style={styles.varietyTitle}>Variety: {group.variety}</Text>
-            <View style={styles.table}>
-              <View style={[styles.row, styles.rowHeader]}>
-                {cols.map((col, index) => (
-                  <View
-                    key={col.key}
-                    style={[
-                      styles.cell,
-                      ...(index === cols.length - 1 ? [styles.cellLast] : []),
-                      { width: `${col.width}%` },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.textBold,
-                        col.align === 'left'
-                          ? styles.left
-                          : col.align === 'center'
-                            ? styles.center
-                            : styles.right,
-                      ]}
-                    >
-                      {col.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+            sNo: String(serialNumber++),
+          }));
+          return {
+            key: `${group.variety}-farmer-${farmerIndex}`,
+            lines,
+            lineCount: lines.length,
+          };
+        });
 
-              {renderedRows.map((row, rowIndex) => (
-                <View
-                  key={`${group.variety}-row-${rowIndex}`}
-                  style={styles.row}
-                >
+        type FarmerGroupChunk = {
+          key: string;
+          lines: Record<string, string>[];
+        };
+        const chunks: FarmerGroupChunk[][] = [];
+        let currentChunk: FarmerGroupChunk[] = [];
+        let currentEntries = 0;
+
+        for (const farmerGroup of farmerGroups) {
+          if (farmerGroup.lineCount <= PDF_ENTRIES_PER_PAGE - currentEntries) {
+            currentChunk.push({
+              key: farmerGroup.key,
+              lines: farmerGroup.lines,
+            });
+            currentEntries += farmerGroup.lineCount;
+            continue;
+          }
+
+          if (currentChunk.length > 0) {
+            chunks.push(currentChunk);
+            currentChunk = [];
+            currentEntries = 0;
+          }
+
+          if (farmerGroup.lineCount <= PDF_ENTRIES_PER_PAGE) {
+            currentChunk.push({
+              key: farmerGroup.key,
+              lines: farmerGroup.lines,
+            });
+            currentEntries = farmerGroup.lineCount;
+            continue;
+          }
+
+          for (
+            let start = 0;
+            start < farmerGroup.lineCount;
+            start += PDF_ENTRIES_PER_PAGE
+          ) {
+            const end = start + PDF_ENTRIES_PER_PAGE;
+            chunks.push([
+              {
+                key: `${farmerGroup.key}-part-${start}`,
+                lines: farmerGroup.lines.slice(start, end),
+              },
+            ]);
+          }
+        }
+
+        if (currentChunk.length > 0) {
+          chunks.push(currentChunk);
+        }
+        const pagedChunks = chunks.length > 0 ? chunks : [[]];
+
+        return pagedChunks.map((chunkGroups, chunkIndex) => {
+          const isFirstDocumentPage = groupIndex === 0 && chunkIndex === 0;
+          const isLastChunkForVariety = chunkIndex === pagedChunks.length - 1;
+          return (
+            <Page
+              key={`${group.variety}-${groupIndex}-${chunkIndex}`}
+              size="A4"
+              orientation="landscape"
+              style={styles.page}
+            >
+              {isFirstDocumentPage ? (
+                <View style={styles.header}>
+                  <Text style={styles.company}>{companyName}</Text>
+                  <Text style={styles.title}>{reportTitle}</Text>
+                  {dateRangeLabel ? (
+                    <Text style={styles.date}>{dateRangeLabel}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+              <Text style={styles.varietyTitle}>Variety: {group.variety}</Text>
+              <View style={styles.table}>
+                <View style={[styles.row, styles.rowHeader]}>
                   {cols.map((col, index) => (
                     <View
                       key={col.key}
@@ -361,51 +418,98 @@ export function ContractFarmingReportTablePdf({
                         { width: `${col.width}%` },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.text,
-                          col.align === 'left'
-                            ? styles.left
-                            : col.align === 'center'
-                              ? styles.center
-                              : styles.right,
-                        ]}
-                      >
-                        {row[col.key] ?? '—'}
+                      <Text style={[styles.textBold, alignStyle(col.align)]}>
+                        {col.label}
                       </Text>
                     </View>
                   ))}
                 </View>
-              ))}
-
-              <View style={[styles.row, styles.rowFooter]}>
-                {cols.map((col, index) => (
-                  <View
-                    key={col.key}
-                    style={[
-                      styles.cell,
-                      ...(index === cols.length - 1 ? [styles.cellLast] : []),
-                      { width: `${col.width}%` },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.textBold,
-                        col.align === 'left'
-                          ? styles.left
-                          : col.align === 'center'
-                            ? styles.center
-                            : styles.right,
-                      ]}
+                {chunkGroups.map((groupChunk) => {
+                  const firstLine = groupChunk.lines[0];
+                  if (!firstLine) return null;
+                  const groupHeight = groupChunk.lines.length * PDF_ROW_HEIGHT;
+                  return (
+                    <View
+                      key={groupChunk.key}
+                      style={[styles.row, { minHeight: groupHeight }]}
                     >
-                      {totals[col.key] ?? '—'}
-                    </Text>
+                      {cols.map((col, index) => (
+                        <View
+                          key={col.key}
+                          style={[
+                            styles.cell,
+                            ...(index === cols.length - 1
+                              ? [styles.cellLast]
+                              : []),
+                            {
+                              width: `${col.width}%`,
+                              minHeight: groupHeight,
+                              justifyContent: 'center',
+                            },
+                          ]}
+                        >
+                          {SIZE_LINE_REPEAT_COLUMNS.has(col.key) ? (
+                            <View style={{ flexDirection: 'column' }}>
+                              {groupChunk.lines.map((line, lineIndex) => (
+                                <View
+                                  key={`${groupChunk.key}-${col.key}-${lineIndex}`}
+                                  style={[
+                                    {
+                                      minHeight: PDF_ROW_HEIGHT,
+                                      justifyContent: 'center',
+                                    },
+                                    ...(lineIndex < groupChunk.lines.length - 1
+                                      ? [
+                                          {
+                                            borderBottomWidth: 0.5,
+                                            borderBottomColor: '#999',
+                                          },
+                                        ]
+                                      : []),
+                                  ]}
+                                >
+                                  <Text
+                                    style={[styles.text, alignStyle(col.align)]}
+                                  >
+                                    {line[col.key] ?? '—'}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text style={[styles.text, alignStyle(col.align)]}>
+                              {firstLine[col.key] ?? '—'}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+                {isLastChunkForVariety ? (
+                  <View style={[styles.row, styles.rowFooter]}>
+                    {cols.map((col, index) => (
+                      <View
+                        key={col.key}
+                        style={[
+                          styles.cell,
+                          ...(index === cols.length - 1
+                            ? [styles.cellLast]
+                            : []),
+                          { width: `${col.width}%` },
+                        ]}
+                      >
+                        <Text style={[styles.textBold, alignStyle(col.align)]}>
+                          {totals[col.key] ?? '—'}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
+                ) : null}
               </View>
-            </View>
-          </Page>
-        );
+            </Page>
+          );
+        });
       })}
     </Document>
   );
