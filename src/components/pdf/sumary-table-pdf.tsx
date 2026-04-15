@@ -136,78 +136,103 @@ const styles = StyleSheet.create({
 export interface SummaryTablePdfProps {
   prepared?: PreparedSummaryTableData;
   rows?: StockLedgerRow[];
+  largePrintMode?: boolean;
 }
 
 export default function SummaryTablePdf({
   prepared,
   rows = [],
+  largePrintMode = false,
 }: SummaryTablePdfProps) {
   const data = prepared ?? prepareSummaryTablePdfData(rows);
+  const widthScale = largePrintMode ? 1.3 : 1;
+  const typeColWidth = TYPE_COL_WIDTH * widthScale;
+  const sizeColWidth = SIZE_COL_WIDTH * widthScale;
+  const weightPerBagColWidth = WEIGHT_PER_BAG_COL_WIDTH * widthScale;
+  const pctGradedSizesColWidth = PCT_GRADED_SIZES_COL_WIDTH * widthScale;
+  const rightColumnWidth = (width: number) => width * widthScale;
+  const titleStyle = {
+    ...styles.title,
+    ...(largePrintMode ? { fontSize: 10, marginBottom: 6 } : {}),
+  };
+  const headerCellStyle = {
+    ...styles.headerCell,
+    ...(largePrintMode ? { fontSize: 6, paddingVertical: 4 } : {}),
+  };
+  const headerCellTextStyle = {
+    ...styles.headerCellText,
+    ...(largePrintMode ? { fontSize: 6 } : {}),
+  };
+  const cellStyle = {
+    ...styles.cell,
+    ...(largePrintMode ? { paddingVertical: 3, paddingHorizontal: 3 } : {}),
+  };
+  const cellCenterStyle = {
+    ...styles.cellCenter,
+    ...(largePrintMode ? { fontSize: 7 } : {}),
+  };
 
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>Summary</Text>
+      <Text style={titleStyle}>Summary</Text>
       <View style={styles.headerRow}>
-        <View style={[styles.headerCell, { width: TYPE_COL_WIDTH }]}>
-          <Text style={styles.headerCellText}>Type</Text>
+        <View style={[headerCellStyle, { width: typeColWidth }]}>
+          <Text style={headerCellTextStyle}>Type</Text>
         </View>
         {data.sizesWithQuantities.map((size) => (
-          <View
-            key={size}
-            style={[styles.headerCell, { width: SIZE_COL_WIDTH }]}
-          >
-            <Text style={styles.headerCellText}>
+          <View key={size} style={[headerCellStyle, { width: sizeColWidth }]}>
+            <Text style={headerCellTextStyle}>
               {SIZE_HEADER_LABELS[size] ?? size}
             </Text>
           </View>
         ))}
-        <View style={[styles.headerCell, { width: WEIGHT_PER_BAG_COL_WIDTH }]}>
-          <Text style={styles.headerCellText}>Wt/Bag</Text>
+        <View style={[headerCellStyle, { width: weightPerBagColWidth }]}>
+          <Text style={headerCellTextStyle}>Wt/Bag</Text>
         </View>
         {RIGHT_COLUMNS.map((col) => (
-          <View key={col.key} style={[styles.headerCell, { width: col.width }]}>
-            <Text style={styles.headerCellText}>{col.label}</Text>
+          <View
+            key={col.key}
+            style={[headerCellStyle, { width: rightColumnWidth(col.width) }]}
+          >
+            <Text style={headerCellTextStyle}>{col.label}</Text>
           </View>
         ))}
         <View
           style={[
-            styles.headerCell,
+            headerCellStyle,
             styles.headerCellLast,
-            { width: PCT_GRADED_SIZES_COL_WIDTH },
+            { width: pctGradedSizesColWidth },
           ]}
         >
-          <Text style={styles.headerCellText}>{PCT_GRADED_SIZES_LABEL}</Text>
+          <Text style={headerCellTextStyle}>{PCT_GRADED_SIZES_LABEL}</Text>
         </View>
       </View>
       {data.showGroupedSummary &&
         data.rows.map((row, rowIdx) => {
           return (
             <View key={`${row.key}-${rowIdx}`} style={styles.dataRow}>
-              <View style={[styles.cell, { width: TYPE_COL_WIDTH }]}>
-                <Text style={styles.cellCenter}>{row.type}</Text>
+              <View style={[cellStyle, { width: typeColWidth }]}>
+                <Text style={cellCenterStyle}>{row.type}</Text>
               </View>
               {data.sizesWithQuantities.map((size) => (
-                <View
-                  key={size}
-                  style={[styles.cell, { width: SIZE_COL_WIDTH }]}
-                >
+                <View key={size} style={[cellStyle, { width: sizeColWidth }]}>
                   {size === row.size ? (
-                    <Text style={styles.cellCenter}>
+                    <Text style={cellCenterStyle}>
                       {row.count.toLocaleString('en-IN')}
                     </Text>
                   ) : null}
                 </View>
               ))}
-              <View style={[styles.cell, { width: WEIGHT_PER_BAG_COL_WIDTH }]}>
-                <Text style={styles.cellCenter}>{row.weightDisplay}</Text>
+              <View style={[cellStyle, { width: weightPerBagColWidth }]}>
+                <Text style={cellCenterStyle}>{row.weightDisplay}</Text>
               </View>
               {RIGHT_COLUMNS.map((col) => {
                 return (
                   <View
                     key={col.key}
-                    style={[styles.cell, { width: col.width }]}
+                    style={[cellStyle, { width: rightColumnWidth(col.width) }]}
                   >
-                    <Text style={styles.cellCenter}>
+                    <Text style={cellCenterStyle}>
                       {row.rightValues[col.key]}
                     </Text>
                   </View>
@@ -215,35 +240,38 @@ export default function SummaryTablePdf({
               })}
               <View
                 style={[
-                  styles.cell,
+                  cellStyle,
                   styles.cellLast,
-                  { width: PCT_GRADED_SIZES_COL_WIDTH },
+                  { width: pctGradedSizesColWidth },
                 ]}
               >
-                <Text style={styles.cellCenter}>{row.pctOfGradedSizes}</Text>
+                <Text style={cellCenterStyle}>{row.pctOfGradedSizes}</Text>
               </View>
             </View>
           );
         })}
       {data.showGroupedSummary && (
         <View style={styles.totalRow}>
-          <View style={[styles.cell, { width: TYPE_COL_WIDTH }]}>
-            <Text style={[styles.cellCenter, styles.totalCellText]}>Total</Text>
+          <View style={[cellStyle, { width: typeColWidth }]}>
+            <Text style={[cellCenterStyle, styles.totalCellText]}>Total</Text>
           </View>
           {data.sizesWithQuantities.map((size) => (
-            <View key={size} style={[styles.cell, { width: SIZE_COL_WIDTH }]}>
-              <Text style={[styles.cellCenter, styles.totalCellText]}>
+            <View key={size} style={[cellStyle, { width: sizeColWidth }]}>
+              <Text style={[cellCenterStyle, styles.totalCellText]}>
                 {(data.totalsBySize[size] ?? 0).toLocaleString('en-IN')}
               </Text>
             </View>
           ))}
-          <View style={[styles.cell, { width: WEIGHT_PER_BAG_COL_WIDTH }]}>
-            <Text style={[styles.cellCenter, styles.totalCellText]}>—</Text>
+          <View style={[cellStyle, { width: weightPerBagColWidth }]}>
+            <Text style={[cellCenterStyle, styles.totalCellText]}>—</Text>
           </View>
           {RIGHT_COLUMNS.map((col) => {
             return (
-              <View key={col.key} style={[styles.cell, { width: col.width }]}>
-                <Text style={[styles.cellCenter, styles.totalCellText]}>
+              <View
+                key={col.key}
+                style={[cellStyle, { width: rightColumnWidth(col.width) }]}
+              >
+                <Text style={[cellCenterStyle, styles.totalCellText]}>
                   {data.totalsRightValues[col.key]}
                 </Text>
               </View>
@@ -251,12 +279,12 @@ export default function SummaryTablePdf({
           })}
           <View
             style={[
-              styles.cell,
+              cellStyle,
               styles.cellLast,
-              { width: PCT_GRADED_SIZES_COL_WIDTH },
+              { width: pctGradedSizesColWidth },
             ]}
           >
-            <Text style={[styles.cellCenter, styles.totalCellText]}>
+            <Text style={[cellCenterStyle, styles.totalCellText]}>
               {data.totalPctOfGradedSizes}
             </Text>
           </View>

@@ -32,10 +32,18 @@ function formatDateValue(value: string | undefined): string {
   }
 }
 
+function toDateSortTimestamp(displayDate: string): number {
+  if (!displayDate || displayDate === '—') return Number.NEGATIVE_INFINITY;
+  const [day, month, year] = displayDate.split('.');
+  const ts = new Date(`${year}-${month}-${day}`).getTime();
+  return Number.isFinite(ts) ? ts : Number.NEGATIVE_INFINITY;
+}
+
 function mapEntriesToRows(
   entries: FarmerSeedEntryListItem[]
 ): FarmerSeedReportRow[] {
   return entries.map((entry) => {
+    const displayDate = formatDateValue(entry.date);
     const bagSizeQtyByName = Object.fromEntries(
       entry.bagSizes.map((bagSize) => [bagSize.name, bagSize.quantity ?? 0])
     );
@@ -43,6 +51,14 @@ function mapEntriesToRows(
       (sum, bagSize) => sum + (bagSize.quantity ?? 0),
       0
     );
+    const totalSeedAmount = entry.bagSizes.reduce(
+      (sum, bagSize) =>
+        sum +
+        (bagSize.quantity ?? 0) *
+          (Number.isFinite(bagSize.rate) ? bagSize.rate : 0),
+      0
+    );
+    const rate = totalBags > 0 ? totalSeedAmount / totalBags : 0;
     return {
       id: entry._id,
       farmerName: entry.farmerStorageLinkId?.farmerId?.name ?? '—',
@@ -50,10 +66,13 @@ function mapEntriesToRows(
       farmerAddress: entry.farmerStorageLinkId?.farmerId?.address ?? '—',
       gatePassNo: entry.gatePassNo ?? '—',
       invoiceNumber: entry.invoiceNumber || '—',
-      date: formatDateValue(entry.date),
+      date: displayDate,
+      dateSortTs: toDateSortTimestamp(displayDate),
       variety: entry.variety || '—',
       generation: entry.generation || '—',
       totalBags,
+      rate,
+      totalSeedAmount,
       bagSizeQtyByName,
       remarks: entry.remarks || '—',
     };
@@ -110,6 +129,7 @@ const FarmerSeedReportTable = () => {
   const totalColumnIds = useMemo(
     () => [
       'totalBags',
+      'totalSeedAmount',
       ...visibleBagSizes.map((s) => farmerSeedBagSizeColumnId(s)),
     ],
     [visibleBagSizes]

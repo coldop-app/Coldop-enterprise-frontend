@@ -1,5 +1,8 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { farmerSeedBagSizeColumnId } from '@/components/analytics/reports/farmer-seed-report/columns';
+import {
+  farmerSeedBagSizeColumnId,
+  orderFarmerSeedBagSizes,
+} from '@/components/analytics/reports/farmer-seed-report/columns';
 import type { GradingReportPdfSnapshot } from '@/components/analytics/reports/grading-report/data-table';
 
 interface FarmerSeedReportRow {
@@ -10,9 +13,12 @@ interface FarmerSeedReportRow {
   gatePassNo: number | string;
   invoiceNumber: string;
   date: string;
+  dateSortTs?: number;
   variety: string;
   generation: string;
   totalBags: number;
+  rate: number;
+  totalSeedAmount: number;
   bagSizeQtyByName: Record<string, number>;
   remarks: string;
 }
@@ -180,23 +186,44 @@ type ColumnDef = {
 
 const BASE_COLUMNS: ColumnDef[] = [
   { key: 'sNo', label: 'S. No.', width: '4%', align: 'center' },
-  { key: 'farmerName', label: 'Farmer', width: '12%', align: 'left' },
+  { key: 'farmerName', label: 'Farmer', width: '10%', align: 'left' },
   { key: 'accountNumber', label: 'Account', width: '5%', align: 'right' },
-  { key: 'farmerAddress', label: 'Address', width: '11%', align: 'left' },
+  { key: 'farmerAddress', label: 'Address', width: '10%', align: 'left' },
   { key: 'date', label: 'Date', width: '6%', align: 'center' },
   { key: 'gatePassNo', label: 'Gate Pass', width: '5%', align: 'right' },
   { key: 'invoiceNumber', label: 'Invoice', width: '5%', align: 'left' },
   { key: 'variety', label: 'Variety', width: '5%', align: 'left' },
-  { key: 'generation', label: 'Gen', width: '4%', align: 'left' },
+  { key: 'generation', label: 'Gen', width: '3%', align: 'left' },
   { key: 'totalBags', label: 'Total Bags', width: '4%', align: 'right' },
-  { key: 'remarks', label: 'Remarks', width: '23%', align: 'left' },
+  { key: 'rate', label: 'Rate', width: '5%', align: 'right' },
+  {
+    key: 'totalSeedAmount',
+    label: 'Total Seed Amt',
+    width: '8%',
+    align: 'right',
+  },
+  { key: 'remarks', label: 'Remarks', width: '19%', align: 'left' },
 ];
 
-const ROWS_PER_PAGE = 17;
+const ROWS_PER_PAGE = 16;
 
 function formatValue(value: unknown): string {
   if (value == null || value === '') return '—';
   if (typeof value === 'number') return value.toLocaleString('en-IN');
+  return String(value);
+}
+
+function formatCellValue(columnKey: string, value: unknown): string {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'number') {
+    if (columnKey === 'rate' || columnKey === 'totalSeedAmount') {
+      return value.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+    return formatValue(value);
+  }
   return String(value);
 }
 
@@ -585,26 +612,16 @@ function SummaryTopFarmersTable({ rows }: { rows: FarmerSummaryRow[] }) {
   );
 }
 
-function normalizeSizeName(size: string): string {
-  return size.replace(/–/g, '-').trim();
-}
-
 function getOrderedBagSizes(rows: FarmerSeedReportRow[]): string[] {
-  const unique = new Set<string>();
+  const hasQty = new Set<string>();
   for (const row of rows) {
-    Object.keys(row.bagSizeQtyByName ?? {}).forEach((size) => unique.add(size));
+    Object.entries(row.bagSizeQtyByName ?? {}).forEach(([size, qty]) => {
+      if ((qty ?? 0) > 0) {
+        hasQty.add(size);
+      }
+    });
   }
-  const sizes = Array.from(unique);
-  return sizes.sort((a, b) => {
-    const aNorm = normalizeSizeName(a);
-    const bNorm = normalizeSizeName(b);
-    const aStart = Number(aNorm.split('-')[0]);
-    const bStart = Number(bNorm.split('-')[0]);
-    if (!Number.isNaN(aStart) && !Number.isNaN(bStart) && aStart !== bStart) {
-      return aStart - bStart;
-    }
-    return aNorm.localeCompare(bNorm);
-  });
+  return orderFarmerSeedBagSizes(hasQty);
 }
 
 function getLeafRowsFromSnapshot(
@@ -627,31 +644,40 @@ function buildPdfColumns(rows: FarmerSeedReportRow[]): ColumnDef[] {
     return BASE_COLUMNS;
   }
 
-  const fixedBase = BASE_COLUMNS.filter((col) => col.key !== 'remarks');
-  const fixedWidth = fixedBase.reduce(
+  const beforeBagColumns = BASE_COLUMNS.filter((col) =>
+    [
+      'sNo',
+      'farmerName',
+      'accountNumber',
+      'farmerAddress',
+      'date',
+      'gatePassNo',
+      'invoiceNumber',
+      'variety',
+      'generation',
+    ].includes(col.key)
+  );
+  const afterBagColumns = BASE_COLUMNS.filter((col) =>
+    ['totalBags', 'rate', 'totalSeedAmount', 'remarks'].includes(col.key)
+  );
+
+  const fixedColumns = [...beforeBagColumns, ...afterBagColumns];
+  const fixedWidth = fixedColumns.reduce(
     (sum, col) => sum + Number(col.width.replace('%', '')),
     0
   );
-  const remarksWidth = 23;
-  const remaining = Math.max(8, 100 - fixedWidth - remarksWidth);
+  const remaining = Math.max(8, 100 - fixedWidth);
   const eachBagWidth = remaining / bagSizes.length;
-  const bagColsTotal = eachBagWidth * bagSizes.length;
-  const adjustedRemarks = 100 - fixedWidth - bagColsTotal;
 
   return [
-    ...fixedBase,
+    ...beforeBagColumns,
     ...bagSizes.map((size) => ({
       key: farmerSeedBagSizeColumnId(size),
       label: size,
       width: `${eachBagWidth}%`,
       align: 'center' as const,
     })),
-    {
-      key: 'remarks',
-      label: 'Remarks',
-      width: `${adjustedRemarks}%`,
-      align: 'left' as const,
-    },
+    ...afterBagColumns,
   ];
 }
 
@@ -673,19 +699,29 @@ function getColumnsForSnapshot(
   if (!tableSnapshot || tableSnapshot.visibleColumnIds.length === 0) {
     return fullColumns;
   }
-  const visible = new Set(tableSnapshot.visibleColumnIds);
+  const visibleInOrder = tableSnapshot.visibleColumnIds;
+  const visible = new Set(visibleInOrder);
   const grouped = new Set(tableSnapshot.grouping ?? []);
-  const filtered = fullColumns.filter(
+  const fullByKey = new Map(fullColumns.map((column) => [column.key, column]));
+  const filtered = visibleInOrder
+    .filter((columnKey) => !grouped.has(columnKey))
+    .map((columnKey) => fullByKey.get(columnKey))
+    .filter(
+      (column): column is ColumnDef => column != null && visible.has(column.key)
+    );
+
+  const fallback = fullColumns.filter(
     (column) => visible.has(column.key) && !grouped.has(column.key)
   );
-  if (filtered.length === 0) return fullColumns;
+  const orderedColumns = filtered.length > 0 ? filtered : fallback;
+  if (orderedColumns.length === 0) return fullColumns;
 
-  const totalPercent = filtered.reduce(
+  const totalPercent = orderedColumns.reduce(
     (sum, column) => sum + Number(column.width.replace('%', '')),
     0
   );
   const scale = totalPercent > 0 ? 100 / totalPercent : 1;
-  return filtered.map((column) => ({
+  return orderedColumns.map((column) => ({
     ...column,
     width: `${(Number(column.width.replace('%', '')) * scale).toFixed(2)}%`,
   }));
@@ -752,6 +788,10 @@ export function FarmerSeedReportTablePdf({
   const summary = computeSummary(displayRows);
   const totalBags = displayRows.reduce(
     (sum, row) => sum + (row.totalBags ?? 0),
+    0
+  );
+  const totalSeedAmount = displayRows.reduce(
+    (sum, row) => sum + (row.totalSeedAmount ?? 0),
     0
   );
   const bagSizeTotals = displayRows.reduce<Record<string, number>>(
@@ -871,7 +911,7 @@ export function FarmerSeedReportTablePdf({
                               >
                                 {bagSize != null && value === ''
                                   ? ''
-                                  : formatValue(value)}
+                                  : formatCellValue(column.key, value)}
                               </Text>
                             </View>
                           );
@@ -901,19 +941,24 @@ export function FarmerSeedReportTablePdf({
                                 ? 'Total'
                                 : column.key === 'totalBags'
                                   ? totalBags.toLocaleString('en-IN')
-                                  : getBagSizeFromColumnKey(
-                                        column.key,
-                                        displayRows
-                                      ) != null
-                                    ? (
-                                        bagSizeTotals[
-                                          getBagSizeFromColumnKey(
-                                            column.key,
-                                            displayRows
-                                          ) as string
-                                        ] ?? 0
-                                      ).toLocaleString('en-IN')
-                                    : ''}
+                                  : column.key === 'totalSeedAmount'
+                                    ? totalSeedAmount.toLocaleString('en-IN', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })
+                                    : getBagSizeFromColumnKey(
+                                          column.key,
+                                          displayRows
+                                        ) != null
+                                      ? (
+                                          bagSizeTotals[
+                                            getBagSizeFromColumnKey(
+                                              column.key,
+                                              displayRows
+                                            ) as string
+                                          ] ?? 0
+                                        ).toLocaleString('en-IN')
+                                      : ''}
                             </Text>
                           </View>
                         ))}
@@ -1011,7 +1056,7 @@ export function FarmerSeedReportTablePdf({
                                 >
                                   {bagSize != null && value === ''
                                     ? ''
-                                    : formatValue(value)}
+                                    : formatCellValue(column.key, value)}
                                 </Text>
                               </View>
                             );
@@ -1042,19 +1087,27 @@ export function FarmerSeedReportTablePdf({
                                   ? 'Total'
                                   : column.key === 'totalBags'
                                     ? totalBags.toLocaleString('en-IN')
-                                    : getBagSizeFromColumnKey(
-                                          column.key,
-                                          displayRows
-                                        ) != null
-                                      ? (
-                                          bagSizeTotals[
-                                            getBagSizeFromColumnKey(
-                                              column.key,
-                                              displayRows
-                                            ) as string
-                                          ] ?? 0
-                                        ).toLocaleString('en-IN')
-                                      : ''}
+                                    : column.key === 'totalSeedAmount'
+                                      ? totalSeedAmount.toLocaleString(
+                                          'en-IN',
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )
+                                      : getBagSizeFromColumnKey(
+                                            column.key,
+                                            displayRows
+                                          ) != null
+                                        ? (
+                                            bagSizeTotals[
+                                              getBagSizeFromColumnKey(
+                                                column.key,
+                                                displayRows
+                                              ) as string
+                                            ] ?? 0
+                                          ).toLocaleString('en-IN')
+                                        : ''}
                               </Text>
                             </View>
                           ))}

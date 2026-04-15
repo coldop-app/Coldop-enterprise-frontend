@@ -51,10 +51,8 @@ function getCellText(
     quantity: number;
     rate: number;
     acres?: number;
-    amountReceived?: number;
   } | null,
   variety: string | null,
-  summaryAmountPayableTotal?: number,
   options?: { entryDate?: string }
 ): string {
   const getBagAcresNumber = () => {
@@ -82,30 +80,6 @@ function getCellText(
     const total = bag.quantity * bag.rate;
     return Number.isFinite(total) ? total : null;
   };
-  const getSeedBalance = () => {
-    const amount = getLineAmountNumber();
-    if (amount == null) return null;
-    const received =
-      typeof bag?.amountReceived === 'number' &&
-      Number.isFinite(bag.amountReceived)
-        ? bag.amountReceived
-        : 0;
-    const balance = amount - received;
-    return Number.isFinite(balance) ? balance : null;
-  };
-
-  if (colId === 'amtPayable') {
-    if (
-      summaryAmountPayableTotal == null ||
-      !Number.isFinite(summaryAmountPayableTotal)
-    )
-      return EMPTY;
-    if (summaryAmountPayableTotal <= 0) return EMPTY;
-    return summaryAmountPayableTotal.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
   if (!bag) {
     if (colId === 'bagsPerAcre') {
       const n = getStandardBagsPerAcreNumber(variety);
@@ -115,6 +89,8 @@ function getCellText(
   }
 
   switch (colId) {
+    case 'date':
+      return formatOrdinalDateEn(options?.entryDate);
     case 'seedAmountPayable':
       return bag.name?.trim() ? bag.name : EMPTY;
     case 'bagsForPlantation':
@@ -122,15 +98,6 @@ function getCellText(
     case 'bagsPerAcre': {
       const n = getBagsPerAcreNumber();
       return n == null ? EMPTY : formatCommaNumber(n);
-    }
-    case 'areaPlanted': {
-      const bagAcres = getBagAcresNumber();
-      if (bagAcres != null) return formatCommaNumber(bagAcres);
-      const bpa = getStandardBagsPerAcreNumber(variety);
-      if (bpa == null || !Number.isFinite(bag.quantity) || bag.quantity <= 0) {
-        return EMPTY;
-      }
-      return formatCommaNumber(bag.quantity / bpa);
     }
     case 'rate':
       if (!Number.isFinite(bag.rate)) return EMPTY;
@@ -140,31 +107,6 @@ function getCellText(
     case 'amount': {
       const n = getLineAmountNumber();
       return n == null ? EMPTY : formatCommaNumber(n);
-    }
-    case 'date':
-      return formatOrdinalDateEn(options?.entryDate);
-    case 'amountReceived':
-      return typeof bag.amountReceived === 'number' &&
-        Number.isFinite(bag.amountReceived)
-        ? formatCommaNumber(bag.amountReceived)
-        : EMPTY;
-    case 'seedAmountBalance': {
-      const n = getSeedBalance();
-      return n == null ? EMPTY : formatCommaNumber(n);
-    }
-    case 'seedBalance': {
-      const n = getSeedBalance();
-      return n == null ? EMPTY : formatCommaNumber(n);
-    }
-    case 'netAmt': {
-      if (
-        summaryAmountPayableTotal == null ||
-        !Number.isFinite(summaryAmountPayableTotal)
-      )
-        return EMPTY;
-      const bal = getSeedBalance();
-      if (bal == null) return EMPTY;
-      return formatCommaNumber(summaryAmountPayableTotal - bal);
     }
     default:
       return EMPTY;
@@ -191,7 +133,7 @@ export function prepareSeedAmountPayableTableData(params: {
     for (const bag of bags) {
       detailRowCells.push(
         columnIds.map((colId) =>
-          getCellText(colId, bag, variety, summaryAmountPayableTotal, {
+          getCellText(colId, bag, variety, {
             entryDate: entry.date,
           })
         )
@@ -202,11 +144,7 @@ export function prepareSeedAmountPayableTableData(params: {
   const emptyDetailPlaceholder: string[][] =
     detailRowCells.length > 0
       ? []
-      : [
-          columnIds.map((colId) =>
-            getCellText(colId, null, variety, summaryAmountPayableTotal, {})
-          ),
-        ];
+      : [columnIds.map((colId) => getCellText(colId, null, variety, {}))];
 
   const detailFinal =
     detailRowCells.length > 0 ? detailRowCells : emptyDetailPlaceholder;

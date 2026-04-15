@@ -1076,6 +1076,7 @@ export const FarmerProfileGradingGatePassTable = memo(
           <FarmerStockLedgerPdf
             snapshot={snapshot}
             stockLedgerRows={stockLedgerRows}
+            farmerSeedEntries={farmerSeedEntries}
           />
         ).toBlob();
         const url = URL.createObjectURL(blob);

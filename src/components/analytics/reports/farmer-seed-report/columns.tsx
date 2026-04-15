@@ -1,10 +1,14 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { CellContext, ColumnDef } from '@tanstack/table-core';
-import { ChevronDown, ChevronRight, MoreVertical } from 'lucide-react';
 import {
-  GRADING_REPORT_BAG_SIZE_LABELS,
-  orderBagSizesByGradingReport,
-} from '@/components/analytics/reports/grading-report/grading-bag-sizes';
+  ArrowDownAZ,
+  ArrowDownUp,
+  ArrowUpAZ,
+  ChevronDown,
+  ChevronRight,
+  MoreVertical,
+} from 'lucide-react';
+import { GRADING_REPORT_BAG_SIZE_LABELS } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,9 +25,12 @@ export interface FarmerSeedReportRow {
   gatePassNo: number | string;
   invoiceNumber: string;
   date: string;
+  dateSortTs: number;
   variety: string;
   generation: string;
   totalBags: number;
+  rate: number;
+  totalSeedAmount: number;
   bagSizeQtyByName: Record<string, number>;
   remarks: string;
 }
@@ -33,16 +40,65 @@ export function farmerSeedBagSizeColumnId(size: string): string {
   return `farmerSeedBagSize_${short}`;
 }
 
+const FARMER_SEED_BAG_SIZE_ORDER = [
+  'Below 25',
+  'Below 30',
+  '30-40',
+  '35-40',
+  '40-45',
+  '45-50',
+  '50-55',
+  'Above 50',
+  'Above 55',
+  'Cut',
+] as const;
+
+function normalizeBagSize(size: string): string {
+  return size.replace(/–/g, '-').trim().toLowerCase();
+}
+
+const FARMER_SEED_BAG_SIZE_ORDER_INDEX = new Map(
+  FARMER_SEED_BAG_SIZE_ORDER.map(
+    (size, idx) => [normalizeBagSize(size), idx] as const
+  )
+);
+
+export function orderFarmerSeedBagSizes(sizes: Iterable<string>): string[] {
+  return Array.from(new Set(sizes)).sort((a, b) => {
+    const aNorm = normalizeBagSize(a);
+    const bNorm = normalizeBagSize(b);
+    const aIdx = FARMER_SEED_BAG_SIZE_ORDER_INDEX.get(aNorm);
+    const bIdx = FARMER_SEED_BAG_SIZE_ORDER_INDEX.get(bNorm);
+    if (aIdx != null && bIdx != null && aIdx !== bIdx) return aIdx - bIdx;
+    if (aIdx != null && bIdx == null) return -1;
+    if (aIdx == null && bIdx != null) return 1;
+    return a.localeCompare(b, 'en', { sensitivity: 'base' });
+  });
+}
+
 function GroupableHeader({
   column,
   label,
 }: {
-  column: { getIsGrouped: () => boolean; toggleGrouping: () => void };
+  column: {
+    getIsGrouped: () => boolean;
+    toggleGrouping: () => void;
+    getCanSort: () => boolean;
+    getIsSorted: () => false | 'asc' | 'desc';
+    toggleSorting: (desc?: boolean) => void;
+    clearSorting: () => void;
+  };
   label: string;
 }) {
+  const sortState = column.getIsSorted();
   return (
     <div className="flex items-center gap-1">
       <span className="font-custom">{label}</span>
+      {sortState === 'asc' ? (
+        <ArrowUpAZ className="h-3.5 w-3.5 text-gray-600" />
+      ) : sortState === 'desc' ? (
+        <ArrowDownAZ className="h-3.5 w-3.5 text-gray-600" />
+      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -55,6 +111,34 @@ function GroupableHeader({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
+          {column.getCanSort() ? (
+            <>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  column.toggleSorting(false);
+                }}
+              >
+                Sort ascending
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  column.toggleSorting(true);
+                }}
+              >
+                Sort descending
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  column.clearSorting();
+                }}
+              >
+                Clear sorting
+              </DropdownMenuItem>
+            </>
+          ) : null}
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
@@ -65,6 +149,75 @@ function GroupableHeader({
               ? `Ungroup by ${label}`
               : `Group by ${label}`}
           </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function SortableHeader({
+  column,
+  label,
+}: {
+  column: {
+    getCanSort: () => boolean;
+    getIsSorted: () => false | 'asc' | 'desc';
+    toggleSorting: (desc?: boolean) => void;
+    clearSorting: () => void;
+  };
+  label: string;
+}) {
+  const sortState = column.getIsSorted();
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-custom">{label}</span>
+      {sortState === 'asc' ? (
+        <ArrowUpAZ className="h-3.5 w-3.5 text-gray-600" />
+      ) : sortState === 'desc' ? (
+        <ArrowDownAZ className="h-3.5 w-3.5 text-gray-600" />
+      ) : (
+        <ArrowDownUp className="h-3.5 w-3.5 text-gray-500" />
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label={`${label} column options`}
+          >
+            <MoreVertical className="h-4 w-4 text-gray-600" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {column.getCanSort() ? (
+            <>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  column.toggleSorting(false);
+                }}
+              >
+                Sort ascending
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  column.toggleSorting(true);
+                }}
+              >
+                Sort descending
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  column.clearSorting();
+                }}
+              >
+                Clear sorting
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -115,7 +268,7 @@ export function createFarmerSeedReportColumns(
   visibleBagSizes: readonly string[]
 ): ColumnDef<FarmerSeedReportRow>[] {
   const bagSizeColumns: ColumnDef<FarmerSeedReportRow>[] =
-    orderBagSizesByGradingReport(visibleBagSizes).map((size) => {
+    orderFarmerSeedBagSizes(visibleBagSizes).map((size) => {
       const columnId = farmerSeedBagSizeColumnId(size);
       const label = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
       return {
@@ -141,6 +294,10 @@ export function createFarmerSeedReportColumns(
         <GroupableHeader column={column} label="Farmer" />
       ),
       cell: GroupableCell,
+      sortingFn: (rowA, rowB) =>
+        rowA.original.farmerName.localeCompare(rowB.original.farmerName, 'en', {
+          sensitivity: 'base',
+        }),
     },
     {
       accessorKey: 'accountNumber',
@@ -154,18 +311,43 @@ export function createFarmerSeedReportColumns(
     },
     {
       accessorKey: 'gatePassNo',
-      header: 'Gate Pass No.',
+      header: ({ column }) => (
+        <SortableHeader column={column} label="Gate Pass No." />
+      ),
       cell: ({ row }) => row.original.gatePassNo,
+      sortingFn: (rowA, rowB) => {
+        const a = rowA.original.gatePassNo;
+        const b = rowB.original.gatePassNo;
+        const numA = Number(a);
+        const numB = Number(b);
+        const hasNumA = Number.isFinite(numA);
+        const hasNumB = Number.isFinite(numB);
+        if (hasNumA && hasNumB) return numA - numB;
+        return String(a).localeCompare(String(b), 'en', { numeric: true });
+      },
     },
     {
       accessorKey: 'invoiceNumber',
-      header: 'Invoice No.',
+      header: ({ column }) => (
+        <SortableHeader column={column} label="Invoice No." />
+      ),
       cell: ({ row }) => row.original.invoiceNumber,
+      sortingFn: (rowA, rowB) =>
+        rowA.original.invoiceNumber.localeCompare(
+          rowB.original.invoiceNumber,
+          'en',
+          {
+            numeric: true,
+            sensitivity: 'base',
+          }
+        ),
     },
     {
       accessorKey: 'date',
       header: ({ column }) => <GroupableHeader column={column} label="Date" />,
       cell: GroupableCell,
+      sortingFn: (rowA, rowB) =>
+        rowA.original.dateSortTs - rowB.original.dateSortTs,
     },
     {
       accessorKey: 'variety',
@@ -190,6 +372,31 @@ export function createFarmerSeedReportColumns(
           {row.original.totalBags.toLocaleString('en-IN')}
         </span>
       ),
+    },
+    {
+      accessorKey: 'rate',
+      header: 'Rate',
+      cell: ({ row }) => (
+        <span className="font-custom text-right font-semibold">
+          {row.original.rate.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'totalSeedAmount',
+      header: 'Total Seed Amount',
+      cell: ({ row }) => (
+        <span className="font-custom text-right font-semibold">
+          {row.original.totalSeedAmount.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      ),
+      aggregationFn: 'sum',
     },
     {
       accessorKey: 'remarks',
