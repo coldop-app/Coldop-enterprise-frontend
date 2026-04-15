@@ -31,8 +31,16 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 import { useEditFarmerSeedEntry } from '@/services/store-admin/farmer-seed/useEditFarmerSeedEntry';
-import type { FarmerSeedEntryByStorageLink } from '@/types/farmer-seed';
+import type {
+  FarmerSeedEntryByStorageLink,
+  FarmerSeedEntryListItem,
+} from '@/types/farmer-seed';
 import { toast } from 'sonner';
+
+/** Entry shape for the shared edit form (people flow or daybook list item). */
+export type FarmerSeedEditableEntry =
+  | FarmerSeedEntryByStorageLink
+  | FarmerSeedEntryListItem;
 
 type FieldErrors = Array<{ message?: string } | undefined>;
 type FarmerSeedBagSizeRow = {
@@ -121,34 +129,22 @@ function toInputDate(isoDate: string | undefined): string {
     : formatDate(parsed);
 }
 
-const FarmerSeedEdit = memo(function FarmerSeedEdit() {
-  const navigate = useNavigate();
-  const routerState = useRouterState({
-    select: (state) =>
-      state.location.state as
-        | { farmerSeedEntry?: FarmerSeedEntryByStorageLink }
-        | undefined,
-  });
-  const entry = routerState?.farmerSeedEntry;
+export interface FarmerSeedEditFormProps {
+  entry: FarmerSeedEditableEntry;
+  /** Called after a successful update (summary sheet closed). */
+  onSuccess: (ctx?: { farmerStorageLinkId: string }) => void;
+  onCancel: () => void;
+}
+
+const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
+  entry,
+  onSuccess,
+  onCancel,
+}: FarmerSeedEditFormProps) {
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
   const { mutate: editFarmerSeedEntry, isPending } = useEditFarmerSeedEntry();
 
   const initialValues = useMemo(() => {
-    if (!entry) {
-      return {
-        id: '',
-        farmerStorageLinkId: '',
-        gatePassNo: 0,
-        invoiceNumber: '',
-        date: formatDate(new Date()),
-        variety: '',
-        generation: '',
-        bagSizes: defaultBagSizes,
-        extraBagSizeRows: [] as FarmerSeedExtraBagSizeRow[],
-        remarks: '',
-      };
-    }
-
     const fixedMap = new Map<string, FarmerSeedBagSizeRow>(
       defaultBagSizes.map((row) => [row.name, { ...row }])
     );
@@ -226,15 +222,9 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
           onSuccess: (data) => {
             if (!data.success) return;
             setIsSummarySheetOpen(false);
-            const redirectFarmerStorageLinkId = value.farmerStorageLinkId;
-            if (redirectFarmerStorageLinkId) {
-              navigate({
-                to: '/store-admin/people/$farmerStorageLinkId',
-                params: { farmerStorageLinkId: redirectFarmerStorageLinkId },
-              });
-              return;
-            }
-            navigate({ to: '/store-admin/people' });
+            onSuccess({
+              farmerStorageLinkId: value.farmerStorageLinkId,
+            });
           },
         }
       );
@@ -250,35 +240,8 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
     });
   };
 
-  if (!entry) {
-    return (
-      <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
-        <Card>
-          <CardContent className="space-y-4 py-6">
-            <p className="font-custom text-muted-foreground">
-              No seed entry selected for editing.
-            </p>
-            <Button
-              type="button"
-              className="font-custom"
-              onClick={() => navigate({ to: '/store-admin/people' })}
-            >
-              Back to People
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
-    );
-  }
-
   return (
-    <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
-      <div className="mb-8 space-y-4">
-        <h1 className="font-custom text-foreground text-3xl font-bold sm:text-4xl">
-          Edit Farmer Seed Entry
-        </h1>
-      </div>
-
+    <>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -766,7 +729,7 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate({ to: '/store-admin/people' })}
+            onClick={onCancel}
             className="font-custom"
             disabled={isPending}
           >
@@ -812,8 +775,66 @@ const FarmerSeedEdit = memo(function FarmerSeedEdit() {
         onSubmit={() => form.handleSubmit()}
         submitLabel="Update Farmer Seed Entry"
       />
+    </>
+  );
+});
+
+const FarmerSeedEdit = memo(function FarmerSeedEdit() {
+  const navigate = useNavigate();
+  const routerState = useRouterState({
+    select: (state) =>
+      state.location.state as
+        | { farmerSeedEntry?: FarmerSeedEntryByStorageLink }
+        | undefined,
+  });
+  const entry = routerState?.farmerSeedEntry;
+
+  if (!entry) {
+    return (
+      <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
+        <Card>
+          <CardContent className="space-y-4 py-6">
+            <p className="font-custom text-muted-foreground">
+              No seed entry selected for editing.
+            </p>
+            <Button
+              type="button"
+              className="font-custom"
+              onClick={() => navigate({ to: '/store-admin/people' })}
+            >
+              Back to People
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  return (
+    <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
+      <div className="mb-8 space-y-4">
+        <h1 className="font-custom text-foreground text-3xl font-bold sm:text-4xl">
+          Edit Farmer Seed Entry
+        </h1>
+      </div>
+      <FarmerSeedEditForm
+        entry={entry}
+        onSuccess={(ctx) => {
+          const redirectFarmerStorageLinkId = ctx?.farmerStorageLinkId;
+          if (redirectFarmerStorageLinkId) {
+            navigate({
+              to: '/store-admin/people/$farmerStorageLinkId',
+              params: { farmerStorageLinkId: redirectFarmerStorageLinkId },
+            });
+            return;
+          }
+          navigate({ to: '/store-admin/people' });
+        }}
+        onCancel={() => navigate({ to: '/store-admin/people' })}
+      />
     </main>
   );
 });
 
 export default FarmerSeedEdit;
+export { FarmerSeedEditForm };

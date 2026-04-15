@@ -9,6 +9,7 @@ import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
 import {
   ChevronDown,
   ChevronUp,
+  Pencil,
   ReceiptText,
   Sprout,
   User,
@@ -19,6 +20,8 @@ export interface FarmerSeedVoucherProps {
   farmerName?: string;
   farmerAccount?: number;
   farmerAddress?: string;
+  /** Opens the daybook seed edit sidebar when provided. */
+  onEdit?: () => void;
 }
 
 const FarmerSeedVoucher = memo(function FarmerSeedVoucher({
@@ -26,6 +29,7 @@ const FarmerSeedVoucher = memo(function FarmerSeedVoucher({
   farmerName,
   farmerAccount,
   farmerAddress,
+  onEdit,
 }: FarmerSeedVoucherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -116,6 +120,19 @@ const FarmerSeedVoucher = memo(function FarmerSeedVoucher({
               </>
             )}
           </Button>
+
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onEdit}
+              className="focus-visible:ring-primary h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
+              aria-label="Edit seed voucher"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
         </div>
 
         {isExpanded && (

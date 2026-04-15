@@ -72,6 +72,7 @@ export const ContractFarmingReportDigitalTable = memo(
                 <DropdownMenuCheckboxItem
                   key={column.key}
                   checked={columnVisibility[column.key]}
+                  onSelect={(event) => event.preventDefault()}
                   onCheckedChange={(checked) =>
                     onColumnVisibilityChange({
                       ...columnVisibility,
