@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.0] - 2026-04-15
+
+### Added
+- Analytics overview now includes a **Total Seed Bags Given** stat card linked to reports via `report=seed`
+- Analytics Reports now include a dedicated **Farmer Seed Report** tab/screen with date range filters, table grouping options, and PDF export (`FarmerSeedReportTable` with `columns.tsx`)
+- New farmer seed analytics PDF renderer `FarmerSeedReportTablePdf` with both detailed rows and a summary page (owner snapshot, variety/generation splits, bag-size mix, and top farmers)
+- Store admin route `/store-admin/farmer-seed/history` and a topbar menu entry for **Farmer Seed Edit History**
+- Service hook `useGetFarmerSeedEditHistory` for GET `/farmer-seed/audit`, plus farmer seed audit types (`FarmerSeedAuditEntry`, `GetFarmerSeedAuditApiResponse`)
+
+### Changed
+- Analytics reports route typing and report map now include the new `seed` report type in `AnalyticsReportType`
+
+### Removed
+- Deleted deprecated farmer seed PDF component `src/components/pdf/farmer-seed/dispatch-seed-report-pdf.tsx` in favor of analytics PDF flow
+
 ## [0.53.0] - 2026-04-15
 
 ### Added

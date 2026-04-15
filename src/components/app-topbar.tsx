@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { LayoutList, User } from 'lucide-react';
+import { History, LayoutList, User } from 'lucide-react';
 import { LogoutButton } from './logout-button';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,6 +59,16 @@ const UserMenuComponent = ({ admin, coldStorage }: UserMenuProps) => {
         <Link to="/store-admin/grouped" className="cursor-pointer outline-none">
           <LayoutList className="mr-2 h-4 w-4" />
           <span>Show Grouped</span>
+        </Link>
+      </DropdownMenuItem>
+
+      <DropdownMenuItem asChild>
+        <Link
+          to="/store-admin/farmer-seed/history"
+          className="cursor-pointer outline-none"
+        >
+          <History className="mr-2 h-4 w-4" />
+          <span>Farmer Seed Edit History</span>
         </Link>
       </DropdownMenuItem>
 

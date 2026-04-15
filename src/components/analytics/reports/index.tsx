@@ -8,8 +8,10 @@ import DispatchReportTable from './dispatch-report';
 import StorageReportsTable from './storage-report';
 import OutgoingReportTable from './outgoing-report';
 import ShedStockReportTable from './shed-stock-report';
+import FarmerSeedReportTable from './farmer-seed-report';
 
 const REPORT_COMPONENTS: Record<AnalyticsReportType, React.ComponentType> = {
+  seed: FarmerSeedReportTable,
   incoming: IncomingReportTable,
   ungraded: UngradedReportTable,
   grading: GradingReportTable,

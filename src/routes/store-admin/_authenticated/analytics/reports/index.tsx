@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { AnalyticsReportType } from '@/types/analytics';
 
 const reportTypes: AnalyticsReportType[] = [
+  'seed',
   'incoming',
   'ungraded',
   'grading',

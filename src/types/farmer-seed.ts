@@ -132,3 +132,32 @@ export interface GetAllFarmerSeedEntriesApiResponse {
   data: FarmerSeedEntryListItem[];
   message?: string;
 }
+
+/** User reference on farmer seed audit entries */
+export interface FarmerSeedAuditEditorRef {
+  _id: string;
+  name: string;
+  mobileNumber: string;
+  role: string;
+}
+
+/** Row from GET /farmer-seed/audit */
+export interface FarmerSeedAuditEntry {
+  _id: string;
+  farmerSeedId: string;
+  editedById: FarmerSeedAuditEditorRef;
+  field: string;
+  oldValue: string | number | boolean | null;
+  newValue: string | number | boolean | null;
+  ipAddress: string;
+  userAgent: string;
+  __v?: number;
+  createdAt: string;
+}
+
+/** API response for GET /farmer-seed/audit */
+export interface GetFarmerSeedAuditApiResponse {
+  success: boolean;
+  data: FarmerSeedAuditEntry[];
+  message?: string;
+}

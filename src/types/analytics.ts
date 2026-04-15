@@ -18,6 +18,7 @@ export interface AnalyticsOverviewGradingBags {
 
 /** Overview stats returned by GET /analytics/overview */
 export interface AnalyticsOverviewData {
+  totalSeedBagsGiven: number;
   totalIncomingBags: number;
   totalIncomingWeight: number;
   totalUngradedBags: number;
@@ -40,6 +41,7 @@ export interface GetAnalyticsOverviewApiResponse {
 
 /** Report type for analytics/reports route (from overview cards) */
 export type AnalyticsReportType =
+  | 'seed'
   | 'incoming'
   | 'ungraded'
   | 'grading'

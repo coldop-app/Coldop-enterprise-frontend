@@ -26,6 +26,7 @@ import {
   ChevronUp,
   FileText,
   Building2,
+  Sprout,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -203,6 +204,13 @@ const OverviewContent = memo(function OverviewContent({
 
   return (
     <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:gap-8">
+      <StatCard
+        title="Total Seed Bags Given"
+        value={formatNumber(data.totalSeedBagsGiven)}
+        icon={<Sprout className="h-5 w-5" />}
+        description="Total seed bags issued to farmers"
+        reportType="seed"
+      />
       <StatCard
         title="Total Incoming Bags"
         value={formatNumber(data.totalIncomingBags)}
