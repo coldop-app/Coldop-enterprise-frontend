@@ -8,6 +8,38 @@ import { BUY_BACK_COST } from '@/components/forms/grading/constants';
 /** Indian numbering: lakh/crore-style grouping (e.g. 1,00,000). */
 export const CONTRACT_FARMING_IN_LOCALE = 'en-IN';
 
+/**
+ * Parses account number from API (JSON number or numeric string). Preserves fractional parts.
+ */
+export function parseAccountNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t === '') return null;
+    const n = Number(t);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+/**
+ * Account numbers may include fractional parts (e.g. 50.1). Do not round to integers.
+ */
+export function formatAccountNumberForDisplay(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString(CONTRACT_FARMING_IN_LOCALE, {
+    maximumFractionDigits: 10,
+    minimumFractionDigits: 0,
+    useGrouping: false,
+  });
+}
+
+/** Display helper: accepts API number or string (e.g. `"50.1"`). */
+export function formatAccountNumberField(value: unknown): string {
+  const n = parseAccountNumber(value);
+  return n == null ? '—' : formatAccountNumberForDisplay(n);
+}
+
 export type ContractFarmingReportDigitalVarietyGroup = {
   variety: string;
   rows: ContractFarmingFarmerRow[];

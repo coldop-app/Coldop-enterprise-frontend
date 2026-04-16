@@ -2,6 +2,7 @@ import type {
   ContractFarmingFarmerRow,
   ContractFarmingReportData,
 } from '@/types/analytics';
+import { formatAccountNumberField } from '@/utils/contractFarmingReportShared';
 
 const moneyFmt = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 2,
@@ -153,7 +154,7 @@ export function prepareContractFarmingReportPdf(
 
       pdfRows.push({
         serial: idx + 1,
-        accountNumber: formatQty(row.accountNumber),
+        accountNumber: formatAccountNumberField(row.accountNumber),
         name: row.name ?? '—',
         address: row.address ?? '—',
         mobileNumber: row.mobileNumber ?? '—',

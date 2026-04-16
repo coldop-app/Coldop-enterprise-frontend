@@ -860,7 +860,8 @@ export interface ContractFarmingFarmerRow {
   name: string;
   address: string;
   mobileNumber: string;
-  accountNumber: number;
+  /** May be fractional (e.g. 50.1); API may send number or string. */
+  accountNumber: number | string;
   acresPlanted: number;
   totalSeedAmountPayable: number;
   generations: string[];

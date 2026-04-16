@@ -11,6 +11,7 @@ import {
   computeYieldPerAcreQuintals,
   expandFarmerRowsForSizes,
   findGradingBucket,
+  formatAccountNumberField,
   formatBuyBackAmount,
   formatGradingBagsQty,
   formatGradingRangePercentage,
@@ -120,7 +121,7 @@ function visibleColumns(
       c.key === 'generation' ||
       c.key === 'sizeName'
         ? 'left'
-        : c.key === 'sNo'
+        : c.key === 'sNo' || c.key === 'accountNumber'
           ? 'center'
           : 'right';
     return { key: c.key, label: c.label, align, width: 1 };
@@ -143,6 +144,7 @@ function rowValue(
     return {
       sNo: String(sizeLineIndex + 1),
       name: farmer.name ?? '—',
+      accountNumber: '—',
       address: farmer.address ?? '—',
       acresPlanted: '—',
       generation: '—',
@@ -173,6 +175,7 @@ function rowValue(
   const out: Record<string, string> = {
     sNo: String(sizeLineIndex + 1),
     name: farmer.name,
+    accountNumber: formatAccountNumberField(farmer.accountNumber),
     address: farmer.address,
     acresPlanted: acresPlantedForSeedLine(farmer, expanded.size).toLocaleString(
       CONTRACT_FARMING_IN_LOCALE,
@@ -225,6 +228,7 @@ function totalsValue(
   const out: Record<string, string> = {
     sNo: '',
     name: 'Total',
+    accountNumber: '—',
     address: '—',
     acresPlanted: totals.acresPlanted.toLocaleString(
       CONTRACT_FARMING_IN_LOCALE,

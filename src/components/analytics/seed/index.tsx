@@ -78,7 +78,8 @@ const SeedAnalyticsTab = memo(function SeedAnalyticsTab() {
             rows: group.rows.filter(
               (row) =>
                 row.name.toLowerCase().includes(query) ||
-                row.address.toLowerCase().includes(query)
+                row.address.toLowerCase().includes(query) ||
+                String(row.accountNumber ?? '').includes(query)
             ),
           };
         })
@@ -165,7 +166,7 @@ const SeedAnalyticsTab = memo(function SeedAnalyticsTab() {
         <div className="relative w-full">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
-            placeholder="Search by farmer name, address, or variety..."
+            placeholder="Search by farmer name, address, account no., or variety..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
