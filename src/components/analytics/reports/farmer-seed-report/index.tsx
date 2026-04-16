@@ -39,13 +39,23 @@ function toDateSortTimestamp(displayDate: string): number {
   return Number.isFinite(ts) ? ts : Number.NEGATIVE_INFINITY;
 }
 
+function normalizeBagSizeName(name: string): string {
+  return name.replace(/–/g, '-').trim();
+}
+
 function mapEntriesToRows(
   entries: FarmerSeedEntryListItem[]
 ): FarmerSeedReportRow[] {
   return entries.map((entry) => {
     const displayDate = formatDateValue(entry.date);
-    const bagSizeQtyByName = Object.fromEntries(
-      entry.bagSizes.map((bagSize) => [bagSize.name, bagSize.quantity ?? 0])
+    const bagSizeQtyByName = entry.bagSizes.reduce<Record<string, number>>(
+      (acc, bagSize) => {
+        const normalizedName = normalizeBagSizeName(bagSize.name);
+        acc[normalizedName] =
+          (acc[normalizedName] ?? 0) + (bagSize.quantity ?? 0);
+        return acc;
+      },
+      {}
     );
     const totalBags = entry.bagSizes.reduce(
       (sum, bagSize) => sum + (bagSize.quantity ?? 0),
