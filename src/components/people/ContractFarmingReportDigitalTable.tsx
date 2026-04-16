@@ -11,7 +11,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ContractFarmingReportDigitalVarietyGroup } from '@/utils/contractFarmingReportShared';
-import { expandFarmerRowsForSizes } from '@/utils/contractFarmingReportShared';
+import {
+  accountFamilyBaseKey,
+  expandFarmerRowsForSizes,
+  familyGroupHasDecimalAccountMember,
+  groupFarmersByAccountFamily,
+} from '@/utils/contractFarmingReportShared';
 import { Columns3 } from 'lucide-react';
 import ContractFarmingVarietyTable from '@/components/people/ContractFarmingVarietyTable';
 import {
@@ -40,10 +45,15 @@ export const ContractFarmingReportDigitalTable = memo(
     columnVisibility,
     onColumnVisibilityChange,
   }: ContractFarmingReportDigitalTableProps) {
-    const totalRows = groups.reduce(
-      (n, g) => n + expandFarmerRowsForSizes(g.rows).length,
-      0
-    );
+    const totalRows = groups.reduce((n, g) => {
+      const familySubtotalRows = groupFarmersByAccountFamily(g.rows).filter(
+        (f) =>
+          f.length > 0 &&
+          accountFamilyBaseKey(f[0].accountNumber) != null &&
+          familyGroupHasDecimalAccountMember(f)
+      ).length;
+      return n + expandFarmerRowsForSizes(g.rows).length + familySubtotalRows;
+    }, 0);
 
     return (
       <Card className="font-custom border-border rounded-xl shadow-sm">

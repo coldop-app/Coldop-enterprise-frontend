@@ -16,6 +16,7 @@ import {
   ContractFarmingReportDigitalTable,
   type ContractFarmingReportDigitalVarietyGroup,
 } from '@/components/people/ContractFarmingReportDigitalTable';
+import { compareContractFarmingFarmersByFamilyAccount } from '@/utils/contractFarmingReportShared';
 import {
   DEFAULT_CONTRACT_FARMING_COLUMN_VISIBILITY,
   type ContractFarmingColumnVisibility,
@@ -61,7 +62,7 @@ const SeedAnalyticsTab = memo(function SeedAnalyticsTab() {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([variety, farmers]) => ({
           variety,
-          rows: [...farmers].sort((x, y) => x.name.localeCompare(y.name)),
+          rows: [...farmers].sort(compareContractFarmingFarmersByFamilyAccount),
         }));
     }, [cfReportData]);
 
@@ -151,7 +152,7 @@ const SeedAnalyticsTab = memo(function SeedAnalyticsTab() {
     });
     toast.success('Excel downloaded', {
       description:
-        'Farmers are listed A–Z; buy-back and grading columns merge per farmer when there are multiple seed lines.',
+        'Farmers are grouped by family (account base), then by account number; buy-back and grading columns merge per farmer when there are multiple seed lines.',
     });
     setIsReportDialogOpen(false);
   }, [companyName, filteredContractFarmingGroups]);

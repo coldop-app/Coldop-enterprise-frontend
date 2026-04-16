@@ -38,7 +38,12 @@ import {
   hasBuyBackBagsEntryForReportVariety,
   mergeGradingSizeMapsForReportVariety,
   aggregateBuyBackBagsForReportVariety,
+  accountFamilyBaseKey,
+  familyGroupHasDecimalAccountMember,
   formatAccountNumberField,
+  formatAccountNumberForDisplay,
+  formatVarietyTableTotalsForFooterColumns,
+  groupFarmersByAccountFamily,
   resolveAcresForNetPerAcre,
 } from '@/utils/contractFarmingReportShared';
 
@@ -83,6 +88,7 @@ interface VarietyRowData {
   yieldPerAcreQuintals: string;
   postSeedRowSpan: number;
   showPostSeedCells: boolean;
+  rowKind?: 'data' | 'familyTotal';
 }
 
 interface ContractFarmingVarietyTableProps {
@@ -102,8 +108,14 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
   );
 
   const data: VarietyRowData[] = useMemo(() => {
-    return expandFarmerRowsForSizes(rows).map(
-      ({ farmer, size, sizeLineIndex }, idx, arr) => {
+    const families = groupFarmersByAccountFamily(rows);
+    const out: VarietyRowData[] = [];
+    let serialCounter = 0;
+
+    families.forEach((familyFarmers, familyIndex) => {
+      const familyExpanded = expandFarmerRowsForSizes(familyFarmers);
+      familyExpanded.forEach(({ farmer, size, sizeLineIndex }, idx, arr) => {
+        serialCounter += 1;
         const id = `${variety}-${farmer.id}-${size?.name ?? 'no-size'}-${idx}`;
         const span = arr.filter((r) => r.farmer.id === farmer.id).length;
         const rowIndexForFarmer = arr
@@ -133,9 +145,9 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
           return acc;
         }, {});
 
-        return {
+        out.push({
           id,
-          serial: String(idx + 1),
+          serial: String(serialCounter),
           name: farmer.name,
           accountNumber: formatAccountNumberField(farmer.accountNumber),
           address: farmer.address,
@@ -184,9 +196,58 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
             formatYieldPerAcreQuintals(yieldQuintalsPerAcre),
           postSeedRowSpan: span,
           showPostSeedCells,
-        };
+          rowKind: 'data',
+        });
+      });
+
+      const baseKey = accountFamilyBaseKey(familyFarmers[0].accountNumber);
+      if (
+        baseKey !== null &&
+        familyGroupHasDecimalAccountMember(familyFarmers)
+      ) {
+        const familyTotals = computeVarietyTableTotals(familyFarmers, variety);
+        const colMap = formatVarietyTableTotalsForFooterColumns(familyTotals, {
+          nameLabel: 'Family total',
+          accountLabel: formatAccountNumberForDisplay(baseKey),
+        });
+        const gradingByHeader = CONTRACT_FARMING_GRADING_COLUMNS.reduce<
+          Record<string, string>
+        >((acc, col) => {
+          acc[col.header] = colMap[`grading:${col.header}`] ?? '—';
+          return acc;
+        }, {});
+
+        out.push({
+          id: `family-total-${variety}-${familyIndex}`,
+          serial: '',
+          name: colMap.name ?? 'Family total',
+          accountNumber: colMap.accountNumber ?? '—',
+          address: colMap.address ?? '—',
+          acresPlanted: colMap.acresPlanted ?? '—',
+          generation: colMap.generation ?? '—',
+          sizeName: colMap.sizeName ?? '—',
+          seedBags: colMap.seedBags ?? '—',
+          buyBackBags: colMap.buyBackBags ?? '—',
+          wtWithoutBardana: colMap.wtWithoutBardana ?? '—',
+          gradingByHeader,
+          totalGradingBags: colMap.totalGradingBags ?? '—',
+          below40Percent: colMap.below40Percent ?? '—',
+          range40To50Percent: colMap.range40To50Percent ?? '—',
+          above50Percent: colMap.above50Percent ?? '—',
+          netWeightAfterGrading: colMap.netWeightAfterGrading ?? '—',
+          buyBackAmount: colMap.buyBackAmount ?? '—',
+          totalSeedAmount: colMap.totalSeedAmount ?? '—',
+          netAmountPayable: colMap.netAmountPayable ?? '—',
+          netAmountPerAcre: colMap.netAmountPerAcre ?? '—',
+          yieldPerAcreQuintals: colMap.yieldPerAcreQuintals ?? '—',
+          postSeedRowSpan: 1,
+          showPostSeedCells: true,
+          rowKind: 'familyTotal',
+        });
       }
-    );
+    });
+
+    return out;
   }, [rows, variety]);
 
   const columns: ColumnDef<VarietyRowData>[] = useMemo(
@@ -285,90 +346,10 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const totalsByColumnId: Record<string, string> = {
-    sNo: '',
-    name: 'Total',
-    accountNumber: '—',
-    address: '—',
-    acresPlanted: varietyTotals.acresPlanted.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        maximumFractionDigits: 2,
-      }
-    ),
-    generation: '—',
-    sizeName: '—',
-    seedBags: varietyTotals.seedBags.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        maximumFractionDigits: 0,
-      }
-    ),
-    buyBackBags: varietyTotals.buyBackBags.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        maximumFractionDigits: 0,
-      }
-    ),
-    wtWithoutBardana: varietyTotals.buyBackNetWeightKg.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        maximumFractionDigits: 2,
-      }
-    ),
-    totalGradingBags: varietyTotals.totalGradingBags.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        maximumFractionDigits: 0,
-      }
-    ),
-    below40Percent: formatGradingRangePercentage(varietyTotals.below40Percent),
-    range40To50Percent: formatGradingRangePercentage(
-      varietyTotals.range40To50Percent
-    ),
-    above50Percent: formatGradingRangePercentage(varietyTotals.above50Percent),
-    netWeightAfterGrading: varietyTotals.netWeightAfterGrading.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      { maximumFractionDigits: 2 }
-    ),
-    buyBackAmount: varietyTotals.buyBackAmount.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    ),
-    totalSeedAmount: varietyTotals.totalSeedAmount.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    ),
-    netAmountPayable: varietyTotals.netAmountPayable.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    ),
-    netAmountPerAcre: varietyTotals.netAmountPerAcre.toLocaleString(
-      CONTRACT_FARMING_IN_LOCALE,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    ),
-    yieldPerAcreQuintals: formatYieldPerAcreQuintals(
-      varietyTotals.yieldPerAcreQuintals
-    ),
-  };
-
-  for (const [index, col] of CONTRACT_FARMING_GRADING_COLUMNS.entries()) {
-    totalsByColumnId[`grading:${col.header}`] = (
-      varietyTotals.gradingByColumn[index] ?? 0
-    ).toLocaleString(CONTRACT_FARMING_IN_LOCALE, { maximumFractionDigits: 0 });
-  }
+  const totalsByColumnId = formatVarietyTableTotalsForFooterColumns(
+    varietyTotals,
+    { nameLabel: 'Total' }
+  );
 
   return (
     <section className="space-y-2">
@@ -404,7 +385,11 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
             {table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="border-border hover:bg-transparent"
+                className={cn(
+                  'border-border hover:bg-transparent',
+                  row.original.rowKind === 'familyTotal' &&
+                    'bg-muted/40 font-semibold'
+                )}
               >
                 {row.getVisibleCells().map((cell) => {
                   const colId = cell.column.id;

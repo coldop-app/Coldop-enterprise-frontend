@@ -40,6 +40,97 @@ export function formatAccountNumberField(value: unknown): string {
   return n == null ? '—' : formatAccountNumberForDisplay(n);
 }
 
+/**
+ * Integer part of account number for family grouping (e.g. 50, 50.1, 50.2 → 50).
+ * `null` when the value cannot be parsed.
+ */
+export function accountFamilyBaseKey(value: unknown): number | null {
+  const n = parseAccountNumber(value);
+  if (n == null || !Number.isFinite(n)) return null;
+  return Math.floor(n);
+}
+
+/** True when the account is not a whole number (e.g. 50.1); whole numbers like 50 are false. */
+export function accountNumberHasDecimalPart(value: unknown): boolean {
+  const n = parseAccountNumber(value);
+  if (n == null || !Number.isFinite(n)) return false;
+  return !Number.isInteger(n);
+}
+
+/**
+ * Family subtotal rows only when at least one member has a fractional account (50.1, 50.2, …).
+ */
+export function familyGroupHasDecimalAccountMember(
+  farmers: ContractFarmingFarmerRow[]
+): boolean {
+  return farmers.some((f) => accountNumberHasDecimalPart(f.accountNumber));
+}
+
+/**
+ * Sort contract-farming farmers: same family (shared floor account) together, then
+ * by account number within the family, then by name. Rows without a parseable
+ * account sort last, by name.
+ */
+export function compareContractFarmingFarmersByFamilyAccount(
+  a: ContractFarmingFarmerRow,
+  b: ContractFarmingFarmerRow
+): number {
+  const na = parseAccountNumber(a.accountNumber);
+  const nb = parseAccountNumber(b.accountNumber);
+  const familyA = accountFamilyBaseKey(a.accountNumber);
+  const familyB = accountFamilyBaseKey(b.accountNumber);
+
+  if (familyA !== familyB) {
+    if (familyA == null && familyB == null) return a.name.localeCompare(b.name);
+    if (familyA == null) return 1;
+    if (familyB == null) return -1;
+    return familyA - familyB;
+  }
+
+  if (na == null && nb == null) return a.name.localeCompare(b.name);
+  if (na == null) return 1;
+  if (nb == null) return -1;
+  if (na !== nb) return na - nb;
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * Splits farmers into consecutive runs with the same account family base (`Math.floor`).
+ * Farmers without a parseable account each become their own single-farmer group (not a shared family).
+ */
+export function groupFarmersByAccountFamily(
+  rows: ContractFarmingFarmerRow[]
+): ContractFarmingFarmerRow[][] {
+  if (rows.length === 0) return [];
+  const groups: ContractFarmingFarmerRow[][] = [];
+  let current: ContractFarmingFarmerRow[] = [];
+  let currentKey: number | null = null;
+  let hasOpenFamily = false;
+
+  for (const farmer of rows) {
+    const key = accountFamilyBaseKey(farmer.accountNumber);
+    if (key === null) {
+      if (hasOpenFamily && current.length > 0) {
+        groups.push(current);
+        current = [];
+        hasOpenFamily = false;
+      }
+      groups.push([farmer]);
+      continue;
+    }
+    if (!hasOpenFamily || key !== currentKey) {
+      if (hasOpenFamily && current.length > 0) groups.push(current);
+      current = [farmer];
+      currentKey = key;
+      hasOpenFamily = true;
+    } else {
+      current.push(farmer);
+    }
+  }
+  if (hasOpenFamily && current.length > 0) groups.push(current);
+  return groups;
+}
+
 export type ContractFarmingReportDigitalVarietyGroup = {
   variety: string;
   rows: ContractFarmingFarmerRow[];
@@ -334,6 +425,10 @@ function formatPercentage(value: number): string {
   })}%`;
 }
 
+/**
+ * Shares of grading by size band, as % of total graded **net weight (kg)** — same idea as
+ * Farmer Stock Ledger summary `% of Graded Sizes` (weight-based, not bag-count-based).
+ */
 export function computeGradingRangePercentages(
   bySize: Record<string, ContractFarmingGradingBucket>
 ): {
@@ -348,18 +443,18 @@ export function computeGradingRangePercentages(
 
   CONTRACT_FARMING_GRADING_COLUMNS.forEach((col) => {
     const bucket = findGradingBucket(bySize, col.matchKeys);
-    const qty =
-      bucket && Number.isFinite(bucket.initialBags) ? bucket.initialBags : 0;
-    total += qty;
+    const w =
+      bucket && Number.isFinite(bucket.netWeightKg) ? bucket.netWeightKg : 0;
+    total += w;
     if (BELOW_40_BUCKET_HEADERS.has(col.header)) {
-      below40 += qty;
+      below40 += w;
       return;
     }
     if (RANGE_40_TO_50_BUCKET_HEADERS.has(col.header)) {
-      range40To50 += qty;
+      range40To50 += w;
       return;
     }
-    above50 += qty;
+    above50 += w;
   });
 
   if (total <= 0) {
@@ -591,6 +686,8 @@ export function computeVarietyTableTotals(
   variety: string
 ): VarietyTableTotals {
   const gradingSums = CONTRACT_FARMING_GRADING_COLUMNS.map(() => 0);
+  /** Per-column sums of net weight (kg) for % bands — same basis as `computeGradingRangePercentages`. */
+  const gradingWeightSums = CONTRACT_FARMING_GRADING_COLUMNS.map(() => 0);
   let acresPlanted = 0;
   let seedBags = 0;
   let buyBackBags = 0;
@@ -627,6 +724,9 @@ export function computeVarietyTableTotals(
       const q = bucket?.initialBags;
       const add = typeof q === 'number' && Number.isFinite(q) ? q : 0;
       gradingSums[i] = (gradingSums[i] ?? 0) + add;
+      const w = bucket?.netWeightKg;
+      const addW = typeof w === 'number' && Number.isFinite(w) ? w : 0;
+      gradingWeightSums[i] = (gradingWeightSums[i] ?? 0) + addW;
     });
 
     totalGradingBags += Object.values(gradingBySize).reduce(
@@ -650,13 +750,17 @@ export function computeVarietyTableTotals(
 
   const netAmountPerAcre =
     sumAcresForNetPerAcre > 0 ? netAmountPayable / sumAcresForNetPerAcre : 0;
-  const totalPercentBase = totalGradingBags;
-  const below40Bags =
-    (gradingSums[0] ?? 0) + (gradingSums[1] ?? 0) + (gradingSums[2] ?? 0);
-  const range40To50Bags = (gradingSums[3] ?? 0) + (gradingSums[4] ?? 0);
-  const above50Bags = Math.max(
+  /** Total net weight (kg) across all grading buckets — denominator for % bands (weight-based). */
+  const totalGradedNetWeightKg = netWeightAfterGrading;
+  const below40WeightKg =
+    (gradingWeightSums[0] ?? 0) +
+    (gradingWeightSums[1] ?? 0) +
+    (gradingWeightSums[2] ?? 0);
+  const range40To50WeightKg =
+    (gradingWeightSums[3] ?? 0) + (gradingWeightSums[4] ?? 0);
+  const above50WeightKg = Math.max(
     0,
-    totalPercentBase - below40Bags - range40To50Bags
+    totalGradedNetWeightKg - below40WeightKg - range40To50WeightKg
   );
   const yieldPerAcreQuintals =
     acresPlanted > 0 ? netWeightAfterGrading / acresPlanted / 100 : null;
@@ -669,11 +773,17 @@ export function computeVarietyTableTotals(
     gradingByColumn: gradingSums,
     totalGradingBags,
     below40Percent:
-      totalPercentBase > 0 ? (below40Bags / totalPercentBase) * 100 : null,
+      totalGradedNetWeightKg > 0
+        ? (below40WeightKg / totalGradedNetWeightKg) * 100
+        : null,
     range40To50Percent:
-      totalPercentBase > 0 ? (range40To50Bags / totalPercentBase) * 100 : null,
+      totalGradedNetWeightKg > 0
+        ? (range40To50WeightKg / totalGradedNetWeightKg) * 100
+        : null,
     above50Percent:
-      totalPercentBase > 0 ? (above50Bags / totalPercentBase) * 100 : null,
+      totalGradedNetWeightKg > 0
+        ? (above50WeightKg / totalGradedNetWeightKg) * 100
+        : null,
     netWeightAfterGrading,
     buyBackAmount,
     totalSeedAmount,
@@ -681,4 +791,94 @@ export function computeVarietyTableTotals(
     netAmountPerAcre,
     yieldPerAcreQuintals,
   };
+}
+
+/** Maps aggregated totals to table column ids (footer row or family subtotal row). */
+export function formatVarietyTableTotalsForFooterColumns(
+  totals: VarietyTableTotals,
+  options: {
+    nameLabel: string;
+    /** Shown in Account no.; default em dash. */
+    accountLabel?: string;
+  }
+): Record<string, string> {
+  const { nameLabel, accountLabel = '—' } = options;
+  const out: Record<string, string> = {
+    sNo: '',
+    name: nameLabel,
+    accountNumber: accountLabel,
+    address: '—',
+    acresPlanted: totals.acresPlanted.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        maximumFractionDigits: 2,
+      }
+    ),
+    generation: '—',
+    sizeName: '—',
+    seedBags: totals.seedBags.toLocaleString(CONTRACT_FARMING_IN_LOCALE, {
+      maximumFractionDigits: 0,
+    }),
+    buyBackBags: totals.buyBackBags.toLocaleString(CONTRACT_FARMING_IN_LOCALE, {
+      maximumFractionDigits: 0,
+    }),
+    wtWithoutBardana: totals.buyBackNetWeightKg.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        maximumFractionDigits: 2,
+      }
+    ),
+    totalGradingBags: totals.totalGradingBags.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        maximumFractionDigits: 0,
+      }
+    ),
+    below40Percent: formatGradingRangePercentage(totals.below40Percent),
+    range40To50Percent: formatGradingRangePercentage(totals.range40To50Percent),
+    above50Percent: formatGradingRangePercentage(totals.above50Percent),
+    netWeightAfterGrading: totals.netWeightAfterGrading.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      { maximumFractionDigits: 2 }
+    ),
+    buyBackAmount: totals.buyBackAmount.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    ),
+    totalSeedAmount: totals.totalSeedAmount.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    ),
+    netAmountPayable: totals.netAmountPayable.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    ),
+    netAmountPerAcre: totals.netAmountPerAcre.toLocaleString(
+      CONTRACT_FARMING_IN_LOCALE,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    ),
+    yieldPerAcreQuintals: formatYieldPerAcreQuintals(
+      totals.yieldPerAcreQuintals
+    ),
+  };
+
+  for (const [index, col] of CONTRACT_FARMING_GRADING_COLUMNS.entries()) {
+    out[`grading:${col.header}`] = (
+      totals.gradingByColumn[index] ?? 0
+    ).toLocaleString(CONTRACT_FARMING_IN_LOCALE, { maximumFractionDigits: 0 });
+  }
+
+  return out;
 }
