@@ -17,6 +17,7 @@ export const STATIC_COLUMN_OPTIONS: { key: string; label: string }[] = [
   { key: 'below40Percent', label: 'Below 40 %' },
   { key: 'range40To50Percent', label: '40-50 %' },
   { key: 'above50Percent', label: 'Above 50 %' },
+  { key: 'cutPercent', label: 'Cut %' },
   { key: 'netWeightAfterGrading', label: 'Net weight after grading (kg)' },
   { key: 'buyBackAmount', label: 'Buy back amount' },
   { key: 'totalSeedAmount', label: 'Total seed amount' },

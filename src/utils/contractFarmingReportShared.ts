@@ -208,7 +208,10 @@ export const CONTRACT_FARMING_GRADING_COLUMNS: {
   header: string;
   matchKeys: string[];
 }[] = [
+  { header: 'Below 25', matchKeys: ['Below 25'] },
+  { header: '25-30', matchKeys: ['25–30', '25-30'] },
   { header: 'Below 30', matchKeys: ['Below 30'] },
+  { header: '30-35', matchKeys: ['30–35', '30-35'] },
   { header: '30-40', matchKeys: ['30–40', '30-40'] },
   { header: '35-40', matchKeys: ['35–40', '35-40'] },
   { header: '40-45', matchKeys: ['40–45', '40-45'] },
@@ -219,8 +222,16 @@ export const CONTRACT_FARMING_GRADING_COLUMNS: {
   { header: 'Cut', matchKeys: ['Cut'] },
 ];
 
-const BELOW_40_BUCKET_HEADERS = new Set(['Below 30', '30-40', '35-40']);
+const BELOW_40_BUCKET_HEADERS = new Set([
+  'Below 25',
+  '25-30',
+  'Below 30',
+  '30-35',
+  '30-40',
+  '35-40',
+]);
 const RANGE_40_TO_50_BUCKET_HEADERS = new Set(['40-45', '45-50']);
+const CUT_BUCKET_HEADERS = new Set(['Cut']);
 
 function normalizeGradingSizeKey(s: string): string {
   return s
@@ -435,10 +446,12 @@ export function computeGradingRangePercentages(
   below40: number | null;
   range40To50: number | null;
   above50: number | null;
+  cut: number | null;
 } {
   let below40 = 0;
   let range40To50 = 0;
   let above50 = 0;
+  let cut = 0;
   let total = 0;
 
   CONTRACT_FARMING_GRADING_COLUMNS.forEach((col) => {
@@ -454,17 +467,22 @@ export function computeGradingRangePercentages(
       range40To50 += w;
       return;
     }
+    if (CUT_BUCKET_HEADERS.has(col.header)) {
+      cut += w;
+      return;
+    }
     above50 += w;
   });
 
   if (total <= 0) {
-    return { below40: null, range40To50: null, above50: null };
+    return { below40: null, range40To50: null, above50: null, cut: null };
   }
 
   return {
     below40: (below40 / total) * 100,
     range40To50: (range40To50 / total) * 100,
     above50: (above50 / total) * 100,
+    cut: (cut / total) * 100,
   };
 }
 
@@ -638,6 +656,7 @@ export type VarietyTableTotals = {
   below40Percent: number | null;
   range40To50Percent: number | null;
   above50Percent: number | null;
+  cutPercent: number | null;
   netWeightAfterGrading: number;
   buyBackAmount: number;
   totalSeedAmount: number;
@@ -752,15 +771,36 @@ export function computeVarietyTableTotals(
     sumAcresForNetPerAcre > 0 ? netAmountPayable / sumAcresForNetPerAcre : 0;
   /** Total net weight (kg) across all grading buckets — denominator for % bands (weight-based). */
   const totalGradedNetWeightKg = netWeightAfterGrading;
-  const below40WeightKg =
-    (gradingWeightSums[0] ?? 0) +
-    (gradingWeightSums[1] ?? 0) +
-    (gradingWeightSums[2] ?? 0);
-  const range40To50WeightKg =
-    (gradingWeightSums[3] ?? 0) + (gradingWeightSums[4] ?? 0);
-  const above50WeightKg = Math.max(
-    0,
-    totalGradedNetWeightKg - below40WeightKg - range40To50WeightKg
+  const below40WeightKg = CONTRACT_FARMING_GRADING_COLUMNS.reduce(
+    (sum, col, i) => {
+      if (!BELOW_40_BUCKET_HEADERS.has(col.header)) return sum;
+      return sum + (gradingWeightSums[i] ?? 0);
+    },
+    0
+  );
+  const range40To50WeightKg = CONTRACT_FARMING_GRADING_COLUMNS.reduce(
+    (sum, col, i) => {
+      if (!RANGE_40_TO_50_BUCKET_HEADERS.has(col.header)) return sum;
+      return sum + (gradingWeightSums[i] ?? 0);
+    },
+    0
+  );
+  const cutWeightKg = CONTRACT_FARMING_GRADING_COLUMNS.reduce((sum, col, i) => {
+    if (!CUT_BUCKET_HEADERS.has(col.header)) return sum;
+    return sum + (gradingWeightSums[i] ?? 0);
+  }, 0);
+  const above50WeightKg = CONTRACT_FARMING_GRADING_COLUMNS.reduce(
+    (sum, col, i) => {
+      if (
+        BELOW_40_BUCKET_HEADERS.has(col.header) ||
+        RANGE_40_TO_50_BUCKET_HEADERS.has(col.header) ||
+        CUT_BUCKET_HEADERS.has(col.header)
+      ) {
+        return sum;
+      }
+      return sum + (gradingWeightSums[i] ?? 0);
+    },
+    0
   );
   const yieldPerAcreQuintals =
     acresPlanted > 0 ? netWeightAfterGrading / acresPlanted / 100 : null;
@@ -783,6 +823,10 @@ export function computeVarietyTableTotals(
     above50Percent:
       totalGradedNetWeightKg > 0
         ? (above50WeightKg / totalGradedNetWeightKg) * 100
+        : null,
+    cutPercent:
+      totalGradedNetWeightKg > 0
+        ? (cutWeightKg / totalGradedNetWeightKg) * 100
         : null,
     netWeightAfterGrading,
     buyBackAmount,
@@ -837,6 +881,7 @@ export function formatVarietyTableTotalsForFooterColumns(
     below40Percent: formatGradingRangePercentage(totals.below40Percent),
     range40To50Percent: formatGradingRangePercentage(totals.range40To50Percent),
     above50Percent: formatGradingRangePercentage(totals.above50Percent),
+    cutPercent: formatGradingRangePercentage(totals.cutPercent),
     netWeightAfterGrading: totals.netWeightAfterGrading.toLocaleString(
       CONTRACT_FARMING_IN_LOCALE,
       { maximumFractionDigits: 2 }

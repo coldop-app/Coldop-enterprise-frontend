@@ -55,6 +55,7 @@ const POST_SEED_COLUMN_IDS = new Set<string>([
   'below40Percent',
   'range40To50Percent',
   'above50Percent',
+  'cutPercent',
   'netWeightAfterGrading',
   'buyBackAmount',
   'totalSeedAmount',
@@ -80,6 +81,7 @@ interface VarietyRowData {
   below40Percent: string;
   range40To50Percent: string;
   above50Percent: string;
+  cutPercent: string;
   netWeightAfterGrading: string;
   buyBackAmount: string;
   totalSeedAmount: string;
@@ -187,6 +189,7 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
           above50Percent: formatGradingRangePercentage(
             gradingPercentages.above50
           ),
+          cutPercent: formatGradingRangePercentage(gradingPercentages.cut),
           netWeightAfterGrading: formatNetWeightAfterGrading(gradingBySize),
           buyBackAmount: formatBuyBackAmount(farmer, variety),
           totalSeedAmount: formatTotalSeedAmount(farmer),
@@ -234,6 +237,7 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
           below40Percent: colMap.below40Percent ?? '—',
           range40To50Percent: colMap.range40To50Percent ?? '—',
           above50Percent: colMap.above50Percent ?? '—',
+          cutPercent: colMap.cutPercent ?? '—',
           netWeightAfterGrading: colMap.netWeightAfterGrading ?? '—',
           buyBackAmount: colMap.buyBackAmount ?? '—',
           totalSeedAmount: colMap.totalSeedAmount ?? '—',
@@ -304,6 +308,11 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
         id: 'above50Percent',
         accessorKey: 'above50Percent',
         header: 'Above 50 %',
+      },
+      {
+        id: 'cutPercent',
+        accessorKey: 'cutPercent',
+        header: 'Cut %',
       },
       {
         id: 'netWeightAfterGrading',
@@ -419,6 +428,7 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
                           colId === 'below40Percent' ||
                           colId === 'range40To50Percent' ||
                           colId === 'above50Percent' ||
+                          colId === 'cutPercent' ||
                           colId === 'netWeightAfterGrading' ||
                           colId === 'buyBackAmount' ||
                           colId === 'totalSeedAmount' ||
@@ -463,6 +473,7 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
                           column.id === 'below40Percent' ||
                           column.id === 'range40To50Percent' ||
                           column.id === 'above50Percent' ||
+                          column.id === 'cutPercent' ||
                           column.id === 'netWeightAfterGrading' ||
                           column.id === 'buyBackAmount' ||
                           column.id === 'totalSeedAmount' ||

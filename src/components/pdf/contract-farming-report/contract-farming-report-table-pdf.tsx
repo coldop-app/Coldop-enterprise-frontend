@@ -156,6 +156,7 @@ function rowValue(
       below40Percent: '—',
       range40To50Percent: '—',
       above50Percent: '—',
+      cutPercent: '—',
       netWeightAfterGrading: '—',
       buyBackAmount: '—',
       totalSeedAmount: '—',
@@ -205,6 +206,7 @@ function rowValue(
     below40Percent: formatGradingRangePercentage(percentages.below40),
     range40To50Percent: formatGradingRangePercentage(percentages.range40To50),
     above50Percent: formatGradingRangePercentage(percentages.above50),
+    cutPercent: formatGradingRangePercentage(percentages.cut),
     netWeightAfterGrading: formatNetWeightAfterGrading(gradingBySize),
     buyBackAmount: formatBuyBackAmount(farmer, variety),
     totalSeedAmount: formatTotalSeedAmount(farmer),
@@ -257,6 +259,7 @@ function totalsValue(
     below40Percent: formatGradingRangePercentage(totals.below40Percent),
     range40To50Percent: formatGradingRangePercentage(totals.range40To50Percent),
     above50Percent: formatGradingRangePercentage(totals.above50Percent),
+    cutPercent: formatGradingRangePercentage(totals.cutPercent),
     netWeightAfterGrading: totals.netWeightAfterGrading.toLocaleString(
       CONTRACT_FARMING_IN_LOCALE,
       {
