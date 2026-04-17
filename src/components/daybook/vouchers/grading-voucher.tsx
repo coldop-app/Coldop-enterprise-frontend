@@ -32,9 +32,12 @@ import { GradingVoucherCalculationsDialog } from './grading-voucher-calculations
 import { useStore } from '@/stores/store';
 import { JUTE_BAG_WEIGHT } from '@/components/forms/grading/constants';
 
-/** Format number for display without rounding (full precision). */
+const roundTo2 = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
+/** Format number for display up to 2 decimal places. */
 function formatNumber(value: number): string {
-  return value.toLocaleString('en-IN', { maximumFractionDigits: 10 });
+  return value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
 /** Format wastage values to 2 decimal places. */
@@ -140,7 +143,8 @@ const GradingVoucher = memo(function GradingVoucher({
     ? incomingGatePassIds.reduce((sum, ref) => {
         const ws = ref.weightSlip;
         if (ws?.grossWeightKg != null && ws?.tareWeightKg != null) {
-          return sum + (ws.grossWeightKg - ws.tareWeightKg);
+          const netFromSlip = roundTo2(ws.grossWeightKg - ws.tareWeightKg);
+          return roundTo2(sum + netFromSlip);
         }
         return sum;
       }, 0)
@@ -157,18 +161,31 @@ const GradingVoucher = memo(function GradingVoucher({
   /** Incoming net product (kg): incoming weight minus bardana (incoming bags × JUTE_BAG_WEIGHT). */
   const effectiveIncomingNetProductKg =
     effectiveIncomingNetKg != null && totalIncomingBags != null
-      ? effectiveIncomingNetKg - totalIncomingBags * JUTE_BAG_WEIGHT
+      ? roundTo2(
+          roundTo2(effectiveIncomingNetKg) -
+            roundTo2(totalIncomingBags * JUTE_BAG_WEIGHT)
+        )
       : incomingNetProductKg;
 
   const effectiveGradingWastageKg =
     effectiveIncomingNetProductKg != null && effectiveIncomingNetProductKg > 0
-      ? Math.max(0, effectiveIncomingNetProductKg - totalGradedWeightKg)
+      ? roundTo2(
+          Math.max(
+            0,
+            roundTo2(effectiveIncomingNetProductKg) -
+              roundTo2(totalGradedWeightKg)
+          )
+        )
       : undefined;
   const effectiveGradingWastagePercent =
     effectiveIncomingNetProductKg != null &&
     effectiveIncomingNetProductKg > 0 &&
     effectiveGradingWastageKg != null
-      ? (effectiveGradingWastageKg / effectiveIncomingNetProductKg) * 100
+      ? roundTo2(
+          (roundTo2(effectiveGradingWastageKg) /
+            roundTo2(effectiveIncomingNetProductKg)) *
+            100
+        )
       : undefined;
 
   const totalGradedWeightPercent = computeTotalGradedWeightPercent(
@@ -405,14 +422,16 @@ const GradingVoucher = memo(function GradingVoucher({
                           {incomingGatePassIds.map((ref) => {
                             const ws = ref.weightSlip;
                             const bags = ref.bagsReceived ?? 0;
-                            const bardanaKg = bags * JUTE_BAG_WEIGHT;
+                            const bardanaKg = roundTo2(bags * JUTE_BAG_WEIGHT);
                             const netKg =
                               ws?.grossWeightKg != null &&
                               ws?.tareWeightKg != null
-                                ? ws.grossWeightKg - ws.tareWeightKg
+                                ? roundTo2(ws.grossWeightKg - ws.tareWeightKg)
                                 : null;
                             const netProductKg =
-                              netKg != null ? netKg - bardanaKg : null;
+                              netKg != null
+                                ? roundTo2(netKg - bardanaKg)
+                                : null;
                             return (
                               <tr
                                 key={ref._id}
@@ -491,7 +510,9 @@ const GradingVoucher = memo(function GradingVoucher({
                                 <td className="text-muted-foreground py-2.5 pr-3 text-right tabular-nums">
                                   {totalIncomingBags != null
                                     ? formatNumber(
-                                        totalIncomingBags * JUTE_BAG_WEIGHT
+                                        roundTo2(
+                                          totalIncomingBags * JUTE_BAG_WEIGHT
+                                        )
                                       )
                                     : '—'}
                                 </td>
@@ -508,7 +529,9 @@ const GradingVoucher = memo(function GradingVoucher({
                               totalIncomingBags != null && (
                                 <td className="text-muted-foreground py-2.5 text-right tabular-nums">
                                   {formatNumber(
-                                    totalIncomingBags * JUTE_BAG_WEIGHT
+                                    roundTo2(
+                                      totalIncomingBags * JUTE_BAG_WEIGHT
+                                    )
                                   )}
                                 </td>
                               )}
@@ -541,21 +564,27 @@ const GradingVoucher = memo(function GradingVoucher({
                     <tbody>
                       {(() => {
                         const totalGradedWeight =
-                          totalGradedWeightGrossKg > 0
-                            ? totalGradedWeightGrossKg
+                          totalGradedWeightKg > 0
+                            ? roundTo2(totalGradedWeightKg)
                             : 0;
                         return (
                           <>
                             {allOrderDetails.map((od, idx) => {
-                              const qty = od.initialQuantity ?? 0;
-                              const wt = od.weightPerBagKg ?? 0;
-                              const bagWt = getBagWeightKg(od.bagType);
-                              const rowGross = qty * wt;
-                              const rowDeduction = qty * bagWt;
-                              const rowNet = rowGross - rowDeduction;
+                              const qty = roundTo2(od.initialQuantity ?? 0);
+                              const wt = roundTo2(od.weightPerBagKg ?? 0);
+                              const bagWt = roundTo2(
+                                getBagWeightKg(od.bagType)
+                              );
+                              const rowGross = roundTo2(qty * wt);
+                              const rowDeduction = roundTo2(qty * bagWt);
+                              const rowNet = roundTo2(rowGross - rowDeduction);
                               const weightPct =
                                 totalGradedWeight > 0
-                                  ? (rowGross / totalGradedWeight) * 100
+                                  ? roundTo2(
+                                      (roundTo2(rowNet) /
+                                        roundTo2(totalGradedWeight)) *
+                                        100
+                                    )
                                   : 0;
                               return (
                                 <tr

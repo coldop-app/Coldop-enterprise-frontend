@@ -40,6 +40,9 @@ const fmt = (n: number, decimals = 1) =>
     maximumFractionDigits: decimals,
   });
 
+const roundTo2 = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
 const GradingVoucherCalculationsDialog = memo(
   function GradingVoucherCalculationsDialog({
     open,
@@ -110,12 +113,12 @@ const GradingVoucherCalculationsDialog = memo(
                   </p>
                   <ul className="space-y-1.5 text-xs">
                     {allOrderDetails.map((od, idx) => {
-                      const qty = od.initialQuantity ?? 0;
-                      const wt = od.weightPerBagKg ?? 0;
-                      const bagWt = getBagWeightKg(od.bagType);
-                      const lineGross = qty * wt;
-                      const bagDeduction = qty * bagWt;
-                      const lineProduct = lineGross - bagDeduction;
+                      const qty = roundTo2(od.initialQuantity ?? 0);
+                      const wt = roundTo2(od.weightPerBagKg ?? 0);
+                      const bagWt = roundTo2(getBagWeightKg(od.bagType));
+                      const lineGross = roundTo2(qty * wt);
+                      const bagDeduction = roundTo2(qty * bagWt);
+                      const lineProduct = roundTo2(lineGross - bagDeduction);
                       const bagLabel =
                         (od.bagType?.toUpperCase() ?? '') === 'JUTE'
                           ? 'JUTE'
@@ -227,7 +230,13 @@ const GradingVoucherCalculationsDialog = memo(
                       Step 3a: Total graded product ÷ Net product ={' '}
                       {fmt(totalGradedWeightKg, 2)} ÷{' '}
                       {fmt(incomingNetProductKg, 2)} ={' '}
-                      {fmt(totalGradedWeightKg / incomingNetProductKg, 4)}
+                      {fmt(
+                        roundTo2(
+                          roundTo2(totalGradedWeightKg) /
+                            roundTo2(incomingNetProductKg)
+                        ),
+                        2
+                      )}
                     </p>
                     <p className="font-mono text-xs">
                       Step 3b: × 100 = {fmt(totalGradedWeightPercent)}%

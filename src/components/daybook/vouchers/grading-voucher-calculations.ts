@@ -4,6 +4,9 @@ import {
 } from '@/components/forms/grading/constants';
 import type { GradingOrderDetailRow } from './types';
 
+const roundTo2 = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
 /**
  * Grading voucher calculations — full flow
  * =========================================
@@ -76,23 +79,27 @@ export function computeGradingOrderTotals(
   let totalGradedWeightGrossKg = 0;
   let totalBagWeightDeductionKg = 0;
   for (const od of details) {
-    const qty = od.initialQuantity ?? 0;
-    const wt = od.weightPerBagKg ?? 0;
-    const bagWt = getBagWeightKg(od.bagType);
+    const qty = roundTo2(od.initialQuantity ?? 0);
+    const wt = roundTo2(od.weightPerBagKg ?? 0);
+    const bagWt = roundTo2(getBagWeightKg(od.bagType));
     totalQty += od.currentQuantity ?? 0;
     totalInitial += qty;
-    const lineGross = qty * wt;
-    const lineBagDeduction = qty * bagWt;
-    totalGradedWeightGrossKg += lineGross;
-    totalBagWeightDeductionKg += lineBagDeduction;
-    totalGradedWeightKg += lineGross - lineBagDeduction;
+    const lineGross = roundTo2(qty * wt);
+    const lineBagDeduction = roundTo2(qty * bagWt);
+    totalGradedWeightGrossKg = roundTo2(totalGradedWeightGrossKg + lineGross);
+    totalBagWeightDeductionKg = roundTo2(
+      totalBagWeightDeductionKg + lineBagDeduction
+    );
+    totalGradedWeightKg = roundTo2(
+      totalGradedWeightKg + roundTo2(lineGross - lineBagDeduction)
+    );
   }
   return {
     totalQty,
-    totalInitial,
-    totalGradedWeightKg,
-    totalGradedWeightGrossKg,
-    totalBagWeightDeductionKg,
+    totalInitial: roundTo2(totalInitial),
+    totalGradedWeightKg: roundTo2(totalGradedWeightKg),
+    totalGradedWeightGrossKg: roundTo2(totalGradedWeightGrossKg),
+    totalBagWeightDeductionKg: roundTo2(totalBagWeightDeductionKg),
   };
 }
 
@@ -111,7 +118,9 @@ export function computeIncomingNetProductKg(
   ) {
     return undefined;
   }
-  return incomingNetKg - incomingBagsCount * JUTE_BAG_WEIGHT;
+  return roundTo2(
+    roundTo2(incomingNetKg) - roundTo2(incomingBagsCount * JUTE_BAG_WEIGHT)
+  );
 }
 
 /**
@@ -129,7 +138,9 @@ export function computeTotalGradedWeightPercent(
   ) {
     return undefined;
   }
-  return (totalGradedWeightKg / incomingNetProductKg) * 100;
+  return roundTo2(
+    (roundTo2(totalGradedWeightKg) / roundTo2(incomingNetProductKg)) * 100
+  );
 }
 
 /**
@@ -147,7 +158,7 @@ export function computeWastagePercentOfNetProduct(
   ) {
     return undefined;
   }
-  return (wastageKg / incomingNetProductKg) * 100;
+  return roundTo2((roundTo2(wastageKg) / roundTo2(incomingNetProductKg)) * 100);
 }
 
 export interface DiscrepancyResult {
@@ -174,11 +185,13 @@ export function computeDiscrepancy(
 ): DiscrepancyResult {
   const percentSum =
     totalGradedWeightPercent != null && wastagePercent != null
-      ? totalGradedWeightPercent + wastagePercent
+      ? roundTo2(totalGradedWeightPercent) + roundTo2(wastagePercent)
       : undefined;
   const hasDiscrepancy =
     percentSum != null && Math.abs(percentSum - 100) > PERCENT_TOLERANCE;
   const discrepancyValue =
-    hasDiscrepancy && percentSum != null ? 100 - percentSum : undefined;
+    hasDiscrepancy && percentSum != null
+      ? roundTo2(100 - percentSum)
+      : undefined;
   return { percentSum, hasDiscrepancy, discrepancyValue };
 }

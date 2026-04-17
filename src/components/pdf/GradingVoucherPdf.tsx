@@ -9,6 +9,7 @@ import {
 import type { PassVoucherData } from '@/components/daybook/vouchers/types';
 import type { GradingOrderDetailRow } from '@/components/daybook/vouchers/types';
 import type { GradingOrderTotals } from '@/components/daybook/vouchers/grading-voucher-calculations';
+import { getBagWeightKg } from '@/components/daybook/vouchers/grading-voucher-calculations';
 import { formatVoucherDate } from '@/components/daybook/vouchers/format-date';
 import { useStore } from '@/stores/store';
 
@@ -310,6 +311,9 @@ const COL_STYLES = [
   styles.colWtBag,
 ];
 
+const roundTo2 = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
 export function GradingVoucherPdf({
   voucher,
   farmerName,
@@ -327,9 +331,9 @@ export function GradingVoucherPdf({
   const gatePassNo = voucher.gatePassNo ?? '—';
   const dateStr = formatVoucherDate(voucher.date);
   const bags = orderDetails.reduce((s, o) => s + (o.currentQuantity ?? 0), 0);
-  // Total graded weight = sum of (initial qty × weight per bag) — denominator so row % sum to 100%
+  // Total graded product (net) is the denominator so row % sum to 100%.
   const totalGradedWeight =
-    totals.totalGradedWeightGrossKg > 0 ? totals.totalGradedWeightGrossKg : 0;
+    totals.totalGradedWeightKg > 0 ? roundTo2(totals.totalGradedWeightKg) : 0;
 
   return (
     <Document>
@@ -405,11 +409,18 @@ export function GradingVoucherPdf({
             colStyles={COL_STYLES}
           />
           {orderDetails.map((od, idx) => {
-            const qty = od.initialQuantity ?? 0;
-            const wt = od.weightPerBagKg ?? 0;
-            const rowWeight = qty * wt;
+            const qty = roundTo2(od.initialQuantity ?? 0);
+            const wt = roundTo2(od.weightPerBagKg ?? 0);
+            const bagWt = roundTo2(getBagWeightKg(od.bagType));
+            const rowWeight = roundTo2(
+              roundTo2(qty * wt) - roundTo2(qty * bagWt)
+            );
             const weightPct =
-              totalGradedWeight > 0 ? (rowWeight / totalGradedWeight) * 100 : 0;
+              totalGradedWeight > 0
+                ? roundTo2(
+                    (roundTo2(rowWeight) / roundTo2(totalGradedWeight)) * 100
+                  )
+                : 0;
             return (
               <TableRow
                 key={`${od.size}-${od.bagType}-${idx}`}
@@ -419,8 +430,8 @@ export function GradingVoucherPdf({
                   (od.currentQuantity ?? 0).toLocaleString('en-IN'),
                   qty.toLocaleString('en-IN'),
                   `${weightPct.toLocaleString('en-IN', {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
                   })}%`,
                   wt.toLocaleString('en-IN'),
                 ]}
