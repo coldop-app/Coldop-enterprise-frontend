@@ -50,7 +50,8 @@ export function useEditFarmerSeedEntry() {
           rate: Number(item.rate),
           acres: Number(item.acres ?? 0),
         })),
-        remarks: payload.remarks?.trim() || undefined,
+        remarks:
+          payload.remarks !== undefined ? payload.remarks.trim() : undefined,
       };
       const { data } =
         await storeAdminAxiosClient.put<EditFarmerSeedApiResponse>(

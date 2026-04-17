@@ -203,7 +203,7 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
               };
             }),
           ],
-          remarks: value.remarks?.trim() || undefined,
+          remarks: value.remarks.trim(),
         },
         {
           onSuccess: (data) => {
