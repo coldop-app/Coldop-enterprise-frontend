@@ -531,11 +531,11 @@ const GradingVoucher = memo(function GradingVoucher({
                         <th className="pr-3 pb-2">Size</th>
                         <th className="pr-3 pb-2">Bag Type</th>
                         <th className="pr-3 pb-2 text-right">Qty</th>
-                        <th className="pr-3 pb-2 text-right">Weight %</th>
                         <th className="pb-2 text-right">Wt/Bag (kg)</th>
                         <th className="pb-2 text-right">Bag wt (kg)</th>
                         <th className="pb-2 text-right">Deduction (kg)</th>
                         <th className="pb-2 text-right">Net (kg)</th>
+                        <th className="pr-3 pb-2 text-right">Weight %</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -571,9 +571,6 @@ const GradingVoucher = memo(function GradingVoucher({
                                   <td className="py-2 pr-3 text-right font-medium">
                                     {formatNumber(qty)}
                                   </td>
-                                  <td className="py-2 pr-3 text-right tabular-nums">
-                                    {formatWeightPercent(weightPct)}%
-                                  </td>
                                   <td className="py-2 pr-3 text-right">
                                     {formatNumber(wt)}
                                   </td>
@@ -586,6 +583,9 @@ const GradingVoucher = memo(function GradingVoucher({
                                   <td className="py-2 text-right font-medium tabular-nums">
                                     {formatNumber(rowNet)}
                                   </td>
+                                  <td className="py-2 pr-3 text-right tabular-nums">
+                                    {formatWeightPercent(weightPct)}%
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -596,11 +596,6 @@ const GradingVoucher = memo(function GradingVoucher({
                               <td className="py-2.5 pr-3 text-right">
                                 {formatNumber(totalInitial)}
                               </td>
-                              <td className="py-2.5 pr-3 text-right tabular-nums">
-                                {totalGradedWeight > 0
-                                  ? `${formatWeightPercent(100)}%`
-                                  : '—'}
-                              </td>
                               <td className="py-2.5 pr-3 text-right font-medium">
                                 {formatNumber(totalGradedWeightGrossKg)}
                               </td>
@@ -610,6 +605,11 @@ const GradingVoucher = memo(function GradingVoucher({
                               </td>
                               <td className="py-2.5 text-right font-medium tabular-nums">
                                 {formatNumber(totalGradedWeightKg)}
+                              </td>
+                              <td className="py-2.5 pr-3 text-right tabular-nums">
+                                {totalGradedWeight > 0
+                                  ? `${formatWeightPercent(100)}%`
+                                  : '—'}
                               </td>
                             </tr>
                           </>

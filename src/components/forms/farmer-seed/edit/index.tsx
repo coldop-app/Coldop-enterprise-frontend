@@ -64,48 +64,33 @@ const FARMER_SEED_DEFAULT_SIZES = [
   'Above 50',
 ] as const;
 
-const formSchema = z
-  .object({
-    id: z.string(),
-    farmerStorageLinkId: z.string(),
-    gatePassNo: z
-      .number()
-      .int()
-      .min(0, 'Gate pass number must be non-negative'),
-    invoiceNumber: z.string().trim(),
-    date: z
-      .string()
-      .regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Please select a valid date'),
-    variety: z.string().min(1, 'Please select a variety'),
-    generation: z.string().min(1, 'Please select a generation'),
-    bagSizes: z.array(
-      z.object({
-        name: z.string().min(1, 'Bag size is required'),
-        quantity: z.number().int().min(0, 'Quantity must be non-negative'),
-        rate: z.number().min(0, 'Rate must be non-negative'),
-        acres: z.number().min(0, 'Acres must be non-negative'),
-      })
-    ),
-    extraBagSizeRows: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string().min(1, 'Bag size is required'),
-        quantity: z.number().int().min(0, 'Quantity must be non-negative'),
-        rate: z.number().min(0, 'Rate must be non-negative'),
-        acres: z.number().min(0, 'Acres must be non-negative'),
-      })
-    ),
-    remarks: z.string().trim(),
-  })
-  .refine(
-    (data) =>
-      data.bagSizes.some((item) => (item.quantity ?? 0) > 0) ||
-      data.extraBagSizeRows.some((item) => (item.quantity ?? 0) > 0),
-    {
-      message: 'Please enter quantity for at least one bag size.',
-      path: ['bagSizes'],
-    }
-  );
+const formSchema = z.object({
+  id: z.string(),
+  farmerStorageLinkId: z.string(),
+  gatePassNo: z.number().int().min(0, 'Gate pass number must be non-negative'),
+  invoiceNumber: z.string().trim(),
+  date: z.string().regex(/^\d{2}\.\d{2}\.\d{4}$/, 'Please select a valid date'),
+  variety: z.string().min(1, 'Please select a variety'),
+  generation: z.string().min(1, 'Please select a generation'),
+  bagSizes: z.array(
+    z.object({
+      name: z.string().min(1, 'Bag size is required'),
+      quantity: z.number().int().min(0, 'Quantity must be non-negative'),
+      rate: z.number().min(0, 'Rate must be non-negative'),
+      acres: z.number().min(0, 'Acres must be non-negative'),
+    })
+  ),
+  extraBagSizeRows: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string().min(1, 'Bag size is required'),
+      quantity: z.number().int().min(0, 'Quantity must be non-negative'),
+      rate: z.number().min(0, 'Rate must be non-negative'),
+      acres: z.number().min(0, 'Acres must be non-negative'),
+    })
+  ),
+  remarks: z.string().trim(),
+});
 
 const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
   (size) => ({
@@ -199,22 +184,24 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
           variety: value.variety.trim(),
           generation: value.generation.trim(),
           bagSizes: [
-            ...value.bagSizes
-              .filter((item) => (item.quantity ?? 0) > 0)
-              .map((item) => ({
+            ...value.bagSizes.map((item) => {
+              const quantity = Number(item.quantity ?? 0);
+              return {
                 name: item.name,
-                quantity: Number(item.quantity ?? 0),
-                rate: Number(item.rate ?? 0),
-                acres: Number(item.acres ?? 0),
-              })),
-            ...value.extraBagSizeRows
-              .filter((item) => (item.quantity ?? 0) > 0)
-              .map((item) => ({
+                quantity,
+                rate: quantity === 0 ? 0 : Number(item.rate ?? 0),
+                acres: quantity === 0 ? 0 : Number(item.acres ?? 0),
+              };
+            }),
+            ...value.extraBagSizeRows.map((item) => {
+              const quantity = Number(item.quantity ?? 0);
+              return {
                 name: item.name,
-                quantity: Number(item.quantity ?? 0),
-                rate: Number(item.rate ?? 0),
-                acres: Number(item.acres ?? 0),
-              })),
+                quantity,
+                rate: quantity === 0 ? 0 : Number(item.rate ?? 0),
+                acres: quantity === 0 ? 0 : Number(item.acres ?? 0),
+              };
+            }),
           ],
           remarks: value.remarks?.trim() || undefined,
         },
@@ -437,7 +424,6 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                     0
                   );
                   const totalAcres = fixedAcres + extraAcres;
-                  const hasQty = totalQty > 0;
                   const defaultExtraName = GRADING_SIZES[0] ?? '';
 
                   const addExtraRow = () => {
@@ -502,20 +488,27 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                               min={0}
                               step={1}
                               placeholder="Qty"
-                              value={
-                                row.quantity === 0 ? '' : String(row.quantity)
-                              }
+                              value={String(row.quantity)}
                               onChange={(e) => {
+                                const quantity =
+                                  e.target.value === ''
+                                    ? 0
+                                    : Math.max(
+                                        0,
+                                        parseInt(e.target.value, 10) || 0
+                                      );
                                 const next = [...bagSizes];
                                 next[index] = {
                                   ...next[index],
-                                  quantity:
-                                    e.target.value === ''
+                                  quantity,
+                                  rate:
+                                    quantity === 0
                                       ? 0
-                                      : Math.max(
-                                          0,
-                                          parseInt(e.target.value, 10) || 0
-                                        ),
+                                      : (next[index]?.rate ?? 0),
+                                  acres:
+                                    quantity === 0
+                                      ? 0
+                                      : (next[index]?.acres ?? 0),
                                 };
                                 field.handleChange(next);
                               }}
@@ -527,7 +520,7 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                               min={0}
                               step="0.01"
                               placeholder="Rate"
-                              value={row.rate === 0 ? '' : String(row.rate)}
+                              value={String(row.rate)}
                               onChange={(e) => {
                                 const next = [...bagSizes];
                                 next[index] = {
@@ -550,7 +543,7 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                               min={0}
                               step="0.01"
                               placeholder="Acres"
-                              value={row.acres === 0 ? '' : String(row.acres)}
+                              value={String(row.acres)}
                               onChange={(e) => {
                                 const next = [...bagSizes];
                                 next[index] = {
@@ -609,20 +602,21 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                               min={0}
                               step={1}
                               placeholder="Qty"
-                              value={
-                                row.quantity === 0 ? '' : String(row.quantity)
-                              }
-                              onChange={(e) =>
+                              value={String(row.quantity)}
+                              onChange={(e) => {
+                                const quantity =
+                                  e.target.value === ''
+                                    ? 0
+                                    : Math.max(
+                                        0,
+                                        parseInt(e.target.value, 10) || 0
+                                      );
                                 updateExtraRow(row.id, {
-                                  quantity:
-                                    e.target.value === ''
-                                      ? 0
-                                      : Math.max(
-                                          0,
-                                          parseInt(e.target.value, 10) || 0
-                                        ),
-                                })
-                              }
+                                  quantity,
+                                  rate: quantity === 0 ? 0 : row.rate,
+                                  acres: quantity === 0 ? 0 : row.acres,
+                                });
+                              }}
                               onWheel={(e) => e.currentTarget.blur()}
                               className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
@@ -631,7 +625,7 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                               min={0}
                               step="0.01"
                               placeholder="Rate"
-                              value={row.rate === 0 ? '' : String(row.rate)}
+                              value={String(row.rate)}
                               onChange={(e) =>
                                 updateExtraRow(row.id, {
                                   rate:
@@ -651,7 +645,7 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                               min={0}
                               step="0.01"
                               placeholder="Acres"
-                              value={row.acres === 0 ? '' : String(row.acres)}
+                              value={String(row.acres)}
                               onChange={(e) =>
                                 updateExtraRow(row.id, {
                                   acres:
@@ -705,11 +699,6 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                             {formatFarmerSeedAmount(totalAmount)}
                           </span>
                         </div>
-                        {!hasQty && (
-                          <p className="font-custom text-destructive text-sm">
-                            Please enter quantity for at least one bag size.
-                          </p>
-                        )}
                         {field.state.meta.isTouched &&
                           !field.state.meta.isValid && (
                             <FieldError

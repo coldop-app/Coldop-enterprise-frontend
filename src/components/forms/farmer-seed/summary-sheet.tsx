@@ -52,15 +52,10 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
       ? String(value)
       : value.toFixed(2).replace(/\.?0+$/, '');
 
-  const nonZeroRows = formValues.bagSizes.filter(
-    (row) => (row.quantity ?? 0) > 0
-  );
-  const totalQuantity = nonZeroRows.reduce((sum, row) => sum + row.quantity, 0);
-  const totalAcres = nonZeroRows.reduce(
-    (sum, row) => sum + (row.acres ?? 0),
-    0
-  );
-  const totalAmount = nonZeroRows.reduce(
+  const rows = formValues.bagSizes;
+  const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const totalAcres = rows.reduce((sum, row) => sum + (row.acres ?? 0), 0);
+  const totalAmount = rows.reduce(
     (sum, row) => sum + row.quantity * row.rate,
     0
   );
@@ -201,7 +196,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
                       </tr>
                     </thead>
                     <tbody>
-                      {nonZeroRows.map((row, idx) => (
+                      {rows.map((row, idx) => (
                         <tr key={`${row.name}-${idx}`}>
                           <td className="border-t px-3 py-2">{row.name}</td>
                           <td className="border-t px-3 py-2 text-right">
@@ -269,7 +264,7 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
               size="lg"
               className="font-custom w-full font-bold sm:flex-1"
               onClick={onSubmit}
-              disabled={isPending || nonZeroRows.length === 0}
+              disabled={isPending}
             >
               {isPending ? (
                 <span className="flex items-center gap-2">
