@@ -255,10 +255,8 @@ function GroupedGradingDataRow({
 }) {
   const groupHeight = group.length * PDF_SUB_ROW_HEIGHT;
   const first = group[0]!;
-  const hasBifurcation = hasMixedBagTypesInAnySize(first, sizesWithQty);
-  const rowTotal = hasBifurcation
-    ? getRowTotalMainLine(first, sizesWithQty)
-    : getRowTotal(first);
+  /** Full bag count for the pass (JUTE + LENO); main row shows JUTE-only in split size cells. */
+  const rowTotal = getRowTotal(first);
 
   return (
     <View style={[styles.dataRow, { minHeight: groupHeight }]}>
@@ -432,19 +430,6 @@ function getMainRowSizeCells(
   }
   const { wt, type } = getSizeWtAndType(row, size);
   return { qty: getSizeQty(row, size), wt, type };
-}
-
-/** Total bags shown on the main line (JUTE portion for bifurcated sizes). */
-function getRowTotalMainLine(
-  row: StockLedgerRow,
-  sizesWithQty: string[]
-): number {
-  return sizesWithQty.reduce((sum, size) => {
-    if (isBifurcatedSize(row, size)) {
-      return sum + getBagTypeQty(row, size, 'JUTE');
-    }
-    return sum + getSizeQty(row, size);
-  }, 0);
 }
 
 function EmptyTableCell({
@@ -700,9 +685,7 @@ function GradingGatePassTablePdf({
           row,
           sizesWithQty
         );
-        const rowTotal = shouldShowSplitRows
-          ? getRowTotalMainLine(row, sizesWithQty)
-          : getRowTotal(row);
+        const rowTotal = getRowTotal(row);
         return (
           <Fragment key={`${keyBase}-1-wrap`}>
             <View key={`${keyBase}-1`} style={styles.dataRow}>
