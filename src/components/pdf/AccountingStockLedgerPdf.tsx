@@ -12,7 +12,8 @@ import { type PreparedAccountingStockLedgerPdfData } from '@/components/pdf/acco
 
 const BORDER = '#e5e7eb';
 const HEADER_BG = '#f9fafb';
-const FARMER_INCOMING_ROWS_PER_PAGE = 18;
+const FARMER_INCOMING_FIRST_PAGE_ROWS = 13;
+const FARMER_INCOMING_CONTINUATION_PAGE_ROWS = 17;
 
 const styles = StyleSheet.create({
   page: {
@@ -284,9 +285,10 @@ export function AccountingStockLedgerPdf({
     incomingSegments,
     groupByVariety
   );
-  const incomingFarmerPages = chunkArray(
+  const incomingFarmerPages = chunkIncomingRows(
     incomingRowsForFarmerPages,
-    FARMER_INCOMING_ROWS_PER_PAGE
+    FARMER_INCOMING_FIRST_PAGE_ROWS,
+    FARMER_INCOMING_CONTINUATION_PAGE_ROWS
   );
 
   if (hideGradingPage) {
@@ -340,14 +342,16 @@ export function AccountingStockLedgerPdf({
                     </Text>
                   </View>
                 ) : null}
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    useLargePrint ? styles.sectionTitleLarge : {},
-                  ]}
-                >
-                  1. Incoming Details
-                </Text>
+                {pageIndex === 0 ? (
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      useLargePrint ? styles.sectionTitleLarge : {},
+                    ]}
+                  >
+                    1. Incoming Details
+                  </Text>
+                ) : null}
                 <View style={styles.tableContainer}>
                   <View style={styles.table}>
                     <View
@@ -449,25 +453,42 @@ export function AccountingStockLedgerPdf({
             ))
           : null}
 
-        <Page
-          size="A4"
-          orientation="landscape"
-          style={[styles.page, useLargePrint ? styles.pageLarge : {}]}
-        >
-          <Text
-            style={[
-              styles.sectionTitle,
-              useLargePrint ? styles.sectionTitleLarge : {},
-            ]}
+        {varietySections.length === 0 ? (
+          <Page
+            size="A4"
+            orientation="landscape"
+            style={[styles.page, useLargePrint ? styles.pageLarge : {}]}
           >
-            2. Summary
-          </Text>
-          {varietySections.length === 0 ? (
+            <Text
+              style={[
+                styles.sectionTitle,
+                useLargePrint ? styles.sectionTitleLarge : {},
+              ]}
+            >
+              2. Summary
+            </Text>
             <Text style={styles.sectionTitle}>No summary data.</Text>
-          ) : (
-            varietySections.map(
-              ({ variety, summaryPrepared, seedPrepared }) => (
-                <View key={`sum-${variety}`}>
+          </Page>
+        ) : (
+          varietySections.map(
+            ({ variety, summaryPrepared, seedPrepared }, varietyIndex) => (
+              <Page
+                key={`sum-page-${variety}-${varietyIndex}`}
+                size="A4"
+                orientation="landscape"
+                style={[styles.page, useLargePrint ? styles.pageLarge : {}]}
+              >
+                {varietyIndex === 0 ? (
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      useLargePrint ? styles.sectionTitleLarge : {},
+                    ]}
+                  >
+                    2. Summary
+                  </Text>
+                ) : null}
+                <View>
                   <Text
                     style={[
                       styles.varietySubsectionTitle,
@@ -485,10 +506,10 @@ export function AccountingStockLedgerPdf({
                     largePrintMode={useLargePrint}
                   />
                 </View>
-              )
+              </Page>
             )
-          )}
-        </Page>
+          )
+        )}
       </Document>
     );
   }
@@ -693,82 +714,139 @@ export function AccountingStockLedgerPdf({
       ) : null}
 
       {/* Summary table (page 3 in full report; page 2 when grading is hidden) */}
-      <Page
-        size="A4"
-        orientation="landscape"
-        style={[styles.page, useLargePrint ? styles.pageLarge : {}]}
-      >
-        <View style={styles.header}>
-          {companyName ? (
-            <Text
-              style={[
-                styles.companyName,
-                useLargePrint ? styles.companyNameLarge : {},
-              ]}
-            >
-              {companyName}
-            </Text>
-          ) : null}
-          <Text
-            style={[
-              styles.reportTitle,
-              useLargePrint ? styles.reportTitleLarge : {},
-            ]}
-          >
-            {reportTitle} – Summary
-          </Text>
-          {farmerDisplayName ? (
-            <Text
-              style={[
-                styles.farmerName,
-                useLargePrint ? styles.farmerNameLarge : {},
-              ]}
-            >
-              {farmerDisplayName}
-            </Text>
-          ) : null}
-          <Text
-            style={[
-              styles.dateRange,
-              useLargePrint ? styles.dateRangeLarge : {},
-            ]}
-          >
-            {dateRangeLabel}
-          </Text>
-        </View>
-        <Text
-          style={[
-            styles.sectionTitle,
-            useLargePrint ? styles.sectionTitleLarge : {},
-          ]}
+      {varietySections.length === 0 ? (
+        <Page
+          size="A4"
+          orientation="landscape"
+          style={[styles.page, useLargePrint ? styles.pageLarge : {}]}
         >
-          {hideGradingPage ? '2. Summary' : '3. Summary'}
-        </Text>
-        {varietySections.length === 0 ? (
-          <Text style={styles.sectionTitle}>No summary data.</Text>
-        ) : (
-          varietySections.map(({ variety, summaryPrepared, seedPrepared }) => (
-            <View key={`sum-${variety}`}>
+          <View style={styles.header}>
+            {companyName ? (
               <Text
                 style={[
-                  styles.varietySubsectionTitle,
-                  useLargePrint ? styles.varietySubsectionTitleLarge : {},
+                  styles.companyName,
+                  useLargePrint ? styles.companyNameLarge : {},
                 ]}
               >
-                Variety: {variety}
+                {companyName}
               </Text>
-              <SummaryTablePdf
-                prepared={summaryPrepared}
-                largePrintMode={useLargePrint}
-              />
-              <SeedAmountPayableTablePdf
-                prepared={seedPrepared}
-                largePrintMode={useLargePrint}
-              />
-            </View>
-          ))
-        )}
-      </Page>
+            ) : null}
+            <Text
+              style={[
+                styles.reportTitle,
+                useLargePrint ? styles.reportTitleLarge : {},
+              ]}
+            >
+              {reportTitle} – Summary
+            </Text>
+            {farmerDisplayName ? (
+              <Text
+                style={[
+                  styles.farmerName,
+                  useLargePrint ? styles.farmerNameLarge : {},
+                ]}
+              >
+                {farmerDisplayName}
+              </Text>
+            ) : null}
+            <Text
+              style={[
+                styles.dateRange,
+                useLargePrint ? styles.dateRangeLarge : {},
+              ]}
+            >
+              {dateRangeLabel}
+            </Text>
+          </View>
+          <Text
+            style={[
+              styles.sectionTitle,
+              useLargePrint ? styles.sectionTitleLarge : {},
+            ]}
+          >
+            {hideGradingPage ? '2. Summary' : '3. Summary'}
+          </Text>
+          <Text style={styles.sectionTitle}>No summary data.</Text>
+        </Page>
+      ) : (
+        varietySections.map(
+          ({ variety, summaryPrepared, seedPrepared }, varietyIndex) => (
+            <Page
+              key={`sum-page-${variety}-${varietyIndex}`}
+              size="A4"
+              orientation="landscape"
+              style={[styles.page, useLargePrint ? styles.pageLarge : {}]}
+            >
+              <View style={styles.header}>
+                {companyName ? (
+                  <Text
+                    style={[
+                      styles.companyName,
+                      useLargePrint ? styles.companyNameLarge : {},
+                    ]}
+                  >
+                    {companyName}
+                  </Text>
+                ) : null}
+                <Text
+                  style={[
+                    styles.reportTitle,
+                    useLargePrint ? styles.reportTitleLarge : {},
+                  ]}
+                >
+                  {reportTitle} – Summary
+                </Text>
+                {farmerDisplayName ? (
+                  <Text
+                    style={[
+                      styles.farmerName,
+                      useLargePrint ? styles.farmerNameLarge : {},
+                    ]}
+                  >
+                    {farmerDisplayName}
+                  </Text>
+                ) : null}
+                <Text
+                  style={[
+                    styles.dateRange,
+                    useLargePrint ? styles.dateRangeLarge : {},
+                  ]}
+                >
+                  {dateRangeLabel}
+                </Text>
+              </View>
+              {varietyIndex === 0 ? (
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    useLargePrint ? styles.sectionTitleLarge : {},
+                  ]}
+                >
+                  {hideGradingPage ? '2. Summary' : '3. Summary'}
+                </Text>
+              ) : null}
+              <View>
+                <Text
+                  style={[
+                    styles.varietySubsectionTitle,
+                    useLargePrint ? styles.varietySubsectionTitleLarge : {},
+                  ]}
+                >
+                  Variety: {variety}
+                </Text>
+                <SummaryTablePdf
+                  prepared={summaryPrepared}
+                  largePrintMode={useLargePrint}
+                />
+                <SeedAmountPayableTablePdf
+                  prepared={seedPrepared}
+                  largePrintMode={useLargePrint}
+                />
+              </View>
+            </Page>
+          )
+        )
+      )}
     </Document>
   );
 }
@@ -813,6 +891,22 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
     chunks.push(items.slice(i, i + safeChunk));
   }
   return chunks;
+}
+
+function chunkIncomingRows<T>(
+  items: T[],
+  firstPageSize: number,
+  continuationPageSize: number
+): T[][] {
+  if (items.length === 0) return [[]];
+  const safeFirstPageSize = Math.max(1, firstPageSize);
+  const safeContinuationPageSize = Math.max(1, continuationPageSize);
+  const firstChunk = items.slice(0, safeFirstPageSize);
+  const remainingItems = items.slice(safeFirstPageSize);
+  return [
+    firstChunk,
+    ...chunkArray(remainingItems, safeContinuationPageSize),
+  ].filter((chunk) => chunk.length > 0);
 }
 
 function IncomingTotalRow({
