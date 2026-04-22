@@ -4,6 +4,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   FarmerSeedEntryListItem,
+  FarmerSeedEntryPagination,
   GetAllFarmerSeedEntriesApiResponse,
 } from '@/types/farmer-seed';
 import { farmerSeedKeys } from './useCreateFarmerSeedEntry';
@@ -24,19 +25,38 @@ function getFetchErrorMessage(
   );
 }
 
-async function fetchAllFarmerSeedEntries(): Promise<FarmerSeedEntryListItem[]> {
+export interface GetAllFarmerSeedEntriesParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface GetAllFarmerSeedEntriesResult {
+  data: FarmerSeedEntryListItem[];
+  pagination?: FarmerSeedEntryPagination;
+}
+
+async function fetchAllFarmerSeedEntries(
+  params: GetAllFarmerSeedEntriesParams
+): Promise<GetAllFarmerSeedEntriesResult> {
   try {
     const { data } = await storeAdminAxiosClient.get<
       GetAllFarmerSeedEntriesApiResponse | GetAllFarmerSeedEntriesError
     >('/farmer-seed/farmer-seed-entry', {
       headers: { Accept: 'application/json' },
+      params: {
+        page: params.page,
+        limit: params.limit,
+      },
     });
 
     if (!data.success || !('data' in data) || !Array.isArray(data.data)) {
       throw new Error(getFetchErrorMessage(data));
     }
 
-    return data.data;
+    return {
+      data: data.data,
+      pagination: data.pagination,
+    };
   } catch (err) {
     const responseData = axios.isAxiosError(err)
       ? err.response?.data
@@ -55,17 +75,23 @@ export const allFarmerSeedEntriesQueryKey = [
   'farmer-seed-entry',
 ] as const;
 
-export const allFarmerSeedEntriesQueryOptions = () =>
+export const allFarmerSeedEntriesQueryOptions = (
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+) =>
   queryOptions({
-    queryKey: allFarmerSeedEntriesQueryKey,
-    queryFn: fetchAllFarmerSeedEntries,
+    queryKey: [...allFarmerSeedEntriesQueryKey, params] as const,
+    queryFn: () => fetchAllFarmerSeedEntries(params),
   });
 
 /** GET /farmer-seed/farmer-seed-entry */
-export function useGetAllFarmerSeedEntries() {
-  return useQuery(allFarmerSeedEntriesQueryOptions());
+export function useGetAllFarmerSeedEntries(
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+) {
+  return useQuery(allFarmerSeedEntriesQueryOptions(params));
 }
 
-export function prefetchAllFarmerSeedEntries() {
-  return queryClient.prefetchQuery(allFarmerSeedEntriesQueryOptions());
+export function prefetchAllFarmerSeedEntries(
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+) {
+  return queryClient.prefetchQuery(allFarmerSeedEntriesQueryOptions(params));
 }

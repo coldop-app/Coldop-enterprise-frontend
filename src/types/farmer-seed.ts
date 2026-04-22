@@ -127,9 +127,20 @@ export interface FarmerSeedEntryListItem {
 }
 
 /** API response for GET /farmer-seed/farmer-seed-entry */
+export interface FarmerSeedEntryPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+/** API response for GET /farmer-seed/farmer-seed-entry */
 export interface GetAllFarmerSeedEntriesApiResponse {
   success: boolean;
   data: FarmerSeedEntryListItem[];
+  pagination?: FarmerSeedEntryPagination;
   message?: string;
 }
 

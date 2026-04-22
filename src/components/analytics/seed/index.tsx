@@ -62,7 +62,11 @@ const SeedAnalyticsTab = memo(function SeedAnalyticsTab() {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([variety, farmers]) => ({
           variety,
-          rows: [...farmers].sort(compareContractFarmingFarmersByFamilyAccount),
+          rows: [...farmers]
+            .filter((farmer) =>
+              farmer.sizes.some((sizeLine) => (sizeLine.quantity ?? 0) > 0)
+            )
+            .sort(compareContractFarmingFarmersByFamilyAccount),
         }));
     }, [cfReportData]);
 

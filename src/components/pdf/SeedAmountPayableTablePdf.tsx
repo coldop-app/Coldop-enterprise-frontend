@@ -26,6 +26,10 @@ export type SeedAmountPayableColumnId =
 
 /** @deprecated Use `SEED_AMOUNT_PAYABLE_LEAF_COLUMNS` (includes net-payable sub-columns). */
 export const SEED_AMOUNT_PAYABLE_COLUMNS = SEED_AMOUNT_PAYABLE_LEAF_COLUMNS;
+const TOTAL_BAGS_GIVEN_COLUMN_INDEX =
+  SEED_AMOUNT_PAYABLE_LEAF_COLUMNS.findIndex(
+    (col) => col.id === 'bagsForPlantation'
+  );
 
 function parseNumericCellValue(value: string): number | null {
   const normalized = value.replace(/,/g, '').trim();
@@ -200,7 +204,12 @@ export default function SeedAmountPayableTablePdf({
     });
 
   const { detailRowCells } = data;
-  const rowsForTotal = detailRowCells;
+  const filteredDetailRowCells = detailRowCells.filter((rowCells) => {
+    const totalBagsRaw = String(rowCells[TOTAL_BAGS_GIVEN_COLUMN_INDEX] ?? '');
+    const totalBags = parseNumericCellValue(totalBagsRaw);
+    return (totalBags ?? 0) > 0;
+  });
+  const rowsForTotal = filteredDetailRowCells;
 
   const shouldShowTotalRow = rowsForTotal.length > 1;
   const totalRowCells = shouldShowTotalRow
@@ -253,12 +262,13 @@ export default function SeedAmountPayableTablePdf({
             />
           ))}
         </View>
-        {detailRowCells.map((rowCells, rowIndex) => (
+        {filteredDetailRowCells.map((rowCells, rowIndex) => (
           <View
             key={`seed-detail-${rowIndex}`}
             style={[
               styles.dataRow,
-              rowIndex === detailRowCells.length - 1 && !shouldShowTotalRow
+              rowIndex === filteredDetailRowCells.length - 1 &&
+              !shouldShowTotalRow
                 ? styles.dataRowLast
                 : {},
             ]}

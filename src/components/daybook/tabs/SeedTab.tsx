@@ -3,6 +3,20 @@ import { useGetAllFarmerSeedEntries } from '@/services/store-admin/farmer-seed/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination';
+import {
   Item,
   ItemActions,
   ItemHeader,
@@ -17,12 +31,15 @@ import {
   EmptyMedia,
 } from '@/components/ui/empty';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, Search, Sprout, User } from 'lucide-react';
+import { ChevronDown, RefreshCw, Search, Sprout } from 'lucide-react';
 import { FarmerSeedVoucher } from '../vouchers';
 import { FarmerSeedEditSheet } from '../vouchers/farmer-seed-edit-sheet';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
+import { LIMIT_OPTIONS } from './shared';
 
 const SeedTab = memo(function SeedTab() {
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const {
     data: farmerSeedEntries,
     isLoading: isFarmerSeedLoading,
@@ -30,7 +47,7 @@ const SeedTab = memo(function SeedTab() {
     error: farmerSeedError,
     isFetching: isFarmerSeedFetching,
     refetch: refetchFarmerSeedEntries,
-  } = useGetAllFarmerSeedEntries();
+  } = useGetAllFarmerSeedEntries({ page, limit });
   const [searchQuery, setSearchQuery] = useState('');
   const [seedEditEntry, setSeedEditEntry] =
     useState<FarmerSeedEntryListItem | null>(null);
@@ -49,7 +66,7 @@ const SeedTab = memo(function SeedTab() {
   }, []);
 
   const filteredFarmerSeedEntries = useMemo(() => {
-    const entries = farmerSeedEntries ?? [];
+    const entries = farmerSeedEntries?.data ?? [];
     const query = searchQuery.trim().toLowerCase();
     if (!query) return entries;
     return entries.filter((entry) => {
@@ -65,46 +82,31 @@ const SeedTab = memo(function SeedTab() {
     });
   }, [farmerSeedEntries, searchQuery]);
 
-  const groupedFarmerSeedEntries = useMemo(() => {
-    const grouped = new Map<
-      string,
-      {
-        farmerName: string;
-        farmerAddress: string;
-        farmerAccount: number;
-        entries: typeof filteredFarmerSeedEntries;
-      }
-    >();
+  const sortedFarmerSeedEntries = useMemo(
+    () =>
+      filteredFarmerSeedEntries
+        .slice()
+        .sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        ),
+    [filteredFarmerSeedEntries]
+  );
 
-    for (const entry of filteredFarmerSeedEntries) {
-      const storageLink = entry.farmerStorageLinkId;
-      const farmer = storageLink?.farmerId;
-      const farmerId = farmer?._id ?? storageLink?._id ?? 'unknown-farmer';
-      const existing = grouped.get(farmerId);
-
-      if (existing) {
-        existing.entries.push(entry);
-        continue;
-      }
-
-      grouped.set(farmerId, {
-        farmerName: farmer?.name ?? 'Unknown Farmer',
-        farmerAddress: farmer?.address ?? '',
-        farmerAccount: storageLink?.accountNumber ?? 0,
-        entries: [entry],
-      });
-    }
-
-    return Array.from(grouped.values()).sort((a, b) =>
-      a.farmerName.localeCompare(b.farmerName)
-    );
-  }, [filteredFarmerSeedEntries]);
+  const pagination = farmerSeedEntries?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
+  const hasPrev = pagination?.hasPreviousPage ?? page > 1;
+  const hasNext = pagination?.hasNextPage ?? page < totalPages;
 
   const isRefreshing = isFarmerSeedFetching;
 
   const handleRefreshSeedTab = useCallback(async () => {
     await refetchFarmerSeedEntries();
   }, [refetchFarmerSeedEntries]);
+
+  const handleLimitChange = useCallback((value: number) => {
+    setLimit(value);
+    setPage(1);
+  }, []);
 
   return (
     <>
@@ -180,7 +182,7 @@ const SeedTab = memo(function SeedTab() {
                 </Empty>
               </CardContent>
             </Card>
-          ) : groupedFarmerSeedEntries.length === 0 ? (
+          ) : sortedFarmerSeedEntries.length === 0 ? (
             <Card>
               <CardContent className="py-8 pt-6">
                 <Empty className="font-custom">
@@ -199,47 +201,102 @@ const SeedTab = memo(function SeedTab() {
               </CardContent>
             </Card>
           ) : (
-            groupedFarmerSeedEntries.map((group) => (
-              <section
-                key={`${group.farmerName}-${group.farmerAccount}`}
-                className="space-y-3"
-              >
-                <div className="bg-muted/40 border-border/50 flex items-center gap-2 rounded-lg border px-3 py-2">
-                  <User className="text-primary h-4 w-4" />
-                  <p className="font-custom text-sm font-semibold text-[#333] dark:text-white">
-                    {group.farmerName}
-                  </p>
-                  <p className="font-custom text-muted-foreground text-xs dark:text-white/80">
-                    A/C #{group.farmerAccount}
-                  </p>
-                  <p className="font-custom text-muted-foreground text-xs dark:text-white/80">
-                    · {group.entries.length}{' '}
-                    {group.entries.length === 1 ? 'voucher' : 'vouchers'}
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  {group.entries
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        new Date(b.date).getTime() - new Date(a.date).getTime()
-                    )
-                    .map((entry) => (
-                      <FarmerSeedVoucher
-                        key={entry._id}
-                        entry={entry}
-                        farmerName={group.farmerName}
-                        farmerAddress={group.farmerAddress}
-                        farmerAccount={group.farmerAccount}
-                        onEdit={() => openSeedEdit(entry)}
-                      />
-                    ))}
-                </div>
-              </section>
-            ))
+            <div className="space-y-4">
+              {sortedFarmerSeedEntries.map((entry) => {
+                const storageLink = entry.farmerStorageLinkId;
+                const farmer = storageLink?.farmerId;
+                return (
+                  <FarmerSeedVoucher
+                    key={entry._id}
+                    entry={entry}
+                    farmerName={farmer?.name ?? 'Unknown Farmer'}
+                    farmerAddress={farmer?.address ?? ''}
+                    farmerAccount={storageLink?.accountNumber ?? 0}
+                    onEdit={() => openSeedEdit(entry)}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
+
+        {(sortedFarmerSeedEntries.length > 0 ||
+          (pagination?.total ?? 0) > 0) && (
+          <Item
+            variant="outline"
+            size="sm"
+            className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 sm:mt-8"
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                >
+                  {limit} per page
+                  <ChevronDown className="ml-1.5 h-4 w-4 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {LIMIT_OPTIONS.map((n) => (
+                  <DropdownMenuItem
+                    key={n}
+                    onClick={() => handleLimitChange(n)}
+                  >
+                    {n} per page
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Pagination>
+              <PaginationContent className="gap-1">
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
+                    aria-disabled={!hasPrev}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (hasPrev) setPage(Math.max(1, page - 1));
+                    }}
+                    style={
+                      !hasPrev
+                        ? { pointerEvents: 'none', opacity: 0.5 }
+                        : undefined
+                    }
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink
+                    isActive
+                    href="#"
+                    className="font-custom cursor-default"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    {page} / {totalPages}
+                  </PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    className="font-custom focus-visible:ring-primary cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-offset-2"
+                    aria-disabled={!hasNext}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (hasNext) setPage(Math.min(totalPages, page + 1));
+                    }}
+                    style={
+                      !hasNext
+                        ? { pointerEvents: 'none', opacity: 0.5 }
+                        : undefined
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </Item>
+        )}
       </div>
 
       <FarmerSeedEditSheet

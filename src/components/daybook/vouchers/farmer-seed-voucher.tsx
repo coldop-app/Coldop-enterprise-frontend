@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { DetailRow } from './detail-row';
 import { formatVoucherDate } from './format-date';
-import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
+import type {
+  FarmerSeedEntryByStorageLink,
+  FarmerSeedEntryListItem,
+} from '@/types/farmer-seed';
 import {
   ChevronDown,
   ChevronUp,
@@ -16,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export interface FarmerSeedVoucherProps {
-  entry: FarmerSeedEntryListItem;
+  entry: FarmerSeedEntryListItem | FarmerSeedEntryByStorageLink;
   farmerName?: string;
   farmerAccount?: number;
   farmerAddress?: string;

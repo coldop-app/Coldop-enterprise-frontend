@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/empty';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
-import { Search, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown, Sprout } from 'lucide-react';
 import type { FarmerStorageLink } from '@/types/farmer';
 import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import {
@@ -37,6 +37,7 @@ import {
   GradingVoucher,
   StorageVoucher,
   NikasiVoucher,
+  FarmerSeedVoucher,
 } from '@/components/daybook/vouchers';
 import {
   Receipt,
@@ -47,7 +48,6 @@ import {
   ArrowRightFromLine,
 } from 'lucide-react';
 import { FarmerProfileHeaderCard } from './FarmerProfileHeaderCard';
-import { FarmerProfileFarmerSeedInfoDialog } from './FarmerProfileFarmerSeedInfoDialog';
 import FarmerProfileCharts from './FarmerProfileCharts';
 import {
   FarmerProfileGradingGatePassTable,
@@ -84,7 +84,6 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [statusFilter, setStatusFilter] = useState<IncomingStatusFilter>('all');
   const [_editModalOpen, setEditModalOpen] = useState(false);
-  const [detailsInfoDialogOpen, setDetailsInfoDialogOpen] = useState(false);
   const gradingGatePassTableRef =
     useRef<FarmerProfileGradingGatePassTableHandle>(null);
 
@@ -121,6 +120,28 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
       sortOrder,
     });
   }, [gatePasses.incoming.data, searchQuery, sortOrder, statusFilter]);
+
+  const seedFiltered = useMemo(() => {
+    const entries = farmerSeedQuery.data ?? [];
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = query
+      ? entries.filter((entry) => {
+          return (
+            entry.variety?.toLowerCase().includes(query) ||
+            entry.generation?.toLowerCase().includes(query) ||
+            String(entry.gatePassNo ?? '').includes(query) ||
+            entry.invoiceNumber?.toLowerCase().includes(query) ||
+            entry.date?.toLowerCase().includes(query)
+          );
+        })
+      : entries;
+
+    return filtered.slice().sort((a, b) => {
+      const aTime = new Date(a.date).getTime();
+      const bTime = new Date(b.date).getTime();
+      return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+    });
+  }, [farmerSeedQuery.data, searchQuery, sortOrder]);
 
   const gradingFiltered = useMemo(() => {
     return filterSortablePasses(
@@ -167,7 +188,6 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
               <FarmerProfileHeaderCard
                 link={link}
                 onEditClick={() => setEditModalOpen(true)}
-                onInfoClick={() => setDetailsInfoDialogOpen(true)}
                 onViewFarmerReport={() =>
                   gradingGatePassTableRef.current?.openFarmerReportDialog()
                 }
@@ -206,6 +226,12 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="font-custom mb-4 flex h-auto w-full flex-nowrap overflow-x-auto rounded-xl">
             <TabsTrigger
+              value="seed"
+              className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
+            >
+              Seed
+            </TabsTrigger>
+            <TabsTrigger
               value="incoming"
               className="min-w-0 flex-1 shrink-0 px-3 sm:px-4"
             >
@@ -236,6 +262,138 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
               Outgoing
             </TabsTrigger>
           </TabsList>
+
+          {/* Incoming tab */}
+          <TabsContent
+            value="seed"
+            className="mt-0 flex flex-col gap-4 outline-none"
+          >
+            <TabSummaryBar
+              count={farmerSeedQuery.isPending ? 0 : seedFiltered.length}
+              icon={<Sprout className="text-primary h-5 w-5" />}
+            />
+            <Item
+              variant="outline"
+              size="sm"
+              className="flex-col items-stretch gap-4 rounded-xl"
+            >
+              <div className="relative w-full">
+                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                <Input
+                  placeholder="Search by gate pass number, variety, invoice..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
+                />
+              </div>
+              <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="font-custom focus-visible:ring-primary w-full min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto sm:min-w-40"
+                    >
+                      Sort Order:{' '}
+                      {sortOrder === 'desc' ? 'Latest first' : 'Oldest first'}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="font-custom">
+                    <DropdownMenuItem onClick={() => setSortOrder('asc')}>
+                      Oldest first
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortOrder('desc')}>
+                      Latest first
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  className="font-custom bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-full shrink-0 gap-2 sm:w-auto"
+                  asChild
+                >
+                  <Link
+                    to="/store-admin/farmer-seed"
+                    search={{
+                      farmerStorageLinkId: effectiveFarmerStorageLinkId,
+                    }}
+                  >
+                    <Sprout className="h-4 w-4 shrink-0" />
+                    Add Seed
+                  </Link>
+                </Button>
+              </ItemFooter>
+            </Item>
+
+            <div className="mt-2 space-y-6 sm:mt-4">
+              {farmerSeedQuery.isPending ? (
+                <Card>
+                  <CardContent className="py-12">
+                    <p className="font-custom text-center text-sm text-gray-600">
+                      Loading seed vouchers...
+                    </p>
+                    <div className="mt-4 flex justify-center">
+                      <Spinner className="h-6 w-6" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : farmerSeedQuery.isError ? (
+                <Card>
+                  <CardContent className="py-8 pt-6">
+                    <Empty className="font-custom">
+                      <EmptyHeader>
+                        <EmptyTitle>Failed to load seed vouchers</EmptyTitle>
+                      </EmptyHeader>
+                      <EmptyContent>
+                        <p className="font-custom text-sm text-red-600">
+                          {farmerSeedQuery.error instanceof Error
+                            ? farmerSeedQuery.error.message
+                            : 'Something went wrong.'}
+                        </p>
+                      </EmptyContent>
+                    </Empty>
+                  </CardContent>
+                </Card>
+              ) : !seedFiltered.length ? (
+                <Card>
+                  <CardContent className="py-8 pt-6">
+                    <Empty className="font-custom">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <Sprout className="size-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No seed vouchers yet</EmptyTitle>
+                      </EmptyHeader>
+                      <EmptyContent>
+                        <Button
+                          className="font-custom focus-visible:ring-primary focus-visible:ring-2 focus-visible:ring-offset-2"
+                          asChild
+                        >
+                          <Link
+                            to="/store-admin/farmer-seed"
+                            search={{
+                              farmerStorageLinkId: effectiveFarmerStorageLinkId,
+                            }}
+                          >
+                            Add Seed voucher
+                          </Link>
+                        </Button>
+                      </EmptyContent>
+                    </Empty>
+                  </CardContent>
+                </Card>
+              ) : (
+                seedFiltered.map((entry) => (
+                  <FarmerSeedVoucher
+                    key={entry._id}
+                    entry={entry}
+                    farmerName={link?.farmerId?.name}
+                    farmerAddress={link?.farmerId?.address}
+                    farmerAccount={link?.accountNumber}
+                  />
+                ))
+              )}
+            </div>
+          </TabsContent>
 
           {/* Incoming tab */}
           <TabsContent
@@ -858,15 +1016,6 @@ export const FarmerProfilePage = memo(function FarmerProfilePage() {
 
         {link && (
           <>
-            <FarmerProfileFarmerSeedInfoDialog
-              open={detailsInfoDialogOpen}
-              onOpenChange={setDetailsInfoDialogOpen}
-              data={farmerSeedQuery.data}
-              isPending={farmerSeedQuery.isPending}
-              isFetching={farmerSeedQuery.isFetching}
-              isError={farmerSeedQuery.isError}
-              error={farmerSeedQuery.error}
-            />
             <EditFarmerModal
               link={link}
               open={_editModalOpen}

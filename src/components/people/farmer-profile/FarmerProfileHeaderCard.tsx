@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Hash, Edit, Info, Sprout } from 'lucide-react';
+import { Hash, Edit, Sprout } from 'lucide-react';
 import type { FarmerStorageLink } from '@/types/farmer';
 
 function getInitials(name: string) {
@@ -17,7 +17,6 @@ function getInitials(name: string) {
 export interface FarmerProfileHeaderCardProps {
   link: FarmerStorageLink;
   onEditClick: () => void;
-  onInfoClick: () => void;
   onViewFarmerReport: () => void;
   onAddSeedClick: () => void;
   /** Opens the grading-table accounting report dialog (pass selection + PDF/Excel). */
@@ -27,7 +26,6 @@ export interface FarmerProfileHeaderCardProps {
 export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
   link,
   onEditClick,
-  onInfoClick,
   onViewFarmerReport,
   onAddSeedClick,
   onOpenAccountingReport,
@@ -64,16 +62,6 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
             aria-label="Edit farmer"
           >
             <Edit className="h-4 w-4 shrink-0" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            className={`font-custom ${iconButtonClassName}`}
-            onClick={onInfoClick}
-            aria-label="Show details"
-          >
-            <Info className="h-4 w-4 shrink-0" />
           </Button>
         </div>
       </div>

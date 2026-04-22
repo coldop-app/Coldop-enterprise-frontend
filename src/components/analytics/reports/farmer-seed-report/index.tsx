@@ -101,7 +101,7 @@ const FarmerSeedReportTable = () => {
     dateTo?: string;
   }>({});
 
-  const rows = useMemo(() => mapEntriesToRows(data ?? []), [data]);
+  const rows = useMemo(() => mapEntriesToRows(data?.data ?? []), [data]);
 
   const filteredRows = useMemo(() => {
     if (!appliedRange.dateFrom && !appliedRange.dateTo) return rows;

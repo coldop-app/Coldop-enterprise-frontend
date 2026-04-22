@@ -846,6 +846,26 @@ interface NikasiReportTableProps {
   totalPages?: number;
 }
 
+const FIRST_PAGE_ENTRY_LIMIT = 11;
+const SUBSEQUENT_PAGE_ENTRY_LIMIT = 12;
+
+function splitPassesForPages(
+  passes: NikasiGatePassReportItem[],
+  firstPageLimit = FIRST_PAGE_ENTRY_LIMIT,
+  subsequentPageLimit = SUBSEQUENT_PAGE_ENTRY_LIMIT
+): NikasiGatePassReportItem[][] {
+  if (passes.length === 0) return [];
+  const chunks: NikasiGatePassReportItem[][] = [];
+  let start = 0;
+  let limit = firstPageLimit;
+  while (start < passes.length) {
+    chunks.push(passes.slice(start, start + limit));
+    start += limit;
+    limit = subsequentPageLimit;
+  }
+  return chunks;
+}
+
 function NikasiReportTable({
   companyName,
   dateRangeLabel,
@@ -1079,8 +1099,17 @@ export function NikasiGatePassReportPdf({
   const summary = computeNikasiReportSummary(flatPasses);
 
   if (isGroupedByVarietyAndFarmer(data)) {
-    const totalPages = data.reduce((sum, v) => sum + v.farmers.length, 0);
-    let pageIndex = 0;
+    const pagedSections = data.flatMap((varietyItem) =>
+      varietyItem.farmers.flatMap((group) =>
+        splitPassesForPages(group.gatePasses).map((chunkPasses, chunkIdx) => ({
+          key: `${varietyItem.variety}-${group.farmer._id}-${chunkIdx}`,
+          varietyLabel: varietyItem.variety,
+          farmerName: group.farmer.name,
+          passes: chunkPasses,
+        }))
+      )
+    );
+    const totalPages = pagedSections.length;
     return (
       <Document>
         {data.length === 0 ? (
@@ -1093,26 +1122,24 @@ export function NikasiGatePassReportPdf({
             />
           </Page>
         ) : (
-          data.flatMap((varietyItem) =>
-            varietyItem.farmers.map((group) => (
-              <Page
-                key={`${varietyItem.variety}-${group.farmer._id}`}
-                size="A4"
-                orientation="landscape"
-                style={styles.page}
-              >
-                <NikasiReportTable
-                  companyName={company}
-                  dateRangeLabel={dateRangeLabel}
-                  varietyLabel={varietyItem.variety}
-                  farmerName={group.farmer.name}
-                  passes={group.gatePasses}
-                  pageIndex={pageIndex++}
-                  totalPages={totalPages}
-                />
-              </Page>
-            ))
-          )
+          pagedSections.map((section, pageIndex) => (
+            <Page
+              key={section.key}
+              size="A4"
+              orientation="landscape"
+              style={styles.page}
+            >
+              <NikasiReportTable
+                companyName={company}
+                dateRangeLabel={dateRangeLabel}
+                varietyLabel={section.varietyLabel}
+                farmerName={section.farmerName}
+                passes={section.passes}
+                pageIndex={pageIndex}
+                totalPages={totalPages}
+              />
+            </Page>
+          ))
         )}
         <NikasiReportSummaryPage
           companyName={company}
@@ -1124,6 +1151,16 @@ export function NikasiGatePassReportPdf({
   }
 
   if (isGroupedByVarietyOnly(data)) {
+    const pagedSections = data.flatMap((varietyItem) =>
+      splitPassesForPages(varietyItem.gatePasses).map(
+        (chunkPasses, chunkIdx) => ({
+          key: `${varietyItem.variety}-${chunkIdx}`,
+          varietyLabel: varietyItem.variety,
+          passes: chunkPasses,
+        })
+      )
+    );
+    const totalPages = pagedSections.length;
     return (
       <Document>
         {data.length === 0 ? (
@@ -1136,9 +1173,9 @@ export function NikasiGatePassReportPdf({
             />
           </Page>
         ) : (
-          data.map((varietyItem, pageIndex) => (
+          pagedSections.map((section, pageIndex) => (
             <Page
-              key={varietyItem.variety}
+              key={section.key}
               size="A4"
               orientation="landscape"
               style={styles.page}
@@ -1146,10 +1183,10 @@ export function NikasiGatePassReportPdf({
               <NikasiReportTable
                 companyName={company}
                 dateRangeLabel={dateRangeLabel}
-                varietyLabel={varietyItem.variety}
-                passes={varietyItem.gatePasses}
+                varietyLabel={section.varietyLabel}
+                passes={section.passes}
                 pageIndex={pageIndex}
-                totalPages={data.length}
+                totalPages={totalPages}
               />
             </Page>
           ))
@@ -1164,6 +1201,14 @@ export function NikasiGatePassReportPdf({
   }
 
   if (isGroupedByFarmer(data)) {
+    const pagedSections = data.flatMap((group) =>
+      splitPassesForPages(group.gatePasses).map((chunkPasses, chunkIdx) => ({
+        key: `${group.farmer._id}-${chunkIdx}`,
+        farmerName: group.farmer.name,
+        passes: chunkPasses,
+      }))
+    );
+    const totalPages = pagedSections.length;
     return (
       <Document>
         {data.length === 0 ? (
@@ -1176,9 +1221,9 @@ export function NikasiGatePassReportPdf({
             />
           </Page>
         ) : (
-          data.map((group, pageIndex) => (
+          pagedSections.map((section, pageIndex) => (
             <Page
-              key={group.farmer._id}
+              key={section.key}
               size="A4"
               orientation="landscape"
               style={styles.page}
@@ -1186,10 +1231,10 @@ export function NikasiGatePassReportPdf({
               <NikasiReportTable
                 companyName={company}
                 dateRangeLabel={dateRangeLabel}
-                farmerName={group.farmer.name}
-                passes={group.gatePasses}
+                farmerName={section.farmerName}
+                passes={section.passes}
                 pageIndex={pageIndex}
-                totalPages={data.length}
+                totalPages={totalPages}
               />
             </Page>
           ))
@@ -1203,16 +1248,38 @@ export function NikasiGatePassReportPdf({
     );
   }
 
+  const pagedFlatPasses = splitPassesForPages(flatPasses);
+  const totalFlatPages = pagedFlatPasses.length;
+
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <NikasiReportTable
-          companyName={company}
-          dateRangeLabel={dateRangeLabel}
-          passes={flatPasses}
-          totalPages={1}
-        />
-      </Page>
+      {pagedFlatPasses.length === 0 ? (
+        <Page size="A4" orientation="landscape" style={styles.page}>
+          <NikasiReportTable
+            companyName={company}
+            dateRangeLabel={dateRangeLabel}
+            passes={[]}
+            totalPages={1}
+          />
+        </Page>
+      ) : (
+        pagedFlatPasses.map((chunkPasses, pageIndex) => (
+          <Page
+            key={`flat-page-${pageIndex + 1}`}
+            size="A4"
+            orientation="landscape"
+            style={styles.page}
+          >
+            <NikasiReportTable
+              companyName={company}
+              dateRangeLabel={dateRangeLabel}
+              passes={chunkPasses}
+              pageIndex={pageIndex}
+              totalPages={totalFlatPages}
+            />
+          </Page>
+        ))
+      )}
       <NikasiReportSummaryPage
         companyName={company}
         dateRangeLabel={dateRangeLabel}
