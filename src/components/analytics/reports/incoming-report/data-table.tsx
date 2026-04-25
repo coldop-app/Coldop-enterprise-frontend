@@ -534,7 +534,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
           {(Object.entries(totals) as Array<[string, number]>).map(
             ([columnId, total]) => (
               <span key={columnId}>
-                {columnId}: <strong>{total.toLocaleString()}</strong>
+                {columnId}: <strong>{total.toLocaleString('en-IN')}</strong>
               </span>
             )
           )}

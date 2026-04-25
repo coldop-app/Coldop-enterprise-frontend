@@ -141,7 +141,9 @@ const IncomingReportTable = () => {
   const rows = useMemo((): IncomingReportRow[] => {
     if (!data) return [];
     const flat = Array.isArray(data) ? data : [];
-    return mapGatePassesToRows(flat as IncomingPass[]);
+    return mapGatePassesToRows(flat as IncomingPass[]).filter(
+      (row) => row.bags > 0
+    );
   }, [data]);
 
   const handleApplyDates = () => {

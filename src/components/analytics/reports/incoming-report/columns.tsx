@@ -1,39 +1,39 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { ColumnDef, CellContext } from '@tanstack/table-core';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 
 /** Reusable cell with expand/collapse only in the column that owns this row's group */
 function GroupableCell({
   row,
   column,
-  table,
+  table: _table,
 }: CellContext<IncomingReportRow, unknown>) {
-  const isGrouped = row.getIsGrouped();
-  const canExpand = row.getCanExpand();
-  const grouping = table.getState().grouping ?? [];
-  const groupingColumnId = grouping[row.depth];
-  const isThisColumnGrouping = groupingColumnId === column.id;
-  const showExpandCollapse = isGrouped && canExpand && isThisColumnGrouping;
   const value = String(row.getValue(column.id) ?? '—');
   return (
     <div className="font-custom flex items-center gap-1">
-      {showExpandCollapse ? (
-        <button
-          type="button"
-          onClick={row.getToggleExpandedHandler()}
-          className="text-muted-foreground focus-visible:ring-primary hover:bg-primary/10 hover:text-primary inline-flex shrink-0 rounded p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-          aria-label={row.getIsExpanded() ? 'Collapse group' : 'Expand group'}
-        >
-          {row.getIsExpanded() ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
-      ) : null}
       <span
         style={{
-          paddingLeft: showExpandCollapse ? 0 : row.depth * 20,
+          paddingLeft: row.getIsGrouped() ? 0 : row.depth * 20,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function WrappedGroupableCell({
+  row,
+  column,
+  table: _table,
+}: CellContext<IncomingReportRow, unknown>) {
+  const value = String(row.getValue(column.id) ?? '—');
+
+  return (
+    <div className="font-custom flex items-start gap-1">
+      <span
+        className="leading-snug wrap-break-word whitespace-normal"
+        style={{
+          paddingLeft: row.getIsGrouped() ? 0 : row.depth * 20,
         }}
       >
         {value}
@@ -44,15 +44,10 @@ function GroupableCell({
 
 function FarmerCell({
   row,
-  column,
-  table,
+  column: _column,
+  table: _table,
 }: CellContext<IncomingReportRow, unknown>) {
   const isGrouped = row.getIsGrouped();
-  const canExpand = row.getCanExpand();
-  const grouping = table.getState().grouping ?? [];
-  const groupingColumnId = grouping[row.depth];
-  const isThisColumnGrouping = groupingColumnId === column.id;
-  const showExpandCollapse = isGrouped && canExpand && isThisColumnGrouping;
   const name = String(row.getValue('farmerName') ?? '—');
   const accountNo = row.original.accountNumber;
   const accountStr =
@@ -62,23 +57,10 @@ function FarmerCell({
 
   return (
     <div className="font-custom flex items-center gap-1">
-      {showExpandCollapse ? (
-        <button
-          type="button"
-          onClick={row.getToggleExpandedHandler()}
-          className="text-muted-foreground focus-visible:ring-primary hover:bg-primary/10 hover:text-primary inline-flex shrink-0 rounded p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-          aria-label={row.getIsExpanded() ? 'Collapse group' : 'Expand group'}
-        >
-          {row.getIsExpanded() ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
-      ) : null}
       <span
+        className="leading-snug wrap-break-word whitespace-normal"
         style={{
-          paddingLeft: showExpandCollapse ? 0 : row.depth * 20,
+          paddingLeft: isGrouped ? 0 : row.depth * 20,
         }}
       >
         {name}
@@ -119,7 +101,16 @@ export type IncomingReportRow = {
 function formatNum(value: number | string): string {
   const n = typeof value === 'number' ? value : Number(value);
   if (Number.isNaN(n)) return '—';
-  return n.toLocaleString();
+  return n.toLocaleString('en-IN');
+}
+
+function formatWeight(value: number | string): string {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(n)) return '—';
+  return n.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export const columns: ColumnDef<IncomingReportRow>[] = [
@@ -127,6 +118,9 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
     accessorKey: 'farmerName',
     header: 'Farmer',
     cell: FarmerCell,
+    size: 300,
+    minSize: 220,
+    maxSize: 560,
     enableGrouping: true,
     sortingFn: 'text',
   },
@@ -207,6 +201,11 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
         {formatNum(row.getValue('bags') as number | string)}
       </div>
     ),
+    aggregatedCell: ({ row }) => (
+      <div className="text-right font-medium">
+        {formatNum(row.getValue('bags') as number | string)}
+      </div>
+    ),
     aggregationFn: 'sum',
     enableGrouping: true,
     sortingFn: 'basic',
@@ -216,7 +215,12 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
     header: () => <div className="text-right">Gross (kg)</div>,
     cell: ({ row }) => (
       <div className="text-right font-medium">
-        {formatNum(row.getValue('grossWeightKg') as number | string)}
+        {formatWeight(row.getValue('grossWeightKg') as number | string)}
+      </div>
+    ),
+    aggregatedCell: ({ row }) => (
+      <div className="text-right font-medium">
+        {formatWeight(row.getValue('grossWeightKg') as number | string)}
       </div>
     ),
     enableGrouping: true,
@@ -226,7 +230,12 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
     header: () => <div className="text-right">Tare (kg)</div>,
     cell: ({ row }) => (
       <div className="text-right font-medium">
-        {formatNum(row.getValue('tareWeightKg') as number | string)}
+        {formatWeight(row.getValue('tareWeightKg') as number | string)}
+      </div>
+    ),
+    aggregatedCell: ({ row }) => (
+      <div className="text-right font-medium">
+        {formatWeight(row.getValue('tareWeightKg') as number | string)}
       </div>
     ),
     enableGrouping: true,
@@ -236,7 +245,12 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
     header: () => <div className="text-right">Net (kg)</div>,
     cell: ({ row }) => (
       <div className="text-right font-medium">
-        {formatNum(row.getValue('netWeightKg') as number | string)}
+        {formatWeight(row.getValue('netWeightKg') as number | string)}
+      </div>
+    ),
+    aggregatedCell: ({ row }) => (
+      <div className="text-right font-medium">
+        {formatWeight(row.getValue('netWeightKg') as number | string)}
       </div>
     ),
     enableGrouping: true,
@@ -252,7 +266,10 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
   {
     accessorKey: 'remarks',
     header: 'Remarks',
-    cell: GroupableCell,
+    cell: WrappedGroupableCell,
+    size: 320,
+    minSize: 220,
+    maxSize: 640,
     enableGrouping: true,
   },
 ];
