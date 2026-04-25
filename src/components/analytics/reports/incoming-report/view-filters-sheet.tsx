@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Sheet,
   SheetContent,
@@ -380,6 +381,16 @@ export function ViewFiltersSheet({
     });
   };
 
+  const setAllColumnsVisible = () => {
+    setDraftColumnVisibility((current) => {
+      const next = { ...current };
+      hidableColumnIds.forEach((id) => {
+        next[id] = true;
+      });
+      return next;
+    });
+  };
+
   const toggleValue = (
     columnId: FilterableColumnId,
     value: string,
@@ -469,19 +480,6 @@ export function ViewFiltersSheet({
     );
   };
 
-  const addNestedGroup = (groupId: string) => {
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, groupId, (node) =>
-        node.type === 'group'
-          ? {
-              ...node,
-              conditions: [...node.conditions, createDefaultFilterGroup()],
-            }
-          : node
-      )
-    );
-  };
-
   const removeNode = (nodeId: string) => {
     setDraftLogicFilter((current) => removeFilterNodeById(current, nodeId));
   };
@@ -557,16 +555,6 @@ export function ViewFiltersSheet({
           >
             <Plus className="mr-1 h-3 w-3" />
             Condition
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => addNestedGroup(group.id)}
-          >
-            <Plus className="mr-1 h-3 w-3" />
-            Group
           </Button>
         </div>
       </div>
@@ -864,8 +852,22 @@ export function ViewFiltersSheet({
             </TabsContent>
 
             <TabsContent value="columns" className="m-0 space-y-3">
-              <p className="font-custom text-muted-foreground text-[11px] font-semibold uppercase">
-                Column Visibility & Order
+              <div className="flex items-center justify-between">
+                <p className="font-custom text-muted-foreground text-[11px] font-semibold uppercase">
+                  Column Visibility & Order
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="font-custom text-primary h-7 text-xs"
+                  onClick={setAllColumnsVisible}
+                >
+                  Show all
+                </Button>
+              </div>
+              <p className="font-custom text-muted-foreground text-xs">
+                Drag rows to reorder. Toggle to show/hide.
               </p>
               <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
                 {orderedColumns.map((column, index) => (
@@ -886,12 +888,13 @@ export function ViewFiltersSheet({
                         {columnLabels[column.id] ?? column.id}
                       </span>
                     </div>
-                    <Checkbox
+                    <Switch
                       checked={draftColumnVisibility[column.id] ?? true}
+                      aria-label={`Toggle ${columnLabels[column.id] ?? column.id}`}
                       onCheckedChange={(checked) =>
                         setDraftColumnVisibility((current) => ({
                           ...current,
-                          [column.id]: Boolean(checked),
+                          [column.id]: checked,
                         }))
                       }
                     />
