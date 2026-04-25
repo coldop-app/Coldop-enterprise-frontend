@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.55.0] - 2026-04-25
+
+### Changed
+- Analytics Incoming report table and exported PDF now stay consistent with active table filters by exporting only the visible leaf rows from the current report snapshot
+- Incoming report PDF now mirrors UI context more closely by appending account numbers with farmer names, applying section-wise totals for grouped output, and preserving table header visibility per page
+- Incoming report table and filter sheet UI polish: normalized heading theme color, streamlined resize controls, and improved zebra-row styling for better readability in light/dark modes
+
 ## [0.54.0] - 2026-04-15
 
 ### Added

@@ -61,10 +61,6 @@ type FilterableColumnId = string;
 type ViewFiltersSheetProps = {
   table: TanstackTable<IncomingReportRow>;
   defaultColumnOrder: string[];
-  columnResizeMode: 'onChange' | 'onEnd';
-  columnResizeDirection: 'ltr' | 'rtl';
-  onColumnResizeModeChange: (mode: 'onChange' | 'onEnd') => void;
-  onColumnResizeDirectionChange: (direction: 'ltr' | 'rtl') => void;
 };
 
 const statusFilterOptions: StatusFilterValue[] = ['GRADED', 'NOT_GRADED'];
@@ -193,10 +189,6 @@ function SortableRow({ id, label, rightSlot, leftSlot }: SortableRowProps) {
 export function ViewFiltersSheet({
   table,
   defaultColumnOrder,
-  columnResizeMode,
-  columnResizeDirection,
-  onColumnResizeModeChange,
-  onColumnResizeDirectionChange,
 }: ViewFiltersSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('filters');
@@ -691,22 +683,28 @@ export function ViewFiltersSheet({
                     </option>
                   ))}
                 </select>
-                <select
-                  value={node.value}
-                  onChange={(event) =>
-                    setConditionValue(node.id, event.target.value)
-                  }
-                  className="border-border bg-background col-span-4 h-8 rounded border px-2 text-xs"
-                >
-                  <option value="">
-                    {valueOptions.length > 0 ? 'Select value...' : 'No values'}
-                  </option>
-                  {valueOptions.map((value) => (
-                    <option key={`${node.id}-${value}`} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
+                <div className="col-span-4">
+                  <input
+                    list={`logic-value-options-${node.id}`}
+                    value={node.value}
+                    onChange={(event) =>
+                      setConditionValue(node.id, event.target.value)
+                    }
+                    placeholder={
+                      valueOptions.length > 0
+                        ? 'Select value or type...'
+                        : 'Type value...'
+                    }
+                    className="border-border bg-background h-8 w-full rounded border px-2 text-xs"
+                  />
+                  {valueOptions.length > 0 ? (
+                    <datalist id={`logic-value-options-${node.id}`}>
+                      {valueOptions.map((value) => (
+                        <option key={`${node.id}-${value}`} value={value} />
+                      ))}
+                    </datalist>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   onClick={() => removeNode(node.id)}
@@ -1092,51 +1090,7 @@ export function ViewFiltersSheet({
                 <p className="font-custom text-muted-foreground text-[11px] font-semibold uppercase">
                   Column Resizing
                 </p>
-                <div className="border-border bg-background space-y-3 rounded-lg border p-3">
-                  <div className="space-y-1.5">
-                    <p className="text-muted-foreground text-xs">Resize Mode</p>
-                    <div className="flex gap-2">
-                      {(['onChange', 'onEnd'] as const).map((mode) => (
-                        <Button
-                          key={mode}
-                          type="button"
-                          variant={
-                            columnResizeMode === mode ? 'default' : 'outline'
-                          }
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => onColumnResizeModeChange(mode)}
-                        >
-                          {mode === 'onChange' ? 'Live' : 'On release'}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-muted-foreground text-xs">
-                      Resize Direction
-                    </p>
-                    <div className="flex gap-2">
-                      {(['ltr', 'rtl'] as const).map((direction) => (
-                        <Button
-                          key={direction}
-                          type="button"
-                          variant={
-                            columnResizeDirection === direction
-                              ? 'default'
-                              : 'outline'
-                          }
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() =>
-                            onColumnResizeDirectionChange(direction)
-                          }
-                        >
-                          {direction.toUpperCase()}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
+                <div className="border-border bg-background rounded-lg border p-3">
                   <Button
                     type="button"
                     variant="outline"

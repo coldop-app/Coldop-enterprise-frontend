@@ -119,6 +119,20 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
   });
 }
 
+function getLeafRowsFromSnapshot(
+  snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null
+): IncomingReportRow[] | null {
+  if (!snapshot || snapshot.rows.length === 0) return null;
+  return snapshot.rows
+    .filter(
+      (
+        item: IncomingReportPdfSnapshot<IncomingReportRow>['rows'][number]
+      ): item is { type: 'leaf'; row: IncomingReportRow } =>
+        item.type === 'leaf'
+    )
+    .map((item: { type: 'leaf'; row: IncomingReportRow }) => item.row);
+}
+
 const IncomingReportTable = () => {
   const coldStorage = useStore((s) => s.coldStorage);
   const tableRef = useRef<IncomingReportDataTableRef<IncomingReportRow>>(null);
@@ -221,6 +235,7 @@ const IncomingReportTable = () => {
     try {
       const snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null =
         tableRef.current?.getPdfSnapshot() ?? null;
+      const effectiveRows = getLeafRowsFromSnapshot(snapshot) ?? rows;
       pdfDepsPromise ??= Promise.all([
         import('@react-pdf/renderer'),
         import('@/components/pdf/analytics/incoming-report-table-pdf'),
@@ -231,7 +246,7 @@ const IncomingReportTable = () => {
           companyName={coldStorage?.name ?? 'Cold Storage'}
           dateRangeLabel={getDateRangeLabel()}
           reportTitle="Incoming Gate Pass Report"
-          rows={rows}
+          rows={effectiveRows}
           tableSnapshot={snapshot}
         />
       ).toBlob();
@@ -269,7 +284,7 @@ const IncomingReportTable = () => {
     return (
       <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
         <div className="space-y-6">
-          <h2 className="font-custom text-2xl font-semibold text-[#333]">
+          <h2 className="text-foreground font-custom text-2xl font-semibold">
             Incoming Report
           </h2>
           <Card>
@@ -294,7 +309,7 @@ const IncomingReportTable = () => {
         tabIndex={-1}
         aria-label="Incoming report content"
       >
-        <h2 className="font-custom text-2xl font-semibold text-[#333]">
+        <h2 className="text-foreground font-custom text-2xl font-semibold">
           Incoming Report
         </h2>
         <DataTable

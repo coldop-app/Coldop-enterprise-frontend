@@ -174,10 +174,8 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
   const [grouping, setGrouping] = useState<GroupingState>([]);
   const [globalFilter, setGlobalFilter] = useState<GlobalFilterValue>('');
   const [expanded, setExpanded] = useState<ExpandedState>({});
-  const [columnResizeMode, setColumnResizeMode] =
-    useState<ColumnResizeMode>('onChange');
-  const [columnResizeDirection, setColumnResizeDirection] =
-    useState<ColumnResizeDirection>('ltr');
+  const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
+  const [columnResizeDirection] = useState<ColumnResizeDirection>('ltr');
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const table = useReactTable<IncomingReportRow>({
@@ -312,39 +310,45 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
         const groupingIds = state.grouping ?? [];
         const visibleIds = table.getVisibleLeafColumns().map((col) => col.id);
         const snapshotRows: IncomingReportPdfSnapshot<TData>['rows'] = [];
-        const groupedModel = table.getGroupedRowModel();
 
-        const walkRows = (
-          modelRows: Row<IncomingReportRow>[],
-          depth: number
-        ): void => {
-          for (const row of modelRows) {
-            if (row.getIsGrouped()) {
-              const groupingColumnId = groupingIds[depth];
-              const groupingValue = groupingColumnId
-                ? row.getValue(groupingColumnId)
-                : undefined;
-              snapshotRows.push({
-                type: 'group',
-                depth,
-                groupingColumnId: groupingColumnId ?? '',
-                groupingValue,
-                displayValue:
-                  groupingValue != null && groupingValue !== ''
-                    ? String(groupingValue)
-                    : '—',
-                firstLeaf: getFirstLeaf(row) as TData | undefined,
-              });
-              if (row.subRows.length > 0) {
-                walkRows(row.subRows as Row<IncomingReportRow>[], depth + 1);
-              }
-              continue;
-            }
+        if (groupingIds.length === 0) {
+          const sortedRows = table.getSortedRowModel().rows;
+          for (const row of sortedRows) {
             snapshotRows.push({ type: 'leaf', row: row.original as TData });
           }
-        };
-
-        walkRows(groupedModel.rows as Row<IncomingReportRow>[], 0);
+        } else {
+          const groupedModel = table.getGroupedRowModel();
+          const walkRows = (
+            modelRows: Row<IncomingReportRow>[],
+            depth: number
+          ): void => {
+            for (const row of modelRows) {
+              if (row.getIsGrouped()) {
+                const groupingColumnId = groupingIds[depth];
+                const groupingValue = groupingColumnId
+                  ? row.getValue(groupingColumnId)
+                  : undefined;
+                snapshotRows.push({
+                  type: 'group',
+                  depth,
+                  groupingColumnId: groupingColumnId ?? '',
+                  groupingValue,
+                  displayValue:
+                    groupingValue != null && groupingValue !== ''
+                      ? String(groupingValue)
+                      : '—',
+                  firstLeaf: getFirstLeaf(row) as TData | undefined,
+                });
+                if (row.subRows.length > 0) {
+                  walkRows(row.subRows as Row<IncomingReportRow>[], depth + 1);
+                }
+                continue;
+              }
+              snapshotRows.push({ type: 'leaf', row: row.original as TData });
+            }
+          };
+          walkRows(groupedModel.rows as Row<IncomingReportRow>[], 0);
+        }
 
         return {
           visibleColumnIds: visibleIds,
@@ -380,10 +384,6 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
             <ViewFiltersSheet
               table={table}
               defaultColumnOrder={DEFAULT_COLUMN_ORDER}
-              columnResizeMode={columnResizeMode}
-              columnResizeDirection={columnResizeDirection}
-              onColumnResizeModeChange={setColumnResizeMode}
-              onColumnResizeDirectionChange={setColumnResizeDirection}
             />
             {toolbarRightContent}
           </div>
@@ -445,16 +445,12 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                     key={row.id}
                     data-index={virtualRow.index}
                     ref={(node) => rowVirtualizer.measureElement(node)}
-                    className="border-border hover:bg-primary/5 border-b transition-colors"
+                    className="border-border bg-background even:bg-muted/30 hover:bg-primary/5 dark:even:bg-muted/20 border-b transition-colors"
                     style={{
                       display: 'flex',
                       position: 'absolute',
                       transform: `translateY(${virtualRow.start}px)`,
                       width: '100%',
-                      backgroundColor:
-                        virtualRow.index % 2 === 0
-                          ? 'white'
-                          : 'rgb(248 250 252 / 0.55)',
                     }}
                   >
                     {visibleCells.map((cell) => {

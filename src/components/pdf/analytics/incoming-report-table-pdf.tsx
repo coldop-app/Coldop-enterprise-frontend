@@ -14,7 +14,7 @@ export interface IncomingReportTablePdfProps {
   dateRangeLabel: string;
   reportTitle?: string;
   rows: IncomingReportRow[];
-  /** When provided, honours table grouping, column visibility, and sorting from the report UI. */
+  /** When provided, honours table grouping, column visibility/order, sorting, and filtered row-set from the report UI. */
   tableSnapshot?: IncomingReportPdfSnapshot<IncomingReportRow> | null;
 }
 
@@ -327,8 +327,18 @@ function formatCell(value: unknown): string {
 
 function formatPdfRowCell(
   key: keyof IncomingReportRow,
-  value: unknown
+  value: unknown,
+  row?: IncomingReportRow
 ): string {
+  if (key === 'farmerName') {
+    const name = formatCell(value);
+    const account = row?.accountNumber;
+    const accountDisplay =
+      account != null && account !== '' && account !== '—'
+        ? ` #${String(account)}`
+        : '';
+    return `${name}${accountDisplay}`;
+  }
   if (key !== 'netWeightKg') return formatCell(value);
   if (value == null || value === '') return '—';
   const n = typeof value === 'number' ? value : Number(value);
@@ -397,7 +407,7 @@ function TableRow({ row, columns }: TableRowProps) {
             ]}
             wrap
           >
-            {formatPdfRowCell(col.key, row[col.key])}
+            {formatPdfRowCell(col.key, row[col.key], row)}
           </Text>
         </View>
       ))}
@@ -689,6 +699,41 @@ function computeIncomingReportSummary(
     .sort((a, b) => a.farmerName.localeCompare(b.farmerName));
 
   return { byVariety, byFarmer, overall };
+}
+
+function computeTotals(rows: IncomingReportRow[]): {
+  bags: number;
+  gross: number;
+  tare: number;
+  net: number;
+} {
+  const num = (v: number | string | null | undefined): number => {
+    if (v == null || v === '') return 0;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  };
+  return rows.reduce(
+    (acc, row) => {
+      acc.bags += typeof row.bags === 'number' ? row.bags : 0;
+      acc.gross += num(row.grossWeightKg);
+      acc.tare += num(row.tareWeightKg);
+      acc.net += num(row.netWeightKg);
+      return acc;
+    },
+    { bags: 0, gross: 0, tare: 0, net: 0 }
+  );
+}
+
+function getLeafRowsFromSnapshot(
+  snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null,
+  fallbackRows: IncomingReportRow[]
+): IncomingReportRow[] {
+  if (!snapshot || snapshot.rows.length === 0) return fallbackRows;
+  return snapshot.rows
+    .filter(
+      (r): r is { type: 'leaf'; row: IncomingReportRow } => r.type === 'leaf'
+    )
+    .map((r) => r.row);
 }
 
 const SUMMARY_COLUMNS = [
@@ -1079,24 +1124,22 @@ export const IncomingReportTablePdf = ({
   rows,
   tableSnapshot,
 }: IncomingReportTablePdfProps) => {
-  const summary = computeIncomingReportSummary(rows);
-  const totalBags = summary.overall.bags;
-  const totalGross = summary.overall.gross;
-  const totalTare = summary.overall.tare;
-  const totalNet = summary.overall.net;
-
   const useSnapshot = tableSnapshot != null;
+  const leafRows = getLeafRowsFromSnapshot(tableSnapshot ?? null, rows);
+  const summary = computeIncomingReportSummary(leafRows);
+  const overallTotals = computeTotals(leafRows);
 
   const visibleColumnIds =
     useSnapshot && tableSnapshot!.visibleColumnIds.length > 0
       ? tableSnapshot!.visibleColumnIds
       : ALL_COLUMNS.map((c) => c.key);
 
-  const grouping = useSnapshot ? tableSnapshot.grouping : [];
+  const grouping = useSnapshot ? tableSnapshot!.grouping : [];
+  const columnsForUngrouped = getColumnsForPdf(visibleColumnIds);
+  const columnsForGrouped = getColumnsForPdf(visibleColumnIds, grouping);
 
-  if (useSnapshot && tableSnapshot.grouping.length > 0) {
-    const sections = buildSectionsFromSnapshot(tableSnapshot);
-    const columnsForTable = getColumnsForPdf(visibleColumnIds, grouping);
+  if (useSnapshot && grouping.length > 0) {
+    const sections = buildSectionsFromSnapshot(tableSnapshot!);
     return (
       <Document>
         <Page size="A4" orientation="landscape" style={styles.page}>
@@ -1107,6 +1150,7 @@ export const IncomingReportTablePdf = ({
           />
           {sections.map((section, sectionIndex) => {
             const isFirstSection = sectionIndex === 0;
+            const sectionTotals = computeTotals(section.leaves);
             return (
               <View
                 key={sectionIndex}
@@ -1144,15 +1188,15 @@ export const IncomingReportTablePdf = ({
                 })}
                 <View style={styles.tableContainer}>
                   <View style={styles.table}>
-                    <View style={styles.tableHeaderRow} wrap={false}>
-                      {columnsForTable.map((col, i) => (
+                    <View style={styles.tableHeaderRow} wrap={false} fixed>
+                      {columnsForGrouped.map((col, i) => (
                         <Text
                           key={col.key}
                           style={[
                             col.align === 'left'
                               ? styles.cellLeft
                               : styles.cell,
-                            i === columnsForTable.length - 1
+                            i === columnsForGrouped.length - 1
                               ? styles.cellLast
                               : {},
                             { width: col.width },
@@ -1175,13 +1219,22 @@ export const IncomingReportTablePdf = ({
                         </Text>
                       </View>
                     ) : (
-                      section.leaves.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          row={row}
-                          columns={columnsForTable}
+                      <>
+                        {section.leaves.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            row={row}
+                            columns={columnsForGrouped}
+                          />
+                        ))}
+                        <TotalsRow
+                          totalBags={sectionTotals.bags}
+                          totalGross={sectionTotals.gross}
+                          totalTare={sectionTotals.tare}
+                          totalNet={sectionTotals.net}
+                          columns={columnsForGrouped}
                         />
-                      ))
+                      </>
                     )}
                   </View>
                 </View>
@@ -1191,11 +1244,11 @@ export const IncomingReportTablePdf = ({
           <View style={styles.tableContainer}>
             <View style={styles.table} wrap={false}>
               <TotalsRow
-                totalBags={totalBags}
-                totalGross={totalGross}
-                totalTare={totalTare}
-                totalNet={totalNet}
-                columns={getColumnsForPdf(visibleColumnIds)}
+                totalBags={overallTotals.bags}
+                totalGross={overallTotals.gross}
+                totalTare={overallTotals.tare}
+                totalNet={overallTotals.net}
+                columns={columnsForUngrouped}
               />
             </View>
           </View>
@@ -1210,20 +1263,7 @@ export const IncomingReportTablePdf = ({
     );
   }
 
-  const columnsForPdf =
-    useSnapshot && tableSnapshot.visibleColumnIds.length > 0
-      ? getColumnsForPdf(tableSnapshot.visibleColumnIds)
-      : ALL_COLUMNS;
-
-  const leafRows =
-    useSnapshot && tableSnapshot.rows.length > 0
-      ? tableSnapshot.rows
-          .filter(
-            (r): r is { type: 'leaf'; row: IncomingReportRow } =>
-              r.type === 'leaf'
-          )
-          .map((r) => r.row)
-      : rows;
+  const columnsForPdf = columnsForUngrouped;
 
   return (
     <Document>
@@ -1267,10 +1307,10 @@ export const IncomingReportTablePdf = ({
                   <TableRow key={row.id} row={row} columns={columnsForPdf} />
                 ))}
                 <TotalsRow
-                  totalBags={totalBags}
-                  totalGross={totalGross}
-                  totalTare={totalTare}
-                  totalNet={totalNet}
+                  totalBags={overallTotals.bags}
+                  totalGross={overallTotals.gross}
+                  totalTare={overallTotals.tare}
+                  totalNet={overallTotals.net}
                   columns={columnsForPdf}
                 />
               </>
