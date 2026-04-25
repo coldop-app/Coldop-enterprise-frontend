@@ -32,6 +32,13 @@ const DEFAULT_HIDDEN_COLUMNS = {
   tareWeightKg: false,
 } as const;
 
+let pdfDepsPromise: Promise<
+  [
+    typeof import('@react-pdf/renderer'),
+    typeof import('@/components/pdf/analytics/incoming-report-table-pdf'),
+  ]
+> | null = null;
+
 /** API can return populated createdBy and optional weightSlip/bagsReceived etc. */
 type IncomingPass = IncomingGatePassWithLink & {
   createdBy?: { _id?: string; name?: string; mobileNumber?: string } | string;
@@ -49,22 +56,16 @@ type IncomingPass = IncomingGatePassWithLink & {
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—';
-  try {
-    const d = parseISO(iso);
-    return format(d, 'yyyy-MM-dd');
-  } catch {
-    return iso;
-  }
+  const d = parseISO(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return format(d, 'yyyy-MM-dd');
 }
 
 function formatDateTime(iso: string | undefined): string {
   if (!iso) return '—';
-  try {
-    const d = parseISO(iso);
-    return format(d, 'dd MMM yyyy, HH:mm');
-  } catch {
-    return iso;
-  }
+  const d = parseISO(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return format(d, 'dd MMM yyyy, HH:mm');
 }
 
 /** Map flat API response (gate passes) to table rows */
@@ -161,6 +162,13 @@ const IncomingReportTable = () => {
       dateFrom: fromDate ? formatDateToYYYYMMDD(fromDate) : undefined,
       dateTo: toDate ? formatDateToYYYYMMDD(toDate) : undefined,
     };
+    if (
+      params.dateFrom === appliedRange.dateFrom &&
+      params.dateTo === appliedRange.dateTo
+    ) {
+      toast.info('Date filters are already applied.');
+      return;
+    }
     const fetchPromise = queryClient.fetchQuery(
       incomingGatePassReportQueryOptions(params)
     );
@@ -211,10 +219,11 @@ const IncomingReportTable = () => {
     try {
       const snapshot: IncomingReportPdfSnapshot<IncomingReportRow> | null =
         tableRef.current?.getPdfSnapshot() ?? null;
-      const [{ pdf }, { IncomingReportTablePdf }] = await Promise.all([
+      pdfDepsPromise ??= Promise.all([
         import('@react-pdf/renderer'),
         import('@/components/pdf/analytics/incoming-report-table-pdf'),
       ]);
+      const [{ pdf }, { IncomingReportTablePdf }] = await pdfDepsPromise;
       const blob = await pdf(
         <IncomingReportTablePdf
           companyName={coldStorage?.name ?? 'Cold Storage'}

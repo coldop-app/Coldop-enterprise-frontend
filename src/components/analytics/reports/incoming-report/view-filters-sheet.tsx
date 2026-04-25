@@ -3,6 +3,24 @@
 import { useMemo, useState } from 'react';
 import type { Table as TanstackTable } from '@tanstack/react-table';
 import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   SlidersHorizontal,
   ChevronDown,
   Search,
@@ -125,6 +143,53 @@ const removeFilterNodeById = (
     ),
 });
 
+type SortableRowProps = {
+  id: string;
+  label: string;
+  rightSlot: React.ReactNode;
+  leftSlot?: React.ReactNode;
+};
+
+function SortableRow({ id, label, rightSlot, leftSlot }: SortableRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-background flex items-center justify-between px-3 py-2 transition-colors ${
+        isDragging ? 'bg-muted/50 opacity-75 shadow-sm' : ''
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="text-muted-foreground cursor-grab active:cursor-grabbing"
+          aria-label={`Reorder ${label}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        {leftSlot}
+        <span className="font-custom text-sm">{label}</span>
+      </div>
+      {rightSlot}
+    </div>
+  );
+}
+
 export function ViewFiltersSheet({
   table,
   defaultColumnOrder,
@@ -135,10 +200,6 @@ export function ViewFiltersSheet({
 }: ViewFiltersSheetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('filters');
-  const [dragColumnIndex, setDragColumnIndex] = useState<number | null>(null);
-  const [dragGroupingIndex, setDragGroupingIndex] = useState<number | null>(
-    null
-  );
   const [expandedFilters, setExpandedFilters] = useState<
     Record<FilterableColumnId, boolean>
   >({});
@@ -157,6 +218,11 @@ export function ViewFiltersSheet({
   const [draftGrouping, setDraftGrouping] = useState<string[]>([]);
   const [draftLogicFilter, setDraftLogicFilter] = useState<FilterGroupNode>(
     createDefaultFilterGroup()
+  );
+  const sensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor),
+    useSensor(KeyboardSensor)
   );
 
   const hidableColumns = table
@@ -263,8 +329,6 @@ export function ViewFiltersSheet({
     if (nextOpen) {
       syncDraftFromTable();
       setActiveTab('filters');
-      setDragColumnIndex(null);
-      setDragGroupingIndex(null);
       const resetSearchQueries: Record<string, string> = {};
       const resetExpandedFilters: Record<string, boolean> = {};
       filterableColumns.forEach(({ id }) => {
@@ -437,26 +501,30 @@ export function ViewFiltersSheet({
     return allValues.filter((option) => option.toLowerCase().includes(query));
   };
 
-  const handleColumnDrop = (dropIndex: number) => {
-    if (dragColumnIndex === null || dragColumnIndex === dropIndex) return;
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
     setDraftColumnOrder((current) => {
-      const next = [...current];
-      const [moved] = next.splice(dragColumnIndex, 1);
-      next.splice(dropIndex, 0, moved);
-      return next;
+      const fromIndex = current.indexOf(String(active.id));
+      const toIndex = current.indexOf(String(over.id));
+      if (fromIndex < 0 || toIndex < 0) {
+        return current;
+      }
+      return arrayMove(current, fromIndex, toIndex);
     });
-    setDragColumnIndex(null);
   };
 
-  const handleGroupingDrop = (dropIndex: number) => {
-    if (dragGroupingIndex === null || dragGroupingIndex === dropIndex) return;
+  const handleGroupingDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
     setDraftGrouping((current) => {
-      const next = [...current];
-      const [moved] = next.splice(dragGroupingIndex, 1);
-      next.splice(dropIndex, 0, moved);
-      return next;
+      const fromIndex = current.indexOf(String(active.id));
+      const toIndex = current.indexOf(String(over.id));
+      if (fromIndex < 0 || toIndex < 0) {
+        return current;
+      }
+      return arrayMove(current, fromIndex, toIndex);
     });
-    setDragGroupingIndex(null);
   };
 
   const setGroupOperator = (groupId: string, operator: 'AND' | 'OR') => {
@@ -870,36 +938,37 @@ export function ViewFiltersSheet({
                 Drag rows to reorder. Toggle to show/hide.
               </p>
               <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
-                {orderedColumns.map((column, index) => (
-                  <div
-                    key={column.id}
-                    draggable
-                    onDragStart={() => setDragColumnIndex(index)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => handleColumnDrop(index)}
-                    onDragEnd={() => setDragColumnIndex(null)}
-                    className={`bg-background flex items-center justify-between px-3 py-2 ${
-                      dragColumnIndex === index ? 'opacity-70' : ''
-                    }`}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToVerticalAxis]}
+                  onDragEnd={handleColumnDragEnd}
+                >
+                  <SortableContext
+                    items={orderedColumns.map((column) => column.id)}
+                    strategy={verticalListSortingStrategy}
                   >
-                    <div className="flex items-center gap-2">
-                      <GripVertical className="text-muted-foreground h-4 w-4" />
-                      <span className="font-custom text-sm">
-                        {columnLabels[column.id] ?? column.id}
-                      </span>
-                    </div>
-                    <Switch
-                      checked={draftColumnVisibility[column.id] ?? true}
-                      aria-label={`Toggle ${columnLabels[column.id] ?? column.id}`}
-                      onCheckedChange={(checked) =>
-                        setDraftColumnVisibility((current) => ({
-                          ...current,
-                          [column.id]: checked,
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
+                    {orderedColumns.map((column) => (
+                      <SortableRow
+                        key={column.id}
+                        id={column.id}
+                        label={columnLabels[column.id] ?? column.id}
+                        rightSlot={
+                          <Switch
+                            checked={draftColumnVisibility[column.id] ?? true}
+                            aria-label={`Toggle ${columnLabels[column.id] ?? column.id}`}
+                            onCheckedChange={(checked) =>
+                              setDraftColumnVisibility((current) => ({
+                                ...current,
+                                [column.id]: checked,
+                              }))
+                            }
+                          />
+                        }
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </div>
             </TabsContent>
 
@@ -926,36 +995,43 @@ export function ViewFiltersSheet({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {draftGrouping.map((columnId, index) => (
-                    <div
-                      key={columnId}
-                      draggable
-                      onDragStart={() => setDragGroupingIndex(index)}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={() => handleGroupingDrop(index)}
-                      onDragEnd={() => setDragGroupingIndex(null)}
-                      className="border-border bg-muted/30 flex items-center gap-2 rounded-md border px-3 py-2"
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    modifiers={[restrictToVerticalAxis]}
+                    onDragEnd={handleGroupingDragEnd}
+                  >
+                    <SortableContext
+                      items={draftGrouping}
+                      strategy={verticalListSortingStrategy}
                     >
-                      <GripVertical className="text-muted-foreground h-4 w-4" />
-                      <span className="bg-primary text-primary-foreground inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
-                        {index + 1}
-                      </span>
-                      <span className="font-custom flex-1 text-sm">
-                        {columnLabels[columnId] ?? columnId}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() =>
-                          setDraftGrouping((current) =>
-                            current.filter((id) => id !== columnId)
-                          )
-                        }
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                      {draftGrouping.map((columnId, index) => (
+                        <SortableRow
+                          key={columnId}
+                          id={columnId}
+                          label={columnLabels[columnId] ?? columnId}
+                          leftSlot={
+                            <span className="bg-primary text-primary-foreground inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
+                              {index + 1}
+                            </span>
+                          }
+                          rightSlot={
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                setDraftGrouping((current) =>
+                                  current.filter((id) => id !== columnId)
+                                )
+                              }
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          }
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
               )}
               <div className="space-y-1.5">

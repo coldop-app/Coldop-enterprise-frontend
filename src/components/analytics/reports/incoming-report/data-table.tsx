@@ -105,6 +105,12 @@ const TOTAL_COLUMN_IDS = [
   'tareWeightKg',
   'netWeightKg',
 ] as const;
+const RIGHT_ALIGNED_COLUMN_IDS = new Set([
+  'bags',
+  'grossWeightKg',
+  'tareWeightKg',
+  'netWeightKg',
+]);
 
 const globalGatePassFilterFn: FilterFn<IncomingReportRow> = (
   row,
@@ -217,11 +223,6 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
   });
 
   const rows = table.getRowModel().rows;
-  const visibleColumns = table.getVisibleLeafColumns();
-  const visibleColumnIds = useMemo(
-    () => visibleColumns.map((column) => column.id),
-    [visibleColumns]
-  );
 
   const totals = useMemo(() => {
     const acc: Record<string, number> = {};
@@ -247,12 +248,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
   const virtualRows = rowVirtualizer.getVirtualItems();
 
   const renderHeaderCell = (header: Header<IncomingReportRow, unknown>) => {
-    const isRightAligned = [
-      'bags',
-      'grossWeightKg',
-      'tareWeightKg',
-      'netWeightKg',
-    ].includes(header.id);
+    const isRightAligned = RIGHT_ALIGNED_COLUMN_IDS.has(header.id);
     return (
       <th
         key={header.id}
@@ -426,13 +422,11 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                   key={headerGroup.id}
                   style={{ display: 'flex', width: '100%' }}
                 >
-                  {visibleColumnIds.map((columnId) => {
-                    const header = headerGroup.headers.find(
-                      (groupHeader) => groupHeader.id === columnId
-                    ) as Header<IncomingReportRow, unknown> | undefined;
-                    if (!header) return null;
-                    return renderHeaderCell(header);
-                  })}
+                  {headerGroup.headers.map((header) =>
+                    renderHeaderCell(
+                      header as Header<IncomingReportRow, unknown>
+                    )
+                  )}
                 </tr>
               ))}
             </thead>
@@ -463,11 +457,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                           : 'rgb(248 250 252 / 0.55)',
                     }}
                   >
-                    {visibleColumnIds.map((columnId) => {
-                      const cell = visibleCells.find(
-                        (visibleCell) => visibleCell.column.id === columnId
-                      );
-                      if (!cell) return null;
+                    {visibleCells.map((cell) => {
                       const isGroupedCell = cell.getIsGrouped();
                       const isAggregatedCell = cell.getIsAggregated();
                       const isPlaceholderCell = cell.getIsPlaceholder();
@@ -541,11 +531,13 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
 
       {typedData.length > 0 && totalColumnIds.length > 0 ? (
         <div className="text-muted-foreground font-custom flex flex-wrap gap-3 text-xs">
-          {Object.entries(totals).map(([columnId, total]) => (
-            <span key={columnId}>
-              {columnId}: <strong>{total.toLocaleString()}</strong>
-            </span>
-          ))}
+          {(Object.entries(totals) as Array<[string, number]>).map(
+            ([columnId, total]) => (
+              <span key={columnId}>
+                {columnId}: <strong>{total.toLocaleString()}</strong>
+              </span>
+            )
+          )}
         </div>
       ) : null}
     </div>

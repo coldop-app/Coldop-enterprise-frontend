@@ -356,7 +356,7 @@ function ReportHeader({
 
 function FooterSection() {
   return (
-    <View fixed style={styles.footer}>
+    <View style={styles.footer}>
       <View style={styles.footerBrandWrap}>
         <Image
           src="https://res.cloudinary.com/dakh64xhy/image/upload/v1753172868/profile_pictures/lhdlzskpe2gj8dq8jvzl.png"
@@ -1079,24 +1079,11 @@ export const IncomingReportTablePdf = ({
   rows,
   tableSnapshot,
 }: IncomingReportTablePdfProps) => {
-  const totalBags = rows.reduce(
-    (sum, r) => sum + (typeof r.bags === 'number' ? r.bags : 0),
-    0
-  );
-  const totalGross = rows.reduce((sum, r) => {
-    const v = r.grossWeightKg;
-    return sum + (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
-  }, 0);
-  const totalTare = rows.reduce((sum, r) => {
-    const v = r.tareWeightKg;
-    return sum + (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
-  }, 0);
-  const totalNet = rows.reduce((sum, r) => {
-    const v = r.netWeightKg;
-    return sum + (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
-  }, 0);
-
   const summary = computeIncomingReportSummary(rows);
+  const totalBags = summary.overall.bags;
+  const totalGross = summary.overall.gross;
+  const totalTare = summary.overall.tare;
+  const totalNet = summary.overall.net;
 
   const useSnapshot = tableSnapshot != null;
 
@@ -1212,7 +1199,6 @@ export const IncomingReportTablePdf = ({
               />
             </View>
           </View>
-          <FooterSection />
         </Page>
         <ReportSummaryPage
           companyName={companyName}
@@ -1291,7 +1277,6 @@ export const IncomingReportTablePdf = ({
             )}
           </View>
         </View>
-        <FooterSection />
       </Page>
       <ReportSummaryPage
         companyName={companyName}
