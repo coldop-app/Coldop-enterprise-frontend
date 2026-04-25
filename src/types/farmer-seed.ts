@@ -144,6 +144,37 @@ export interface GetAllFarmerSeedEntriesApiResponse {
   message?: string;
 }
 
+/** Populated farmer–storage link on GET /farmer-seed/:id */
+export interface FarmerSeedSingleEntryStorageLink {
+  _id: string;
+  farmerId: FarmerSeedEntryListFarmerRef;
+  coldStorageId: string;
+  accountNumber: number;
+}
+
+/** Row from GET /farmer-seed/:id */
+export interface FarmerSeedSingleEntry {
+  _id: string;
+  farmerStorageLinkId: FarmerSeedSingleEntryStorageLink;
+  gatePassNo: number | null;
+  invoiceNumber: string | null;
+  date: string;
+  variety: string;
+  generation: string;
+  bagSizes: FarmerSeedBagSize[];
+  remarks?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  __v?: number;
+}
+
+/** API response for GET /farmer-seed/:id */
+export interface GetSingleFarmerSeedEntryByIdApiResponse {
+  success: boolean;
+  data: FarmerSeedSingleEntry | null;
+  message?: string;
+}
+
 /** User reference on farmer seed audit entries */
 export interface FarmerSeedAuditEditorRef {
   _id: string;

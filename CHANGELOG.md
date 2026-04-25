@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.57.0] - 2026-04-25
+
+### Added
+- Farmer seed single-entry fetch support via `useGetSingleFarmerSeedEntryById` (GET `/farmer-seed/:id`) with shared query options/prefetch and typed API contracts (`FarmerSeedSingleEntry`, `GetSingleFarmerSeedEntryByIdApiResponse`)
+- Farmer seed edit route search validation for optional `id` query param, enabling direct deep-link navigation into edit mode
+
+### Changed
+- Farmer seed report table rows are now clickable and navigate directly to `/store-admin/farmer-seed/edit?id=<entryId>` while also passing router state for immediate edit prefill
+- Farmer seed edit screen now resolves entries from either router state or by-id fetch (loading/error states included), so refresh and direct-link edit flows both work reliably
+- Farmer seed edit form now supports a quick “Mark as null” action to zero out quantity/rate/acres across fixed and extra bag-size rows for fast corrections
+
 ## [0.56.0] - 2026-04-25
 
 ### Added

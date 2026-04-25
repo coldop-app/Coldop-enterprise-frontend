@@ -101,6 +101,7 @@ interface DataTableProps<TData, TValue> {
   totalColumnIds?: readonly string[];
   toolbarLeftContent?: React.ReactNode;
   toolbarRightContent?: React.ReactNode;
+  onRowClick?: (row: TData) => void;
 }
 
 const TOTAL_COLUMN_IDS = ['totalBags', 'totalSeedAmount'] as const;
@@ -159,6 +160,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
     totalColumnIds = [...TOTAL_COLUMN_IDS],
     toolbarLeftContent,
     toolbarRightContent,
+    onRowClick,
   }: DataTableProps<TData, TValue>,
   ref: React.Ref<FarmerSeedReportDataTableRef<TData>>
 ) {
@@ -486,7 +488,18 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                     key={row.id}
                     data-index={virtualRow.index}
                     ref={(node) => rowVirtualizer.measureElement(node)}
-                    className="border-border bg-background even:bg-muted/30 hover:bg-primary/5 dark:even:bg-muted/20 border-b transition-colors"
+                    className={`border-border bg-background even:bg-muted/30 dark:even:bg-muted/20 border-b transition-colors ${
+                      row.getIsGrouped()
+                        ? 'hover:bg-primary/5'
+                        : onRowClick
+                          ? 'hover:bg-primary/5 cursor-pointer'
+                          : 'hover:bg-primary/5'
+                    }`}
+                    onClick={() => {
+                      if (!row.getIsGrouped() && onRowClick) {
+                        onRowClick(row.original as TData);
+                      }
+                    }}
                     style={{
                       display: 'flex',
                       position: 'absolute',
@@ -505,7 +518,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                             display: 'flex',
                             width: cell.column.getSize(),
                           }}
-                          className={`border-border text-foreground min-w-0 overflow-hidden border-r px-3 py-2 break-words whitespace-normal last:border-r-0 ${
+                          className={`border-border text-foreground min-w-0 overflow-hidden border-r px-3 py-2 wrap-break-word whitespace-normal last:border-r-0 ${
                             isGroupedCell
                               ? 'bg-primary/10'
                               : isAggregatedCell

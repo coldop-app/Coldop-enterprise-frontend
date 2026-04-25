@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { format, parseISO } from 'date-fns';
 import { FileDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -90,6 +91,7 @@ function mapEntriesToRows(
 }
 
 const FarmerSeedReportTable = () => {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useGetAllFarmerSeedEntries();
   const coldStorage = useStore((s) => s.coldStorage);
   const tableRef =
@@ -231,6 +233,16 @@ const FarmerSeedReportTable = () => {
     }
   };
 
+  const handleRowClick = (row: FarmerSeedReportRow) => {
+    const selectedEntry = data?.data?.find((entry) => entry._id === row.id);
+    if (!selectedEntry) return;
+    void navigate({
+      to: '/store-admin/farmer-seed/edit',
+      search: { id: selectedEntry._id },
+      state: { farmerSeedEntry: selectedEntry } as never,
+    });
+  };
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
@@ -273,6 +285,7 @@ const FarmerSeedReportTable = () => {
           ref={tableRef}
           columns={reportColumns}
           data={filteredRows}
+          onRowClick={handleRowClick}
           totalColumnIds={totalColumnIds}
           toolbarLeftContent={
             <>

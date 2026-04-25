@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
 import * as z from 'zod';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -31,16 +31,19 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 import { useEditFarmerSeedEntry } from '@/services/store-admin/farmer-seed/useEditFarmerSeedEntry';
+import { useGetSingleFarmerSeedEntryById } from '@/services/store-admin/farmer-seed/useGetSingleFarmerSeedEntryByI';
 import type {
   FarmerSeedEntryByStorageLink,
   FarmerSeedEntryListItem,
+  FarmerSeedSingleEntry,
 } from '@/types/farmer-seed';
 import { toast } from 'sonner';
 
 /** Entry shape for the shared edit form (people flow or daybook list item). */
 export type FarmerSeedEditableEntry =
   | FarmerSeedEntryByStorageLink
-  | FarmerSeedEntryListItem;
+  | FarmerSeedEntryListItem
+  | FarmerSeedSingleEntry;
 
 type FieldErrors = Array<{ message?: string } | undefined>;
 type FarmerSeedBagSizeRow = {
@@ -237,6 +240,37 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
         }}
         className="space-y-6"
       >
+        <div className="flex justify-start">
+          <Button
+            type="button"
+            variant="destructive"
+            className="font-custom"
+            onClick={() => {
+              form.setFieldValue(
+                'bagSizes',
+                form.state.values.bagSizes.map((row) => ({
+                  ...row,
+                  quantity: 0,
+                  rate: 0,
+                  acres: 0,
+                }))
+              );
+              form.setFieldValue(
+                'extraBagSizeRows' as never,
+                form.state.values.extraBagSizeRows.map((row) => ({
+                  ...row,
+                  quantity: 0,
+                  rate: 0,
+                  acres: 0,
+                })) as never
+              );
+            }}
+            disabled={isPending}
+          >
+            Mark as null
+          </Button>
+        </div>
+
         <FieldGroup className="space-y-6">
           <form.Field
             name="gatePassNo"
@@ -770,13 +804,60 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
 
 const FarmerSeedEdit = memo(function FarmerSeedEdit() {
   const navigate = useNavigate();
+  const search = useSearch({
+    from: '/store-admin/_authenticated/farmer-seed/edit/',
+  });
+  const entryId = search.id ?? '';
   const routerState = useRouterState({
     select: (state) =>
       state.location.state as
-        | { farmerSeedEntry?: FarmerSeedEntryByStorageLink }
+        | { farmerSeedEntry?: FarmerSeedEditableEntry }
         | undefined,
   });
-  const entry = routerState?.farmerSeedEntry;
+  const stateEntry = routerState?.farmerSeedEntry;
+  const {
+    data: fetchedEntry,
+    isLoading: isLoadingEntry,
+    error: fetchEntryError,
+  } = useGetSingleFarmerSeedEntryById(entryId);
+  const entry = stateEntry ?? fetchedEntry;
+
+  if (isLoadingEntry && !stateEntry && entryId) {
+    return (
+      <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
+        <Card>
+          <CardContent className="space-y-4 py-6">
+            <p className="font-custom text-muted-foreground">
+              Loading farmer seed entry...
+            </p>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  if (fetchEntryError && !stateEntry && entryId) {
+    return (
+      <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
+        <Card>
+          <CardContent className="space-y-4 py-6">
+            <p className="font-custom text-destructive">
+              {fetchEntryError instanceof Error
+                ? fetchEntryError.message
+                : 'Failed to load farmer seed entry.'}
+            </p>
+            <Button
+              type="button"
+              className="font-custom"
+              onClick={() => navigate({ to: '/store-admin/people' })}
+            >
+              Back to People
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
 
   if (!entry) {
     return (
