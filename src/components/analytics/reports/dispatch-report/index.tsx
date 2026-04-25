@@ -315,6 +315,24 @@ function GroupableCell({
   );
 }
 
+function FarmerCell({ row }: CellContext<DispatchReportRow, unknown>) {
+  const name = String(row.getValue('farmerName') ?? '—');
+  const accountNo = row.original.accountNumber;
+  const accountStr =
+    accountNo != null && accountNo !== '' && accountNo !== '—'
+      ? ` #${accountNo}`
+      : '';
+
+  return (
+    <span className="font-custom">
+      {name}
+      {accountStr ? (
+        <span className="text-muted-foreground font-normal">{accountStr}</span>
+      ) : null}
+    </span>
+  );
+}
+
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—';
   try {
@@ -434,15 +452,7 @@ function getDispatchReportColumns(
     {
       accessorKey: 'farmerName',
       header: () => <span className="font-custom">Farmer</span>,
-    },
-    {
-      accessorKey: 'accountNumber',
-      header: () => <div className="font-custom text-right">Account No.</div>,
-      cell: ({ row }) => (
-        <div className="text-right">
-          {String(row.getValue('accountNumber') ?? '—')}
-        </div>
-      ),
+      cell: FarmerCell,
     },
     {
       accessorKey: 'farmerAddress',

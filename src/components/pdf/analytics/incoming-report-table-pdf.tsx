@@ -1,4 +1,11 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import {
+  Document,
+  Image,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+} from '@react-pdf/renderer';
 import type { IncomingReportRow } from '@/components/analytics/reports/incoming-report/columns';
 import type { IncomingReportPdfSnapshot } from '@/components/analytics/reports/incoming-report/data-table';
 
@@ -18,7 +25,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -28,17 +35,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   companyName: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 3,
   },
   reportTitle: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: 'bold',
     marginBottom: 6,
   },
   dateRange: {
-    fontSize: 9,
+    fontSize: 11,
     marginBottom: 6,
   },
   tableContainer: {
@@ -73,12 +80,12 @@ const styles = StyleSheet.create({
   },
   cell: {
     paddingHorizontal: 0,
-    fontSize: 6,
+    fontSize: 9,
     textAlign: 'center',
   },
   cellLeft: {
     paddingHorizontal: 0,
-    fontSize: 6,
+    fontSize: 9,
     textAlign: 'left',
   },
   cellLast: {
@@ -92,7 +99,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellText: {
-    fontSize: 6,
+    fontSize: 9,
     width: '100%',
     maxWidth: '100%',
   },
@@ -110,12 +117,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   farmerHeaderTitle: {
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   farmerHeaderRow: {
-    fontSize: 8,
+    fontSize: 10,
     marginBottom: 2,
   },
   varietySection: {
@@ -132,7 +139,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   varietyHeaderTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   genericSection: {
@@ -149,7 +156,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   genericHeaderTitle: {
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   summaryPage: {
@@ -157,7 +164,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   summarySection: {
     marginTop: 14,
@@ -166,7 +173,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   summaryTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 6,
     borderBottomWidth: 1,
@@ -203,20 +210,47 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 10,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 10,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLast: {
     borderRightWidth: 0,
+  },
+  footer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#222',
+    paddingTop: 6,
+  },
+  footerBrandWrap: {
+    backgroundColor: '#E7E7E7',
+    borderRadius: 5,
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  footerLogo: {
+    width: 22,
+    height: 22,
+  },
+  poweredBy: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#2D2D2D',
   },
 });
 
@@ -232,10 +266,15 @@ const ALL_COLUMNS: {
   { key: 'farmerMobile', label: 'Mobile', width: '6%', align: 'center' },
   { key: 'createdByName', label: 'Created by', width: '8%', align: 'left' },
   { key: 'location', label: 'Location', width: '8%', align: 'left' },
-  { key: 'gatePassNo', label: 'Gate pass no.', width: '5%', align: 'center' },
+  {
+    key: 'gatePassNo',
+    label: 'System Generated Gate Pass No.',
+    width: '5%',
+    align: 'center',
+  },
   {
     key: 'manualGatePassNumber',
-    label: 'Manual GP no.',
+    label: 'Manual Gate Pass No.',
     width: '5%',
     align: 'center',
   },
@@ -286,6 +325,17 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
+function formatPdfRowCell(
+  key: keyof IncomingReportRow,
+  value: unknown
+): string {
+  if (key !== 'netWeightKg') return formatCell(value);
+  if (value == null || value === '') return '—';
+  const n = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(n)) return '—';
+  return n.toFixed(2);
+}
+
 function ReportHeader({
   companyName,
   dateRangeLabel,
@@ -304,6 +354,20 @@ function ReportHeader({
   );
 }
 
+function FooterSection() {
+  return (
+    <View fixed style={styles.footer}>
+      <View style={styles.footerBrandWrap}>
+        <Image
+          src="https://res.cloudinary.com/dakh64xhy/image/upload/v1753172868/profile_pictures/lhdlzskpe2gj8dq8jvzl.png"
+          style={styles.footerLogo}
+        />
+        <Text style={styles.poweredBy}>Powered by Coldop</Text>
+      </View>
+    </View>
+  );
+}
+
 interface TableRowProps {
   row: IncomingReportRow;
   columns: {
@@ -316,7 +380,7 @@ interface TableRowProps {
 
 function TableRow({ row, columns }: TableRowProps) {
   return (
-    <View style={styles.tableRow}>
+    <View style={styles.tableRow} wrap={false}>
       {columns.map((col, i) => (
         <View
           key={col.key}
@@ -333,7 +397,7 @@ function TableRow({ row, columns }: TableRowProps) {
             ]}
             wrap
           >
-            {formatCell(row[col.key])}
+            {formatPdfRowCell(col.key, row[col.key])}
           </Text>
         </View>
       ))}
@@ -361,7 +425,7 @@ function TotalsRow({
 }) {
   const fmt = (n: number) => (Number.isNaN(n) ? '—' : n.toFixed(2));
   return (
-    <View style={styles.tableRowTotal}>
+    <View style={styles.tableRowTotal} wrap={false}>
       {columns.map((col, i) => {
         if (col.key === 'bags')
           return (
@@ -649,7 +713,7 @@ function ReportSummaryPage({
 }) {
   const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(2));
   return (
-    <Page size="A4" style={styles.summaryPage}>
+    <Page size="A4" orientation="landscape" style={styles.summaryPage}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -1003,6 +1067,7 @@ function ReportSummaryPage({
           </View>
         </View>
       </View>
+      <FooterSection />
     </Page>
   );
 }
@@ -1033,25 +1098,21 @@ export const IncomingReportTablePdf = ({
 
   const summary = computeIncomingReportSummary(rows);
 
-  const useSnapshot =
-    tableSnapshot &&
-    tableSnapshot.rows.length > 0 &&
-    (tableSnapshot.grouping.length > 0 ||
-      tableSnapshot.visibleColumnIds.length > 0);
+  const useSnapshot = tableSnapshot != null;
 
   const visibleColumnIds =
     useSnapshot && tableSnapshot!.visibleColumnIds.length > 0
       ? tableSnapshot!.visibleColumnIds
       : ALL_COLUMNS.map((c) => c.key);
 
-  const grouping = useSnapshot ? tableSnapshot!.grouping : [];
+  const grouping = useSnapshot ? tableSnapshot.grouping : [];
 
-  if (useSnapshot && tableSnapshot!.grouping.length > 0) {
-    const sections = buildSectionsFromSnapshot(tableSnapshot!);
+  if (useSnapshot && tableSnapshot.grouping.length > 0) {
+    const sections = buildSectionsFromSnapshot(tableSnapshot);
     const columnsForTable = getColumnsForPdf(visibleColumnIds, grouping);
     return (
       <Document>
-        <Page size="A4" style={styles.page}>
+        <Page size="A4" orientation="landscape" style={styles.page}>
           <ReportHeader
             companyName={companyName}
             dateRangeLabel={dateRangeLabel}
@@ -1096,7 +1157,7 @@ export const IncomingReportTablePdf = ({
                 })}
                 <View style={styles.tableContainer}>
                   <View style={styles.table}>
-                    <View style={styles.tableHeaderRow}>
+                    <View style={styles.tableHeaderRow} wrap={false}>
                       {columnsForTable.map((col, i) => (
                         <Text
                           key={col.key}
@@ -1141,7 +1202,7 @@ export const IncomingReportTablePdf = ({
             );
           })}
           <View style={styles.tableContainer}>
-            <View style={styles.table}>
+            <View style={styles.table} wrap={false}>
               <TotalsRow
                 totalBags={totalBags}
                 totalGross={totalGross}
@@ -1151,6 +1212,7 @@ export const IncomingReportTablePdf = ({
               />
             </View>
           </View>
+          <FooterSection />
         </Page>
         <ReportSummaryPage
           companyName={companyName}
@@ -1163,13 +1225,13 @@ export const IncomingReportTablePdf = ({
   }
 
   const columnsForPdf =
-    useSnapshot && tableSnapshot!.visibleColumnIds.length > 0
-      ? getColumnsForPdf(tableSnapshot!.visibleColumnIds)
+    useSnapshot && tableSnapshot.visibleColumnIds.length > 0
+      ? getColumnsForPdf(tableSnapshot.visibleColumnIds)
       : ALL_COLUMNS;
 
   const leafRows =
-    useSnapshot && tableSnapshot!.rows.length > 0
-      ? tableSnapshot!.rows
+    useSnapshot && tableSnapshot.rows.length > 0
+      ? tableSnapshot.rows
           .filter(
             (r): r is { type: 'leaf'; row: IncomingReportRow } =>
               r.type === 'leaf'
@@ -1179,7 +1241,7 @@ export const IncomingReportTablePdf = ({
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <ReportHeader
           companyName={companyName}
           dateRangeLabel={dateRangeLabel}
@@ -1187,7 +1249,7 @@ export const IncomingReportTablePdf = ({
         />
         <View style={styles.tableContainer}>
           <View style={styles.table}>
-            <View style={styles.tableHeaderRow}>
+            <View style={styles.tableHeaderRow} wrap={false} fixed>
               {columnsForPdf.map((col, i) => (
                 <Text
                   key={col.key}
@@ -1229,6 +1291,7 @@ export const IncomingReportTablePdf = ({
             )}
           </View>
         </View>
+        <FooterSection />
       </Page>
       <ReportSummaryPage
         companyName={companyName}

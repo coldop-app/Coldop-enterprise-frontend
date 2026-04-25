@@ -1,206 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { ColumnDef, CellContext } from '@tanstack/table-core';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, MoreVertical } from 'lucide-react';
-
-/** Reusable header with vertical 3-dot menu for groupable columns */
-function GroupableHeader({
-  column,
-  label,
-}: {
-  column: { getIsGrouped: () => boolean; toggleGrouping: () => void };
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-custom">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleGrouping();
-            }}
-          >
-            {column.getIsGrouped()
-              ? `Ungroup by ${label}`
-              : `Group by ${label}`}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-type SortState = { id: string; desc: boolean }[];
-
-/** Reusable header with vertical 3-dot menu for sortable columns (Account No., Gate pass no., Manual GP no.) */
-function SortableHeader({
-  column,
-  table,
-  label,
-}: {
-  column: {
-    id: string;
-    getIsSorted: () => false | 'asc' | 'desc';
-    toggleSorting: (desc?: boolean) => void;
-  };
-  table: {
-    options: {
-      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
-    };
-  };
-  label: string;
-}) {
-  const isSorted = column.getIsSorted();
-  const columnId = column.id;
-  return (
-    <div className="flex items-center justify-end gap-1">
-      <span className="font-custom">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleSorting(false);
-            }}
-          >
-            Sort ascending
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleSorting(true);
-            }}
-          >
-            Sort descending
-          </DropdownMenuItem>
-          {isSorted && (
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                table.options.onSortingChange?.((prev) =>
-                  prev.filter((s) => s.id !== columnId)
-                );
-              }}
-            >
-              Clear sort
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-/** Header with 3-dot menu for columns that support both grouping and sorting (e.g. Date) */
-function GroupableSortableHeader({
-  column,
-  table,
-  label,
-}: {
-  column: {
-    id: string;
-    getIsGrouped: () => boolean;
-    toggleGrouping: () => void;
-    getIsSorted: () => false | 'asc' | 'desc';
-    toggleSorting: (desc?: boolean) => void;
-  };
-  table: {
-    options: {
-      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
-    };
-  };
-  label: string;
-}) {
-  const isSorted = column.getIsSorted();
-  const columnId = column.id;
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-custom">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleGrouping();
-            }}
-          >
-            {column.getIsGrouped()
-              ? `Ungroup by ${label}`
-              : `Group by ${label}`}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleSorting(false);
-            }}
-          >
-            Sort ascending
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleSorting(true);
-            }}
-          >
-            Sort descending
-          </DropdownMenuItem>
-          {isSorted && (
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                table.options.onSortingChange?.((prev) =>
-                  prev.filter((s) => s.id !== columnId)
-                );
-              }}
-            >
-              Clear sort
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 /** Reusable cell with expand/collapse only in the column that owns this row's group */
 function GroupableCell({
@@ -242,6 +42,56 @@ function GroupableCell({
   );
 }
 
+function FarmerCell({
+  row,
+  column,
+  table,
+}: CellContext<IncomingReportRow, unknown>) {
+  const isGrouped = row.getIsGrouped();
+  const canExpand = row.getCanExpand();
+  const grouping = table.getState().grouping ?? [];
+  const groupingColumnId = grouping[row.depth];
+  const isThisColumnGrouping = groupingColumnId === column.id;
+  const showExpandCollapse = isGrouped && canExpand && isThisColumnGrouping;
+  const name = String(row.getValue('farmerName') ?? '—');
+  const accountNo = row.original.accountNumber;
+  const accountStr =
+    accountNo != null && accountNo !== '' && accountNo !== '—'
+      ? ` #${accountNo}`
+      : '';
+
+  return (
+    <div className="font-custom flex items-center gap-1">
+      {showExpandCollapse ? (
+        <button
+          type="button"
+          onClick={row.getToggleExpandedHandler()}
+          className="text-muted-foreground focus-visible:ring-primary hover:bg-primary/10 hover:text-primary inline-flex shrink-0 rounded p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          aria-label={row.getIsExpanded() ? 'Collapse group' : 'Expand group'}
+        >
+          {row.getIsExpanded() ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+      ) : null}
+      <span
+        style={{
+          paddingLeft: showExpandCollapse ? 0 : row.depth * 20,
+        }}
+      >
+        {name}
+        {!isGrouped && accountStr ? (
+          <span className="text-muted-foreground font-normal">
+            {accountStr}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 export type IncomingReportRow = {
   id: string;
   farmerName: string;
@@ -275,65 +125,49 @@ function formatNum(value: number | string): string {
 export const columns: ColumnDef<IncomingReportRow>[] = [
   {
     accessorKey: 'farmerName',
-    header: ({ column }) => <GroupableHeader column={column} label="Farmer" />,
-    cell: GroupableCell,
+    header: 'Farmer',
+    cell: FarmerCell,
     enableGrouping: true,
-  },
-  {
-    accessorKey: 'accountNumber',
-    header: ({ column, table }) => (
-      <SortableHeader column={column} table={table} label="Account No." />
-    ),
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.getIsGrouped()
-          ? '—'
-          : String(row.getValue('accountNumber') ?? '—')}
-      </div>
-    ),
-    aggregationFn: () => null,
-    enableSorting: true,
+    sortingFn: 'text',
   },
   {
     accessorKey: 'farmerAddress',
-    header: ({ column }) => <GroupableHeader column={column} label="Address" />,
+    header: 'Address',
     cell: GroupableCell,
     enableGrouping: true,
   },
   {
     accessorKey: 'farmerMobile',
     header: 'Mobile',
+    enableGrouping: true,
   },
   {
     accessorKey: 'createdByName',
     header: 'Created by',
+    enableGrouping: true,
   },
   {
     accessorKey: 'location',
-    header: ({ column }) => (
-      <GroupableHeader column={column} label="Location" />
-    ),
+    header: 'Location',
     cell: GroupableCell,
     enableGrouping: true,
   },
   {
     accessorKey: 'gatePassNo',
-    header: ({ column, table }) => (
-      <SortableHeader column={column} table={table} label="Gate pass no." />
-    ),
+    header: 'System generated Gate Pass No.',
     cell: ({ row }) => (
       <div className="text-right">
         {row.getIsGrouped() ? '—' : String(row.getValue('gatePassNo') ?? '—')}
       </div>
     ),
     aggregationFn: () => null,
+    enableGrouping: true,
     enableSorting: true,
+    sortingFn: 'alphanumeric',
   },
   {
     accessorKey: 'manualGatePassNumber',
-    header: ({ column, table }) => (
-      <SortableHeader column={column} table={table} label="Manual GP no." />
-    ),
+    header: 'Manual Gate Pass No.',
     cell: ({ row }) => (
       <div className="text-right">
         {row.getIsGrouped()
@@ -342,26 +176,28 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
       </div>
     ),
     aggregationFn: () => null,
+    enableGrouping: true,
     enableSorting: true,
   },
   {
     accessorKey: 'date',
-    header: ({ column, table }) => (
-      <GroupableSortableHeader column={column} table={table} label="Date" />
-    ),
+    header: 'Date',
     cell: GroupableCell,
     enableGrouping: true,
     enableSorting: true,
+    sortingFn: 'datetime',
   },
   {
     accessorKey: 'variety',
-    header: ({ column }) => <GroupableHeader column={column} label="Variety" />,
+    header: 'Variety',
     cell: GroupableCell,
     enableGrouping: true,
+    sortingFn: 'text',
   },
   {
     accessorKey: 'truckNumber',
     header: 'Truck no.',
+    enableGrouping: true,
   },
   {
     accessorKey: 'bags',
@@ -372,6 +208,8 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
       </div>
     ),
     aggregationFn: 'sum',
+    enableGrouping: true,
+    sortingFn: 'basic',
   },
   {
     accessorKey: 'grossWeightKg',
@@ -381,6 +219,7 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
         {formatNum(row.getValue('grossWeightKg') as number | string)}
       </div>
     ),
+    enableGrouping: true,
   },
   {
     accessorKey: 'tareWeightKg',
@@ -390,6 +229,7 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
         {formatNum(row.getValue('tareWeightKg') as number | string)}
       </div>
     ),
+    enableGrouping: true,
   },
   {
     accessorKey: 'netWeightKg',
@@ -399,16 +239,19 @@ export const columns: ColumnDef<IncomingReportRow>[] = [
         {formatNum(row.getValue('netWeightKg') as number | string)}
       </div>
     ),
+    enableGrouping: true,
+    sortingFn: 'basic',
   },
   {
     accessorKey: 'status',
-    header: ({ column }) => <GroupableHeader column={column} label="Status" />,
+    header: 'Status',
     cell: GroupableCell,
     enableGrouping: true,
+    sortingFn: 'text',
   },
   {
     accessorKey: 'remarks',
-    header: ({ column }) => <GroupableHeader column={column} label="Remarks" />,
+    header: 'Remarks',
     cell: GroupableCell,
     enableGrouping: true,
   },

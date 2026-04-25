@@ -264,6 +264,57 @@ function GroupableCell({
   );
 }
 
+/** Farmer cell: show account number inline as `#<number>` on non-group rows. */
+function FarmerCell({
+  row,
+  column,
+  table,
+}: CellContext<FarmerSeedReportRow, unknown>) {
+  const isGrouped = row.getIsGrouped();
+  const canExpand = row.getCanExpand();
+  const grouping = table.getState().grouping ?? [];
+  const groupingColumnId = grouping[row.depth];
+  const isThisColumnGrouping = groupingColumnId === column.id;
+  const showExpandCollapse = isGrouped && canExpand && isThisColumnGrouping;
+  const name = String(row.getValue('farmerName') ?? '—');
+  const accountNo = row.original.accountNumber;
+  const accountStr =
+    accountNo != null && accountNo !== '' && accountNo !== '—'
+      ? ` #${accountNo}`
+      : '';
+
+  return (
+    <div className="font-custom flex items-center gap-1">
+      {showExpandCollapse ? (
+        <button
+          type="button"
+          onClick={row.getToggleExpandedHandler()}
+          className="text-muted-foreground focus-visible:ring-primary hover:bg-primary/10 hover:text-primary inline-flex shrink-0 rounded p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          aria-label={row.getIsExpanded() ? 'Collapse group' : 'Expand group'}
+        >
+          {row.getIsExpanded() ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+      ) : null}
+      <span
+        style={{
+          paddingLeft: showExpandCollapse ? 0 : row.depth * 20,
+        }}
+      >
+        {name}
+        {!isGrouped && accountStr ? (
+          <span className="text-muted-foreground font-normal">
+            {accountStr}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 export function createFarmerSeedReportColumns(
   visibleBagSizes: readonly string[]
 ): ColumnDef<FarmerSeedReportRow>[] {
@@ -293,16 +344,11 @@ export function createFarmerSeedReportColumns(
       header: ({ column }) => (
         <GroupableHeader column={column} label="Farmer" />
       ),
-      cell: GroupableCell,
+      cell: FarmerCell,
       sortingFn: (rowA, rowB) =>
         rowA.original.farmerName.localeCompare(rowB.original.farmerName, 'en', {
           sensitivity: 'base',
         }),
-    },
-    {
-      accessorKey: 'accountNumber',
-      header: 'Account No.',
-      cell: ({ row }) => row.original.accountNumber,
     },
     {
       accessorKey: 'farmerAddress',

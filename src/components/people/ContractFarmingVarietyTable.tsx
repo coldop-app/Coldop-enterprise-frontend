@@ -99,6 +99,10 @@ interface ContractFarmingVarietyTableProps {
   columnVisibility: Record<string, boolean>;
 }
 
+function formatAccountSuffix(accountNumber: string): string {
+  return accountNumber && accountNumber !== '—' ? ` #${accountNumber}` : '';
+}
+
 const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
   variety,
   rows,
@@ -257,11 +261,24 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
   const columns: ColumnDef<VarietyRowData>[] = useMemo(
     () => [
       { id: 'sNo', accessorKey: 'serial', header: 'S. No.' },
-      { id: 'name', accessorKey: 'name', header: 'Name' },
       {
-        id: 'accountNumber',
-        accessorKey: 'accountNumber',
-        header: 'Account no.',
+        id: 'name',
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row, getValue }) => {
+          const name = String(getValue() ?? '—');
+          const suffix = formatAccountSuffix(row.original.accountNumber);
+          return (
+            <span>
+              {name}
+              {suffix ? (
+                <span className="text-muted-foreground font-normal">
+                  {suffix}
+                </span>
+              ) : null}
+            </span>
+          );
+        },
       },
       { id: 'address', accessorKey: 'address', header: 'Address' },
       {
@@ -415,7 +432,6 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
                         'font-custom border-border border px-4 py-2 text-xs',
                         colId === 'sNo' &&
                           'text-muted-foreground text-center tabular-nums',
-                        colId === 'accountNumber' && 'text-center tabular-nums',
                         colId === 'name' && 'max-w-48 truncate',
                         colId === 'address' &&
                           'max-w-40 wrap-break-word sm:max-w-56',
@@ -460,7 +476,6 @@ const ContractFarmingVarietyTable = memo(function ContractFarmingVarietyTable({
                   className={cn(
                     'font-custom bg-muted/50 border-border border px-4 py-2 text-xs font-bold',
                     column.id === 'sNo' && 'text-center',
-                    column.id === 'accountNumber' && 'text-center tabular-nums',
                     column.id === 'name' && 'max-w-48 truncate',
                     column.id === 'yieldPerAcreQuintals'
                       ? 'text-primary bg-primary/10 text-right tabular-nums'

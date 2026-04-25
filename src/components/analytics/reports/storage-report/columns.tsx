@@ -29,18 +29,25 @@ function formatNum(value: number | string): string {
   return n.toLocaleString();
 }
 
+function formatAccountSuffix(accountNo: number | string): string {
+  return accountNo != null && accountNo !== '' && accountNo !== '—'
+    ? ` #${accountNo}`
+    : '';
+}
+
 /** Base columns (no size columns). */
 const baseColumns: ColumnDef<StorageReportRow>[] = [
   {
     accessorKey: 'farmerName',
     header: () => <span className="font-custom">Farmer</span>,
-  },
-  {
-    accessorKey: 'accountNumber',
-    header: () => <div className="font-custom text-right">Account No.</div>,
     cell: ({ row }) => (
-      <div className="text-right">
-        {String(row.getValue('accountNumber') ?? '—')}
+      <div className="font-custom">
+        {String(row.getValue('farmerName') ?? '—')}
+        {formatAccountSuffix(row.original.accountNumber) ? (
+          <span className="text-muted-foreground font-normal">
+            {formatAccountSuffix(row.original.accountNumber)}
+          </span>
+        ) : null}
       </div>
     ),
   },

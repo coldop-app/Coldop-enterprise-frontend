@@ -109,6 +109,13 @@ const SIZE_LINE_REPEAT_COLUMNS = new Set<string>([
 const PDF_ENTRIES_PER_PAGE = 18;
 const PDF_ROW_HEIGHT = 18;
 
+function formatNameWithAccount(farmer: ContractFarmingFarmerRow): string {
+  const account = formatAccountNumberField(farmer.accountNumber);
+  return account && account !== '—'
+    ? `${farmer.name ?? '—'} #${account}`
+    : (farmer.name ?? '—');
+}
+
 function visibleColumns(
   columnVisibility: ContractFarmingColumnVisibility
 ): PdfColumn[] {
@@ -121,7 +128,7 @@ function visibleColumns(
       c.key === 'generation' ||
       c.key === 'sizeName'
         ? 'left'
-        : c.key === 'sNo' || c.key === 'accountNumber'
+        : c.key === 'sNo'
           ? 'center'
           : 'right';
     return { key: c.key, label: c.label, align, width: 1 };
@@ -143,7 +150,7 @@ function rowValue(
   if (!expanded) {
     return {
       sNo: String(sizeLineIndex + 1),
-      name: farmer.name ?? '—',
+      name: formatNameWithAccount(farmer),
       accountNumber: '—',
       address: farmer.address ?? '—',
       acresPlanted: '—',
@@ -175,7 +182,7 @@ function rowValue(
   );
   const out: Record<string, string> = {
     sNo: String(sizeLineIndex + 1),
-    name: farmer.name,
+    name: formatNameWithAccount(farmer),
     accountNumber: formatAccountNumberField(farmer.accountNumber),
     address: farmer.address,
     acresPlanted: acresPlantedForSeedLine(farmer, expanded.size).toLocaleString(

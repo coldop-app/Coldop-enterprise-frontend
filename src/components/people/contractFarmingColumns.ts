@@ -5,7 +5,6 @@ export type ContractFarmingColumnVisibility = Record<string, boolean>;
 export const STATIC_COLUMN_OPTIONS: { key: string; label: string }[] = [
   { key: 'sNo', label: 'S. No.' },
   { key: 'name', label: 'Name' },
-  { key: 'accountNumber', label: 'Account no.' },
   { key: 'address', label: 'Address' },
   { key: 'acresPlanted', label: 'Acres planted' },
   { key: 'generation', label: 'Generation' },
