@@ -36,7 +36,9 @@ export type EditIncomingGatePassParams = EditIncomingGatePassInput & {
  *
  * API: PUT /api/v1/incoming-gate-pass/:id
  * Headers: Authorization: Bearer <token>, Content-Type: application/json
- * Body: { manualGatePassNumber?, weightSlip?: { grossWeightKg, tareWeightKg }, reason? }
+ * Body: accepts full editable fields (e.g. farmerStorageLinkId, gatePassNo,
+ * manualGatePassNumber, date, variety, location, truckNumber, bagsReceived,
+ * weightSlip, status, remarks, reason)
  * Response: { success: true, data: {}, message: "Incoming gate pass updated successfully" }
  *
  * @example
@@ -56,10 +58,18 @@ export function useEditIncomingGatePass() {
     mutationKey: [...incomingGatePassKeys.all, 'edit'],
 
     mutationFn: async ({ id, ...payload }) => {
+      const normalizedReason =
+        typeof payload.reason === 'string' ? payload.reason.trim() : undefined;
+      const requestBody: EditIncomingGatePassInput = {
+        ...payload,
+        ...(normalizedReason
+          ? { reason: normalizedReason, remarks: normalizedReason }
+          : {}),
+      };
       const { data } =
         await storeAdminAxiosClient.put<EditIncomingGatePassApiResponse>(
           `/incoming-gate-pass/${id}`,
-          payload
+          requestBody
         );
       return data;
     },

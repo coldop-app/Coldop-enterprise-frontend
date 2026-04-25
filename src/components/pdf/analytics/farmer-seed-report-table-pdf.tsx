@@ -3,7 +3,7 @@ import {
   farmerSeedBagSizeColumnId,
   orderFarmerSeedBagSizes,
 } from '@/components/analytics/reports/farmer-seed-report/columns';
-import type { GradingReportPdfSnapshot } from '@/components/analytics/reports/grading-report/data-table';
+import type { FarmerSeedReportPdfSnapshot } from '@/components/analytics/reports/farmer-seed-report/data-table';
 
 interface FarmerSeedReportRow {
   id: string;
@@ -28,7 +28,7 @@ export interface FarmerSeedReportTablePdfProps {
   dateRangeLabel: string;
   reportTitle?: string;
   rows: FarmerSeedReportRow[];
-  tableSnapshot?: GradingReportPdfSnapshot<FarmerSeedReportRow> | null;
+  tableSnapshot?: FarmerSeedReportPdfSnapshot<FarmerSeedReportRow> | null;
 }
 
 const styles = StyleSheet.create({
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 9,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -47,17 +47,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   companyName: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 3,
   },
   reportTitle: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: 'bold',
     marginBottom: 6,
   },
   dateRange: {
-    fontSize: 9,
+    fontSize: 11,
     marginBottom: 6,
   },
   table: {
@@ -93,7 +93,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   cellText: {
-    fontSize: 7,
+    fontSize: 9,
+    lineHeight: 1.25,
     width: '100%',
     maxWidth: '100%',
   },
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 9,
+    fontSize: 10,
   },
   summarySection: {
     marginTop: 14,
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   summaryTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 6,
     borderBottomWidth: 1,
@@ -160,14 +161,14 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 3,
-    fontSize: 8,
+    fontSize: 10,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 3,
-    fontSize: 8,
+    fontSize: 10,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -626,7 +627,7 @@ function getOrderedBagSizes(rows: FarmerSeedReportRow[]): string[] {
 
 function getLeafRowsFromSnapshot(
   rows: FarmerSeedReportRow[],
-  tableSnapshot?: GradingReportPdfSnapshot<FarmerSeedReportRow> | null
+  tableSnapshot?: FarmerSeedReportPdfSnapshot<FarmerSeedReportRow> | null
 ): FarmerSeedReportRow[] {
   if (!tableSnapshot || tableSnapshot.rows.length === 0) return rows;
   const leaves = tableSnapshot.rows
@@ -694,7 +695,7 @@ function getBagSizeFromColumnKey(
 
 function getColumnsForSnapshot(
   fullColumns: ColumnDef[],
-  tableSnapshot?: GradingReportPdfSnapshot<FarmerSeedReportRow> | null
+  tableSnapshot?: FarmerSeedReportPdfSnapshot<FarmerSeedReportRow> | null
 ): ColumnDef[] {
   if (!tableSnapshot || tableSnapshot.visibleColumnIds.length === 0) {
     return fullColumns;
@@ -737,7 +738,7 @@ type FarmerPdfSection = {
 };
 
 function buildSectionsFromSnapshot(
-  tableSnapshot: GradingReportPdfSnapshot<FarmerSeedReportRow>
+  tableSnapshot: FarmerSeedReportPdfSnapshot<FarmerSeedReportRow>
 ): FarmerPdfSection[] {
   const deepestDepth = tableSnapshot.grouping.length - 1;
   const sections: FarmerPdfSection[] = [];
@@ -875,6 +876,7 @@ export function FarmerSeedReportTablePdf({
                         >
                           <Text
                             style={[styles.cellText, alignStyle(column.align)]}
+                            wrap
                           >
                             {column.label}
                           </Text>
@@ -908,6 +910,7 @@ export function FarmerSeedReportTablePdf({
                                   styles.cellText,
                                   alignStyle(column.align),
                                 ]}
+                                wrap
                               >
                                 {bagSize != null && value === ''
                                   ? ''
@@ -936,6 +939,7 @@ export function FarmerSeedReportTablePdf({
                                 styles.cellText,
                                 alignStyle(column.align),
                               ]}
+                              wrap
                             >
                               {index === 0
                                 ? 'Total'
@@ -1002,6 +1006,7 @@ export function FarmerSeedReportTablePdf({
                       >
                         <Text
                           style={[styles.cellText, alignStyle(column.align)]}
+                          wrap
                         >
                           {column.label}
                         </Text>
@@ -1053,6 +1058,7 @@ export function FarmerSeedReportTablePdf({
                                     styles.cellText,
                                     alignStyle(column.align),
                                   ]}
+                                  wrap
                                 >
                                   {bagSize != null && value === ''
                                     ? ''
@@ -1082,6 +1088,7 @@ export function FarmerSeedReportTablePdf({
                                   styles.cellText,
                                   alignStyle(column.align),
                                 ]}
+                                wrap
                               >
                                 {index === 0
                                   ? 'Total'

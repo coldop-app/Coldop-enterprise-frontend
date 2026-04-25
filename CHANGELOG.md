@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.0] - 2026-04-25
+
+### Added
+- Incoming gate pass detail/edit route at `/store-admin/incoming-gate-pass/$id`, including `useGetSingleIncomingGatePassById` and full-form editing support for farmer, variety, location, slip weights, and required edit reason
+- Farmer seed report advanced filtering system with nested logic groups (`AND`/`OR`), operator-based conditions, value suggestions, and dedicated filter/group evaluation helpers
+- Farmer seed report `View & Filters` sheet with draggable column order, visibility toggles, grouping controls, value filters, and reset/apply workflow
+
+### Changed
+- Farmer seed report now uses a dedicated virtualized `DataTable` implementation with sortable headers, column resizing, grouped-row expansion, and PDF snapshot generation aligned to current table state
+- Farmer seed report PDF now consumes farmer-seed-specific snapshot typings, uses visible leaf rows from the table snapshot, and improves readability with larger typography and wrapped table content
+- Incoming analytics report rows are now clickable and navigate directly to the incoming gate pass edit screen for faster operational fixes
+- Incoming gate pass edit mutation/type contracts were expanded to support full editable payload fields and normalized reason handling into both `reason` and `remarks`
+
 ## [0.55.0] - 2026-04-25
 
 ### Changed

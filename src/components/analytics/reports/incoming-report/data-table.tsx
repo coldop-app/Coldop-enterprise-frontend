@@ -97,6 +97,7 @@ interface DataTableProps<TData, TValue> {
   totalColumnIds?: readonly string[];
   toolbarLeftContent?: React.ReactNode;
   toolbarRightContent?: React.ReactNode;
+  onRowClick?: (row: TData) => void;
 }
 
 const TOTAL_COLUMN_IDS = [
@@ -159,6 +160,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
     totalColumnIds = [...TOTAL_COLUMN_IDS],
     toolbarLeftContent,
     toolbarRightContent,
+    onRowClick,
   }: DataTableProps<TData, TValue>,
   ref: React.Ref<IncomingReportDataTableRef<TData>>
 ) {
@@ -445,7 +447,18 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                     key={row.id}
                     data-index={virtualRow.index}
                     ref={(node) => rowVirtualizer.measureElement(node)}
-                    className="border-border bg-background even:bg-muted/30 hover:bg-primary/5 dark:even:bg-muted/20 border-b transition-colors"
+                    className={`border-border bg-background even:bg-muted/30 dark:even:bg-muted/20 border-b transition-colors ${
+                      row.getIsGrouped()
+                        ? 'hover:bg-primary/5'
+                        : onRowClick
+                          ? 'hover:bg-primary/5 cursor-pointer'
+                          : 'hover:bg-primary/5'
+                    }`}
+                    onClick={() => {
+                      if (!row.getIsGrouped() && onRowClick) {
+                        onRowClick(row.original as TData);
+                      }
+                    }}
                     style={{
                       display: 'flex',
                       position: 'absolute',

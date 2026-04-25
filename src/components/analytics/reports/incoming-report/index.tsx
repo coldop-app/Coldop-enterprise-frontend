@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { format, parseISO } from 'date-fns';
 import {
   useGetIncomingGatePassReports,
@@ -134,6 +135,7 @@ function getLeafRowsFromSnapshot(
 }
 
 const IncomingReportTable = () => {
+  const navigate = useNavigate();
   const coldStorage = useStore((s) => s.coldStorage);
   const tableRef = useRef<IncomingReportDataTableRef<IncomingReportRow>>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
@@ -269,6 +271,14 @@ const IncomingReportTable = () => {
     }
   };
 
+  const handleRowClick = (row: IncomingReportRow) => {
+    if (!row.id) return;
+    void navigate({
+      to: '/store-admin/incoming-gate-pass/$id',
+      params: { id: row.id },
+    });
+  };
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
@@ -316,6 +326,7 @@ const IncomingReportTable = () => {
           ref={tableRef}
           columns={columns}
           data={rows}
+          onRowClick={handleRowClick}
           initialColumnVisibility={DEFAULT_HIDDEN_COLUMNS}
           toolbarLeftContent={
             <>

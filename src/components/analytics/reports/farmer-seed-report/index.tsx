@@ -19,8 +19,8 @@ import {
 } from './columns';
 import {
   DataTable,
-  type GradingReportDataTableRef,
-  type GradingReportPdfSnapshot,
+  type FarmerSeedReportDataTableRef,
+  type FarmerSeedReportPdfSnapshot,
 } from './data-table';
 
 function formatDateValue(value: string | undefined): string {
@@ -92,7 +92,8 @@ function mapEntriesToRows(
 const FarmerSeedReportTable = () => {
   const { data, isLoading, error } = useGetAllFarmerSeedEntries();
   const coldStorage = useStore((s) => s.coldStorage);
-  const tableRef = useRef<GradingReportDataTableRef<FarmerSeedReportRow>>(null);
+  const tableRef =
+    useRef<FarmerSeedReportDataTableRef<FarmerSeedReportRow>>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -167,6 +168,19 @@ const FarmerSeedReportTable = () => {
     return 'All dates';
   };
 
+  const getLeafRowsFromSnapshot = (
+    snapshot: FarmerSeedReportPdfSnapshot<FarmerSeedReportRow> | null
+  ): FarmerSeedReportRow[] | null => {
+    if (!snapshot || snapshot.rows.length === 0) return null;
+    const leaves = snapshot.rows
+      .filter(
+        (item): item is { type: 'leaf'; row: FarmerSeedReportRow } =>
+          item.type === 'leaf'
+      )
+      .map((item) => item.row);
+    return leaves.length > 0 ? leaves : null;
+  };
+
   const handleDownloadPdf = async () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -177,8 +191,9 @@ const FarmerSeedReportTable = () => {
 
     setIsGeneratingPdf(true);
     try {
-      const snapshot: GradingReportPdfSnapshot<FarmerSeedReportRow> | null =
+      const snapshot: FarmerSeedReportPdfSnapshot<FarmerSeedReportRow> | null =
         tableRef.current?.getPdfSnapshot() ?? null;
+      const effectiveRows = getLeafRowsFromSnapshot(snapshot) ?? filteredRows;
       const [{ pdf }, { FarmerSeedReportTablePdf }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('@/components/pdf/analytics/farmer-seed-report-table-pdf'),
@@ -189,7 +204,7 @@ const FarmerSeedReportTable = () => {
           companyName={coldStorage?.name ?? 'Cold Storage'}
           dateRangeLabel={getDateRangeLabel()}
           reportTitle="Farmer Seed Report"
-          rows={filteredRows}
+          rows={effectiveRows}
           tableSnapshot={snapshot}
         />
       ).toBlob();

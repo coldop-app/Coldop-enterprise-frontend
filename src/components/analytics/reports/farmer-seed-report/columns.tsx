@@ -1,21 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- column defs export columns + type; header/cell helpers are local */
 import type { CellContext, ColumnDef } from '@tanstack/table-core';
-import {
-  ArrowDownAZ,
-  ArrowDownUp,
-  ArrowUpAZ,
-  ChevronDown,
-  ChevronRight,
-  MoreVertical,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { GRADING_REPORT_BAG_SIZE_LABELS } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 export interface FarmerSeedReportRow {
   id: string;
@@ -74,154 +60,6 @@ export function orderFarmerSeedBagSizes(sizes: Iterable<string>): string[] {
     if (aIdx == null && bIdx != null) return 1;
     return a.localeCompare(b, 'en', { sensitivity: 'base' });
   });
-}
-
-function GroupableHeader({
-  column,
-  label,
-}: {
-  column: {
-    getIsGrouped: () => boolean;
-    toggleGrouping: () => void;
-    getCanSort: () => boolean;
-    getIsSorted: () => false | 'asc' | 'desc';
-    toggleSorting: (desc?: boolean) => void;
-    clearSorting: () => void;
-  };
-  label: string;
-}) {
-  const sortState = column.getIsSorted();
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-custom">{label}</span>
-      {sortState === 'asc' ? (
-        <ArrowUpAZ className="h-3.5 w-3.5 text-gray-600" />
-      ) : sortState === 'desc' ? (
-        <ArrowDownAZ className="h-3.5 w-3.5 text-gray-600" />
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {column.getCanSort() ? (
-            <>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  column.toggleSorting(false);
-                }}
-              >
-                Sort ascending
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  column.toggleSorting(true);
-                }}
-              >
-                Sort descending
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  column.clearSorting();
-                }}
-              >
-                Clear sorting
-              </DropdownMenuItem>
-            </>
-          ) : null}
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              column.toggleGrouping();
-            }}
-          >
-            {column.getIsGrouped()
-              ? `Ungroup by ${label}`
-              : `Group by ${label}`}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-function SortableHeader({
-  column,
-  label,
-}: {
-  column: {
-    getCanSort: () => boolean;
-    getIsSorted: () => false | 'asc' | 'desc';
-    toggleSorting: (desc?: boolean) => void;
-    clearSorting: () => void;
-  };
-  label: string;
-}) {
-  const sortState = column.getIsSorted();
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-custom">{label}</span>
-      {sortState === 'asc' ? (
-        <ArrowUpAZ className="h-3.5 w-3.5 text-gray-600" />
-      ) : sortState === 'desc' ? (
-        <ArrowDownAZ className="h-3.5 w-3.5 text-gray-600" />
-      ) : (
-        <ArrowDownUp className="h-3.5 w-3.5 text-gray-500" />
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {column.getCanSort() ? (
-            <>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  column.toggleSorting(false);
-                }}
-              >
-                Sort ascending
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  column.toggleSorting(true);
-                }}
-              >
-                Sort descending
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  column.clearSorting();
-                }}
-              >
-                Clear sorting
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
 }
 
 function GroupableCell({
@@ -341,9 +179,7 @@ export function createFarmerSeedReportColumns(
   return [
     {
       accessorKey: 'farmerName',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Farmer" />
-      ),
+      header: 'Farmer',
       cell: FarmerCell,
       sortingFn: (rowA, rowB) =>
         rowA.original.farmerName.localeCompare(rowB.original.farmerName, 'en', {
@@ -357,9 +193,7 @@ export function createFarmerSeedReportColumns(
     },
     {
       accessorKey: 'gatePassNo',
-      header: ({ column }) => (
-        <SortableHeader column={column} label="Gate Pass No." />
-      ),
+      header: 'Gate Pass No.',
       cell: ({ row }) => row.original.gatePassNo,
       sortingFn: (rowA, rowB) => {
         const a = rowA.original.gatePassNo;
@@ -374,9 +208,7 @@ export function createFarmerSeedReportColumns(
     },
     {
       accessorKey: 'invoiceNumber',
-      header: ({ column }) => (
-        <SortableHeader column={column} label="Invoice No." />
-      ),
+      header: 'Invoice No.',
       cell: ({ row }) => row.original.invoiceNumber,
       sortingFn: (rowA, rowB) =>
         rowA.original.invoiceNumber.localeCompare(
@@ -390,23 +222,19 @@ export function createFarmerSeedReportColumns(
     },
     {
       accessorKey: 'date',
-      header: ({ column }) => <GroupableHeader column={column} label="Date" />,
+      header: 'Date',
       cell: GroupableCell,
       sortingFn: (rowA, rowB) =>
         rowA.original.dateSortTs - rowB.original.dateSortTs,
     },
     {
       accessorKey: 'variety',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Variety" />
-      ),
+      header: 'Variety',
       cell: GroupableCell,
     },
     {
       accessorKey: 'generation',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Generation" />
-      ),
+      header: 'Generation',
       cell: GroupableCell,
     },
     ...bagSizeColumns,

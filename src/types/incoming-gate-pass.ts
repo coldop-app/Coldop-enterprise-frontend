@@ -57,16 +57,27 @@ export interface CreateIncomingGatePassApiResponse {
   message: string;
 }
 
-/** Weight slip sub-object for PUT /incoming-gate-pass (partial) */
+/** Weight slip sub-object for PUT /incoming-gate-pass */
 export interface EditIncomingGatePassWeightSlip {
+  slipNumber?: string;
   grossWeightKg: number;
   tareWeightKg: number;
 }
 
 /** Request body for PUT /incoming-gate-pass/:id */
 export interface EditIncomingGatePassInput {
+  farmerStorageLinkId?: string;
+  receivedById?: string;
+  gatePassNo?: number;
   manualGatePassNumber?: number;
+  date?: string;
+  variety?: string;
+  location?: string;
+  truckNumber?: string;
+  bagsReceived?: number;
   weightSlip?: EditIncomingGatePassWeightSlip;
+  status?: 'OPEN' | 'CLOSED' | 'GRADED';
+  remarks?: string;
   reason?: string;
 }
 
@@ -204,5 +215,12 @@ export interface GetIncomingGatePassesByFarmerStorageLinkApiResponse {
 export interface SearchIncomingGatePassApiResponse {
   success: boolean;
   data: IncomingGatePassByFarmerStorageLinkItem[];
+  message?: string;
+}
+
+/** API response for GET /incoming-gate-pass/:id */
+export interface GetSingleIncomingGatePassByIdApiResponse {
+  success: boolean;
+  data: IncomingGatePassByFarmerStorageLinkItem | null;
   message?: string;
 }
