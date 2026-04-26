@@ -23,6 +23,15 @@ import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { FileDown } from 'lucide-react';
 
+const DEFAULT_HIDDEN_COLUMNS = {
+  createdByName: false,
+  farmerMobile: false,
+  location: false,
+  gatePassNo: false,
+  grossWeightKg: false,
+  tareWeightKg: false,
+} as const;
+
 /** API can return populated createdBy and optional weightSlip/bagsReceived etc. */
 type IncomingPass = IncomingGatePassWithLink & {
   createdBy?: { _id?: string; name?: string; mobileNumber?: string } | string;
@@ -284,6 +293,7 @@ const UngradedReportTable = () => {
           ref={tableRef}
           columns={columns}
           data={rows}
+          initialColumnVisibility={DEFAULT_HIDDEN_COLUMNS}
           toolbarLeftContent={
             <>
               <DatePicker
