@@ -485,7 +485,7 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
               <Input
                 value={typeof globalFilter === 'string' ? globalFilter : ''}
                 onChange={(event) => setGlobalFilter(event.target.value)}
-                placeholder="Search gate pass..."
+                placeholder="Search manual grading gate pass no..."
                 className="font-custom h-10 pl-9"
               />
             </div>

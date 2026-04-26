@@ -575,16 +575,33 @@ export function prepareGradingReportPdf(
   tableSnapshot: GradingReportPdfSnapshot<GradingReportRow> | null,
   cached?: PrepareGradingReportPdfCached
 ): GradingReportPdfPrepared {
-  const fullColumns = buildFullColumnList(rows);
-  const totals = cached?.totals ?? computeTotalsForRows(rows);
-  const summary = cached?.summary ?? computeGradingReportSummary(rows);
-  const spanKeys = [...getSpanColumnSet(rows)];
-
   const useSnapshot =
     tableSnapshot &&
     tableSnapshot.rows.length > 0 &&
     (tableSnapshot.grouping.length > 0 ||
       tableSnapshot.visibleColumnIds.length > 0);
+
+  const snapshotLeafRows =
+    useSnapshot && tableSnapshot.rows.length > 0
+      ? tableSnapshot.rows
+          .filter(
+            (r): r is { type: 'leaf'; row: GradingReportRow } =>
+              r.type === 'leaf'
+          )
+          .map((r) => r.row)
+      : [];
+
+  const rowsForPdf = useSnapshot ? snapshotLeafRows : rows;
+  const fullColumns = buildFullColumnList(rowsForPdf);
+  const totals =
+    useSnapshot || cached?.totals == null
+      ? computeTotalsForRows(rowsForPdf)
+      : cached.totals;
+  const summary =
+    useSnapshot || cached?.summary == null
+      ? computeGradingReportSummary(rowsForPdf)
+      : cached.summary;
+  const spanKeys = [...getSpanColumnSet(rowsForPdf)];
 
   const visibleColumnIds =
     useSnapshot && tableSnapshot!.visibleColumnIds.length > 0
@@ -643,15 +660,7 @@ export function prepareGradingReportPdf(
       ? getColumnsForPdf(tableSnapshot!.visibleColumnIds, fullColumns)
       : getColumnsForPdf([], fullColumns);
 
-  const leafRows =
-    useSnapshot && tableSnapshot!.rows.length > 0
-      ? tableSnapshot!.rows
-          .filter(
-            (r): r is { type: 'leaf'; row: GradingReportRow } =>
-              r.type === 'leaf'
-          )
-          .map((r) => r.row)
-      : rows;
+  const leafRows = rowsForPdf;
 
   const mainGroups = getGradingPassGroups(leafRows);
   const mainPageChunks =

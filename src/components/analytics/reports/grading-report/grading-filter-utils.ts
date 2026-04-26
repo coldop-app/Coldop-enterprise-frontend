@@ -38,11 +38,7 @@ export const gradingGlobalFilterFn = (
     .trim()
     .toLowerCase();
   if (!normalized) return true;
-  return (
-    String(row.gatePassNo).toLowerCase().includes(normalized) ||
-    String(row.manualGatePassNumber).toLowerCase().includes(normalized) ||
-    String(row.incomingGatePassNo).toLowerCase().includes(normalized)
-  );
+  return String(row.manualGatePassNumber).toLowerCase().includes(normalized);
 };
 
 export const gradingNumericFilterFields = numericFilterFields;
