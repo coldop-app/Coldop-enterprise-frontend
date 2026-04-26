@@ -17,7 +17,7 @@ import {
 } from './columns';
 import {
   getAggregatedGradedSizeBreakdown,
-  getVisibleBagSizesFromPasses,
+  orderBagSizesByGradingReport,
   gradedBagSizeColumnId,
 } from './grading-bag-sizes';
 import {
@@ -42,125 +42,120 @@ import {
 } from '@/components/daybook/vouchers/grading-voucher-calculations';
 import { JUTE_BAG_WEIGHT } from '@/components/forms/grading/constants';
 
-function formatDate(iso: string | undefined): string {
-  if (!iso) return '—';
+type GradedBagColumn = { size: string; columnId: string };
+type NormalizedIncoming = {
+  incomingId: string;
+  farmerName: string;
+  accountNumber: number | string;
+  farmerAddress: string;
+  farmerMobile: string;
+  incomingGatePassNo: number | string;
+  incomingManualNo: number | string;
+  incomingGatePassDate: string;
+  sortIncomingGatePassNo: number;
+  sortIncomingManualNo: number;
+  sortIncomingGatePassDate: string;
+  variety: string;
+  truckNumber: string;
+  bagsReceived: number;
+  grossWeightKg?: number;
+  tareWeightKg?: number;
+  netWeightKg?: number;
+  netProductKg?: number;
+};
+
+type NormalizedPass = {
+  passId: string;
+  gatePassNo: number | string;
+  manualGatePassNumber: number | string;
+  sortGatePassNo: number;
+  sortManualGatePassNumber: number;
+  sortGradingPassDate: string;
+  date: string;
+  createdByName: string;
+  grader: string;
+  remarks: string;
+  totalGradedBags: number;
+  totalGradedWeightKg: number;
+  wastagePercent?: number;
+  gradedSizeBreakdown: ReturnType<typeof getAggregatedGradedSizeBreakdown>;
+  incomings: NormalizedIncoming[];
+};
+
+const DASH = '—';
+const GRADING_REPORT_FETCH_LIMIT = 5000;
+
+function formatDate(
+  iso: string | undefined,
+  cache: Map<string, string>
+): string {
+  if (!iso) return DASH;
+  const cached = cache.get(iso);
+  if (cached != null) return cached;
+  let formatted = iso;
   try {
-    const d = parseISO(iso);
-    return format(d, 'do MMMM yyyy');
+    formatted = format(parseISO(iso), 'do MMMM yyyy');
   } catch {
-    return iso;
+    formatted = iso;
   }
+  cache.set(iso, formatted);
+  return formatted;
 }
 
-function getFarmerName(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): string {
-  return inc.farmerStorageLinkId?.farmerId?.name ?? '—';
-}
-
-function getAccountNumber(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): number | string {
-  return inc.farmerStorageLinkId?.accountNumber ?? '—';
-}
-
-function getFarmerAddress(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): string {
-  return inc.farmerStorageLinkId?.farmerId?.address ?? '—';
-}
-
-function getFarmerMobile(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): string {
-  return inc.farmerStorageLinkId?.farmerId?.mobileNumber ?? '—';
-}
-
-function getIncomingGatePassNo(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): number | string {
-  return inc.gatePassNo ?? '—';
-}
-
-function getIncomingManualNo(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): number | string {
-  const v = inc.manualGatePassNumber;
-  return v != null ? v : '—';
-}
-
-function getIncomingGatePassDate(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): string {
-  return inc.date ? formatDate(inc.date) : '—';
-}
-
-function getTruckNumber(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): string {
-  return inc.truckNumber ?? '—';
-}
-
-function getBagsReceived(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): number {
-  return inc.bagsReceived ?? 0;
-}
-
-/**
- * Incoming net weight (kg) from weight slip: net = gross − tare.
- * GradingGatePassIncomingRef only has weightSlip with grossWeightKg/tareWeightKg.
- */
-function getIncomingNetKg(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): number | undefined {
+function getIncomingNetKg(inc: GradingGatePassIncomingRef): number | undefined {
   const gross = inc.weightSlip?.grossWeightKg;
   const tare = inc.weightSlip?.tareWeightKg;
   if (gross != null && tare != null) return gross - tare;
   return undefined;
 }
 
-function getGrossTareNet(
-  _pass: GradingGatePass,
-  inc: GradingGatePassIncomingRef
-): {
-  grossWeightKg?: number;
-  tareWeightKg?: number;
-  netWeightKg?: number;
-} {
-  const gross = inc.weightSlip?.grossWeightKg;
-  const tare = inc.weightSlip?.tareWeightKg;
-  const netKg = getIncomingNetKg(_pass, inc);
+function normalizeIncoming(
+  pass: GradingGatePass,
+  inc: GradingGatePassIncomingRef,
+  dateCache: Map<string, string>
+): NormalizedIncoming {
+  const bagsReceived = inc.bagsReceived ?? 0;
+  const grossWeightKg = inc.weightSlip?.grossWeightKg;
+  const tareWeightKg = inc.weightSlip?.tareWeightKg;
+  const netWeightKg = getIncomingNetKg(inc);
+  const netProductKg =
+    netWeightKg != null
+      ? netWeightKg - bagsReceived * JUTE_BAG_WEIGHT
+      : computeIncomingNetProductKg(netWeightKg, bagsReceived);
+
   return {
-    grossWeightKg: gross,
-    tareWeightKg: tare,
-    netWeightKg: netKg,
+    incomingId: inc._id,
+    farmerName: inc.farmerStorageLinkId?.farmerId?.name ?? DASH,
+    accountNumber: inc.farmerStorageLinkId?.accountNumber ?? DASH,
+    farmerAddress: inc.farmerStorageLinkId?.farmerId?.address ?? DASH,
+    farmerMobile: inc.farmerStorageLinkId?.farmerId?.mobileNumber ?? DASH,
+    incomingGatePassNo: inc.gatePassNo ?? DASH,
+    incomingManualNo: inc.manualGatePassNumber ?? DASH,
+    incomingGatePassDate: inc.date ? formatDate(inc.date, dateCache) : DASH,
+    sortIncomingGatePassNo:
+      inc.gatePassNo != null ? Number(inc.gatePassNo) : Number.NaN,
+    sortIncomingManualNo:
+      inc.manualGatePassNumber != null
+        ? Number(inc.manualGatePassNumber)
+        : Number.NaN,
+    sortIncomingGatePassDate: inc.date ?? '',
+    variety: inc.variety ?? pass.variety ?? DASH,
+    truckNumber: inc.truckNumber ?? DASH,
+    bagsReceived,
+    grossWeightKg,
+    tareWeightKg,
+    netWeightKg,
+    netProductKg,
   };
 }
 
-/**
- * Map grading gate passes to table rows. Each grading pass has
- * incomingGatePassIds[]; when there are multiple incomings they are grouped:
- * one row per incoming with that incoming's details; grading pass details
- * (gate pass no., date, total graded bags/weight, wastage %, grader, remarks)
- * appear on the first row of the group only. Wastage is computed at group level
- * as % of incoming net product: ((incoming net product − total graded weight) / incoming net product) × 100.
- */
-function mapGradingPassesToRows(
-  passes: GradingGatePass[],
-  gradedBagColumns: readonly { size: string; columnId: string }[]
-): GradingReportRow[] {
-  const rows: GradingReportRow[] = [];
+function buildNormalizedPasses(passes: GradingGatePass[]): {
+  normalizedPasses: NormalizedPass[];
+  visibleBagSizes: string[];
+} {
+  const dateCache = new Map<string, string>();
+  const visibleBagSizeSet = new Set<string>();
+  const normalizedPasses: NormalizedPass[] = [];
 
   for (const pass of passes) {
     const incomings = pass.incomingGatePassIds ?? [];
@@ -169,117 +164,143 @@ function mapGradingPassesToRows(
     const createdByName =
       typeof pass.createdBy === 'object' && pass.createdBy !== null
         ? pass.createdBy.name
-        : '—';
-    const totalGradedBags = pass.orderDetails?.length
-      ? pass.orderDetails.reduce(
-          (sum, d) => sum + (d.initialQuantity ?? d.currentQuantity ?? 0),
-          0
-        )
-      : 0;
+        : DASH;
+    const totalGradedBags = (pass.orderDetails ?? []).reduce(
+      (sum, detail) =>
+        sum + (detail.initialQuantity ?? detail.currentQuantity ?? 0),
+      0
+    );
     const { totalGradedWeightKg } = computeGradingOrderTotals(
       pass.orderDetails as Parameters<typeof computeGradingOrderTotals>[0]
     );
+    const gradedSizeBreakdown = getAggregatedGradedSizeBreakdown(
+      pass.orderDetails
+    );
 
-    const groupTotalIncomingBags = incomings.reduce(
-      (sum, inc) => sum + getBagsReceived(pass, inc),
+    for (const [size, breakdown] of Object.entries(gradedSizeBreakdown)) {
+      if ((breakdown?.qty ?? 0) > 0) visibleBagSizeSet.add(size);
+    }
+
+    const normalizedIncomings = incomings.map((inc) =>
+      normalizeIncoming(pass, inc, dateCache)
+    );
+
+    const groupTotalIncomingBags = normalizedIncomings.reduce(
+      (sum, inc) => sum + inc.bagsReceived,
       0
     );
-    const groupEffectiveIncomingNetKg = incomings.reduce<number | undefined>(
-      (acc, inc) => {
-        const net = getIncomingNetKg(pass, inc);
-        if (net == null) return acc;
-        return (acc ?? 0) + net;
-      },
-      undefined
-    );
-    const groupEffectiveIncomingNetProductKg =
-      groupEffectiveIncomingNetKg != null && groupTotalIncomingBags != null
-        ? groupEffectiveIncomingNetKg - groupTotalIncomingBags * JUTE_BAG_WEIGHT
+    let groupNetWeightTotal: number | undefined;
+    for (const inc of normalizedIncomings) {
+      if (inc.netWeightKg == null) continue;
+      groupNetWeightTotal = (groupNetWeightTotal ?? 0) + inc.netWeightKg;
+    }
+    const groupNetProductKg =
+      groupNetWeightTotal != null
+        ? groupNetWeightTotal - groupTotalIncomingBags * JUTE_BAG_WEIGHT
         : computeIncomingNetProductKg(
-            groupEffectiveIncomingNetKg,
+            groupNetWeightTotal,
             groupTotalIncomingBags
           );
-    const wastageKg =
-      groupEffectiveIncomingNetProductKg != null &&
-      groupEffectiveIncomingNetProductKg > 0
-        ? Math.max(0, groupEffectiveIncomingNetProductKg - totalGradedWeightKg)
-        : undefined;
     const wastagePercent =
-      wastageKg != null &&
-      groupEffectiveIncomingNetProductKg != null &&
-      groupEffectiveIncomingNetProductKg > 0
-        ? (wastageKg / groupEffectiveIncomingNetProductKg) * 100
+      groupNetProductKg != null && groupNetProductKg > 0
+        ? (Math.max(0, groupNetProductKg - totalGradedWeightKg) /
+            groupNetProductKg) *
+          100
         : undefined;
 
-    incomings.forEach((inc, idx) => {
-      const { grossWeightKg, tareWeightKg } = getGrossTareNet(pass, inc);
-      const totalIncomingBags = getBagsReceived(pass, inc);
-      const effectiveIncomingNetKg = getIncomingNetKg(pass, inc);
-      const effectiveIncomingNetProductKg =
-        effectiveIncomingNetKg != null && totalIncomingBags != null
-          ? effectiveIncomingNetKg - totalIncomingBags * JUTE_BAG_WEIGHT
-          : computeIncomingNetProductKg(
-              effectiveIncomingNetKg,
-              totalIncomingBags
-            );
-
-      const isFirstRow = idx === 0;
-      const gradedSizeBreakdown = isFirstRow
-        ? getAggregatedGradedSizeBreakdown(pass.orderDetails)
-        : undefined;
-      const gradedBagSizeQtyByColumnId = Object.fromEntries(
-        gradedBagColumns.map(({ size, columnId }) => {
-          const qty =
-            isFirstRow && gradedSizeBreakdown?.[size]
-              ? gradedSizeBreakdown[size]!.qty
-              : 0;
-          return [columnId, qty] as const;
-        })
-      );
-      rows.push({
-        id: incomings.length > 1 ? `${pass._id}-${idx}` : pass._id,
-        farmerName: getFarmerName(pass, inc),
-        accountNumber: getAccountNumber(pass, inc),
-        farmerAddress: getFarmerAddress(pass, inc),
-        farmerMobile: getFarmerMobile(pass, inc),
-        createdByName,
-        gatePassNo: isFirstRow ? (pass.gatePassNo ?? '—') : '—',
-        manualGatePassNumber: isFirstRow
-          ? (pass.manualGatePassNumber ?? '—')
-          : '—',
-        incomingGatePassNo: getIncomingGatePassNo(pass, inc),
-        incomingManualNo: getIncomingManualNo(pass, inc),
-        incomingGatePassDate: getIncomingGatePassDate(pass, inc),
-        sortGatePassNo: pass.gatePassNo ?? Number.NaN,
-        sortManualGatePassNumber:
-          pass.manualGatePassNumber != null
-            ? pass.manualGatePassNumber
-            : Number.NaN,
-        sortGradingPassDate: pass.date ?? '',
-        date: isFirstRow ? formatDate(pass.date) : '—',
-        variety: inc.variety ?? pass.variety ?? '—',
-        truckNumber: getTruckNumber(pass, inc),
-        bagsReceived: totalIncomingBags,
-        grossWeightKg: grossWeightKg ?? '—',
-        tareWeightKg: tareWeightKg ?? '—',
-        netWeightKg: effectiveIncomingNetKg ?? '—',
-        netProductKg:
-          effectiveIncomingNetProductKg != null
-            ? effectiveIncomingNetProductKg
-            : '—',
-        totalGradedBags: isFirstRow ? totalGradedBags : 0,
-        totalGradedWeightKg: isFirstRow ? totalGradedWeightKg : 0,
-        wastageKg: isFirstRow ? (wastagePercent ?? '—') : '—',
-        grader: isFirstRow ? (pass.grader ?? '—') : '—',
-        remarks: isFirstRow ? (pass.remarks ?? '—') : '—',
-        gradingPassRowIndex: idx,
-        gradingPassGroupSize: incomings.length,
-        gradedSizeBreakdown,
-        gradedBagSizeQtyByColumnId,
-      });
+    normalizedPasses.push({
+      passId: pass._id,
+      gatePassNo: pass.gatePassNo ?? DASH,
+      manualGatePassNumber: pass.manualGatePassNumber ?? DASH,
+      sortGatePassNo: pass.gatePassNo ?? Number.NaN,
+      sortManualGatePassNumber:
+        pass.manualGatePassNumber != null
+          ? pass.manualGatePassNumber
+          : Number.NaN,
+      sortGradingPassDate: pass.date ?? '',
+      date: formatDate(pass.date, dateCache),
+      createdByName,
+      grader: pass.grader ?? DASH,
+      remarks: pass.remarks ?? DASH,
+      totalGradedBags,
+      totalGradedWeightKg,
+      wastagePercent,
+      gradedSizeBreakdown,
+      incomings: normalizedIncomings,
     });
   }
 
+  return {
+    normalizedPasses,
+    visibleBagSizes: orderBagSizesByGradingReport(visibleBagSizeSet),
+  };
+}
+
+function createGradedBagQtyByColumnId(
+  gradedSizeBreakdown: NormalizedPass['gradedSizeBreakdown'],
+  gradedBagColumns: readonly GradedBagColumn[]
+): Record<string, number> {
+  const qtyByColumnId: Record<string, number> = {};
+  for (const { size, columnId } of gradedBagColumns) {
+    qtyByColumnId[columnId] = gradedSizeBreakdown?.[size]?.qty ?? 0;
+  }
+  return qtyByColumnId;
+}
+
+function buildRowsForTanstackTable(
+  normalizedPasses: readonly NormalizedPass[],
+  gradedBagColumns: readonly GradedBagColumn[]
+): GradingReportRow[] {
+  const rows: GradingReportRow[] = [];
+  for (const pass of normalizedPasses) {
+    const groupSize = pass.incomings.length;
+    const gradedBagSizeQtyByColumnId = createGradedBagQtyByColumnId(
+      pass.gradedSizeBreakdown,
+      gradedBagColumns
+    );
+    for (let index = 0; index < groupSize; index += 1) {
+      const inc = pass.incomings[index];
+      rows.push({
+        id:
+          groupSize > 1
+            ? `${pass.passId}-${inc.incomingId}-${index}`
+            : pass.passId,
+        farmerName: inc.farmerName,
+        accountNumber: inc.accountNumber,
+        farmerAddress: inc.farmerAddress,
+        farmerMobile: inc.farmerMobile,
+        createdByName: pass.createdByName,
+        gatePassNo: pass.gatePassNo,
+        manualGatePassNumber: pass.manualGatePassNumber,
+        incomingGatePassNo: inc.incomingGatePassNo,
+        incomingManualNo: inc.incomingManualNo,
+        incomingGatePassDate: inc.incomingGatePassDate,
+        sortIncomingGatePassNo: inc.sortIncomingGatePassNo,
+        sortIncomingManualNo: inc.sortIncomingManualNo,
+        sortIncomingGatePassDate: inc.sortIncomingGatePassDate,
+        sortGatePassNo: pass.sortGatePassNo,
+        sortManualGatePassNumber: pass.sortManualGatePassNumber,
+        sortGradingPassDate: pass.sortGradingPassDate,
+        date: pass.date,
+        variety: inc.variety,
+        truckNumber: inc.truckNumber,
+        bagsReceived: inc.bagsReceived,
+        grossWeightKg: inc.grossWeightKg ?? DASH,
+        tareWeightKg: inc.tareWeightKg ?? DASH,
+        netWeightKg: inc.netWeightKg ?? DASH,
+        netProductKg: inc.netProductKg ?? DASH,
+        totalGradedBags: pass.totalGradedBags,
+        totalGradedWeightKg: pass.totalGradedWeightKg,
+        wastageKg: pass.wastagePercent ?? DASH,
+        grader: pass.grader,
+        remarks: pass.remarks,
+        gradingPassRowIndex: index,
+        gradingPassGroupSize: groupSize,
+        gradedSizeBreakdown: pass.gradedSizeBreakdown,
+        gradedBagSizeQtyByColumnId,
+      });
+    }
+  }
   return rows;
 }
 
@@ -308,8 +329,6 @@ const GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   farmerMobile: false,
   createdByName: false,
 };
-
-const GRADING_REPORT_FETCH_LIMIT = 5000;
 
 /** Lets the browser paint / handle input before a long main-thread task (e.g. react-pdf). */
 function yieldToMain(): Promise<void> {
@@ -342,11 +361,10 @@ const GradingReportTable = () => {
     fetchAllPages: true,
   });
 
-  const passes = data?.data;
+  const passes = data?.data ?? [];
 
-  /** Bag-size columns: same order as `GRADING_SIZES` / `grading-bag-sizes` (only sizes with qty shown). */
-  const visibleBagSizes = useMemo(
-    () => getVisibleBagSizesFromPasses(passes ?? []),
+  const { normalizedPasses, visibleBagSizes } = useMemo(
+    () => buildNormalizedPasses(passes),
     [passes]
   );
 
@@ -365,9 +383,8 @@ const GradingReportTable = () => {
   );
 
   const rows = useMemo((): GradingReportRow[] => {
-    const list = passes ?? [];
-    return mapGradingPassesToRows(list, gradedBagColumns);
-  }, [passes, gradedBagColumns]);
+    return buildRowsForTanstackTable(normalizedPasses, gradedBagColumns);
+  }, [normalizedPasses, gradedBagColumns]);
 
   const reportColumns = useMemo(
     () => createGradingReportColumns(visibleBagSizes),

@@ -5,174 +5,21 @@ import {
   gradedBagSizeColumnId,
   type GradedSizeBreakdownEntry,
 } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ChevronDown, ChevronRight, MoreVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 /** Reusable header with vertical 3-dot menu for groupable columns */
-function GroupableHeader({
-  column,
-  label,
-}: {
-  column: { getIsGrouped: () => boolean; toggleGrouping: () => void };
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-custom">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onSelect={() => column.toggleGrouping()}>
-            {column.getIsGrouped()
-              ? `Ungroup by ${label}`
-              : `Group by ${label}`}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+function GroupableHeader({ label }: { label: string }) {
+  return <span className="font-custom">{label}</span>;
 }
 
-type SortState = { id: string; desc: boolean }[];
-
 /** Right-aligned column: sort only (no grouping) */
-function SortableHeader({
-  column,
-  table,
-  label,
-}: {
-  column: {
-    id: string;
-    getIsSorted: () => false | 'asc' | 'desc';
-    toggleSorting: (desc?: boolean) => void;
-  };
-  table: {
-    options: {
-      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
-    };
-  };
-  label: string;
-}) {
-  const isSorted = column.getIsSorted();
-  const columnId = column.id;
-  return (
-    <div className="flex items-center justify-end gap-1">
-      <span className="font-custom">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => column.toggleSorting(false)}>
-            Sort ascending
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => column.toggleSorting(true)}>
-            Sort descending
-          </DropdownMenuItem>
-          {isSorted && (
-            <DropdownMenuItem
-              onSelect={() =>
-                table.options.onSortingChange?.((prev) =>
-                  prev.filter((s) => s.id !== columnId)
-                )
-              }
-            >
-              Clear sort
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+function SortableHeader({ label }: { label: string }) {
+  return <div className="font-custom text-right">{label}</div>;
 }
 
 /** Header with 3-dot menu for columns that support both grouping and sorting (e.g. Date) */
-function GroupableSortableHeader({
-  column,
-  table,
-  label,
-}: {
-  column: {
-    id: string;
-    getIsGrouped: () => boolean;
-    toggleGrouping: () => void;
-    getIsSorted: () => false | 'asc' | 'desc';
-    toggleSorting: (desc?: boolean) => void;
-  };
-  table: {
-    options: {
-      onSortingChange?: (updater: (prev: SortState) => SortState) => void;
-    };
-  };
-  label: string;
-}) {
-  const isSorted = column.getIsSorted();
-  const columnId = column.id;
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-custom">{label}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="focus-visible:ring-primary h-8 w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label={`${label} column options`}
-          >
-            <MoreVertical className="h-4 w-4 text-gray-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onSelect={() => column.toggleGrouping()}>
-            {column.getIsGrouped()
-              ? `Ungroup by ${label}`
-              : `Group by ${label}`}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => column.toggleSorting(false)}>
-            Sort ascending
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => column.toggleSorting(true)}>
-            Sort descending
-          </DropdownMenuItem>
-          {isSorted && (
-            <DropdownMenuItem
-              onSelect={() =>
-                table.options.onSortingChange?.((prev) =>
-                  prev.filter((s) => s.id !== columnId)
-                )
-              }
-            >
-              Clear sort
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+function GroupableSortableHeader({ label }: { label: string }) {
+  return <span className="font-custom">{label}</span>;
 }
 
 /** Reusable cell with expand/collapse only in the column that owns this row's group */
@@ -277,6 +124,12 @@ export type GradingReportRow = {
   incomingGatePassNo: number | string;
   incomingManualNo: number | string;
   incomingGatePassDate: string;
+  /** Incoming GP no. for sorting (NaN = missing). */
+  sortIncomingGatePassNo: number;
+  /** Incoming manual no. for sorting (NaN = missing). */
+  sortIncomingManualNo: number;
+  /** Incoming GP ISO date string for sorting. */
+  sortIncomingGatePassDate: string;
   date: string;
   variety: string;
   truckNumber: string;
@@ -365,6 +218,24 @@ const sortGradingPassDateFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
   compareIsoDateStrings(
     rowA.original.sortGradingPassDate,
     rowB.original.sortGradingPassDate
+  );
+
+const sortIncomingGatePassNoFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
+  compareNumbersForSort(
+    rowA.original.sortIncomingGatePassNo,
+    rowB.original.sortIncomingGatePassNo
+  );
+
+const sortIncomingManualNoFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
+  compareNumbersForSort(
+    rowA.original.sortIncomingManualNo,
+    rowB.original.sortIncomingManualNo
+  );
+
+const sortIncomingGatePassDateFn: SortingFn<GradingReportRow> = (rowA, rowB) =>
+  compareIsoDateStrings(
+    rowA.original.sortIncomingGatePassDate,
+    rowB.original.sortIncomingGatePassDate
   );
 
 function formatNum(value: number | string): string {
@@ -461,9 +332,7 @@ export function createGradingReportColumns(
     // ——— Farmer (first column) ———
     {
       accessorKey: 'farmerName',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Farmer" />
-      ),
+      header: () => <GroupableHeader label="Farmer" />,
       cell: FarmerCell,
       enableGrouping: true,
     },
@@ -473,7 +342,8 @@ export function createGradingReportColumns(
       header: () => (
         <div className="font-custom text-right">Incoming GP no.</div>
       ),
-      enableSorting: false,
+      sortingFn: sortIncomingGatePassNoFn,
+      sortDescFirst: false,
       cell: ({ row }) => (
         <div className="text-right">
           {row.getIsGrouped()
@@ -488,7 +358,9 @@ export function createGradingReportColumns(
       header: () => (
         <div className="font-custom text-right">Incoming manual no.</div>
       ),
-      enableSorting: false,
+      sortingFn: sortIncomingManualNoFn,
+      sortDescFirst: false,
+      enableSorting: true,
       cell: ({ row }) => (
         <div className="text-right">
           {row.getIsGrouped()
@@ -500,18 +372,16 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'incomingGatePassDate',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Incoming gate pass date" />
-      ),
-      enableSorting: false,
+      header: () => <GroupableHeader label="Incoming gate pass date" />,
+      sortingFn: sortIncomingGatePassDateFn,
+      sortDescFirst: false,
+      enableSorting: true,
       cell: GroupableCell,
       enableGrouping: true,
     },
     {
       accessorKey: 'variety',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Variety" />
-      ),
+      header: () => <GroupableHeader label="Variety" />,
       cell: GroupableCell,
       enableGrouping: true,
     },
@@ -577,9 +447,7 @@ export function createGradingReportColumns(
     // ——— Grading gate pass ———
     {
       accessorKey: 'gatePassNo',
-      header: ({ column, table }) => (
-        <SortableHeader column={column} table={table} label="Gate pass no." />
-      ),
+      header: () => <SortableHeader label="Gate pass no." />,
       sortingFn: sortGatePassNoFn,
       sortDescFirst: false,
       cell: ({ row }) => (
@@ -591,9 +459,7 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'manualGatePassNumber',
-      header: ({ column, table }) => (
-        <SortableHeader column={column} table={table} label="Manual GP no." />
-      ),
+      header: () => <SortableHeader label="Manual GP no." />,
       sortingFn: sortManualGatePassNumberFn,
       sortDescFirst: false,
       cell: ({ row }) => (
@@ -607,9 +473,7 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'date',
-      header: ({ column, table }) => (
-        <GroupableSortableHeader column={column} table={table} label="Date" />
-      ),
+      header: () => <GroupableSortableHeader label="Date" />,
       sortingFn: sortGradingPassDateFn,
       sortDescFirst: false,
       cell: GroupableCell,
@@ -662,9 +526,7 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'grader',
-      header: ({ column }) => (
-        <GroupableHeader column={column} label="Grader" />
-      ),
+      header: () => <GroupableHeader label="Grader" />,
       cell: GroupableCell,
       enableGrouping: true,
     },

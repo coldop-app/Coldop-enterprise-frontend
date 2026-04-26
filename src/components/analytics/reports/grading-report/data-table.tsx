@@ -5,19 +5,53 @@ import React, {
   forwardRef,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { Row } from '@tanstack/table-core';
 import type { ColumnDef } from '@tanstack/table-core';
 import type { VisibilityState } from '@tanstack/table-core';
+import type {
+  ColumnFiltersState,
+  ColumnResizeDirection,
+  ColumnResizeMode,
+  ExpandedState,
+  FilterFn,
+  GroupingState,
+  Header,
+  SortingState,
+} from '@tanstack/table-core';
 import {
   flexRender,
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
   getExpandedRowModel,
   getGroupedRowModel,
   getSortedRowModel,
+  type Table as TanstackTable,
   useReactTable,
 } from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import type { GradingReportRow } from './columns';
+import type { FilterGroupNode } from './advanced-filters';
+import { ViewFiltersSheet } from './view-filters-sheet';
+import {
+  gradingGlobalFilterFn,
+  gradingNumericFilterFields,
+} from './grading-filter-utils';
+import { Input } from '@/components/ui/input';
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 /** Hoist once: passing `getCoreRowModel()` inline creates a new factory each render and defeats memoization. */
 const coreRowModel = getCoreRowModel();
@@ -30,37 +64,6 @@ function defaultGetRowId<TData>(row: TData, index: number): string {
   return r.id != null ? String(r.id) : String(index);
 }
 
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Item, ItemFooter } from '@/components/ui/item';
-import { GripVertical, Layers, Settings2, X } from 'lucide-react';
-import {
-  GRADING_REPORT_BAG_SIZE_LABELS,
-  sizeKeyFromGradedBagColumnId,
-} from '@/components/analytics/reports/grading-report/grading-bag-sizes';
-
 const TOTAL_COLUMN_IDS = [
   'bagsReceived',
   'totalGradedBags',
@@ -72,6 +75,40 @@ const TOTAL_COLUMN_IDS = [
 ] as const;
 
 const DEFAULT_TOTAL_COLUMN_IDS: readonly string[] = [...TOTAL_COLUMN_IDS];
+const DEFAULT_COLUMN_SIZE = 180;
+const DEFAULT_COLUMN_MIN_SIZE = 120;
+const DEFAULT_COLUMN_MAX_SIZE = 420;
+const DEFAULT_COLUMN_ORDER = [
+  'farmerName',
+  'incomingGatePassNo',
+  'incomingGatePassDate',
+  'variety',
+  'bagsReceived',
+  'netProductKg',
+  'gatePassNo',
+  'date',
+  'totalGradedBags',
+  'totalGradedWeightKg',
+  'wastageKg',
+];
+const RIGHT_ALIGNED_COLUMN_IDS = new Set([
+  'accountNumber',
+  'gatePassNo',
+  'manualGatePassNumber',
+  'incomingGatePassNo',
+  'incomingManualNo',
+  'bagsReceived',
+  'grossWeightKg',
+  'tareWeightKg',
+  'netWeightKg',
+  'netProductKg',
+  'totalGradedBags',
+  'totalGradedWeightKg',
+  'wastageKg',
+]);
+const isFirefoxBrowser =
+  typeof window !== 'undefined' &&
+  window.navigator.userAgent.includes('Firefox');
 
 function toNum(value: unknown): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
@@ -81,6 +118,22 @@ function toNum(value: unknown): number {
   }
   return 0;
 }
+
+const multiValueFilterFn: FilterFn<Record<string, unknown>> = (
+  row,
+  columnId,
+  filterValue
+) => {
+  const cellValue = String(row.getValue(columnId));
+  if (typeof filterValue === 'string') {
+    const normalized = filterValue.trim().toLowerCase();
+    if (!normalized) return true;
+    return cellValue.toLowerCase().includes(normalized);
+  }
+  if (!Array.isArray(filterValue)) return true;
+  if (filterValue.length === 0) return false;
+  return filterValue.includes(cellValue);
+};
 
 /** Row with optional grading-pass group meta for rowSpan */
 interface RowWithGradingGroupMeta {
@@ -103,40 +156,6 @@ interface DataTableProps<TData, TValue> {
   toolbarLeftContent?: React.ReactNode;
   /** Optional content to render on the right side of the toolbar (e.g. primary action) */
   toolbarRightContent?: React.ReactNode;
-}
-
-/** Human-readable labels for column visibility toggle */
-const COLUMN_LABELS: Record<string, string> = {
-  farmerName: 'Farmer',
-  farmerAddress: 'Address',
-  farmerMobile: 'Mobile',
-  createdByName: 'Created by',
-  gatePassNo: 'Gate pass no.',
-  manualGatePassNumber: 'Manual GP no.',
-  incomingGatePassNo: 'Incoming GP no.',
-  incomingManualNo: 'Incoming manual no.',
-  incomingGatePassDate: 'Incoming gate pass date',
-  date: 'Date',
-  variety: 'Variety',
-  truckNumber: 'Truck no.',
-  bagsReceived: 'Bags received',
-  grossWeightKg: 'Gross (kg)',
-  tareWeightKg: 'Tare (kg)',
-  netWeightKg: 'Net (kg)',
-  netProductKg: 'Net product (kg)',
-  totalGradedBags: 'Graded bags',
-  totalGradedWeightKg: 'Total graded weight (kg)',
-  wastageKg: 'Wastage (%)',
-  grader: 'Grader',
-  remarks: 'Remarks',
-};
-
-function getColumnLabel(id: string): string {
-  const sizeKey = sizeKeyFromGradedBagColumnId(id);
-  if (sizeKey != null) {
-    return GRADING_REPORT_BAG_SIZE_LABELS[sizeKey] ?? sizeKey;
-  }
-  return COLUMN_LABELS[id] ?? id;
 }
 
 /** Snapshot of table state for PDF: visible columns, grouping, sorting, and row model (groups + leaves). */
@@ -179,74 +198,178 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
   }: DataTableProps<TData, TValue>,
   ref: Ref<GradingReportDataTableRef<TData>>
 ) {
+  const typedData = data as unknown as Record<string, unknown>[];
+  const typedColumns = columns as ColumnDef<Record<string, unknown>, TValue>[];
+  const allNumericFilterFields = useMemo(() => {
+    const dynamicBagColumns = typedColumns
+      .map((column) => {
+        if (typeof column.id === 'string') return column.id;
+        if ('accessorKey' in column && typeof column.accessorKey === 'string') {
+          return column.accessorKey;
+        }
+        return null;
+      })
+      .filter(
+        (columnId): columnId is string =>
+          columnId != null && columnId.startsWith('gradedBagSize_')
+      );
+    return [...gradingNumericFilterFields, ...dynamicBagColumns];
+  }, [typedColumns]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     () => initialColumnVisibility ?? {}
   );
-  const [grouping, setGrouping] = useState<string[]>([]);
-  const [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [groupByOpen, setGroupByOpen] = useState(false);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [grouping, setGrouping] = useState<GroupingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnOrder, setColumnOrder] =
+    useState<string[]>(DEFAULT_COLUMN_ORDER);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState<string | FilterGroupNode>(
+    ''
+  );
+  const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
+  const [columnResizeDirection] = useState<ColumnResizeDirection>('ltr');
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  const globalFilterFn: FilterFn<Record<string, unknown>> = (
+    row,
+    _columnId,
+    filterValue
+  ) =>
+    gradingGlobalFilterFn(
+      row.original as unknown as GradingReportRow,
+      filterValue as string | FilterGroupNode,
+      allNumericFilterFields
+    );
 
   // TanStack Table memoizes row models internally; React Compiler cannot memoize this hook safely.
   // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable
   const table = useReactTable({
-    data,
-    columns,
-    getRowId: getRowId ?? defaultGetRowId,
+    data: typedData,
+    columns: typedColumns,
+    defaultColumn: {
+      size: DEFAULT_COLUMN_SIZE,
+      minSize: DEFAULT_COLUMN_MIN_SIZE,
+      maxSize: DEFAULT_COLUMN_MAX_SIZE,
+      filterFn: multiValueFilterFn,
+    },
+    filterFns: {
+      multiValue: multiValueFilterFn,
+    },
+    getRowId:
+      (getRowId as
+        | ((
+            originalRow: Record<string, unknown>,
+            index: number,
+            parent?: Row<Record<string, unknown>>
+          ) => string)
+        | undefined) ?? defaultGetRowId,
     getCoreRowModel: coreRowModel,
     getGroupedRowModel: groupedRowModel,
     getSortedRowModel: sortedRowModel,
     getExpandedRowModel: expandedRowModel,
+    getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
     onColumnVisibilityChange: setColumnVisibility,
     onGroupingChange: setGrouping,
     onSortingChange: setSorting,
+    onColumnOrderChange: setColumnOrder,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    columnResizeMode,
+    columnResizeDirection,
     onExpandedChange: (updater) =>
       setExpanded((prev) => {
         const next = typeof updater === 'function' ? updater(prev) : prev;
         return typeof next === 'object' && next !== null ? next : prev;
       }),
+    globalFilterFn,
     state: {
       columnVisibility,
       grouping,
       sorting,
+      columnOrder,
+      columnFilters,
+      globalFilter,
       expanded,
     },
     groupedColumnMode: 'reorder',
-    enableColumnFilters: false,
-    enableGlobalFilter: false,
+    enableColumnFilters: true,
+    enableGlobalFilter: true,
   });
 
-  const groupedIds = table.getState().grouping ?? [];
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    e.dataTransfer.setData('text/plain', String(index));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverIndex(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    setDragOverIndex(null);
-    const dragIndex = Number(e.dataTransfer.getData('text/plain'));
-    if (Number.isNaN(dragIndex) || dragIndex === dropIndex) return;
-    const next = [...groupedIds];
-    const [removed] = next.splice(dragIndex, 1);
-    next.splice(dropIndex, 0, removed);
-    setGrouping(next);
-  };
-
-  const removeFromGrouping = (columnId: string) => {
-    setGrouping(groupedIds.filter((id) => id !== columnId));
+  const renderHeaderCell = (
+    header: Header<Record<string, unknown>, unknown>
+  ) => {
+    const isBagSizeColumn = header.id.startsWith('gradedBagSize_');
+    const isRightAligned =
+      RIGHT_ALIGNED_COLUMN_IDS.has(header.id) || isBagSizeColumn;
+    return (
+      <TableHead
+        key={header.id}
+        style={{
+          width: header.getSize(),
+          minWidth: header.getSize(),
+          maxWidth: header.getSize(),
+        }}
+        className="border-border bg-muted/60 text-foreground sticky top-0 z-20 border-r border-b p-0 font-semibold last:border-r-0"
+      >
+        <div
+          className={`group relative flex h-full min-h-[46px] w-full items-center px-4 py-3.5 ${
+            isRightAligned ? 'justify-end' : 'justify-between'
+          }`}
+        >
+          <button
+            type="button"
+            className={`flex w-full items-center gap-1 ${
+              header.column.getCanSort()
+                ? 'cursor-pointer'
+                : 'pointer-events-none cursor-default'
+            } ${isRightAligned ? 'justify-end text-right' : 'justify-between text-left'}`}
+            onClick={header.column.getToggleSortingHandler()}
+          >
+            <span className="font-custom truncate">
+              {header.isPlaceholder
+                ? null
+                : flexRender(
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
+            </span>
+            <span className={isRightAligned ? 'ml-2' : ''}>
+              {{
+                asc: <ArrowUp className="ml-1 h-3.5 w-3.5" />,
+                desc: <ArrowDown className="ml-1 h-3.5 w-3.5" />,
+              }[header.column.getIsSorted() as string] ?? (
+                <ArrowUpDown className="text-muted-foreground ml-1 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+              )}
+            </span>
+          </button>
+          <div
+            onDoubleClick={() => header.column.resetSize()}
+            onMouseDown={header.getResizeHandler()}
+            onTouchStart={header.getResizeHandler()}
+            onClick={(event) => event.stopPropagation()}
+            className={`absolute top-0 right-0 bottom-0 w-1 cursor-col-resize ${
+              header.column.getIsResizing()
+                ? 'bg-primary/50'
+                : 'hover:bg-primary/30 bg-transparent'
+            }`}
+            style={{
+              transform:
+                table.options.columnResizeMode === 'onEnd' &&
+                header.column.getIsResizing()
+                  ? `translateX(${
+                      (table.options.columnResizeDirection === 'rtl' ? -1 : 1) *
+                      (table.getState().columnSizingInfo.deltaOffset ?? 0)
+                    }px)`
+                  : '',
+            }}
+          />
+        </div>
+      </TableHead>
+    );
   };
 
   useImperativeHandle(
@@ -261,7 +384,10 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
           .map((col) => col.id);
         const rows: GradingReportPdfSnapshot<TData>['rows'] = [];
         const sortedModel = table.getSortedRowModel();
-        function walkRows(modelRows: Row<TData>[], depth: number): void {
+        function walkRows(
+          modelRows: Row<Record<string, unknown>>[],
+          depth: number
+        ): void {
           for (const row of modelRows) {
             if (row.getIsGrouped()) {
               const groupingColumnId = groupingIds[depth];
@@ -278,13 +404,13 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
                 groupingColumnId: groupingColumnId ?? '',
                 groupingValue,
                 displayValue,
-                firstLeaf: getFirstLeaf(row),
+                firstLeaf: getFirstLeaf(row) as TData | undefined,
               });
               if (row.subRows?.length) {
                 walkRows(row.subRows, depth + 1);
               }
             } else {
-              rows.push({ type: 'leaf', row: row.original });
+              rows.push({ type: 'leaf', row: row.original as TData });
             }
           }
         }
@@ -311,11 +437,16 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
   const totals = useMemo(() => {
     const acc: Record<string, number> = {};
     for (const id of totalColumnIds) acc[id] = 0;
-    for (const row of data as Record<string, unknown>[]) {
+    for (const row of typedData) {
+      const rowPassIndex =
+        typeof row.gradingPassRowIndex === 'number'
+          ? row.gradingPassRowIndex
+          : 0;
       const qtyByCol = row.gradedBagSizeQtyByColumnId as
         | Record<string, number>
         | undefined;
       for (const id of totalColumnIds) {
+        if (rowPassIndex > 0 && spanColumnSet?.has(id)) continue;
         const fromBag =
           qtyByCol != null && Object.prototype.hasOwnProperty.call(qtyByCol, id)
             ? qtyByCol[id]
@@ -325,176 +456,110 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
       }
     }
     return acc;
-  }, [data, totalColumnIds]);
+  }, [typedData, totalColumnIds, spanColumnSet]);
 
   const headerGroups = table.getHeaderGroups();
   const rowModel = table.getRowModel();
+  const rows = rowModel.rows;
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
+    count: rows.length,
+    estimateSize: () => 44,
+    getScrollElement: () => tableContainerRef.current,
+    measureElement: isFirefoxBrowser
+      ? undefined
+      : (element) => element?.getBoundingClientRect().height,
+    overscan: 8,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
     <div className="space-y-4">
-      <Item
-        variant="outline"
-        size="sm"
-        className="flex-col items-stretch gap-4 rounded-xl"
-      >
-        <ItemFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:items-end">
+      <div className="border-border bg-card rounded-xl border p-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex w-full flex-wrap items-end gap-3 lg:w-auto">
             {toolbarLeftContent}
-            <Sheet open={groupByOpen} onOpenChange={setGroupByOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-9 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                >
-                  <Layers className="mr-2 h-4 w-4" />
-                  Group by
-                </Button>
-              </SheetTrigger>
-              <SheetContent
-                side="right"
-                className="font-custom border-border flex w-full flex-col sm:max-w-[280px]"
-              >
-                <SheetHeader className="border-border border-b pb-4">
-                  <SheetTitle className="text-foreground">Group by</SheetTitle>
-                  <SheetDescription>
-                    Drag to reorder. Remove groups with the × button.
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="flex flex-1 flex-col overflow-auto p-4">
-                  {groupedIds.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">
-                      No groups applied. Use the 3-dot menu on a column header
-                      (Farmer, Variety, Date, Incoming gate pass date, Grader)
-                      to group by that column.
-                    </p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {groupedIds.map((columnId, index) => (
-                        <li
-                          key={columnId}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, index)}
-                          onDragOver={(e) => handleDragOver(e, index)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, index)}
-                          className={`border-border bg-card flex cursor-grab items-center gap-2 rounded-md border px-3 py-2 text-sm active:cursor-grabbing ${
-                            dragOverIndex === index
-                              ? 'border-primary bg-primary/10'
-                              : ''
-                          }`}
-                        >
-                          <GripVertical className="text-muted-foreground h-4 w-4 shrink-0" />
-                          <span className="text-foreground min-w-0 flex-1 truncate">
-                            {getColumnLabel(columnId)}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-destructive h-7 w-7 shrink-0"
-                            aria-label={`Remove ${getColumnLabel(columnId)} from groups`}
-                            onClick={() => removeFromGrouping(columnId)}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {groupedIds.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:text-foreground mt-4 h-7 text-xs"
-                      onClick={() => setGrouping([])}
-                    >
-                      Clear all
-                    </Button>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom border-border text-muted-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-primary h-9 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                >
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Columns
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {getColumnLabel(column.id)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
-          {toolbarRightContent != null ? (
-            <div className="w-full shrink-0 sm:w-auto">
-              {toolbarRightContent}
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+              <Input
+                value={typeof globalFilter === 'string' ? globalFilter : ''}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                placeholder="Search gate pass..."
+                className="font-custom h-10 pl-9"
+              />
             </div>
-          ) : null}
-        </ItemFooter>
-      </Item>
+            <ViewFiltersSheet
+              table={table as unknown as TanstackTable<GradingReportRow>}
+              defaultColumnOrder={DEFAULT_COLUMN_ORDER}
+              allNumericFilterFields={allNumericFilterFields}
+            />
+            {toolbarRightContent != null ? (
+              <div className="w-full shrink-0 sm:w-auto">
+                {toolbarRightContent}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
       <div className="border-border bg-card font-custom rounded-xl border text-sm shadow-sm">
         <div
-          className="max-h-[min(70vh,56rem)] overflow-auto rounded-xl"
+          ref={tableContainerRef}
+          className="overflow-x-auto overflow-y-auto rounded-xl"
+          style={{
+            direction: table.options.columnResizeDirection,
+            height: '560px',
+            position: 'relative',
+          }}
           role="region"
           aria-label="Grading report table"
         >
-          <Table>
+          <Table
+            style={{ display: 'grid', width: table.getTotalSize() }}
+            className="font-custom text-sm"
+          >
             <TableHeader>
               {headerGroups.map((headerGroup) => (
                 <TableRow
                   key={headerGroup.id}
+                  style={{ display: 'flex', width: '100%' }}
                   className="border-border bg-muted/60 hover:bg-muted/60 border-b-2"
                 >
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="border-border bg-muted/60 text-foreground sticky top-0 z-20 border-r border-b px-4 py-3.5 font-semibold last:border-r-0"
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
+                  {headerGroup.headers.map((header) =>
+                    renderHeaderCell(
+                      header as Header<Record<string, unknown>, unknown>
+                    )
+                  )}
                 </TableRow>
               ))}
             </TableHeader>
-            <TableBody>
-              {rowModel.rows?.length ? (
-                rowModel.rows.map((row) => {
+            <TableBody
+              style={{
+                display: 'grid',
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                position: 'relative',
+              }}
+            >
+              {rows.length > 0 ? (
+                virtualRows.map((virtualRow) => {
+                  const row = rows[virtualRow.index];
                   const original =
                     row.original as unknown as RowWithGradingGroupMeta;
                   const rowIndex = original.gradingPassRowIndex ?? 0;
-                  const groupSize = original.gradingPassGroupSize ?? 1;
 
                   return (
                     <TableRow
                       key={row.id}
+                      data-index={virtualRow.index}
+                      ref={(node) => rowVirtualizer.measureElement(node)}
                       data-state={row.getIsSelected() && 'selected'}
                       data-depth={row.depth}
-                      style={{ contentVisibility: 'auto' }}
+                      style={{
+                        display: 'flex',
+                        position: 'absolute',
+                        transform: `translateY(${virtualRow.start}px)`,
+                        width: '100%',
+                      }}
                       className={`border-border border-b transition-colors last:border-b-0 ${
                         row.getIsGrouped()
                           ? 'bg-primary/15 hover:bg-primary/20'
@@ -507,23 +572,25 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
                         const isSpanColumn =
                           spanColumnSet != null &&
                           spanColumnSet.has(cell.column.id);
-                        if (isSpanColumn && rowIndex > 0) {
-                          return null;
-                        }
-                        const rowSpan =
-                          isSpanColumn && rowIndex === 0
-                            ? groupSize
-                            : undefined;
+                        const hideRepeatedSpanValue =
+                          isSpanColumn && rowIndex > 0;
                         return (
                           <TableCell
                             key={cell.id}
-                            rowSpan={rowSpan}
-                            className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
+                            style={{
+                              display: 'flex',
+                              width: cell.column.getSize(),
+                              minWidth: cell.column.getSize(),
+                              maxWidth: cell.column.getSize(),
+                            }}
+                            className="border-border text-foreground border-r px-4 py-3 wrap-break-word whitespace-normal last:border-r-0"
                           >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
+                            {hideRepeatedSpanValue
+                              ? null
+                              : flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
                           </TableCell>
                         );
                       })}
@@ -551,6 +618,11 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
                     return (
                       <TableCell
                         key={header.id}
+                        style={{
+                          width: header.getSize(),
+                          minWidth: header.getSize(),
+                          maxWidth: header.getSize(),
+                        }}
                         className="border-border text-foreground border-r px-4 py-3 last:border-r-0"
                       >
                         {idx === 0 ? (
