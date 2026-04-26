@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#000',
     paddingVertical: 3,
   },
-  cell: { paddingHorizontal: 2, fontSize: 6, textAlign: 'center' },
-  cellLeft: { paddingHorizontal: 2, fontSize: 6, textAlign: 'left' },
+  cell: { paddingHorizontal: 2, fontSize: 10, textAlign: 'center' },
+  cellLeft: { paddingHorizontal: 2, fontSize: 10, textAlign: 'left' },
   cellLast: { borderRightWidth: 0 },
   cellWrap: {
     borderRightWidth: 0.5,
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  cellText: { fontSize: 6, width: '100%', maxWidth: '100%' },
+  cellText: { fontSize: 10, width: '100%', maxWidth: '100%' },
   summarySection: { marginTop: 8 },
   summaryTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 4 },
   summaryTable: {
@@ -93,14 +93,14 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 2,
-    fontSize: 6,
+    fontSize: 10,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 2,
-    fontSize: 6,
+    fontSize: 10,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -434,7 +434,7 @@ function DispatchReportSummaryPage({
   summary: DispatchReportTableSummary;
 }) {
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.companyName}>{companyName}</Text>
         <Text style={styles.reportTitle}>{reportTitle} — Summary</Text>
@@ -479,7 +479,7 @@ export const DispatchReportTablePdf = ({
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.companyName}>{companyName}</Text>
           <Text style={styles.reportTitle}>{reportTitle}</Text>

@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 48,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -91,16 +91,16 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   cellText: {
-    fontSize: 6,
+    fontSize: 10,
     width: '100%',
   },
   cellTextBold: {
-    fontSize: 6,
+    fontSize: 10,
     fontWeight: 'bold',
     width: '100%',
   },
   pageHint: {
-    fontSize: 7,
+    fontSize: 9,
     color: '#555',
     textAlign: 'right',
     marginTop: 8,
@@ -132,13 +132,13 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
   },
   summaryLine: {
-    fontSize: 8,
+    fontSize: 10,
     marginBottom: 4,
     lineHeight: 1.35,
     color: '#222',
   },
   summaryLineMuted: {
-    fontSize: 7,
+    fontSize: 9,
     marginBottom: 3,
     color: '#444',
   },
@@ -165,14 +165,14 @@ const styles = StyleSheet.create({
   summaryCellName: {
     width: '42%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellNum: {
     width: '29%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'right',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   summaryCellPct: {
     width: '29%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'right',
   },
   summaryEmphasis: {
@@ -287,7 +287,7 @@ function SummaryPage({
       : 'This report lists bags graded per grader for each month in the range, with row totals and a bag-total footer.';
 
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <View style={styles.summaryPageHeader}>
         <Text style={styles.companyName}>{companyName}</Text>
         <Text style={styles.summaryPageTitle}>Summary</Text>
@@ -543,7 +543,12 @@ export function GradingTrendTablePdf({
   return (
     <Document>
       {chunks.map((chunk, pageIndex) => (
-        <Page key={pageIndex} size="A4" style={styles.page}>
+        <Page
+          key={pageIndex}
+          size="A4"
+          style={styles.page}
+          orientation="landscape"
+        >
           {pageIndex === 0 ? (
             <ReportHeader
               companyName={company}

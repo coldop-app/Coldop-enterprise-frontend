@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { StorageReportRow } from '@/components/analytics/reports/storage-report/columns';
 import { getSizeColumnId } from '@/components/analytics/reports/storage-report/columns';
+import type { StorageReportPdfSnapshot } from '@/components/analytics/reports/storage-report/data-table';
 
 export interface StorageReportTablePdfProps {
   companyName?: string;
@@ -9,6 +10,8 @@ export interface StorageReportTablePdfProps {
   rows: StorageReportRow[];
   /** Size labels to show as columns (e.g. ['20–25', '25–30']). Determines table and summary columns. */
   sizeColumnIds: readonly string[];
+  /** When provided, honours filtered leaf rows from the report UI. */
+  tableSnapshot?: StorageReportPdfSnapshot<StorageReportRow> | null;
 }
 
 const styles = StyleSheet.create({
@@ -17,7 +20,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -72,12 +75,12 @@ const styles = StyleSheet.create({
   },
   cell: {
     paddingHorizontal: 2,
-    fontSize: 6,
+    fontSize: 10,
     textAlign: 'center',
   },
   cellLeft: {
     paddingHorizontal: 2,
-    fontSize: 6,
+    fontSize: 10,
     textAlign: 'left',
   },
   cellLast: {
@@ -90,18 +93,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellText: {
-    fontSize: 6,
+    fontSize: 10,
     width: '100%',
     maxWidth: '100%',
   },
   cellQuantity: {
-    fontSize: 6,
+    fontSize: 10,
     fontWeight: 'bold',
     width: '100%',
     maxWidth: '100%',
   },
   cellLocation: {
-    fontSize: 5,
+    fontSize: 9,
     color: '#555',
     marginTop: 1,
     width: '100%',
@@ -112,7 +115,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   summarySection: {
     marginTop: 14,
@@ -158,14 +161,14 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -512,7 +515,7 @@ function ReportSummaryPage({
   );
 
   return (
-    <Page size="A4" style={styles.summaryPage}>
+    <Page size="A4" orientation="landscape" style={styles.summaryPage}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -693,23 +696,31 @@ export const StorageReportTablePdf = ({
   reportTitle = 'Storage Report',
   rows,
   sizeColumnIds,
+  tableSnapshot,
 }: StorageReportTablePdfProps) => {
+  const leafRows =
+    tableSnapshot?.rows
+      .filter(
+        (item): item is { type: 'leaf'; row: StorageReportRow } =>
+          item.type === 'leaf'
+      )
+      .map((item) => item.row) ?? rows;
   const columns = getPdfColumns(sizeColumnIds);
-  const summary = computeStorageReportSummary(rows, sizeColumnIds);
+  const summary = computeStorageReportSummary(leafRows, sizeColumnIds);
 
-  const totalBags = rows.reduce(
+  const totalBags = leafRows.reduce(
     (sum, r) => sum + (typeof r.totalBags === 'number' ? r.totalBags : 0),
     0
   );
   const totalRowTotals: Record<string, number> = { totalBags };
   for (const size of sizeColumnIds) {
     const id = getSizeColumnId(size);
-    totalRowTotals[id] = rows.reduce((s, r) => s + (Number(r[id]) || 0), 0);
+    totalRowTotals[id] = leafRows.reduce((s, r) => s + (Number(r[id]) || 0), 0);
   }
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <ReportHeader
           companyName={companyName}
           dateRangeLabel={dateRangeLabel}
@@ -732,7 +743,7 @@ export const StorageReportTablePdf = ({
                 </Text>
               ))}
             </View>
-            {rows.length === 0 ? (
+            {leafRows.length === 0 ? (
               <View style={styles.tableRow}>
                 <Text
                   style={[
@@ -747,7 +758,7 @@ export const StorageReportTablePdf = ({
               </View>
             ) : (
               <>
-                {rows.map((row) => (
+                {leafRows.map((row) => (
                   <TableRow key={row.id} row={row} columns={columns} />
                 ))}
                 <View style={styles.tableRowTotal}>

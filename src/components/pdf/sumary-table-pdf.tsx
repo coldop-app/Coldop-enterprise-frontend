@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   title: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 700,
     color: '#333',
     marginBottom: 4,
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 2,
     fontWeight: 700,
-    fontSize: 5,
+    fontSize: 7,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   headerCellText: {
-    fontSize: 5,
+    fontSize: 7,
     fontWeight: 700,
     color: '#333',
     textTransform: 'uppercase',
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellSub: {
-    fontSize: 4,
+    fontSize: 6,
     color: '#6b7280',
   },
   totalRow: {
@@ -157,11 +157,11 @@ export default function SummaryTablePdf({
   };
   const headerCellStyle = {
     ...styles.headerCell,
-    ...(largePrintMode ? { fontSize: 6, paddingVertical: 4 } : {}),
+    ...(largePrintMode ? { fontSize: 8, paddingVertical: 4 } : {}),
   };
   const headerCellTextStyle = {
     ...styles.headerCellText,
-    ...(largePrintMode ? { fontSize: 6 } : {}),
+    ...(largePrintMode ? { fontSize: 8 } : {}),
   };
   const cellStyle = {
     ...styles.cell,
@@ -169,7 +169,7 @@ export default function SummaryTablePdf({
   };
   const cellCenterStyle = {
     ...styles.cellCenter,
-    ...(largePrintMode ? { fontSize: 7 } : {}),
+    ...(largePrintMode ? { fontSize: 9 } : {}),
   };
 
   return (

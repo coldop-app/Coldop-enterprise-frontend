@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   poweredBy: {
-    fontSize: 8,
+    fontSize: 10,
     color: MUTED,
     textAlign: 'center',
   },
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionTitle: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 600,
     color: MUTED,
     letterSpacing: 1,
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     borderLeftColor: PRIMARY,
   },
   summaryLabel: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 600,
     color: MUTED,
     textTransform: 'uppercase',
@@ -201,7 +201,7 @@ export function IncomingVoucherPdf({
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           <View>
             <Image

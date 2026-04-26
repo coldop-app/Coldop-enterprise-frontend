@@ -4,6 +4,7 @@ import {
   orderBagSizesByGradingReport,
   sizeKeyFromGradedBagColumnId,
 } from '@/components/analytics/reports/grading-report/grading-bag-sizes';
+import { computeGradingReportSummary } from '@/components/analytics/reports/grading-report/grading-report-pdf-prepare';
 import type {
   GradingReportPdfPrepared,
   GradingReportTableSummary,
@@ -25,7 +26,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -80,12 +81,12 @@ const styles = StyleSheet.create({
   },
   cell: {
     paddingHorizontal: 0,
-    fontSize: 6,
+    fontSize: 10,
     textAlign: 'center',
   },
   cellLeft: {
     paddingHorizontal: 0,
-    fontSize: 6,
+    fontSize: 10,
     textAlign: 'left',
   },
   cellLast: {
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellText: {
-    fontSize: 6,
+    fontSize: 10,
     width: '100%',
     maxWidth: '100%',
   },
@@ -129,23 +130,23 @@ const styles = StyleSheet.create({
     gap: 1.5,
   },
   gradedBagQty: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: 'bold',
     textAlign: 'right',
   },
   gradedBagWeightLine: {
-    fontSize: 5.5,
+    fontSize: 9.5,
     color: '#444',
     textAlign: 'right',
   },
   gradedBagDetail: {
-    fontSize: 5,
+    fontSize: 9,
     color: '#444',
     textAlign: 'right',
     maxWidth: '100%',
   },
   gradedBagDetailLeft: {
-    fontSize: 5,
+    fontSize: 9,
     color: '#444',
     textAlign: 'left',
     maxWidth: '100%',
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   farmerHeaderRow: {
-    fontSize: 8,
+    fontSize: 10,
     marginBottom: 2,
   },
   varietyHeader: {
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   summarySection: {
     marginTop: 14,
@@ -245,14 +246,14 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -1151,7 +1152,17 @@ export const GradingReportTablePdf = ({
   prepared,
 }: GradingReportTablePdfProps) => {
   const spanColumnSet = new Set(prepared.spanColumnSet);
-  const { totals, summary, grandColumns } = prepared;
+  const { totals, grandColumns } = prepared;
+  const displayedRows =
+    prepared.kind === 'grouped'
+      ? prepared.sections.flatMap((section) => section.leaves)
+      : prepared.mainPageChunks.flatMap((chunk) =>
+          chunk.flatMap((group) => group)
+        );
+  const summary: GradingReportTableSummary =
+    displayedRows.length > 0
+      ? computeGradingReportSummary(displayedRows)
+      : prepared.summary;
 
   if (prepared.kind === 'grouped') {
     const { grouping, sections } = prepared;

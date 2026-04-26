@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   page: {
     padding: 14,
     fontFamily: 'Helvetica',
-    fontSize: 7,
+    fontSize: 9,
     backgroundColor: '#FEFDF8',
   },
   header: {
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   company: { fontSize: 12, fontWeight: 'bold' },
   title: { fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-  date: { fontSize: 8, marginTop: 2 },
+  date: { fontSize: 10, marginTop: 2 },
   varietyTitle: { fontSize: 9, fontWeight: 'bold', marginVertical: 6 },
   table: { borderWidth: 1, borderColor: '#000', width: '100%' },
   row: {
@@ -71,8 +71,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   cellLast: { borderRightWidth: 0 },
-  text: { fontSize: 6.4 },
-  textBold: { fontSize: 6.4, fontWeight: 'bold' },
+  text: { fontSize: 8.4 },
+  textBold: { fontSize: 8.4, fontWeight: 'bold' },
   left: { textAlign: 'left' },
   center: { textAlign: 'center' },
   right: { textAlign: 'right' },

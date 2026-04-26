@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   poweredBy: {
-    fontSize: 8,
+    fontSize: 10,
     color: '#555',
     fontStyle: 'italic',
   },
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   summarySection: {
     marginTop: 10,
@@ -549,14 +549,14 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',

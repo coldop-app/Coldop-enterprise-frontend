@@ -21,12 +21,12 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingBottom: 60,
     fontFamily: 'Helvetica',
-    fontSize: 6,
+    fontSize: 8,
   },
   pageLarge: {
     padding: 16,
     paddingBottom: 68,
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   varietySubsectionTitle: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 700,
     color: '#111827',
     marginTop: 6,
@@ -144,54 +144,54 @@ const styles = StyleSheet.create({
   cell: {
     paddingVertical: 1,
     paddingHorizontal: 1,
-    fontSize: 6,
+    fontSize: 8,
     textAlign: 'center',
     borderRightWidth: 1,
     borderColor: BORDER,
   },
   cellLarge: {
-    fontSize: 7.5,
+    fontSize: 9.5,
     paddingVertical: 2,
     paddingHorizontal: 2,
   },
   varietyCell: {
     paddingVertical: 1,
     paddingHorizontal: 2,
-    fontSize: 5.5,
+    fontSize: 7.5,
     fontWeight: 'bold',
   },
   varietyCellLarge: {
-    fontSize: 7,
+    fontSize: 9,
     paddingVertical: 2,
   },
   headerCell: {
     fontWeight: 700,
-    fontSize: 5.5,
+    fontSize: 7.5,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
   },
   headerCellLarge: {
-    fontSize: 6.5,
+    fontSize: 8.5,
   },
   cellLast: {
     borderRightWidth: 0,
   },
   cellQtyLine: {
-    fontSize: 6,
+    fontSize: 8,
     textAlign: 'center',
   },
   cellQtyLineLarge: {
-    fontSize: 7.5,
+    fontSize: 9.5,
   },
   cellWeightLine: {
-    fontSize: 5,
+    fontSize: 7,
     color: '#6b7280',
     textAlign: 'center',
     marginTop: 0,
   },
   cellWeightLineLarge: {
-    fontSize: 6.5,
+    fontSize: 8.5,
   },
   totalRow: {
     flexDirection: 'row',
@@ -209,14 +209,14 @@ const styles = StyleSheet.create({
   totalCell: {
     paddingVertical: 1,
     paddingHorizontal: 1,
-    fontSize: 6,
+    fontSize: 8,
     fontWeight: 700,
     textAlign: 'center',
     borderRightWidth: 1,
     borderColor: BORDER,
   },
   totalCellLarge: {
-    fontSize: 7.5,
+    fontSize: 9.5,
     paddingVertical: 2,
     paddingHorizontal: 2,
   },

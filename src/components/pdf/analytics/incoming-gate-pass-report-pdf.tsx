@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -245,14 +245,14 @@ const styles = StyleSheet.create({
   },
   cell: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   cellLeft: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   farmerHeaderRow: {
-    fontSize: 8,
+    fontSize: 10,
     marginBottom: 2,
   },
   varietySection: {
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   summarySection: {
     marginTop: 14,
@@ -350,14 +350,14 @@ const styles = StyleSheet.create({
   },
   summaryCell: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'center',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   summaryCellLeft: {
     paddingHorizontal: 3,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'left',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -678,7 +678,7 @@ function ReportSummaryPage({
 }) {
   const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(2));
   return (
-    <Page size="A4" style={styles.summaryPage}>
+    <Page size="A4" orientation="landscape" style={styles.summaryPage}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -1055,7 +1055,7 @@ function FlatTable({
   rows: IncomingGatePassWithLinkWithStatus[];
 }) {
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -1120,7 +1120,7 @@ function GroupedTablePage({
 }) {
   const { farmer, gatePasses } = group;
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -1195,7 +1195,7 @@ function GroupedByVarietyTablePage({
 }) {
   const { variety, gatePasses } = varietyItem;
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -1272,7 +1272,7 @@ function GroupedByVarietyAndFarmerTablePage({
 }) {
   const { farmer, gatePasses } = group;
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <ReportHeader
         companyName={companyName}
         dateRangeLabel={dateRangeLabel}
@@ -1348,7 +1348,7 @@ export const IncomingGatePassReportPdf = ({
     return (
       <Document>
         {data.length === 0 ? (
-          <Page size="A4" style={styles.page}>
+          <Page size="A4" orientation="landscape" style={styles.page}>
             <ReportHeader
               companyName={companyName}
               dateRangeLabel={dateRangeLabel}
@@ -1390,7 +1390,7 @@ export const IncomingGatePassReportPdf = ({
     return (
       <Document>
         {data.length === 0 ? (
-          <Page size="A4" style={styles.page}>
+          <Page size="A4" orientation="landscape" style={styles.page}>
             <ReportHeader
               companyName={companyName}
               dateRangeLabel={dateRangeLabel}
@@ -1428,7 +1428,7 @@ export const IncomingGatePassReportPdf = ({
     return (
       <Document>
         {data.length === 0 ? (
-          <Page size="A4" style={styles.page}>
+          <Page size="A4" orientation="landscape" style={styles.page}>
             <ReportHeader
               companyName={companyName}
               dateRangeLabel={dateRangeLabel}

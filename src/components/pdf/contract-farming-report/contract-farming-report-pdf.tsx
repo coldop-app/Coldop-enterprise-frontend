@@ -29,7 +29,7 @@ export function ContractFarmingReportPdf({
 }: ContractFarmingReportPdfProps) {
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         {companyName ? <Text>{companyName}</Text> : null}
         <Text>{reportTitle}</Text>
         {dateRangeLabel ? (

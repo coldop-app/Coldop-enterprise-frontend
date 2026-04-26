@@ -95,7 +95,7 @@ function getSizesWithQuantities(rows: StockLedgerRow[]): string[] {
 const styles = StyleSheet.create({
   page: {
     padding: 12,
-    fontSize: 4,
+    fontSize: 6,
     fontFamily: 'Helvetica',
   },
   titleRow: {
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   titleText: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: 700,
     color: '#333',
   },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     paddingHorizontal: 1,
     fontWeight: 700,
-    fontSize: 3.5,
+    fontSize: 5.5,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   /** Second line in size cell: weight per bag in brackets */
   sizeCellSub: {
-    fontSize: 3,
+    fontSize: 5,
     color: '#6b7280',
   },
   totalRow: {
@@ -315,7 +315,7 @@ function TableHeader({
   return (
     <View style={styles.headerRow}>
       <View style={[styles.headerCell, { width: COL_WIDTHS.gpNo }]}>
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellCenter, { fontSize: 5 }]}>
           System Incoming GP No
         </Text>
       </View>
@@ -325,12 +325,12 @@ function TableHeader({
           { width: COL_WIDTHS.manualIncomingVoucherNo },
         ]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Incoming GP No</Text>
+        <Text style={[styles.cellCenter, { fontSize: 5 }]}>Incoming GP No</Text>
       </View>
       <View
         style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassNo }]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellCenter, { fontSize: 5 }]}>
           System Grading GP NO
         </Text>
       </View>
@@ -340,17 +340,17 @@ function TableHeader({
           { width: COL_WIDTHS.manualGradingGatePassNo },
         ]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>Grading Gp No</Text>
+        <Text style={[styles.cellCenter, { fontSize: 5 }]}>Grading Gp No</Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.date }]}>
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellCenter, { fontSize: 5 }]}>
           Incoming gate pass date
         </Text>
       </View>
       <View
         style={[styles.headerCell, { width: COL_WIDTHS.gradingGatePassDate }]}
       >
-        <Text style={[styles.cellCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellCenter, { fontSize: 5 }]}>
           Grading gate pass date
         </Text>
       </View>
@@ -412,7 +412,7 @@ function TableHeader({
           { width: COL_WIDTHS.wtReceivedAfterGrading },
         ]}
       >
-        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 5 }]}>
           Weight Received After Grading
         </Text>
       </View>
@@ -422,24 +422,24 @@ function TableHeader({
           { width: COL_WIDTHS.lessBardanaAfterGrading },
         ]}
       >
-        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 5 }]}>
           Less Bard Weight
         </Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.actualWtOfPotato }]}>
-        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 5 }]}>
           Actual wt of Graded Potato
         </Text>
       </View>
       <View style={[styles.headerCell, { width: COL_WIDTHS.weightShortage }]}>
-        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 5 }]}>
           Weight Shortage
         </Text>
       </View>
       <View
         style={[styles.headerCell, { width: COL_WIDTHS.weightShortagePercent }]}
       >
-        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+        <Text style={[styles.cellTextFullWidthCenter, { fontSize: 5 }]}>
           Shortage %
         </Text>
       </View>
@@ -451,7 +451,7 @@ function TableHeader({
             { width: COL_WIDTHS.amountPayable },
           ]}
         >
-          <Text style={[styles.cellTextFullWidthCenter, { fontSize: 3 }]}>
+          <Text style={[styles.cellTextFullWidthCenter, { fontSize: 5 }]}>
             Amount Payable
           </Text>
         </View>
@@ -1247,7 +1247,7 @@ export function StockLedgerMainTableOnly({
 /** Page style for main table (landscape A4). Export for use in Grading Gate Pass Report PDF. */
 export const stockLedgerPageStyle = {
   padding: 12,
-  fontSize: 4,
+  fontSize: 6,
   fontFamily: 'Helvetica',
 };
 

@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   poweredBy: {
-    fontSize: 8,
+    fontSize: 10,
     color: MUTED,
     textAlign: 'center',
   },
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   sectionTitle: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 600,
     color: MUTED,
     letterSpacing: 1,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   colWeightPct: { width: '18%' },
   colWtBag: { width: '18%' },
   headerText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 600,
     color: MUTED,
     textTransform: 'uppercase',
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     borderLeftColor: DESTRUCTIVE,
   },
   summaryLabel: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 600,
     color: MUTED,
     textTransform: 'uppercase',
@@ -337,7 +337,7 @@ export function GradingVoucherPdf({
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           <View>
             <Image

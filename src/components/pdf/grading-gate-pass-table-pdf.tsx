@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 3,
     fontWeight: 700,
-    fontSize: 6,
+    fontSize: 8,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   summaryTitle: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 700,
     marginBottom: 3,
     color: '#333',
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   summaryCell: {
-    fontSize: 5,
+    fontSize: 7,
     paddingHorizontal: 1,
     borderRightWidth: 0.5,
     borderColor: BORDER,

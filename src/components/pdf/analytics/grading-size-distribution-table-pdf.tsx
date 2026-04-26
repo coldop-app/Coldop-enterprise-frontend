@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 48,
     fontFamily: 'Helvetica',
-    fontSize: 8,
+    fontSize: 10,
   },
   header: {
     borderBottomWidth: 2,
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 8,
+    fontSize: 10,
     marginBottom: 4,
     color: '#333',
   },
@@ -96,16 +96,16 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   cellText: {
-    fontSize: 7,
+    fontSize: 9,
     width: '100%',
   },
   cellTextBold: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: 'bold',
     width: '100%',
   },
   pageHint: {
-    fontSize: 7,
+    fontSize: 9,
     color: '#555',
     textAlign: 'right',
     marginTop: 8,
@@ -131,13 +131,13 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
   },
   summaryLine: {
-    fontSize: 8,
+    fontSize: 10,
     marginBottom: 4,
     lineHeight: 1.35,
     color: '#222',
   },
   summaryLineMuted: {
-    fontSize: 7,
+    fontSize: 9,
     marginBottom: 3,
     color: '#444',
   },
@@ -164,14 +164,14 @@ const styles = StyleSheet.create({
   sumColSize: {
     width: '40%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     borderRightWidth: 0.5,
     borderRightColor: '#666',
   },
   sumColMid: {
     width: '20%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'right',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   sumColPct: {
     width: '20%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'right',
     borderRightWidth: 0.5,
     borderRightColor: '#666',
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   sumColRank: {
     width: '20%',
     paddingHorizontal: 4,
-    fontSize: 7,
+    fontSize: 9,
     textAlign: 'right',
   },
   summaryEmphasis: {
@@ -326,7 +326,7 @@ function SummaryPage({
   }));
 
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" orientation="landscape" style={styles.page}>
       <View style={styles.summaryPageHeader}>
         <Text style={styles.companyName}>{companyName}</Text>
         <Text style={styles.summaryPageTitle}>Summary</Text>
@@ -406,7 +406,7 @@ export function GradingSizeDistributionTablePdf({
   const company = companyName || 'Cold Storage';
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.companyName}>{company}</Text>
           <Text style={styles.reportTitle}>Size-wise distribution</Text>

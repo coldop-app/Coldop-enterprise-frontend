@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   varietyHeading: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 700,
     color: '#111827',
     marginBottom: 4,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
   },
   headerPlain: {
-    fontSize: 5,
+    fontSize: 7,
     fontWeight: 700,
     color: '#333',
     textAlign: 'center',
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   cell: {
     paddingVertical: 3,
     paddingHorizontal: 3,
-    fontSize: 6,
+    fontSize: 8,
     color: '#374151',
     borderRightWidth: 1,
     borderColor: BORDER,
@@ -236,12 +236,12 @@ export default function SeedAmountPayableTablePdf({
   };
   const headerPlainStyle = {
     ...styles.headerPlain,
-    ...(largePrintMode ? { fontSize: 7 } : {}),
+    ...(largePrintMode ? { fontSize: 9 } : {}),
   };
   const cellStyle = {
     ...styles.cell,
     ...(largePrintMode
-      ? { fontSize: 8.5, paddingVertical: 5, minHeight: 22 }
+      ? { fontSize: 10.5, paddingVertical: 5, minHeight: 22 }
       : {}),
   };
 

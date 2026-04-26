@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingBottom: 60,
     fontFamily: 'Helvetica',
-    fontSize: 4,
+    fontSize: 6,
   },
   header: {
     borderBottomWidth: 2,
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   cell: {
     paddingVertical: 1,
     paddingHorizontal: 1,
-    fontSize: 4,
+    fontSize: 6,
     textAlign: 'center',
     borderRightWidth: 1,
     borderColor: '#e5e7eb',
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   cellLeft: {
     paddingVertical: 1,
     paddingHorizontal: 1,
-    fontSize: 4,
+    fontSize: 6,
     textAlign: 'left',
     borderRightWidth: 1,
     borderColor: '#e5e7eb',
@@ -138,24 +138,24 @@ const styles = StyleSheet.create({
   varietyCell: {
     paddingVertical: 1,
     paddingHorizontal: 2,
-    fontSize: 3.5,
+    fontSize: 5.5,
     fontWeight: 'bold',
   },
   headerCell: {
     fontWeight: 700,
-    fontSize: 3.5,
+    fontSize: 5.5,
     color: '#333',
     textTransform: 'uppercase',
     letterSpacing: 0.1,
   },
   /** Quantity (bags) - primary line in size cells */
   cellQtyLine: {
-    fontSize: 4,
+    fontSize: 6,
     textAlign: 'center',
   },
   /** Weight (kg) - secondary line below quantity, muted */
   cellWeightLine: {
-    fontSize: 3,
+    fontSize: 5,
     color: '#6b7280',
     textAlign: 'center',
     marginTop: 0,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   distributionTitle: {
-    fontSize: 6,
+    fontSize: 8,
     fontWeight: 700,
     color: '#333',
     marginBottom: 4,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   distributionTableTitle: {
-    fontSize: 4,
+    fontSize: 6,
     fontWeight: 700,
     color: '#374151',
     marginBottom: 2,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   distributionCell: {
-    fontSize: 3.5,
+    fontSize: 5.5,
     borderRightWidth: 0.5,
     borderColor: '#e5e7eb',
     paddingRight: 2,
@@ -250,7 +250,7 @@ function FarmerPdfCellBody({ raw }: { raw: string }) {
     );
   }
   return (
-    <Text style={{ fontSize: 4, textAlign: 'center' }} wrap>
+    <Text style={{ fontSize: 6, textAlign: 'center' }} wrap>
       {raw}
     </Text>
   );
@@ -442,7 +442,7 @@ export function FarmerReportPdf({
             ) : null}
             <Text style={styles.dateRange}>{dateRangeLabel}</Text>
           </View>
-          <Text style={{ fontSize: 4 }}>No data to display.</Text>
+          <Text style={{ fontSize: 6 }}>No data to display.</Text>
         </Page>
       </Document>
     );

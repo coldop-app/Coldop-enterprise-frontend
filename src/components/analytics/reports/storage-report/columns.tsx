@@ -23,6 +23,57 @@ export type StorageReportRow = {
   [key: string]: string | number | undefined;
 };
 
+function renderGroupableCell({
+  row,
+  column,
+}: {
+  row: {
+    getValue: (id: string) => unknown;
+    depth: number;
+    getIsGrouped: () => boolean;
+  };
+  column: { id: string };
+}) {
+  const value = String(row.getValue(column.id) ?? '—');
+  return (
+    <div className="font-custom flex items-center gap-1">
+      <span
+        style={{
+          paddingLeft: row.getIsGrouped() ? 0 : row.depth * 20,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function renderWrappedGroupableCell({
+  row,
+  column,
+}: {
+  row: {
+    getValue: (id: string) => unknown;
+    depth: number;
+    getIsGrouped: () => boolean;
+  };
+  column: { id: string };
+}) {
+  const value = String(row.getValue(column.id) ?? '—');
+  return (
+    <div className="font-custom flex items-start gap-1">
+      <span
+        className="leading-snug wrap-break-word whitespace-normal"
+        style={{
+          paddingLeft: row.getIsGrouped() ? 0 : row.depth * 20,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function formatNum(value: number | string): string {
   const n = typeof value === 'number' ? value : Number(value);
   if (Number.isNaN(n)) return '—';
@@ -42,7 +93,9 @@ const baseColumns: ColumnDef<StorageReportRow>[] = [
     header: () => <span className="font-custom">Farmer</span>,
     cell: ({ row }) => (
       <div className="font-custom">
-        {String(row.getValue('farmerName') ?? '—')}
+        <span className="leading-snug wrap-break-word whitespace-normal">
+          {String(row.getValue('farmerName') ?? '—')}
+        </span>
         {formatAccountSuffix(row.original.accountNumber) ? (
           <span className="text-muted-foreground font-normal">
             {formatAccountSuffix(row.original.accountNumber)}
@@ -50,18 +103,24 @@ const baseColumns: ColumnDef<StorageReportRow>[] = [
         ) : null}
       </div>
     ),
+    size: 300,
+    minSize: 220,
+    maxSize: 560,
   },
   {
     accessorKey: 'farmerAddress',
     header: () => <span className="font-custom">Address</span>,
+    cell: renderWrappedGroupableCell,
   },
   {
     accessorKey: 'farmerMobile',
     header: () => <span className="font-custom">Mobile</span>,
+    cell: renderGroupableCell,
   },
   {
     accessorKey: 'createdByName',
     header: () => <span className="font-custom">Created by</span>,
+    cell: renderGroupableCell,
   },
   {
     accessorKey: 'gatePassNo',
@@ -84,10 +143,12 @@ const baseColumns: ColumnDef<StorageReportRow>[] = [
   {
     accessorKey: 'date',
     header: () => <span className="font-custom">Date</span>,
+    cell: renderGroupableCell,
   },
   {
     accessorKey: 'variety',
     header: () => <span className="font-custom">Variety</span>,
+    cell: renderWrappedGroupableCell,
   },
   {
     accessorKey: 'totalBags',
@@ -133,6 +194,10 @@ export function getStorageReportColumns(
     {
       accessorKey: 'remarks',
       header: () => <span className="font-custom">Remarks</span>,
+      cell: renderWrappedGroupableCell,
+      size: 320,
+      minSize: 220,
+      maxSize: 640,
     },
   ];
 }
@@ -143,5 +208,9 @@ export const columns: ColumnDef<StorageReportRow>[] = [
   {
     accessorKey: 'remarks',
     header: () => <span className="font-custom">Remarks</span>,
+    cell: renderWrappedGroupableCell,
+    size: 320,
+    minSize: 220,
+    maxSize: 640,
   },
 ];

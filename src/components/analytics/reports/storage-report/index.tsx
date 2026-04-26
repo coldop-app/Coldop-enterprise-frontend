@@ -19,7 +19,11 @@ import {
   getStorageReportColumns,
   type StorageReportRow,
 } from './columns';
-import { DataTable } from './data-table';
+import {
+  DataTable,
+  type StorageReportDataTableRef,
+  type StorageReportPdfSnapshot,
+} from './data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/forms/date-picker';
@@ -173,6 +177,7 @@ function mapStoragePassesToRows(
 
 const StorageReportsTable = () => {
   const coldStorage = useStore((s) => s.coldStorage);
+  const tableRef = useRef<StorageReportDataTableRef<StorageReportRow>>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
   const [fromDate, setFromDate] = useState<string | undefined>();
   const [toDate, setToDate] = useState<string | undefined>();
@@ -277,6 +282,22 @@ const StorageReportsTable = () => {
     }
     setIsGeneratingPdf(true);
     try {
+      const snapshot: StorageReportPdfSnapshot<StorageReportRow> | null =
+        tableRef.current?.getPdfSnapshot() ?? null;
+      const effectiveRows =
+        snapshot?.rows
+          .filter(
+            (item): item is { type: 'leaf'; row: StorageReportRow } =>
+              item.type === 'leaf'
+          )
+          .map((item) => item.row) ?? rows;
+      const visibleSizeColumnIds =
+        snapshot?.visibleColumnIds.filter((columnId) =>
+          columnId.startsWith('bags_')
+        ) ?? [];
+      const effectiveSizeLabels = sizesWithQuantity.filter((size) =>
+        visibleSizeColumnIds.includes(getSizeColumnId(size))
+      );
       const [{ pdf }, { StorageReportTablePdf }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('@/components/pdf/analytics/storage-report-table-pdf'),
@@ -286,8 +307,9 @@ const StorageReportsTable = () => {
           companyName={coldStorage?.name ?? 'Cold Storage'}
           dateRangeLabel={getDateRangeLabel()}
           reportTitle="Storage Report"
-          rows={rows}
-          sizeColumnIds={sizesWithQuantity}
+          rows={effectiveRows}
+          sizeColumnIds={effectiveSizeLabels}
+          tableSnapshot={snapshot}
         />
       ).toBlob();
       const url = URL.createObjectURL(blob);
@@ -353,6 +375,7 @@ const StorageReportsTable = () => {
           Storage Report
         </h2>
         <DataTable
+          ref={tableRef}
           columns={columns}
           data={rows}
           totalColumnIds={totalColumnIds}
