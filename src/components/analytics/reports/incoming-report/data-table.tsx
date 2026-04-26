@@ -49,13 +49,22 @@ const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
 const DEFAULT_COLUMN_ORDER = [
-  'gatePassNo',
-  'date',
   'farmerName',
+  'farmerAddress',
+  'farmerMobile',
+  'createdByName',
+  'location',
+  'gatePassNo',
+  'manualGatePassNumber',
+  'date',
   'variety',
+  'truckNumber',
   'bags',
+  'grossWeightKg',
+  'tareWeightKg',
   'netWeightKg',
   'status',
+  'remarks',
 ];
 
 function toNum(value: unknown): number {

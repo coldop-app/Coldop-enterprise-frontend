@@ -1,5 +1,22 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import type { DispatchReportRow } from '@/components/analytics/reports/dispatch-report/index';
+
+type DispatchReportRow = {
+  id: string;
+  farmerName?: string;
+  accountNumber?: number | string;
+  farmerAddress?: string;
+  farmerMobile?: string;
+  createdByName?: string;
+  gatePassNo?: number | string;
+  manualGatePassNumber?: number | string;
+  date?: string;
+  from?: string;
+  toField?: string;
+  variety?: string;
+  totalBags?: number | string;
+  remarks?: string;
+  [key: string]: number | string | null | undefined;
+};
 
 export interface DispatchReportTablePdfProps {
   companyName?: string;

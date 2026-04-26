@@ -298,15 +298,27 @@ function getColumnsForPdf(
   width: string;
   align: 'left' | 'center';
 }[] {
-  const visible = new Set(
+  const sourceOrder =
     visibleColumnIds.length > 0
       ? visibleColumnIds
-      : ALL_COLUMNS.map((c) => c.key)
+      : ALL_COLUMNS.map((c) => c.key as string);
+  const byKey = new Map(
+    ALL_COLUMNS.map((column) => [column.key, column] as const)
   );
   const exclude = new Set(excludeGrouping ?? []);
-  const filtered = ALL_COLUMNS.filter(
-    (c) => visible.has(c.key) && !exclude.has(c.key)
-  );
+  const filtered = sourceOrder
+    .map((columnId) => byKey.get(columnId as keyof IncomingReportRow))
+    .filter(
+      (
+        column
+      ): column is {
+        key: keyof IncomingReportRow;
+        label: string;
+        width: string;
+        align: 'left' | 'center';
+      } => Boolean(column)
+    )
+    .filter((column) => !exclude.has(column.key));
   if (filtered.length === 0) return ALL_COLUMNS;
   const totalPercent = filtered.reduce(
     (sum, c) => sum + parseFloat(c.width),
@@ -325,6 +337,18 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
+function toIndianNumber(
+  value: unknown,
+  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }
+): string | null {
+  if (value == null || value === '') return null;
+  const normalized =
+    typeof value === 'string' ? value.replace(/,/g, '').trim() : value;
+  const n = typeof normalized === 'number' ? normalized : Number(normalized);
+  if (Number.isNaN(n)) return null;
+  return n.toLocaleString('en-IN', options);
+}
+
 function formatPdfRowCell(
   key: keyof IncomingReportRow,
   value: unknown,
@@ -333,17 +357,32 @@ function formatPdfRowCell(
   if (key === 'farmerName') {
     const name = formatCell(value);
     const account = row?.accountNumber;
+    const accountDisplayValue =
+      toIndianNumber(account) ?? (account != null ? String(account) : '');
     const accountDisplay =
-      account != null && account !== '' && account !== '—'
-        ? ` #${String(account)}`
+      accountDisplayValue && accountDisplayValue !== '—'
+        ? ` #${accountDisplayValue}`
         : '';
     return `${name}${accountDisplay}`;
   }
-  if (key !== 'netWeightKg') return formatCell(value);
-  if (value == null || value === '') return '—';
-  const n = typeof value === 'number' ? value : Number(value);
-  if (Number.isNaN(n)) return '—';
-  return n.toFixed(2);
+  if (key === 'bags') return toIndianNumber(value) ?? formatCell(value);
+  if (
+    key === 'grossWeightKg' ||
+    key === 'tareWeightKg' ||
+    key === 'netWeightKg'
+  ) {
+    return (
+      toIndianNumber(value, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) ?? formatCell(value)
+    );
+  }
+  if (key === 'gatePassNo') {
+    return toIndianNumber(value) ?? formatCell(value);
+  }
+  if (key === 'manualGatePassNumber') return formatCell(value);
+  return formatCell(value);
 }
 
 function ReportHeader({
@@ -433,26 +472,34 @@ function TotalsRow({
     align: 'left' | 'center';
   }[];
 }) {
-  const fmt = (n: number) => (Number.isNaN(n) ? '—' : n.toFixed(2));
+  const fmtInteger = (n: number) =>
+    Number.isNaN(n) ? '—' : n.toLocaleString('en-IN');
+  const fmtDecimal = (n: number) =>
+    Number.isNaN(n)
+      ? '—'
+      : n.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
   return (
     <View style={styles.tableRowTotal} wrap={false}>
       {columns.map((col, i) => {
         if (col.key === 'bags')
           return (
             <Text key={col.key} style={[styles.cell, { width: col.width }]}>
-              {totalBags}
+              {fmtInteger(totalBags)}
             </Text>
           );
         if (col.key === 'grossWeightKg')
           return (
             <Text key={col.key} style={[styles.cell, { width: col.width }]}>
-              {fmt(totalGross)}
+              {fmtDecimal(totalGross)}
             </Text>
           );
         if (col.key === 'tareWeightKg')
           return (
             <Text key={col.key} style={[styles.cell, { width: col.width }]}>
-              {fmt(totalTare)}
+              {fmtDecimal(totalTare)}
             </Text>
           );
         if (col.key === 'netWeightKg')
@@ -465,7 +512,7 @@ function TotalsRow({
                 { width: col.width },
               ]}
             >
-              {fmt(totalNet)}
+              {fmtDecimal(totalNet)}
             </Text>
           );
         return (
@@ -756,7 +803,13 @@ function ReportSummaryPage({
   reportTitle: string;
   summary: IncomingReportTableSummary;
 }) {
-  const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(2));
+  const fmtCount = (n: number) => n.toLocaleString('en-IN');
+  const fmtBags = (n: number) => n.toLocaleString('en-IN');
+  const fmtWeight = (n: number) =>
+    n.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   return (
     <Page size="A4" orientation="landscape" style={styles.summaryPage}>
       <ReportHeader
@@ -815,7 +868,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[1].width },
                     ]}
                   >
-                    {row.count}
+                    {fmtCount(row.count)}
                   </Text>
                   <Text
                     style={[
@@ -823,7 +876,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[2].width },
                     ]}
                   >
-                    {row.bags}
+                    {fmtBags(row.bags)}
                   </Text>
                   <Text
                     style={[
@@ -831,7 +884,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[3].width },
                     ]}
                   >
-                    {fmt(row.gross)}
+                    {fmtWeight(row.gross)}
                   </Text>
                   <Text
                     style={[
@@ -839,7 +892,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[4].width },
                     ]}
                   >
-                    {fmt(row.tare)}
+                    {fmtWeight(row.tare)}
                   </Text>
                   <Text
                     style={[
@@ -848,7 +901,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[5].width },
                     ]}
                   >
-                    {fmt(row.net)}
+                    {fmtWeight(row.net)}
                   </Text>
                 </View>
               ))}
@@ -867,7 +920,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[1].width },
                   ]}
                 >
-                  {summary.overall.count}
+                  {fmtCount(summary.overall.count)}
                 </Text>
                 <Text
                   style={[
@@ -875,7 +928,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[2].width },
                   ]}
                 >
-                  {summary.overall.bags}
+                  {fmtBags(summary.overall.bags)}
                 </Text>
                 <Text
                   style={[
@@ -883,7 +936,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[3].width },
                   ]}
                 >
-                  {fmt(summary.overall.gross)}
+                  {fmtWeight(summary.overall.gross)}
                 </Text>
                 <Text
                   style={[
@@ -891,7 +944,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[4].width },
                   ]}
                 >
-                  {fmt(summary.overall.tare)}
+                  {fmtWeight(summary.overall.tare)}
                 </Text>
                 <Text
                   style={[
@@ -900,7 +953,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[5].width },
                   ]}
                 >
-                  {fmt(summary.overall.net)}
+                  {fmtWeight(summary.overall.net)}
                 </Text>
               </View>
             </>
@@ -958,7 +1011,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[1].width },
                     ]}
                   >
-                    {row.count}
+                    {fmtCount(row.count)}
                   </Text>
                   <Text
                     style={[
@@ -966,7 +1019,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[2].width },
                     ]}
                   >
-                    {row.bags}
+                    {fmtBags(row.bags)}
                   </Text>
                   <Text
                     style={[
@@ -974,7 +1027,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[3].width },
                     ]}
                   >
-                    {fmt(row.gross)}
+                    {fmtWeight(row.gross)}
                   </Text>
                   <Text
                     style={[
@@ -982,7 +1035,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[4].width },
                     ]}
                   >
-                    {fmt(row.tare)}
+                    {fmtWeight(row.tare)}
                   </Text>
                   <Text
                     style={[
@@ -991,7 +1044,7 @@ function ReportSummaryPage({
                       { width: SUMMARY_COLUMNS[5].width },
                     ]}
                   >
-                    {fmt(row.net)}
+                    {fmtWeight(row.net)}
                   </Text>
                 </View>
               ))}
@@ -1010,7 +1063,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[1].width },
                   ]}
                 >
-                  {summary.overall.count}
+                  {fmtCount(summary.overall.count)}
                 </Text>
                 <Text
                   style={[
@@ -1018,7 +1071,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[2].width },
                   ]}
                 >
-                  {summary.overall.bags}
+                  {fmtBags(summary.overall.bags)}
                 </Text>
                 <Text
                   style={[
@@ -1026,7 +1079,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[3].width },
                   ]}
                 >
-                  {fmt(summary.overall.gross)}
+                  {fmtWeight(summary.overall.gross)}
                 </Text>
                 <Text
                   style={[
@@ -1034,7 +1087,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[4].width },
                   ]}
                 >
-                  {fmt(summary.overall.tare)}
+                  {fmtWeight(summary.overall.tare)}
                 </Text>
                 <Text
                   style={[
@@ -1043,7 +1096,7 @@ function ReportSummaryPage({
                     { width: SUMMARY_COLUMNS[5].width },
                   ]}
                 >
-                  {fmt(summary.overall.net)}
+                  {fmtWeight(summary.overall.net)}
                 </Text>
               </View>
             </>
@@ -1083,22 +1136,22 @@ function ReportSummaryPage({
             <Text
               style={[styles.summaryCell, { width: SUMMARY_COLUMNS[1].width }]}
             >
-              {summary.overall.count}
+              {fmtCount(summary.overall.count)}
             </Text>
             <Text
               style={[styles.summaryCell, { width: SUMMARY_COLUMNS[2].width }]}
             >
-              {summary.overall.bags}
+              {fmtBags(summary.overall.bags)}
             </Text>
             <Text
               style={[styles.summaryCell, { width: SUMMARY_COLUMNS[3].width }]}
             >
-              {fmt(summary.overall.gross)}
+              {fmtWeight(summary.overall.gross)}
             </Text>
             <Text
               style={[styles.summaryCell, { width: SUMMARY_COLUMNS[4].width }]}
             >
-              {fmt(summary.overall.tare)}
+              {fmtWeight(summary.overall.tare)}
             </Text>
             <Text
               style={[
@@ -1107,7 +1160,7 @@ function ReportSummaryPage({
                 { width: SUMMARY_COLUMNS[5].width },
               ]}
             >
-              {fmt(summary.overall.net)}
+              {fmtWeight(summary.overall.net)}
             </Text>
           </View>
         </View>
