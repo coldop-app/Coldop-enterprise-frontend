@@ -78,19 +78,24 @@ const DEFAULT_TOTAL_COLUMN_IDS: readonly string[] = [...TOTAL_COLUMN_IDS];
 const DEFAULT_COLUMN_SIZE = 180;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
 const DEFAULT_COLUMN_MAX_SIZE = 420;
-const DEFAULT_COLUMN_ORDER = [
+const DEFAULT_COLUMN_ORDER_BASE = [
   'farmerName',
+  'date',
   'incomingGatePassNo',
+  'incomingManualNo',
   'incomingGatePassDate',
   'variety',
   'bagsReceived',
   'netProductKg',
   'gatePassNo',
-  'date',
+  'manualGatePassNumber',
   'totalGradedBags',
+  // dynamic gradedBagSize_* columns are inserted here
   'totalGradedWeightKg',
   'wastageKg',
+  'grader',
 ];
+const BAG_SIZE_COLUMN_PREFIX = 'gradedBagSize_';
 const RIGHT_ALIGNED_COLUMN_IDS = new Set([
   'accountNumber',
   'gatePassNo',
@@ -109,6 +114,38 @@ const RIGHT_ALIGNED_COLUMN_IDS = new Set([
 const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
+
+function resolveColumnId<TValue>(
+  column: ColumnDef<Record<string, unknown>, TValue>
+): string | null {
+  if (typeof column.id === 'string') return column.id;
+  if ('accessorKey' in column && typeof column.accessorKey === 'string') {
+    return column.accessorKey;
+  }
+  return null;
+}
+
+function buildDefaultColumnOrder<TValue>(
+  columns: ColumnDef<Record<string, unknown>, TValue>[]
+): string[] {
+  const allIds = columns
+    .map(resolveColumnId)
+    .filter((id): id is string => !!id);
+  const allIdSet = new Set(allIds);
+  const bagSizeIds = allIds.filter((id) =>
+    id.startsWith(BAG_SIZE_COLUMN_PREFIX)
+  );
+  const beforeBagAndTail = DEFAULT_COLUMN_ORDER_BASE.filter(
+    (id) => id !== 'totalGradedWeightKg' && allIdSet.has(id)
+  );
+  const tail = DEFAULT_COLUMN_ORDER_BASE.filter(
+    (id) => id === 'totalGradedWeightKg' && allIdSet.has(id)
+  );
+  const preferred = [...beforeBagAndTail, ...bagSizeIds, ...tail];
+  const seen = new Set(preferred);
+  const remaining = allIds.filter((id) => !seen.has(id));
+  return [...preferred, ...remaining];
+}
 
 function toNum(value: unknown): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
@@ -200,18 +237,16 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
 ) {
   const typedData = data as unknown as Record<string, unknown>[];
   const typedColumns = columns as ColumnDef<Record<string, unknown>, TValue>[];
+  const defaultColumnOrder = useMemo(
+    () => buildDefaultColumnOrder(typedColumns),
+    [typedColumns]
+  );
   const allNumericFilterFields = useMemo(() => {
     const dynamicBagColumns = typedColumns
-      .map((column) => {
-        if (typeof column.id === 'string') return column.id;
-        if ('accessorKey' in column && typeof column.accessorKey === 'string') {
-          return column.accessorKey;
-        }
-        return null;
-      })
+      .map(resolveColumnId)
       .filter(
         (columnId): columnId is string =>
-          columnId != null && columnId.startsWith('gradedBagSize_')
+          columnId != null && columnId.startsWith(BAG_SIZE_COLUMN_PREFIX)
       );
     return [...gradingNumericFilterFields, ...dynamicBagColumns];
   }, [typedColumns]);
@@ -220,8 +255,9 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
   );
   const [grouping, setGrouping] = useState<GroupingState>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnOrder, setColumnOrder] =
-    useState<string[]>(DEFAULT_COLUMN_ORDER);
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    buildDefaultColumnOrder(typedColumns)
+  );
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState<string | FilterGroupNode>(
     ''
@@ -491,7 +527,7 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
             </div>
             <ViewFiltersSheet
               table={table as unknown as TanstackTable<GradingReportRow>}
-              defaultColumnOrder={DEFAULT_COLUMN_ORDER}
+              defaultColumnOrder={defaultColumnOrder}
               allNumericFilterFields={allNumericFilterFields}
             />
             {toolbarRightContent != null ? (

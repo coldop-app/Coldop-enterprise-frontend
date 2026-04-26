@@ -102,7 +102,9 @@ const ALL_COLUMNS_STATIC: PdfColumnDef[] = [
 
 function labelForBagColumnId(columnId: string): string {
   const sk = sizeKeyFromGradedBagColumnId(columnId);
-  return sk ? (GRADING_REPORT_BAG_SIZE_LABELS[sk] ?? sk) : columnId;
+  if (!sk) return columnId;
+  const baseLabel = GRADING_REPORT_BAG_SIZE_LABELS[sk] ?? sk;
+  return baseLabel.includes('(mm)') ? baseLabel : `${baseLabel} (mm)`;
 }
 
 export function buildFullColumnList(rows: GradingReportRow[]): PdfColumnDef[] {

@@ -280,7 +280,7 @@ function formatPdfNumLikeWeb(value: number | string): string {
 /** Match `formatWeightKg` in `columns.tsx`. */
 function formatPdfWeightKgLikeWeb(value: number | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
-  return String(Math.round(value * 10) / 10);
+  return `${Math.round(value * 10) / 10} kg`;
 }
 
 /** Qty, then Jute/Leno lines with kg/bag each; aggregate (kg/bag) only if no bag-type parts. */
@@ -681,7 +681,7 @@ function SummaryVarietyBagTable({
               key={bagSize}
               style={[styles.summaryCell, { width: `${colWidths.bag}%` }]}
             >
-              {bagSize}
+              {`${bagSize} (mm)`}
             </Text>
           ))}
           <Text

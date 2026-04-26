@@ -247,7 +247,7 @@ function getPdfColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
   ];
   const sizeCols = sizeColumnIds.map((size) => ({
     key: getSizeColumnId(size),
-    label: size,
+    label: size.includes('(mm)') ? size : `${size} (mm)`,
     width: `${sizeWidth}%`,
     align: 'center' as const,
   }));
@@ -445,7 +445,7 @@ function ReportSummaryPage({
     { key: 'totalBags', label: 'Bags', width: '14%' },
     ...sizeColumnIds.map((s) => ({
       key: getSizeColumnId(s),
-      label: s,
+      label: s.includes('(mm)') ? s : `${s} (mm)`,
       width: sizeWidth,
     })),
   ];
@@ -633,7 +633,7 @@ function ReportSummaryPage({
               {sizeColumnIds.map((size) => (
                 <View key={size} style={styles.summaryTableRow}>
                   <Text style={[styles.summaryCellLeft, { width: '50%' }]}>
-                    {size}
+                    {size.includes('(mm)') ? size : `${size} (mm)`}
                   </Text>
                   <Text
                     style={[

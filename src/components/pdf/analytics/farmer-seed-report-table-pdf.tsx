@@ -75,25 +75,41 @@ const styles = StyleSheet.create({
   tableContainer: {
     marginTop: 8,
   },
-  row: {
+  tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 0.5,
     borderBottomColor: '#666',
     paddingVertical: 2,
   },
-  rowHeader: {
+  tableHeaderRow: {
     backgroundColor: '#E8E8E8',
+    fontWeight: 'bold',
     borderBottomWidth: 1,
     borderBottomColor: '#000',
     paddingVertical: 3,
   },
-  rowTotal: {
+  tableRowTotal: {
     flexDirection: 'row',
     backgroundColor: '#D0D0D0',
     fontWeight: 'bold',
     borderTopWidth: 1,
     borderTopColor: '#000',
     paddingVertical: 3,
+  },
+  cell: {
+    paddingHorizontal: 0,
+    fontSize: 9,
+    textAlign: 'center',
+  },
+  cellLeft: {
+    paddingHorizontal: 0,
+    fontSize: 9,
+    textAlign: 'left',
+  },
+  cellRight: {
+    paddingHorizontal: 0,
+    fontSize: 9,
+    textAlign: 'right',
   },
   cellWrap: {
     borderRightWidth: 0.5,
@@ -104,18 +120,8 @@ const styles = StyleSheet.create({
   },
   cellText: {
     fontSize: 9,
-    lineHeight: 1.25,
     width: '100%',
     maxWidth: '100%',
-  },
-  cellTextLeft: {
-    textAlign: 'left',
-  },
-  cellTextCenter: {
-    textAlign: 'center',
-  },
-  cellTextRight: {
-    textAlign: 'right',
   },
   cellLast: {
     borderRightWidth: 0,
@@ -231,7 +237,7 @@ const BASE_COLUMNS: ColumnDef[] = [
   { key: 'gatePassNo', label: 'Gate Pass', width: '5%', align: 'right' },
   { key: 'invoiceNumber', label: 'Invoice', width: '5%', align: 'left' },
   { key: 'variety', label: 'Variety', width: '5%', align: 'left' },
-  { key: 'generation', label: 'Gen', width: '3%', align: 'left' },
+  { key: 'generation', label: 'Stage', width: '3%', align: 'left' },
   { key: 'totalBags', label: 'Total Bags', width: '4%', align: 'right' },
   { key: 'rate', label: 'Rate', width: '5%', align: 'right' },
   {
@@ -266,9 +272,9 @@ function formatCellValue(columnKey: string, value: unknown): string {
 }
 
 function alignStyle(align: ColumnDef['align']) {
-  if (align === 'left') return styles.cellTextLeft;
-  if (align === 'right') return styles.cellTextRight;
-  return styles.cellTextCenter;
+  if (align === 'left') return styles.cellLeft;
+  if (align === 'right') return styles.cellRight;
+  return styles.cell;
 }
 
 function chunkRows<T>(items: T[], chunkSize: number): T[][] {
@@ -414,7 +420,7 @@ function SummaryMetricTable({ summary }: { summary: FarmerSeedReportSummary }) {
           ['Total seed bags issued', fmt(summary.totalBags)],
           ['Unique farmers served', fmt(summary.uniqueFarmers)],
           ['Active varieties', fmt(summary.uniqueVarieties)],
-          ['Active generations', fmt(summary.uniqueGenerations)],
+          ['Active stages', fmt(summary.uniqueGenerations)],
           ['Average bags per entry', summary.avgBagsPerEntry.toFixed(2)],
         ].map(([metric, value]) => (
           <View key={metric} style={styles.summaryTableRow}>
@@ -711,7 +717,7 @@ function buildPdfColumns(rows: FarmerSeedReportRow[]): ColumnDef[] {
     ...beforeBagColumns,
     ...bagSizes.map((size) => ({
       key: farmerSeedBagSizeColumnId(size),
-      label: size,
+      label: `${size} (mm)`,
       width: `${eachBagWidth}%`,
       align: 'center' as const,
     })),
@@ -866,7 +872,7 @@ export function FarmerSeedReportTablePdf({
     accountNumber: 'Account No.',
     date: 'Date',
     variety: 'Variety',
-    generation: 'Generation',
+    generation: 'Stage',
     gatePassNo: 'Gate Pass No.',
     invoiceNumber: 'Invoice No.',
   };
@@ -916,7 +922,10 @@ export function FarmerSeedReportTablePdf({
 
                   <View style={styles.tableContainer}>
                     <View style={styles.table}>
-                      <View style={[styles.row, styles.rowHeader]} wrap={false}>
+                      <View
+                        style={[styles.tableRow, styles.tableHeaderRow]}
+                        wrap={false}
+                      >
                         {columns.map((column, index) => (
                           <View
                             key={column.key}
@@ -941,7 +950,7 @@ export function FarmerSeedReportTablePdf({
                         ))}
                       </View>
                       {sectionPageRows.map((row) => (
-                        <View key={row.id} style={styles.row} wrap={false}>
+                        <View key={row.id} style={styles.tableRow} wrap={false}>
                           {columns.map((column, colIndex) => {
                             const bagSize = getBagSizeFromColumnKey(
                               column.key,
@@ -979,7 +988,7 @@ export function FarmerSeedReportTablePdf({
                         </View>
                       ))}
                       {isLastPage ? (
-                        <View style={styles.rowTotal} wrap={false}>
+                        <View style={styles.tableRowTotal} wrap={false}>
                           {columns.map((column, index) => (
                             <View
                               key={`total-${column.key}`}
@@ -1056,7 +1065,10 @@ export function FarmerSeedReportTablePdf({
 
                 <View style={styles.tableContainer}>
                   <View style={styles.table}>
-                    <View style={[styles.row, styles.rowHeader]} wrap={false}>
+                    <View
+                      style={[styles.tableRow, styles.tableHeaderRow]}
+                      wrap={false}
+                    >
                       {columns.map((column, index) => (
                         <View
                           key={column.key}
@@ -1077,7 +1089,7 @@ export function FarmerSeedReportTablePdf({
                     </View>
 
                     {rows.length === 0 ? (
-                      <View style={styles.row} wrap={false}>
+                      <View style={styles.tableRow} wrap={false}>
                         <View
                           style={[
                             styles.cellWrap,
@@ -1085,7 +1097,7 @@ export function FarmerSeedReportTablePdf({
                             { width: '100%' },
                           ]}
                         >
-                          <Text style={[styles.cellText, styles.cellTextLeft]}>
+                          <Text style={[styles.cellText, styles.cellLeft]}>
                             No farmer seed report data for this period.
                           </Text>
                         </View>
@@ -1093,7 +1105,11 @@ export function FarmerSeedReportTablePdf({
                     ) : (
                       <>
                         {pageRows.map((row, rowIndex) => (
-                          <View key={row.id} style={styles.row} wrap={false}>
+                          <View
+                            key={row.id}
+                            style={styles.tableRow}
+                            wrap={false}
+                          >
                             {columns.map((column, colIndex) => {
                               const bagSize = getBagSizeFromColumnKey(
                                 column.key,
@@ -1135,7 +1151,7 @@ export function FarmerSeedReportTablePdf({
                         ))}
 
                         {isLastPage && (
-                          <View style={styles.rowTotal} wrap={false}>
+                          <View style={styles.tableRowTotal} wrap={false}>
                             {columns.map((column, index) => (
                               <View
                                 key={`total-${column.key}`}
@@ -1204,9 +1220,9 @@ export function FarmerSeedReportTablePdf({
           labelTitle="Variety"
         />
         <SummaryLabelTable
-          title="Generation-wise Summary"
+          title="Stage-wise Summary"
           rows={summary.byGeneration}
-          labelTitle="Generation"
+          labelTitle="Stage"
         />
         <SummaryBagSizeTable rows={summary.byBagSize} />
         <SummaryTopFarmersTable rows={summary.topFarmersByBags} />

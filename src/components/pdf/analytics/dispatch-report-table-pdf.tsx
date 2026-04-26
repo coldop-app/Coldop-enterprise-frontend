@@ -160,7 +160,8 @@ function isSizeColumn(columnId: string): boolean {
 }
 
 function getSizeLabel(columnId: string): string {
-  return columnId.replace('bags_', '').replace(/-/g, '–');
+  const base = columnId.replace('bags_', '').replace(/-/g, '–');
+  return base.includes('(mm)') ? base : `${base} (mm)`;
 }
 
 function buildPdfColumns(

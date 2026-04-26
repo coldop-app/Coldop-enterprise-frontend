@@ -41,6 +41,19 @@ import {
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { StorageReportRow } from './columns';
+import {
+  createDefaultCondition,
+  createDefaultFilterGroup,
+  getDefaultOperatorForField,
+  hasAnyUsableFilter,
+  isAdvancedFilterGroup,
+  numericFilterFields,
+  type FilterConditionNode,
+  type FilterField,
+  type FilterGroupNode,
+  type FilterNode,
+  type FilterOperator,
+} from './advanced-filters';
 
 type FilterableColumnId = string;
 
@@ -65,10 +78,65 @@ const columnLabels: Record<string, string> = {
 
 const getColumnLabel = (columnId: string): string => {
   if (columnId.startsWith('bags_')) {
-    return columnId.replace('bags_', '').replace(/-/g, '–');
+    const base = columnId.replace('bags_', '').replace(/-/g, '–');
+    return base.includes('(mm)') ? base : `${base} (mm)`;
   }
   return columnLabels[columnId] ?? columnId;
 };
+
+const stringOperators: FilterOperator[] = [
+  'contains',
+  '=',
+  '!=',
+  'startsWith',
+  'endsWith',
+];
+const numberOperators: FilterOperator[] = ['=', '!=', '>', '>=', '<', '<='];
+
+const filterOperatorLabels: Record<FilterOperator, string> = {
+  contains: 'contains',
+  startsWith: 'starts with',
+  endsWith: 'ends with',
+  '=': 'equals',
+  '!=': 'not equal',
+  '>': 'greater than',
+  '>=': 'greater or equal',
+  '<': 'less than',
+  '<=': 'less or equal',
+};
+
+const mutateFilterNodeById = (
+  group: FilterGroupNode,
+  targetId: string,
+  updater: (node: FilterNode) => FilterNode
+): FilterGroupNode => {
+  if (group.id === targetId) {
+    const updatedNode = updater(group);
+    if (updatedNode.type === 'group') return updatedNode;
+    return group;
+  }
+  return {
+    ...group,
+    conditions: group.conditions.map((node) => {
+      if (node.id === targetId) return updater(node);
+      if (node.type === 'group')
+        return mutateFilterNodeById(node, targetId, updater);
+      return node;
+    }),
+  };
+};
+
+const removeFilterNodeById = (
+  group: FilterGroupNode,
+  nodeId: string
+): FilterGroupNode => ({
+  ...group,
+  conditions: group.conditions
+    .filter((node) => node.id !== nodeId)
+    .map((node) =>
+      node.type === 'group' ? removeFilterNodeById(node, nodeId) : node
+    ),
+});
 
 type SortableRowProps = {
   id: string;
@@ -137,6 +205,9 @@ export function ViewFiltersSheet({
     Record<FilterableColumnId, string[]>
   >({});
   const [draftGrouping, setDraftGrouping] = useState<string[]>([]);
+  const [draftLogicFilter, setDraftLogicFilter] = useState<FilterGroupNode>(
+    createDefaultFilterGroup()
+  );
   const sensors = useSensors(
     useSensor(MouseSensor),
     useSensor(TouchSensor),
@@ -158,6 +229,16 @@ export function ViewFiltersSheet({
     () => allColumnIds.map((id) => ({ id, label: getColumnLabel(id) })),
     [allColumnIds]
   );
+  const advancedFilterFields = useMemo<
+    Array<{ id: FilterField; label: string }>
+  >(
+    () =>
+      allColumnIds.map((id) => ({
+        id: id as FilterField,
+        label: getColumnLabel(id),
+      })),
+    [allColumnIds]
+  );
 
   const availableFilterOptions = useMemo<
     Record<FilterableColumnId, string[]>
@@ -172,6 +253,24 @@ export function ViewFiltersSheet({
     });
     return options;
   }, [table, filterableColumns]);
+
+  const advancedFieldValueOptions = useMemo<Record<string, string[]>>(() => {
+    const options: Record<string, string[]> = {};
+    advancedFilterFields.forEach(({ id }) => {
+      const facetedValues = table.getColumn(id)?.getFacetedUniqueValues();
+      if (!facetedValues) return;
+      const values = Array.from(facetedValues.keys()).map((value) =>
+        String(value)
+      );
+      options[id] =
+        numericFilterFields.includes(id) || id.startsWith('bags_')
+          ? values.sort((a, b) => Number(a) - Number(b))
+          : values.sort((a, b) =>
+              a.localeCompare(b, undefined, { numeric: true })
+            );
+    });
+    return options;
+  }, [table, advancedFilterFields]);
 
   const syncDraftFromTable = () => {
     const nextVisibility: Record<string, boolean> = {};
@@ -195,6 +294,10 @@ export function ViewFiltersSheet({
     });
     setDraftValueFilters(valueFilters);
     setDraftGrouping(table.getState().grouping);
+    const global = table.getState().globalFilter;
+    setDraftLogicFilter(
+      isAdvancedFilterGroup(global) ? global : createDefaultFilterGroup()
+    );
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -229,6 +332,11 @@ export function ViewFiltersSheet({
     });
 
     table.setGrouping(draftGrouping);
+    if (hasAnyUsableFilter(draftLogicFilter)) {
+      table.setGlobalFilter(draftLogicFilter);
+    } else if (isAdvancedFilterGroup(table.getState().globalFilter)) {
+      table.setGlobalFilter('');
+    }
     setIsOpen(false);
   };
 
@@ -251,9 +359,11 @@ export function ViewFiltersSheet({
     });
     setDraftValueFilters(resetValueFilters);
     setDraftGrouping([]);
+    setDraftLogicFilter(createDefaultFilterGroup());
     table.setColumnVisibility({});
     table.setColumnOrder(resetOrder);
     table.resetColumnFilters();
+    table.setGlobalFilter('');
     table.setGrouping([]);
     table.resetColumnSizing();
   };
@@ -265,8 +375,14 @@ export function ViewFiltersSheet({
       if (all.length > 0 && (draftValueFilters[id] ?? []).length < all.length)
         count += 1;
     });
+    if (hasAnyUsableFilter(draftLogicFilter)) count += 1;
     return count;
-  }, [availableFilterOptions, draftValueFilters, filterableColumns]);
+  }, [
+    availableFilterOptions,
+    draftValueFilters,
+    draftLogicFilter,
+    filterableColumns,
+  ]);
 
   const hiddenColumnCount = useMemo(
     () =>
@@ -351,6 +467,210 @@ export function ViewFiltersSheet({
     });
   };
 
+  const setGroupOperator = (groupId: string, operator: 'AND' | 'OR') => {
+    setDraftLogicFilter((current) =>
+      mutateFilterNodeById(current, groupId, (node) =>
+        node.type === 'group' ? { ...node, operator } : node
+      )
+    );
+  };
+
+  const addConditionToGroup = (groupId: string) => {
+    setDraftLogicFilter((current) =>
+      mutateFilterNodeById(current, groupId, (node) =>
+        node.type === 'group'
+          ? {
+              ...node,
+              conditions: [...node.conditions, createDefaultCondition()],
+            }
+          : node
+      )
+    );
+  };
+
+  const removeNode = (nodeId: string) => {
+    setDraftLogicFilter((current) => removeFilterNodeById(current, nodeId));
+  };
+
+  const setConditionField = (conditionId: string, field: FilterField) => {
+    setDraftLogicFilter((current) =>
+      mutateFilterNodeById(current, conditionId, (node) => {
+        if (node.type !== 'condition') return node;
+        return {
+          ...node,
+          field,
+          operator: getDefaultOperatorForField(field),
+          value: '',
+        };
+      })
+    );
+  };
+
+  const setConditionOperator = (
+    conditionId: string,
+    operator: FilterOperator
+  ) => {
+    setDraftLogicFilter((current) =>
+      mutateFilterNodeById(current, conditionId, (node) =>
+        node.type === 'condition' ? { ...node, operator } : node
+      )
+    );
+  };
+
+  const setConditionValue = (conditionId: string, value: string) => {
+    setDraftLogicFilter((current) =>
+      mutateFilterNodeById(current, conditionId, (node) =>
+        node.type === 'condition' ? { ...node, value } : node
+      )
+    );
+  };
+
+  const renderGroup = (group: FilterGroupNode, depth = 0): React.ReactNode => (
+    <div
+      key={group.id}
+      className={`space-y-2 rounded-lg border p-3 ${
+        depth === 0
+          ? 'border-border bg-background'
+          : 'border-border bg-muted/40'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground text-xs">Match</span>
+        <div className="border-border flex overflow-hidden rounded-md border">
+          {(['AND', 'OR'] as const).map((operator) => (
+            <button
+              key={operator}
+              type="button"
+              onClick={() => setGroupOperator(group.id, operator)}
+              className={`px-2 py-1 text-xs font-medium ${
+                group.operator === operator
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground'
+              }`}
+            >
+              {operator === 'AND' ? 'All' : 'Any'}
+            </button>
+          ))}
+        </div>
+        <span className="text-muted-foreground text-xs">conditions</span>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => addConditionToGroup(group.id)}
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            Condition
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {group.conditions.length === 0 ? (
+          <div className="text-muted-foreground border-border rounded border border-dashed py-3 text-center text-xs">
+            No conditions yet
+          </div>
+        ) : (
+          group.conditions.map((node) => {
+            if (node.type === 'group') {
+              return (
+                <div key={node.id} className="space-y-1">
+                  {renderGroup(node, depth + 1)}
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive h-7 text-xs"
+                      onClick={() => removeNode(node.id)}
+                    >
+                      Remove group
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+            const isNumeric =
+              numericFilterFields.includes(node.field) ||
+              node.field.startsWith('bags_');
+            const operators = isNumeric ? numberOperators : stringOperators;
+            const valueOptions = advancedFieldValueOptions[node.field] ?? [];
+            return (
+              <div
+                key={node.id}
+                className="border-border bg-muted/30 grid grid-cols-12 items-center gap-1 rounded-md border p-2"
+              >
+                <select
+                  value={node.field}
+                  onChange={(event) =>
+                    setConditionField(
+                      node.id,
+                      event.target.value as FilterConditionNode['field']
+                    )
+                  }
+                  className="border-border bg-background col-span-4 h-8 rounded border px-2 text-xs"
+                >
+                  {advancedFilterFields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={node.operator}
+                  onChange={(event) =>
+                    setConditionOperator(
+                      node.id,
+                      event.target.value as FilterConditionNode['operator']
+                    )
+                  }
+                  className="border-border bg-background col-span-3 h-8 rounded border px-2 text-xs"
+                >
+                  {operators.map((operator) => (
+                    <option key={operator} value={operator}>
+                      {filterOperatorLabels[operator]}
+                    </option>
+                  ))}
+                </select>
+                <div className="col-span-4">
+                  <input
+                    list={`logic-value-options-${node.id}`}
+                    value={node.value}
+                    onChange={(event) =>
+                      setConditionValue(node.id, event.target.value)
+                    }
+                    placeholder={
+                      valueOptions.length > 0
+                        ? 'Select value or type...'
+                        : 'Type value...'
+                    }
+                    className="border-border bg-background h-8 w-full rounded border px-2 text-xs"
+                  />
+                  {valueOptions.length > 0 ? (
+                    <datalist id={`logic-value-options-${node.id}`}>
+                      {valueOptions.map((value) => (
+                        <option key={`${node.id}-${value}`} value={value} />
+                      ))}
+                    </datalist>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeNode(node.id)}
+                  className="text-muted-foreground hover:text-destructive col-span-1 inline-flex h-8 items-center justify-center"
+                  aria-label="Remove condition"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
@@ -399,7 +719,7 @@ export function ViewFiltersSheet({
           className="flex flex-1 flex-col overflow-hidden"
         >
           <div className="border-border bg-background border-b px-5 py-3">
-            <TabsList className="grid h-10 w-full grid-cols-3">
+            <TabsList className="grid h-10 w-full grid-cols-4">
               <TabsTrigger value="filters" className="text-xs">
                 Filters
               </TabsTrigger>
@@ -408,6 +728,9 @@ export function ViewFiltersSheet({
               </TabsTrigger>
               <TabsTrigger value="grouping" className="text-xs">
                 Grouping
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="text-xs">
+                Advanced
               </TabsTrigger>
             </TabsList>
           </div>
@@ -656,6 +979,45 @@ export function ViewFiltersSheet({
                       </Button>
                     </div>
                   ))}
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-custom text-muted-foreground text-[11px] font-semibold uppercase">
+                  Column Resizing
+                </p>
+                <div className="border-border bg-background rounded-lg border p-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.resetColumnSizing()}
+                  >
+                    Reset all widths
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="advanced" className="m-0 space-y-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-custom text-muted-foreground text-[11px] font-semibold uppercase">
+                    Logic Builder
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() =>
+                      setDraftLogicFilter(createDefaultFilterGroup())
+                    }
+                  >
+                    <RotateCcw className="mr-1 h-3 w-3" />
+                    Reset
+                  </Button>
+                </div>
+                {renderGroup(draftLogicFilter)}
               </div>
 
               <div className="space-y-2">

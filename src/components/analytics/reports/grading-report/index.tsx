@@ -173,6 +173,7 @@ function buildNormalizedPasses(passes: GradingGatePass[]): {
     const { totalGradedWeightKg } = computeGradingOrderTotals(
       pass.orderDetails as Parameters<typeof computeGradingOrderTotals>[0]
     );
+    if (totalGradedBags <= 0) continue;
     const gradedSizeBreakdown = getAggregatedGradedSizeBreakdown(
       pass.orderDetails
     );
@@ -306,23 +307,23 @@ function buildRowsForTanstackTable(
 
 /** Default column visibility: only incoming GP no., manual no., date, bags received, net weight */
 const GRADING_REPORT_DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
-  incomingGatePassNo: true,
-  incomingManualNo: true,
-  incomingGatePassDate: true,
-  bagsReceived: true,
+  incomingGatePassNo: false,
+  incomingManualNo: false,
+  incomingGatePassDate: false,
+  bagsReceived: false,
   netWeightKg: false,
-  netProductKg: true,
+  netProductKg: false,
   truckNumber: false,
   grossWeightKg: false,
   tareWeightKg: false,
-  gatePassNo: true,
+  gatePassNo: false,
   manualGatePassNumber: true,
   date: true,
   variety: true,
   totalGradedBags: true,
   totalGradedWeightKg: true,
   wastageKg: true,
-  grader: true,
+  grader: false,
   remarks: false,
   farmerName: true,
   farmerAddress: false,

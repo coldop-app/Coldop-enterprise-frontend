@@ -1,12 +1,9 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { format, parseISO } from 'date-fns';
-import {
-  useGetIncomingGatePassReports,
-  incomingGatePassReportQueryOptions,
-} from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
+import { useGetIncomingGatePassReports } from '@/services/store-admin/analytics/incoming/useGetIncomingGatePassReports';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import { columns, type IncomingReportRow } from './columns';
 import {
@@ -19,7 +16,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/forms/date-picker';
 import { Button } from '@/components/ui/button';
 import { formatDateToYYYYMMDD } from '@/lib/helpers';
-import { queryClient } from '@/lib/queryClient';
 import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { FileDown } from 'lucide-react';
@@ -57,6 +53,9 @@ type IncomingPass = IncomingGatePassWithLink & {
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—';
+  // Fast path for ISO-like values: avoids parse/format cost for large reports.
+  if (iso.length >= 10 && iso[4] === '-' && iso[7] === '-')
+    return iso.slice(0, 10);
   const d = parseISO(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return format(d, 'yyyy-MM-dd');
@@ -71,12 +70,15 @@ function formatDateTime(iso: string | undefined): string {
 
 /** Map flat API response (gate passes) to table rows */
 function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
-  return gatePasses.map((pass) => {
-    const bagsFromSizes = (pass.bagSizes ?? []).reduce(
-      (sum, b) => sum + (b.initialQuantity ?? 0),
-      0
-    );
+  const rows: IncomingReportRow[] = [];
+
+  for (const pass of gatePasses) {
+    let bagsFromSizes = 0;
+    for (const bagSize of pass.bagSizes ?? []) {
+      bagsFromSizes += bagSize.initialQuantity ?? 0;
+    }
     const bags = pass.bagsReceived ?? bagsFromSizes;
+    if (bags <= 0) continue;
     const link = pass.farmerStorageLinkId;
     const farmer = link?.farmerId;
     const createdBy = pass.createdBy;
@@ -94,7 +96,7 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
         ? gross - tare
         : undefined;
 
-    return {
+    rows.push({
       id: pass._id,
       farmerName: farmer?.name ?? '—',
       accountNumber: link?.accountNumber ?? '—',
@@ -116,8 +118,10 @@ function mapGatePassesToRows(gatePasses: IncomingPass[]): IncomingReportRow[] {
       remarks: pass.remarks ?? '—',
       createdAt: formatDateTime(pass.createdAt),
       updatedAt: formatDateTime(pass.updatedAt),
-    };
-  });
+    });
+  }
+
+  return rows;
 }
 
 function getLeafRowsFromSnapshot(
@@ -156,13 +160,12 @@ const IncomingReportTable = () => {
 
   const rows = useMemo((): IncomingReportRow[] => {
     if (!data) return [];
-    const flat = Array.isArray(data) ? data : [];
-    return mapGatePassesToRows(flat as IncomingPass[]).filter(
-      (row) => row.bags > 0
+    return mapGatePassesToRows(
+      (Array.isArray(data) ? data : []) as IncomingPass[]
     );
   }, [data]);
 
-  const handleApplyDates = () => {
+  const handleApplyDates = useCallback(() => {
     if (!fromDate && !toDate) return;
     if (fromDate && toDate) {
       const fromStr = formatDateToYYYYMMDD(fromDate);
@@ -187,45 +190,34 @@ const IncomingReportTable = () => {
       toast.info('Date filters are already applied.');
       return;
     }
-    const fetchPromise = queryClient.fetchQuery(
-      incomingGatePassReportQueryOptions(params)
-    );
-    toast.promise(fetchPromise, {
-      loading: 'Applying date filters…',
-      success: 'Date filters applied. Report updated.',
-      error: 'Failed to load report for the selected dates.',
+    setAppliedRange({
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
     });
-    fetchPromise
-      .then(() => {
-        setAppliedRange({
-          dateFrom: params.dateFrom,
-          dateTo: params.dateTo,
-        });
-        // Return focus to the report so user can navigate without an extra click
-        requestAnimationFrame(() => {
-          reportContentRef.current?.focus({ preventScroll: true });
-        });
-      })
-      .catch(() => {});
-  };
+    toast.success('Date filters applied. Report updated.');
+    // Return focus to the report so user can navigate without an extra click
+    requestAnimationFrame(() => {
+      reportContentRef.current?.focus({ preventScroll: true });
+    });
+  }, [appliedRange.dateFrom, appliedRange.dateTo, fromDate, toDate]);
 
-  const handleClearDates = () => {
+  const handleClearDates = useCallback(() => {
     setFromDate(undefined);
     setToDate(undefined);
     setAppliedRange({});
     toast.success('Date filters cleared. Report updated.');
-  };
+  }, []);
 
-  const getDateRangeLabel = () => {
+  const dateRangeLabel = useMemo(() => {
     if (appliedRange.dateFrom && appliedRange.dateTo) {
       return `${appliedRange.dateFrom} to ${appliedRange.dateTo}`;
     }
     if (appliedRange.dateFrom) return `From ${appliedRange.dateFrom}`;
     if (appliedRange.dateTo) return `To ${appliedRange.dateTo}`;
     return 'All dates';
-  };
+  }, [appliedRange.dateFrom, appliedRange.dateTo]);
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = useCallback(async () => {
     // Open window synchronously so mobile popup blockers allow it
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -246,7 +238,7 @@ const IncomingReportTable = () => {
       const blob = await pdf(
         <IncomingReportTablePdf
           companyName={coldStorage?.name ?? 'Cold Storage'}
-          dateRangeLabel={getDateRangeLabel()}
+          dateRangeLabel={dateRangeLabel}
           reportTitle="Incoming Gate Pass Report"
           rows={effectiveRows}
           tableSnapshot={snapshot}
@@ -269,15 +261,88 @@ const IncomingReportTable = () => {
     } finally {
       setIsGeneratingPdf(false);
     }
-  };
+  }, [coldStorage?.name, dateRangeLabel, rows]);
 
-  const handleRowClick = (row: IncomingReportRow) => {
-    if (!row.id) return;
-    void navigate({
-      to: '/store-admin/incoming-gate-pass/$id',
-      params: { id: row.id },
-    });
-  };
+  const handleRowClick = useCallback(
+    (row: IncomingReportRow) => {
+      if (!row.id) return;
+      void navigate({
+        to: '/store-admin/incoming-gate-pass/$id',
+        params: { id: row.id },
+      });
+    },
+    [navigate]
+  );
+
+  const toolbarLeftContent = useMemo(
+    () => (
+      <>
+        <DatePicker
+          id="incoming-report-from"
+          label="From"
+          value={fromDate}
+          onChange={setFromDate}
+        />
+        <DatePicker
+          id="incoming-report-to"
+          label="To"
+          value={toDate}
+          onChange={setToDate}
+        />
+        <Button
+          variant="default"
+          size="sm"
+          className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          onClick={handleApplyDates}
+          disabled={!fromDate && !toDate}
+        >
+          Apply
+        </Button>
+        {(fromDate ||
+          toDate ||
+          appliedRange.dateFrom ||
+          appliedRange.dateTo) && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            onClick={handleClearDates}
+          >
+            Clear
+          </Button>
+        )}
+      </>
+    ),
+    [
+      appliedRange.dateFrom,
+      appliedRange.dateTo,
+      fromDate,
+      handleApplyDates,
+      handleClearDates,
+      toDate,
+    ]
+  );
+
+  const toolbarRightContent = useMemo(
+    () => (
+      <Button
+        className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
+        onClick={handleDownloadPdf}
+        disabled={isGeneratingPdf || isLoading}
+        aria-label={
+          isGeneratingPdf
+            ? 'Generating PDF…'
+            : isLoading
+              ? 'Loading report…'
+              : 'View report'
+        }
+      >
+        <FileDown className="h-4 w-4 shrink-0" />
+        {isGeneratingPdf ? 'Generating…' : 'View Report'}
+      </Button>
+    ),
+    [handleDownloadPdf, isGeneratingPdf, isLoading]
+  );
 
   if (isLoading) {
     return (
@@ -328,61 +393,8 @@ const IncomingReportTable = () => {
           data={rows}
           onRowClick={handleRowClick}
           initialColumnVisibility={DEFAULT_HIDDEN_COLUMNS}
-          toolbarLeftContent={
-            <>
-              <DatePicker
-                id="incoming-report-from"
-                label="From"
-                value={fromDate}
-                onChange={setFromDate}
-              />
-              <DatePicker
-                id="incoming-report-to"
-                label="To"
-                value={toDate}
-                onChange={setToDate}
-              />
-              <Button
-                variant="default"
-                size="sm"
-                className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                onClick={handleApplyDates}
-                disabled={!fromDate && !toDate}
-              >
-                Apply
-              </Button>
-              {(fromDate ||
-                toDate ||
-                appliedRange.dateFrom ||
-                appliedRange.dateTo) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom focus-visible:ring-primary h-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  onClick={handleClearDates}
-                >
-                  Clear
-                </Button>
-              )}
-            </>
-          }
-          toolbarRightContent={
-            <Button
-              className="font-custom focus-visible:ring-primary h-10 w-full shrink-0 gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf || isLoading}
-              aria-label={
-                isGeneratingPdf
-                  ? 'Generating PDF…'
-                  : isLoading
-                    ? 'Loading report…'
-                    : 'View report'
-              }
-            >
-              <FileDown className="h-4 w-4 shrink-0" />
-              {isGeneratingPdf ? 'Generating…' : 'View Report'}
-            </Button>
-          }
+          toolbarLeftContent={toolbarLeftContent}
+          toolbarRightContent={toolbarRightContent}
         />
       </div>
     </main>

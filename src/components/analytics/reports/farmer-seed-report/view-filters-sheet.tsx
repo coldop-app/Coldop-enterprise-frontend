@@ -90,7 +90,7 @@ const columnLabels: Record<string, string> = {
   invoiceNumber: 'Invoice No.',
   date: 'Date',
   variety: 'Variety',
-  generation: 'Generation',
+  generation: 'Stage',
   totalBags: 'Total Bags',
   rate: 'Rate',
   totalSeedAmount: 'Total Seed Amount',

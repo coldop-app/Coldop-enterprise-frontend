@@ -124,7 +124,11 @@ const baseColumns: ColumnDef<StorageReportRow>[] = [
   },
   {
     accessorKey: 'gatePassNo',
-    header: () => <div className="font-custom text-right">Gate pass no.</div>,
+    header: () => (
+      <div className="font-custom text-right">
+        System generated Gate Pass No.
+      </div>
+    ),
     cell: ({ row }) => (
       <div className="text-right">
         {String(row.getValue('gatePassNo') ?? '—')}
@@ -133,7 +137,9 @@ const baseColumns: ColumnDef<StorageReportRow>[] = [
   },
   {
     accessorKey: 'manualGatePassNumber',
-    header: () => <div className="font-custom text-right">Manual GP no.</div>,
+    header: () => (
+      <div className="font-custom text-right">Manual Gate Pass No.</div>
+    ),
     cell: ({ row }) => (
       <div className="text-right">
         {String(row.getValue('manualGatePassNumber') ?? '—')}
@@ -167,10 +173,13 @@ export function getSizeColumns(
 ): ColumnDef<StorageReportRow>[] {
   return sizesWithQuantity.map((size) => {
     const id = getSizeColumnId(size);
+    const sizeLabel = size.includes('(mm)') ? size : `${size} (mm)`;
     return {
       id,
       accessorKey: id,
-      header: () => <div className="font-custom text-right">{size}</div>,
+      header: () => (
+        <div className="font-custom text-right normal-case">{sizeLabel}</div>
+      ),
       cell: ({ row }) => (
         <div className="text-right font-medium">
           {formatNum((row.getValue(id) as number) ?? 0)}

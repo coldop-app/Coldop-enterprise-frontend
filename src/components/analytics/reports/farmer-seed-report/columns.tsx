@@ -28,12 +28,14 @@ export function farmerSeedBagSizeColumnId(size: string): string {
 
 const FARMER_SEED_BAG_SIZE_ORDER = [
   'Below 25',
+  '25–30',
   'Below 30',
-  '30-40',
-  '35-40',
-  '40-45',
-  '45-50',
-  '50-55',
+  '30–35',
+  '30–40',
+  '35–40',
+  '40–45',
+  '45–50',
+  '50–55',
   'Above 50',
   'Above 55',
   'Cut',
@@ -163,7 +165,9 @@ export function createFarmerSeedReportColumns(
       return {
         id: columnId,
         accessorFn: (row) => row.bagSizeQtyByName?.[size] ?? 0,
-        header: () => <div className="font-custom text-right">{label}</div>,
+        header: () => (
+          <div className="font-custom text-right normal-case">{`${label} (mm)`}</div>
+        ),
         cell: ({ row }) => {
           const qty = row.original.bagSizeQtyByName?.[size] ?? 0;
           return (
@@ -234,7 +238,7 @@ export function createFarmerSeedReportColumns(
     },
     {
       accessorKey: 'generation',
-      header: 'Generation',
+      header: 'Stage',
       cell: GroupableCell,
     },
     ...bagSizeColumns,

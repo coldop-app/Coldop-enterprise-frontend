@@ -37,20 +37,59 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { StorageReportRow } from './columns';
 import { ViewFiltersSheet } from './view-filters-sheet';
+import {
+  evaluateFilterGroup,
+  isAdvancedFilterGroup,
+  type FilterGroupNode,
+} from './advanced-filters';
 
 const DEFAULT_COLUMN_SIZE = 180;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
 const DEFAULT_COLUMN_MAX_SIZE = 360;
-const DEFAULT_COLUMN_ORDER = [
+const DEFAULT_COLUMN_ORDER_BASE = [
   'gatePassNo',
+  'manualGatePassNumber',
   'date',
-  'farmerName',
   'variety',
-  'totalBags',
+  // dynamic bags_* columns are inserted here
+  'remarks',
 ] as const;
+const BAG_SIZE_COLUMN_PREFIX = 'bags_';
 const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
+
+function resolveColumnId<TValue>(
+  column: ColumnDef<StorageReportRow, TValue>
+): string | null {
+  if (typeof column.id === 'string') return column.id;
+  if ('accessorKey' in column && typeof column.accessorKey === 'string') {
+    return column.accessorKey;
+  }
+  return null;
+}
+
+function buildDefaultColumnOrder<TValue>(
+  columns: ColumnDef<StorageReportRow, TValue>[]
+): string[] {
+  const allIds = columns
+    .map(resolveColumnId)
+    .filter((id): id is string => !!id);
+  const allIdSet = new Set(allIds);
+  const bagSizeIds = allIds.filter((id) =>
+    id.startsWith(BAG_SIZE_COLUMN_PREFIX)
+  );
+  const baseWithoutRemarks = DEFAULT_COLUMN_ORDER_BASE.filter(
+    (id) => id !== 'remarks' && allIdSet.has(id)
+  );
+  const remarks = DEFAULT_COLUMN_ORDER_BASE.filter(
+    (id) => id === 'remarks' && allIdSet.has(id)
+  );
+  const preferred = [...baseWithoutRemarks, ...bagSizeIds, ...remarks];
+  const seen = new Set(preferred);
+  const remaining = allIds.filter((id) => !seen.has(id));
+  return [...preferred, ...remaining];
+}
 
 const TOTAL_COLUMN_IDS = ['totalBags'] as const;
 const RIGHT_ALIGNED_COLUMN_IDS = new Set(['totalBags']);
@@ -105,6 +144,9 @@ const globalGatePassFilterFn: FilterFn<StorageReportRow> = (
   _columnId,
   filterValue
 ) => {
+  if (isAdvancedFilterGroup(filterValue)) {
+    return evaluateFilterGroup(row.original, filterValue);
+  }
   const normalized = String(filterValue ?? '')
     .trim()
     .toLowerCase();
@@ -146,16 +188,22 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
 ) {
   const typedData = data as StorageReportRow[];
   const typedColumns = columns as ColumnDef<StorageReportRow, unknown>[];
+  const defaultColumnOrder = useMemo(
+    () => buildDefaultColumnOrder(typedColumns),
+    [typedColumns]
+  );
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     () => initialColumnVisibility ?? {}
   );
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnOrder, setColumnOrder] = useState<string[]>(
-    Array.from(DEFAULT_COLUMN_ORDER)
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    buildDefaultColumnOrder(typedColumns)
   );
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [grouping, setGrouping] = useState<GroupingState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState<string | FilterGroupNode>(
+    ''
+  );
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection] = useState<ColumnResizeDirection>('ltr');
@@ -330,7 +378,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
             <div className="relative w-full sm:w-64">
               <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
               <Input
-                value={globalFilter}
+                value={typeof globalFilter === 'string' ? globalFilter : ''}
                 onChange={(event) => setGlobalFilter(event.target.value)}
                 placeholder="Search manual gate pass..."
                 className="font-custom h-10 pl-9"
@@ -338,7 +386,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
             </div>
             <ViewFiltersSheet
               table={table}
-              defaultColumnOrder={Array.from(DEFAULT_COLUMN_ORDER)}
+              defaultColumnOrder={defaultColumnOrder}
             />
             {toolbarRightContent}
           </div>

@@ -147,8 +147,10 @@ const removeFilterNodeById = (
 
 function getColumnLabel(id: string): string {
   const sizeKey = sizeKeyFromGradedBagColumnId(id);
-  if (sizeKey != null)
-    return GRADING_REPORT_BAG_SIZE_LABELS[sizeKey] ?? sizeKey;
+  if (sizeKey != null) {
+    const baseLabel = GRADING_REPORT_BAG_SIZE_LABELS[sizeKey] ?? sizeKey;
+    return baseLabel.includes('(mm)') ? baseLabel : `${baseLabel} (mm)`;
+  }
   return columnLabels[id] ?? id;
 }
 

@@ -121,6 +121,12 @@ const RIGHT_ALIGNED_COLUMN_IDS = new Set([
   'tareWeightKg',
   'netWeightKg',
 ]);
+const TOTAL_COLUMN_LABELS: Record<string, string> = {
+  bags: 'Bags',
+  grossWeightKg: 'Gross (kg)',
+  tareWeightKg: 'Tare (kg)',
+  netWeightKg: 'Net (kg)',
+};
 
 const globalGatePassFilterFn: FilterFn<IncomingReportRow> = (
   row,
@@ -552,7 +558,8 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
           {(Object.entries(totals) as Array<[string, number]>).map(
             ([columnId, total]) => (
               <span key={columnId}>
-                {columnId}: <strong>{total.toLocaleString('en-IN')}</strong>
+                {(TOTAL_COLUMN_LABELS[columnId] ?? columnId) + ': '}
+                <strong>{total.toLocaleString('en-IN')}</strong>
               </span>
             )
           )}

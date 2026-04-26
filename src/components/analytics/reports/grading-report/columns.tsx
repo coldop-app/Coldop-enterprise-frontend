@@ -246,7 +246,7 @@ function formatNum(value: number | string): string {
 
 function formatWeightKg(value: number | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
-  return String(Math.round(value * 10) / 10);
+  return `${Math.round(value * 10) / 10} kg`;
 }
 
 function formatPercent(value: number | string): string {
@@ -276,14 +276,21 @@ function buildBagSizeColumns(
 ): ColumnDef<GradingReportRow>[] {
   return visibleBagSizes.map((size) => {
     const colId = gradedBagSizeColumnId(size);
-    const headerLabel = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
+    const baseLabel = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
+    const headerLabel = baseLabel.includes('(mm)')
+      ? baseLabel
+      : `${baseLabel} (mm)`;
     return {
       id: colId,
       accessorFn: (row) =>
         row.gradedBagSizeQtyByColumnId?.[colId] ??
         row.gradedSizeBreakdown?.[size]?.qty ??
         0,
-      header: () => <div className={gradedHighlightHeader}>{headerLabel}</div>,
+      header: () => (
+        <div className={`${gradedHighlightHeader} normal-case`}>
+          {headerLabel}
+        </div>
+      ),
       cell: ({ row }) => {
         const breakdown = row.original.gradedSizeBreakdown?.[size];
         const qty = breakdown?.qty ?? 0;
@@ -340,7 +347,9 @@ export function createGradingReportColumns(
     {
       accessorKey: 'incomingGatePassNo',
       header: () => (
-        <div className="font-custom text-right">Incoming GP no.</div>
+        <div className="font-custom text-right">
+          Incoming System generated gate pass No.
+        </div>
       ),
       sortingFn: sortIncomingGatePassNoFn,
       sortDescFirst: false,
@@ -356,7 +365,9 @@ export function createGradingReportColumns(
     {
       accessorKey: 'incomingManualNo',
       header: () => (
-        <div className="font-custom text-right">Incoming manual no.</div>
+        <div className="font-custom text-right">
+          Incoming Manual gate pass No.
+        </div>
       ),
       sortingFn: sortIncomingManualNoFn,
       sortDescFirst: false,
@@ -447,7 +458,9 @@ export function createGradingReportColumns(
     // ——— Grading gate pass ———
     {
       accessorKey: 'gatePassNo',
-      header: () => <SortableHeader label="Gate pass no." />,
+      header: () => (
+        <SortableHeader label="Grading System Generated Gate Pass No." />
+      ),
       sortingFn: sortGatePassNoFn,
       sortDescFirst: false,
       cell: ({ row }) => (
@@ -459,7 +472,7 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'manualGatePassNumber',
-      header: () => <SortableHeader label="Manual GP no." />,
+      header: () => <SortableHeader label="Grading Manual Gate Pass No." />,
       sortingFn: sortManualGatePassNumberFn,
       sortDescFirst: false,
       cell: ({ row }) => (
@@ -473,7 +486,7 @@ export function createGradingReportColumns(
     },
     {
       accessorKey: 'date',
-      header: () => <GroupableSortableHeader label="Date" />,
+      header: () => <GroupableSortableHeader label="Grading Date" />,
       sortingFn: sortGradingPassDateFn,
       sortDescFirst: false,
       cell: GroupableCell,
