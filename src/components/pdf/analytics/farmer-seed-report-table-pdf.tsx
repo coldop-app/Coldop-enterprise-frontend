@@ -1,4 +1,11 @@
-import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from '@react-pdf/renderer';
 import {
   farmerSeedBagSizeColumnId,
   orderFarmerSeedBagSizes,
@@ -64,6 +71,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000',
     width: '100%',
+  },
+  tableContainer: {
+    marginTop: 8,
   },
   row: {
     flexDirection: 'row',
@@ -175,6 +185,33 @@ const styles = StyleSheet.create({
   },
   summaryCellLast: {
     borderRightWidth: 0,
+  },
+  footer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#222',
+    paddingTop: 6,
+  },
+  footerBrandWrap: {
+    backgroundColor: '#E7E7E7',
+    borderRadius: 5,
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  footerLogo: {
+    width: 22,
+    height: 22,
+  },
+  poweredBy: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#2D2D2D',
   },
 });
 
@@ -774,6 +811,20 @@ function buildSectionsFromSnapshot(
   return sections;
 }
 
+function FooterSection() {
+  return (
+    <View style={styles.footer}>
+      <View style={styles.footerBrandWrap}>
+        <Image
+          src="https://res.cloudinary.com/dakh64xhy/image/upload/v1753172868/profile_pictures/lhdlzskpe2gj8dq8jvzl.png"
+          style={styles.footerLogo}
+        />
+        <Text style={styles.poweredBy}>Powered by Coldop</Text>
+      </View>
+    </View>
+  );
+}
+
 export function FarmerSeedReportTablePdf({
   companyName = 'Cold Storage',
   dateRangeLabel,
@@ -863,69 +914,12 @@ export function FarmerSeedReportTablePdf({
                     </View>
                   ) : null}
 
-                  <View style={styles.table}>
-                    <View style={[styles.row, styles.rowHeader]} wrap={false}>
-                      {columns.map((column, index) => (
-                        <View
-                          key={column.key}
-                          style={[
-                            styles.cellWrap,
-                            index === columns.length - 1 ? styles.cellLast : {},
-                            { width: column.width },
-                          ]}
-                        >
-                          <Text
-                            style={[styles.cellText, alignStyle(column.align)]}
-                            wrap
-                          >
-                            {column.label}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                    {sectionPageRows.map((row) => (
-                      <View key={row.id} style={styles.row} wrap={false}>
-                        {columns.map((column, colIndex) => {
-                          const bagSize = getBagSizeFromColumnKey(
-                            column.key,
-                            displayRows
-                          );
-                          const value =
-                            bagSize != null
-                              ? (row.bagSizeQtyByName?.[bagSize] ?? '')
-                              : row[column.key as keyof FarmerSeedReportRow];
-                          return (
-                            <View
-                              key={`${row.id}-${column.key}`}
-                              style={[
-                                styles.cellWrap,
-                                colIndex === columns.length - 1
-                                  ? styles.cellLast
-                                  : {},
-                                { width: column.width },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.cellText,
-                                  alignStyle(column.align),
-                                ]}
-                                wrap
-                              >
-                                {bagSize != null && value === ''
-                                  ? ''
-                                  : formatCellValue(column.key, value)}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    ))}
-                    {isLastPage ? (
-                      <View style={styles.rowTotal} wrap={false}>
+                  <View style={styles.tableContainer}>
+                    <View style={styles.table}>
+                      <View style={[styles.row, styles.rowHeader]} wrap={false}>
                         {columns.map((column, index) => (
                           <View
-                            key={`total-${column.key}`}
+                            key={column.key}
                             style={[
                               styles.cellWrap,
                               index === columns.length - 1
@@ -941,106 +935,21 @@ export function FarmerSeedReportTablePdf({
                               ]}
                               wrap
                             >
-                              {index === 0
-                                ? 'Total'
-                                : column.key === 'totalBags'
-                                  ? totalBags.toLocaleString('en-IN')
-                                  : column.key === 'totalSeedAmount'
-                                    ? totalSeedAmount.toLocaleString('en-IN', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })
-                                    : getBagSizeFromColumnKey(
-                                          column.key,
-                                          displayRows
-                                        ) != null
-                                      ? (
-                                          bagSizeTotals[
-                                            getBagSizeFromColumnKey(
-                                              column.key,
-                                              displayRows
-                                            ) as string
-                                          ] ?? 0
-                                        ).toLocaleString('en-IN')
-                                      : ''}
+                              {column.label}
                             </Text>
                           </View>
                         ))}
                       </View>
-                    ) : null}
-                  </View>
-                </Page>
-              );
-            });
-          })
-        : pagedRows.map((pageRows, pageIndex) => {
-            const startIndex = pageIndex * ROWS_PER_PAGE;
-            const isLastPage = pageIndex === pagedRows.length - 1;
-
-            return (
-              <Page
-                key={`farmer-seed-page-${pageIndex + 1}`}
-                size="A4"
-                orientation="landscape"
-                style={styles.page}
-              >
-                <View style={styles.header}>
-                  <Text style={styles.companyName}>{companyName}</Text>
-                  <Text style={styles.reportTitle}>{reportTitle}</Text>
-                  <Text style={styles.dateRange}>
-                    {dateRangeLabel} | Page {pageIndex + 1} of{' '}
-                    {pagedRows.length}
-                  </Text>
-                </View>
-
-                <View style={styles.table}>
-                  <View style={[styles.row, styles.rowHeader]} wrap={false}>
-                    {columns.map((column, index) => (
-                      <View
-                        key={column.key}
-                        style={[
-                          styles.cellWrap,
-                          index === columns.length - 1 ? styles.cellLast : {},
-                          { width: column.width },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.cellText, alignStyle(column.align)]}
-                          wrap
-                        >
-                          {column.label}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {rows.length === 0 ? (
-                    <View style={styles.row} wrap={false}>
-                      <View
-                        style={[
-                          styles.cellWrap,
-                          styles.cellLast,
-                          { width: '100%' },
-                        ]}
-                      >
-                        <Text style={[styles.cellText, styles.cellTextLeft]}>
-                          No farmer seed report data for this period.
-                        </Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <>
-                      {pageRows.map((row, rowIndex) => (
+                      {sectionPageRows.map((row) => (
                         <View key={row.id} style={styles.row} wrap={false}>
                           {columns.map((column, colIndex) => {
                             const bagSize = getBagSizeFromColumnKey(
                               column.key,
                               displayRows
                             );
-                            const value = bagSize
-                              ? (row.bagSizeQtyByName?.[bagSize] ?? '')
-                              : column.key === 'sNo'
-                                ? startIndex + rowIndex + 1
+                            const value =
+                              bagSize != null
+                                ? (row.bagSizeQtyByName?.[bagSize] ?? '')
                                 : row[column.key as keyof FarmerSeedReportRow];
                             return (
                               <View
@@ -1069,8 +978,7 @@ export function FarmerSeedReportTablePdf({
                           })}
                         </View>
                       ))}
-
-                      {isLastPage && (
+                      {isLastPage ? (
                         <View style={styles.rowTotal} wrap={false}>
                           {columns.map((column, index) => (
                             <View
@@ -1119,9 +1027,166 @@ export function FarmerSeedReportTablePdf({
                             </View>
                           ))}
                         </View>
-                      )}
-                    </>
-                  )}
+                      ) : null}
+                    </View>
+                  </View>
+                </Page>
+              );
+            });
+          })
+        : pagedRows.map((pageRows, pageIndex) => {
+            const startIndex = pageIndex * ROWS_PER_PAGE;
+            const isLastPage = pageIndex === pagedRows.length - 1;
+
+            return (
+              <Page
+                key={`farmer-seed-page-${pageIndex + 1}`}
+                size="A4"
+                orientation="landscape"
+                style={styles.page}
+              >
+                <View style={styles.header}>
+                  <Text style={styles.companyName}>{companyName}</Text>
+                  <Text style={styles.reportTitle}>{reportTitle}</Text>
+                  <Text style={styles.dateRange}>
+                    {dateRangeLabel} | Page {pageIndex + 1} of{' '}
+                    {pagedRows.length}
+                  </Text>
+                </View>
+
+                <View style={styles.tableContainer}>
+                  <View style={styles.table}>
+                    <View style={[styles.row, styles.rowHeader]} wrap={false}>
+                      {columns.map((column, index) => (
+                        <View
+                          key={column.key}
+                          style={[
+                            styles.cellWrap,
+                            index === columns.length - 1 ? styles.cellLast : {},
+                            { width: column.width },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.cellText, alignStyle(column.align)]}
+                            wrap
+                          >
+                            {column.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {rows.length === 0 ? (
+                      <View style={styles.row} wrap={false}>
+                        <View
+                          style={[
+                            styles.cellWrap,
+                            styles.cellLast,
+                            { width: '100%' },
+                          ]}
+                        >
+                          <Text style={[styles.cellText, styles.cellTextLeft]}>
+                            No farmer seed report data for this period.
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        {pageRows.map((row, rowIndex) => (
+                          <View key={row.id} style={styles.row} wrap={false}>
+                            {columns.map((column, colIndex) => {
+                              const bagSize = getBagSizeFromColumnKey(
+                                column.key,
+                                displayRows
+                              );
+                              const value = bagSize
+                                ? (row.bagSizeQtyByName?.[bagSize] ?? '')
+                                : column.key === 'sNo'
+                                  ? startIndex + rowIndex + 1
+                                  : row[
+                                      column.key as keyof FarmerSeedReportRow
+                                    ];
+                              return (
+                                <View
+                                  key={`${row.id}-${column.key}`}
+                                  style={[
+                                    styles.cellWrap,
+                                    colIndex === columns.length - 1
+                                      ? styles.cellLast
+                                      : {},
+                                    { width: column.width },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.cellText,
+                                      alignStyle(column.align),
+                                    ]}
+                                    wrap
+                                  >
+                                    {bagSize != null && value === ''
+                                      ? ''
+                                      : formatCellValue(column.key, value)}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        ))}
+
+                        {isLastPage && (
+                          <View style={styles.rowTotal} wrap={false}>
+                            {columns.map((column, index) => (
+                              <View
+                                key={`total-${column.key}`}
+                                style={[
+                                  styles.cellWrap,
+                                  index === columns.length - 1
+                                    ? styles.cellLast
+                                    : {},
+                                  { width: column.width },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.cellText,
+                                    alignStyle(column.align),
+                                  ]}
+                                  wrap
+                                >
+                                  {index === 0
+                                    ? 'Total'
+                                    : column.key === 'totalBags'
+                                      ? totalBags.toLocaleString('en-IN')
+                                      : column.key === 'totalSeedAmount'
+                                        ? totalSeedAmount.toLocaleString(
+                                            'en-IN',
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            }
+                                          )
+                                        : getBagSizeFromColumnKey(
+                                              column.key,
+                                              displayRows
+                                            ) != null
+                                          ? (
+                                              bagSizeTotals[
+                                                getBagSizeFromColumnKey(
+                                                  column.key,
+                                                  displayRows
+                                                ) as string
+                                              ] ?? 0
+                                            ).toLocaleString('en-IN')
+                                          : ''}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
                 </View>
               </Page>
             );
@@ -1145,6 +1210,7 @@ export function FarmerSeedReportTablePdf({
         />
         <SummaryBagSizeTable rows={summary.byBagSize} />
         <SummaryTopFarmersTable rows={summary.topFarmersByBags} />
+        <FooterSection />
       </Page>
     </Document>
   );
