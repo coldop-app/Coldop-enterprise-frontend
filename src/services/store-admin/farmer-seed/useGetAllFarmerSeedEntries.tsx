@@ -76,7 +76,7 @@ export const allFarmerSeedEntriesQueryKey = [
 ] as const;
 
 export const allFarmerSeedEntriesQueryOptions = (
-  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 5000 }
 ) =>
   queryOptions({
     queryKey: [...allFarmerSeedEntriesQueryKey, params] as const,
@@ -85,13 +85,13 @@ export const allFarmerSeedEntriesQueryOptions = (
 
 /** GET /farmer-seed/farmer-seed-entry */
 export function useGetAllFarmerSeedEntries(
-  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 5000 }
 ) {
   return useQuery(allFarmerSeedEntriesQueryOptions(params));
 }
 
 export function prefetchAllFarmerSeedEntries(
-  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 5000 }
 ) {
   return queryClient.prefetchQuery(allFarmerSeedEntriesQueryOptions(params));
 }

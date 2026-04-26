@@ -44,6 +44,10 @@ function normalizeBagSizeName(name: string): string {
   return name.replace(/–/g, '-').trim();
 }
 
+function roundToTwoDecimals(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 function mapEntriesToRows(
   entries: FarmerSeedEntryListItem[]
 ): FarmerSeedReportRow[] {
@@ -62,14 +66,16 @@ function mapEntriesToRows(
       (sum, bagSize) => sum + (bagSize.quantity ?? 0),
       0
     );
-    const totalSeedAmount = entry.bagSizes.reduce(
+    const rawTotalSeedAmount = entry.bagSizes.reduce(
       (sum, bagSize) =>
         sum +
         (bagSize.quantity ?? 0) *
           (Number.isFinite(bagSize.rate) ? bagSize.rate : 0),
       0
     );
-    const rate = totalBags > 0 ? totalSeedAmount / totalBags : 0;
+    const totalSeedAmount = roundToTwoDecimals(rawTotalSeedAmount);
+    const rate =
+      totalBags > 0 ? roundToTwoDecimals(totalSeedAmount / totalBags) : 0;
     return {
       id: entry._id,
       farmerName: entry.farmerStorageLinkId?.farmerId?.name ?? '—',

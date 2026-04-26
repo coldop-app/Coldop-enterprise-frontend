@@ -127,6 +127,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     number | undefined
   >(undefined);
   const [remarks, setRemarks] = useState('');
+  const [isInternalTransfer, setIsInternalTransfer] = useState(false);
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
 
   const voucherNumberDisplay =
@@ -231,6 +232,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
         bagSizes,
         manualGatePassNumber:
           manualGatePassNumber != null ? manualGatePassNumber : undefined,
+        isInternalTransfer,
         remarks: remarks.trim() || undefined,
         netWeight: netWeight != null ? netWeight : undefined,
         averageWeightPerBag:
@@ -254,6 +256,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     sizeVarieties,
     extraQuantityRows,
     remarks,
+    isInternalTransfer,
     netWeight,
     averageWeightPerBag,
     createNikasiGatePass,
@@ -279,6 +282,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     setNetWeight(undefined);
     setAverageWeightPerBag(undefined);
     setRemarks('');
+    setIsInternalTransfer(false);
   }, [isFixedFarmerMode, initialFarmerStorageLinkId]);
 
   const addExtraRow = useCallback(() => {
@@ -436,6 +440,22 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
               label="Date"
               id="nikasi-date"
             />
+          </Field>
+
+          <Field>
+            <label
+              htmlFor="nikasi-is-internal-transfer"
+              className="font-custom flex items-center gap-2 text-base font-semibold"
+            >
+              <input
+                id="nikasi-is-internal-transfer"
+                type="checkbox"
+                checked={isInternalTransfer}
+                onChange={(e) => setIsInternalTransfer(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Is Internal Transfer
+            </label>
           </Field>
 
           <Card className="overflow-hidden">

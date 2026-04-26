@@ -105,6 +105,9 @@ const NikasiVoucher = memo(function NikasiVoucher({
           maximumFractionDigits: 3,
         })
       : null;
+  const isInternalTransfer =
+    voucher.isInternalTransfer === true ||
+    voucher.isInternalTransferField === true;
 
   return (
     <Card
@@ -137,6 +140,14 @@ const NikasiVoucher = memo(function NikasiVoucher({
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
+              {isInternalTransfer && (
+                <Badge
+                  variant="secondary"
+                  className="border-primary/30 bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold"
+                >
+                  Internal Transfer
+                </Badge>
+              )}
               <Badge
                 variant="secondary"
                 className="px-2 py-0.5 text-[10px] font-medium"

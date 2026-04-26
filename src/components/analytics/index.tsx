@@ -27,7 +27,7 @@ import IncomingGatePassAnalyticsScreen from './incoming';
 import GradingGatePassAnalyticsScreen from './grading';
 import StorageAnalyticsScreen from './storage';
 import DispatchAnalyticsScreen from './dispatch';
-import SeedAnalyticsTab from './seed';
+import FarmerSeedReportTable from './reports/farmer-seed-report';
 
 const ANALYTICS_TAB_STORAGE_KEY = 'analytics-active-tab';
 const ANALYTICS_TABS = [
@@ -220,7 +220,7 @@ const AnalyticsPage = () => {
           </TabsList>
           <div className="p-4">
             <TabsContent value="seed" className="mt-0 outline-none">
-              <SeedAnalyticsTab />
+              <FarmerSeedReportTable />
             </TabsContent>
             <TabsContent value="incoming" className="mt-0 outline-none">
               <IncomingGatePassAnalyticsScreen dateParams={appliedDateParams} />

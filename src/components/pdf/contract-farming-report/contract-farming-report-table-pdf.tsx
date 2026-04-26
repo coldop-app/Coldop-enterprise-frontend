@@ -1,4 +1,11 @@
-import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from '@react-pdf/renderer';
 import type { ContractFarmingFarmerRow } from '@/types/analytics';
 import type { ContractFarmingReportDigitalVarietyGroup } from '@/utils/contractFarmingReportShared';
 import {
@@ -33,49 +40,103 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 14,
+    backgroundColor: '#FEFDF8',
+    padding: 16,
+    paddingBottom: 80,
     fontFamily: 'Helvetica',
     fontSize: 9,
-    backgroundColor: '#FEFDF8',
   },
   header: {
-    borderBottomWidth: 1,
+    borderBottomWidth: 2,
     borderBottomColor: '#000',
-    paddingBottom: 4,
-    marginBottom: 8,
+    paddingBottom: 6,
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  company: { fontSize: 12, fontWeight: 'bold' },
-  title: { fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-  date: { fontSize: 10, marginTop: 2 },
-  varietyTitle: { fontSize: 9, fontWeight: 'bold', marginVertical: 6 },
-  table: { borderWidth: 1, borderColor: '#000', width: '100%' },
+  company: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 3,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  date: {
+    fontSize: 10,
+    marginBottom: 6,
+  },
+  varietyTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  table: {
+    borderWidth: 1,
+    borderColor: '#000',
+    width: '100%',
+  },
   row: {
     flexDirection: 'row',
     borderBottomWidth: 0.5,
-    borderBottomColor: '#999',
+    borderBottomColor: '#666',
+    paddingVertical: 2,
   },
   rowHeader: {
     backgroundColor: '#E8E8E8',
+    fontWeight: 'bold',
     borderBottomWidth: 1,
     borderBottomColor: '#000',
+    paddingVertical: 3,
   },
   rowFooter: {
-    backgroundColor: '#F1F1F1',
+    backgroundColor: '#D0D0D0',
+    fontWeight: 'bold',
     borderTopWidth: 1,
     borderTopColor: '#000',
+    paddingVertical: 3,
   },
   cell: {
     borderRightWidth: 0.5,
-    borderRightColor: '#999',
+    borderRightColor: '#666',
     paddingHorizontal: 2,
-    paddingVertical: 2,
+    justifyContent: 'center',
   },
   cellLast: { borderRightWidth: 0 },
-  text: { fontSize: 8.4 },
-  textBold: { fontSize: 8.4, fontWeight: 'bold' },
+  text: { fontSize: 8, width: '100%' },
+  textBold: { fontSize: 8, fontWeight: 'bold', width: '100%' },
   left: { textAlign: 'left' },
   center: { textAlign: 'center' },
   right: { textAlign: 'right' },
+  footer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#222',
+    paddingTop: 6,
+  },
+  footerBrandWrap: {
+    backgroundColor: '#E7E7E7',
+    borderRadius: 5,
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  footerLogo: {
+    width: 22,
+    height: 22,
+  },
+  poweredBy: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#2D2D2D',
+  },
 });
 
 interface ContractFarmingReportTablePdfProps {
@@ -330,6 +391,18 @@ export function ContractFarmingReportTablePdf({
         ? styles.center
         : styles.right;
 
+  const FooterSection = () => (
+    <View style={styles.footer}>
+      <View style={styles.footerBrandWrap}>
+        <Image
+          src="https://res.cloudinary.com/dakh64xhy/image/upload/v1753172868/profile_pictures/lhdlzskpe2gj8dq8jvzl.png"
+          style={styles.footerLogo}
+        />
+        <Text style={styles.poweredBy}>Powered by Coldop</Text>
+      </View>
+    </View>
+  );
+
   return (
     <Document>
       {groups.flatMap((group, groupIndex) => {
@@ -521,6 +594,7 @@ export function ContractFarmingReportTablePdf({
                   </View>
                 ) : null}
               </View>
+              <FooterSection />
             </Page>
           );
         });

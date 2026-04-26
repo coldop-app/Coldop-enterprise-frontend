@@ -18,6 +18,7 @@ export interface CreateNikasiGatePassInput {
   date: string;
   from: string;
   toField: string;
+  isInternalTransfer?: boolean;
   bagSizes: CreateNikasiGatePassBagSize[];
   manualGatePassNumber?: number;
   remarks?: string;
@@ -91,6 +92,7 @@ export interface EditNikasiGatePassInput {
   date?: string;
   from?: string;
   toField?: string;
+  isInternalTransfer?: boolean;
   bagSizes?: CreateNikasiGatePassBagSize[];
   remarks?: string;
   netWeight?: number;
@@ -171,6 +173,7 @@ export interface NikasiGatePass {
   variety?: string;
   from: string;
   toField: string;
+  isInternalTransfer?: boolean;
   /** Legacy list shape; omit when using bagSize */
   orderDetails?: NikasiGatePassOrderDetail[];
   /** New list shape: size/variety/quantityIssued per row */
@@ -197,6 +200,7 @@ export interface NikasiGatePassWithLink {
   date: string;
   from: string;
   toField: string;
+  isInternalTransfer?: boolean;
   bagSize: NikasiGatePassBagSizeItem[];
   remarks?: string;
   netWeight?: number;

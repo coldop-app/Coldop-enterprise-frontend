@@ -112,6 +112,7 @@ const RIGHT_ALIGNED_COLUMN_IDS = new Set([
 ]);
 
 const BAG_SIZE_COLUMN_PREFIX = 'farmerSeedBagSize_';
+const TWO_DECIMAL_TOTAL_COLUMN_IDS = new Set(['rate', 'totalSeedAmount']);
 
 function getDynamicBagQtyByColumnId(
   row: FarmerSeedReportRow,
@@ -584,7 +585,21 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
           {(Object.entries(totals) as Array<[string, number]>).map(
             ([columnId, total]) => (
               <span key={columnId}>
-                {columnId}: <strong>{total.toLocaleString('en-IN')}</strong>
+                {columnId}:{' '}
+                <strong>
+                  {total.toLocaleString('en-IN', {
+                    minimumFractionDigits: TWO_DECIMAL_TOTAL_COLUMN_IDS.has(
+                      columnId
+                    )
+                      ? 2
+                      : 0,
+                    maximumFractionDigits: TWO_DECIMAL_TOTAL_COLUMN_IDS.has(
+                      columnId
+                    )
+                      ? 2
+                      : 0,
+                  })}
+                </strong>
               </span>
             )
           )}

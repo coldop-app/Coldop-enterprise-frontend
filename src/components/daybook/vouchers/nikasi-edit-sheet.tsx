@@ -84,6 +84,9 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
   const [date, setDate] = useState<string>(isoToDdMmYyyy(voucher.date));
   const [from, setFrom] = useState<string>(voucher.from ?? '');
   const [toField, setToField] = useState<string>(voucher.toField ?? '');
+  const [isInternalTransfer, setIsInternalTransfer] = useState<boolean>(
+    voucher.isInternalTransfer ?? false
+  );
   const [remarks, setRemarks] = useState<string>(voucher.remarks ?? '');
   const [netWeight, setNetWeight] = useState<string>(
     voucher.netWeight != null && Number.isFinite(voucher.netWeight)
@@ -153,6 +156,7 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
         date: formatDateToISO(date),
         from: from.trim(),
         toField: toField.trim(),
+        isInternalTransfer,
         bagSizes: payloadBagSizes,
         remarks: remarks.trim() || undefined,
         netWeight: toNumberOrUndefined(netWeight),
@@ -205,6 +209,22 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
                 className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor="nikasi-edit-is-internal-transfer"
+              className="font-custom flex items-center gap-2 text-sm font-medium"
+            >
+              <input
+                id="nikasi-edit-is-internal-transfer"
+                type="checkbox"
+                checked={isInternalTransfer}
+                onChange={(e) => setIsInternalTransfer(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Is Internal Transfer
+            </label>
           </div>
 
           <DatePicker

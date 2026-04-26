@@ -246,10 +246,8 @@ const BASE_COLUMNS: ColumnDef[] = [
     width: '8%',
     align: 'right',
   },
-  { key: 'remarks', label: 'Remarks', width: '19%', align: 'left' },
+  { key: 'remarks', label: 'Remarks', width: '10%', align: 'left' },
 ];
-
-const ROWS_PER_PAGE = 16;
 
 function formatValue(value: unknown): string {
   if (value == null || value === '') return '—';
@@ -259,6 +257,9 @@ function formatValue(value: unknown): string {
 
 function formatCellValue(columnKey: string, value: unknown): string {
   if (value == null || value === '') return '—';
+  if (columnKey === 'gatePassNo' || columnKey === 'invoiceNumber') {
+    return String(value);
+  }
   if (typeof value === 'number') {
     if (columnKey === 'rate' || columnKey === 'totalSeedAmount') {
       return value.toLocaleString('en-IN', {
@@ -275,15 +276,6 @@ function alignStyle(align: ColumnDef['align']) {
   if (align === 'left') return styles.cellLeft;
   if (align === 'right') return styles.cellRight;
   return styles.cell;
-}
-
-function chunkRows<T>(items: T[], chunkSize: number): T[][] {
-  if (items.length === 0) return [[]];
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    chunks.push(items.slice(i, i + chunkSize));
-  }
-  return chunks;
 }
 
 interface SummaryByLabelRow {
@@ -710,7 +702,9 @@ function buildPdfColumns(rows: FarmerSeedReportRow[]): ColumnDef[] {
     (sum, col) => sum + Number(col.width.replace('%', '')),
     0
   );
-  const remaining = Math.max(8, 100 - fixedWidth);
+  // Reserve more horizontal space for dynamic bag-size columns
+  // so bag labels remain readable in the PDF header.
+  const remaining = Math.max(20, 100 - fixedWidth);
   const eachBagWidth = remaining / bagSizes.length;
 
   return [
@@ -861,7 +855,6 @@ export function FarmerSeedReportTablePdf({
     },
     {}
   );
-  const pagedRows = chunkRows(displayRows, ROWS_PER_PAGE);
   const hasGrouping = (tableSnapshot?.grouping?.length ?? 0) > 0;
   const groupedSections =
     tableSnapshot && hasGrouping
@@ -880,46 +873,39 @@ export function FarmerSeedReportTablePdf({
   return (
     <Document>
       {hasGrouping && groupedSections.length > 0
-        ? groupedSections.flatMap((section, sectionIndex) => {
-            const sectionPages = chunkRows(section.leaves, ROWS_PER_PAGE);
-            return sectionPages.map((sectionPageRows, pageIndex) => {
-              const isLastSection = sectionIndex === groupedSections.length - 1;
-              const isLastPageOfSection = pageIndex === sectionPages.length - 1;
-              const isLastPage = isLastSection && isLastPageOfSection;
-              return (
-                <Page
-                  key={`farmer-seed-group-${sectionIndex}-${pageIndex + 1}`}
-                  size="A4"
-                  orientation="landscape"
-                  style={styles.page}
+        ? [
+            <Page
+              key="farmer-seed-grouped-flow"
+              size="A4"
+              orientation="landscape"
+              style={styles.page}
+            >
+              <View style={styles.header}>
+                <Text style={styles.companyName}>{companyName}</Text>
+                <Text style={styles.reportTitle}>{reportTitle}</Text>
+                <Text style={styles.dateRange}>{dateRangeLabel}</Text>
+              </View>
+              {groupedSections.map((section, sectionIndex) => (
+                <View
+                  key={`grouped-section-${sectionIndex}`}
+                  style={{ marginBottom: 10 }}
                 >
-                  {sectionIndex === 0 && pageIndex === 0 ? (
-                    <View style={styles.header}>
-                      <Text style={styles.companyName}>{companyName}</Text>
-                      <Text style={styles.reportTitle}>{reportTitle}</Text>
-                      <Text style={styles.dateRange}>{dateRangeLabel}</Text>
-                    </View>
-                  ) : null}
-
-                  {pageIndex === 0 ? (
-                    <View style={{ marginBottom: 8 }}>
-                      {section.headers.map((header) => {
-                        if (!header) return null;
-                        const label =
-                          groupingLabels[header.groupingColumnId] ??
-                          header.groupingColumnId;
-                        return (
-                          <Text
-                            key={`${sectionIndex}-${header.depth}-${header.groupingColumnId}`}
-                            style={{ fontSize: 9, marginBottom: 2 }}
-                          >
-                            {label}: {header.displayValue}
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-
+                  <View style={{ marginBottom: 8 }}>
+                    {section.headers.map((header) => {
+                      if (!header) return null;
+                      const label =
+                        groupingLabels[header.groupingColumnId] ??
+                        header.groupingColumnId;
+                      return (
+                        <Text
+                          key={`${sectionIndex}-${header.depth}-${header.groupingColumnId}`}
+                          style={{ fontSize: 9, marginBottom: 2 }}
+                        >
+                          {label}: {header.displayValue}
+                        </Text>
+                      );
+                    })}
+                  </View>
                   <View style={styles.tableContainer}>
                     <View style={styles.table}>
                       <View
@@ -949,7 +935,7 @@ export function FarmerSeedReportTablePdf({
                           </View>
                         ))}
                       </View>
-                      {sectionPageRows.map((row) => (
+                      {section.leaves.map((row) => (
                         <View key={row.id} style={styles.tableRow} wrap={false}>
                           {columns.map((column, colIndex) => {
                             const bagSize = getBagSizeFromColumnKey(
@@ -987,177 +973,128 @@ export function FarmerSeedReportTablePdf({
                           })}
                         </View>
                       ))}
-                      {isLastPage ? (
-                        <View style={styles.tableRowTotal} wrap={false}>
-                          {columns.map((column, index) => (
-                            <View
-                              key={`total-${column.key}`}
-                              style={[
-                                styles.cellWrap,
-                                index === columns.length - 1
-                                  ? styles.cellLast
-                                  : {},
-                                { width: column.width },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.cellText,
-                                  alignStyle(column.align),
-                                ]}
-                                wrap
-                              >
-                                {index === 0
-                                  ? 'Total'
-                                  : column.key === 'totalBags'
-                                    ? totalBags.toLocaleString('en-IN')
-                                    : column.key === 'totalSeedAmount'
-                                      ? totalSeedAmount.toLocaleString(
-                                          'en-IN',
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )
-                                      : getBagSizeFromColumnKey(
-                                            column.key,
-                                            displayRows
-                                          ) != null
-                                        ? (
-                                            bagSizeTotals[
-                                              getBagSizeFromColumnKey(
-                                                column.key,
-                                                displayRows
-                                              ) as string
-                                            ] ?? 0
-                                          ).toLocaleString('en-IN')
-                                        : ''}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      ) : null}
                     </View>
                   </View>
-                </Page>
-              );
-            });
-          })
-        : pagedRows.map((pageRows, pageIndex) => {
-            const startIndex = pageIndex * ROWS_PER_PAGE;
-            const isLastPage = pageIndex === pagedRows.length - 1;
-
-            return (
-              <Page
-                key={`farmer-seed-page-${pageIndex + 1}`}
-                size="A4"
-                orientation="landscape"
-                style={styles.page}
-              >
-                <View style={styles.header}>
-                  <Text style={styles.companyName}>{companyName}</Text>
-                  <Text style={styles.reportTitle}>{reportTitle}</Text>
-                  <Text style={styles.dateRange}>
-                    {dateRangeLabel} | Page {pageIndex + 1} of{' '}
-                    {pagedRows.length}
-                  </Text>
                 </View>
-
-                <View style={styles.tableContainer}>
-                  <View style={styles.table}>
-                    <View
-                      style={[styles.tableRow, styles.tableHeaderRow]}
-                      wrap={false}
-                    >
-                      {columns.map((column, index) => (
-                        <View
-                          key={column.key}
-                          style={[
-                            styles.cellWrap,
-                            index === columns.length - 1 ? styles.cellLast : {},
-                            { width: column.width },
-                          ]}
+              ))}
+              <View style={styles.tableContainer}>
+                <View style={styles.table}>
+                  <View style={styles.tableRowTotal} wrap={false}>
+                    {columns.map((column, index) => (
+                      <View
+                        key={`total-${column.key}`}
+                        style={[
+                          styles.cellWrap,
+                          index === columns.length - 1 ? styles.cellLast : {},
+                          { width: column.width },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.cellText, alignStyle(column.align)]}
+                          wrap
                         >
-                          <Text
-                            style={[styles.cellText, alignStyle(column.align)]}
-                            wrap
-                          >
-                            {column.label}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-
-                    {rows.length === 0 ? (
-                      <View style={styles.tableRow} wrap={false}>
-                        <View
-                          style={[
-                            styles.cellWrap,
-                            styles.cellLast,
-                            { width: '100%' },
-                          ]}
-                        >
-                          <Text style={[styles.cellText, styles.cellLeft]}>
-                            No farmer seed report data for this period.
-                          </Text>
-                        </View>
+                          {index === 0
+                            ? 'Total'
+                            : column.key === 'totalBags'
+                              ? totalBags.toLocaleString('en-IN')
+                              : column.key === 'totalSeedAmount'
+                                ? totalSeedAmount.toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })
+                                : getBagSizeFromColumnKey(
+                                      column.key,
+                                      displayRows
+                                    ) != null
+                                  ? (
+                                      bagSizeTotals[
+                                        getBagSizeFromColumnKey(
+                                          column.key,
+                                          displayRows
+                                        ) as string
+                                      ] ?? 0
+                                    ).toLocaleString('en-IN')
+                                  : ''}
+                        </Text>
                       </View>
-                    ) : (
-                      <>
-                        {pageRows.map((row, rowIndex) => (
-                          <View
-                            key={row.id}
-                            style={styles.tableRow}
-                            wrap={false}
-                          >
-                            {columns.map((column, colIndex) => {
-                              const bagSize = getBagSizeFromColumnKey(
-                                column.key,
-                                displayRows
-                              );
-                              const value = bagSize
-                                ? (row.bagSizeQtyByName?.[bagSize] ?? '')
-                                : column.key === 'sNo'
-                                  ? startIndex + rowIndex + 1
-                                  : row[
-                                      column.key as keyof FarmerSeedReportRow
-                                    ];
-                              return (
-                                <View
-                                  key={`${row.id}-${column.key}`}
-                                  style={[
-                                    styles.cellWrap,
-                                    colIndex === columns.length - 1
-                                      ? styles.cellLast
-                                      : {},
-                                    { width: column.width },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.cellText,
-                                      alignStyle(column.align),
-                                    ]}
-                                    wrap
-                                  >
-                                    {bagSize != null && value === ''
-                                      ? ''
-                                      : formatCellValue(column.key, value)}
-                                  </Text>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        ))}
+                    ))}
+                  </View>
+                </View>
+              </View>
+            </Page>,
+          ]
+        : [
+            <Page
+              key="farmer-seed-flow"
+              size="A4"
+              orientation="landscape"
+              style={styles.page}
+            >
+              <View style={styles.header}>
+                <Text style={styles.companyName}>{companyName}</Text>
+                <Text style={styles.reportTitle}>{reportTitle}</Text>
+                <Text style={styles.dateRange}>{dateRangeLabel}</Text>
+              </View>
 
-                        {isLastPage && (
-                          <View style={styles.tableRowTotal} wrap={false}>
-                            {columns.map((column, index) => (
+              <View style={styles.tableContainer}>
+                <View style={styles.table}>
+                  <View
+                    style={[styles.tableRow, styles.tableHeaderRow]}
+                    wrap={false}
+                  >
+                    {columns.map((column, index) => (
+                      <View
+                        key={column.key}
+                        style={[
+                          styles.cellWrap,
+                          index === columns.length - 1 ? styles.cellLast : {},
+                          { width: column.width },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.cellText, alignStyle(column.align)]}
+                          wrap
+                        >
+                          {column.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {rows.length === 0 ? (
+                    <View style={styles.tableRow} wrap={false}>
+                      <View
+                        style={[
+                          styles.cellWrap,
+                          styles.cellLast,
+                          { width: '100%' },
+                        ]}
+                      >
+                        <Text style={[styles.cellText, styles.cellLeft]}>
+                          No farmer seed report data for this period.
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      {displayRows.map((row, rowIndex) => (
+                        <View key={row.id} style={styles.tableRow} wrap={false}>
+                          {columns.map((column, colIndex) => {
+                            const bagSize = getBagSizeFromColumnKey(
+                              column.key,
+                              displayRows
+                            );
+                            const value = bagSize
+                              ? (row.bagSizeQtyByName?.[bagSize] ?? '')
+                              : column.key === 'sNo'
+                                ? rowIndex + 1
+                                : row[column.key as keyof FarmerSeedReportRow];
+                            return (
                               <View
-                                key={`total-${column.key}`}
+                                key={`${row.id}-${column.key}`}
                                 style={[
                                   styles.cellWrap,
-                                  index === columns.length - 1
+                                  colIndex === columns.length - 1
                                     ? styles.cellLast
                                     : {},
                                   { width: column.width },
@@ -1170,43 +1107,67 @@ export function FarmerSeedReportTablePdf({
                                   ]}
                                   wrap
                                 >
-                                  {index === 0
-                                    ? 'Total'
-                                    : column.key === 'totalBags'
-                                      ? totalBags.toLocaleString('en-IN')
-                                      : column.key === 'totalSeedAmount'
-                                        ? totalSeedAmount.toLocaleString(
-                                            'en-IN',
-                                            {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            }
-                                          )
-                                        : getBagSizeFromColumnKey(
-                                              column.key,
-                                              displayRows
-                                            ) != null
-                                          ? (
-                                              bagSizeTotals[
-                                                getBagSizeFromColumnKey(
-                                                  column.key,
-                                                  displayRows
-                                                ) as string
-                                              ] ?? 0
-                                            ).toLocaleString('en-IN')
-                                          : ''}
+                                  {bagSize != null && value === ''
+                                    ? ''
+                                    : formatCellValue(column.key, value)}
                                 </Text>
                               </View>
-                            ))}
+                            );
+                          })}
+                        </View>
+                      ))}
+
+                      <View style={styles.tableRowTotal} wrap={false}>
+                        {columns.map((column, index) => (
+                          <View
+                            key={`total-${column.key}`}
+                            style={[
+                              styles.cellWrap,
+                              index === columns.length - 1
+                                ? styles.cellLast
+                                : {},
+                              { width: column.width },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.cellText,
+                                alignStyle(column.align),
+                              ]}
+                              wrap
+                            >
+                              {index === 0
+                                ? 'Total'
+                                : column.key === 'totalBags'
+                                  ? totalBags.toLocaleString('en-IN')
+                                  : column.key === 'totalSeedAmount'
+                                    ? totalSeedAmount.toLocaleString('en-IN', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })
+                                    : getBagSizeFromColumnKey(
+                                          column.key,
+                                          displayRows
+                                        ) != null
+                                      ? (
+                                          bagSizeTotals[
+                                            getBagSizeFromColumnKey(
+                                              column.key,
+                                              displayRows
+                                            ) as string
+                                          ] ?? 0
+                                        ).toLocaleString('en-IN')
+                                      : ''}
+                            </Text>
                           </View>
-                        )}
-                      </>
-                    )}
-                  </View>
+                        ))}
+                      </View>
+                    </>
+                  )}
                 </View>
-              </Page>
-            );
-          })}
+              </View>
+            </Page>,
+          ]}
       <Page size="A4" orientation="landscape" style={styles.summaryPage}>
         <View style={styles.header}>
           <Text style={styles.companyName}>{companyName}</Text>

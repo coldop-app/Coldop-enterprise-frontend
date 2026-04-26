@@ -88,6 +88,8 @@ export interface PassVoucherData {
   manualGatePassNumber?: number;
   date?: string;
   variety?: string;
+  isInternalTransfer?: boolean;
+  isInternalTransferField?: boolean;
   /** Nikasi: total net weight */
   netWeight?: number;
   /** Nikasi: computed average weight per bag */

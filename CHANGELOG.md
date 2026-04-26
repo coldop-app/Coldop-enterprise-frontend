@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.58.0] - 2026-04-27
+
+### Added
+- Nikasi (Dispatch) create/edit flows now support an **Internal Transfer** flag via checkbox controls, including API payload/type support and daybook voucher badge visibility
+- Contract farming report PDF now includes a branded footer section with a Coldop logo and “Powered by Coldop” text on report pages
+
+### Changed
+- Analytics Seed tab now renders the full Farmer Seed Report table directly, replacing the prior lightweight seed tab view
+- Farmer seed report calculations now round rate and total seed amount to 2 decimals consistently in table rows, totals, and PDF output
+- Farmer seed report PDF layout was refactored for better dense-data readability (wider dynamic bag-size columns, adjusted remarks width, and single-flow rendering for grouped/ungrouped tables)
+- Farmer seed entries report query defaults now fetch a larger dataset window (`limit: 5000`) to avoid missing entries in analytics/report exports
+
 ## [0.57.0] - 2026-04-25
 
 ### Added
