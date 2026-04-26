@@ -71,6 +71,7 @@ interface DataTableProps<TData, TValue> {
   initialColumnVisibility?: VisibilityState;
   toolbarLeftContent?: React.ReactNode;
   toolbarRightContent?: React.ReactNode;
+  onRowClick?: (row: TData) => void;
   onColumnVisibilityChange?: (visibility: VisibilityState) => void;
   onVisibleRowsChange?: (rows: TData[]) => void;
 }
@@ -137,6 +138,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
     initialColumnVisibility,
     toolbarLeftContent,
     toolbarRightContent,
+    onRowClick,
     onColumnVisibilityChange,
     onVisibleRowsChange,
   }: DataTableProps<TData, TValue>,
@@ -401,8 +403,14 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                     className={`border-border bg-background even:bg-muted/30 dark:even:bg-muted/20 border-b transition-colors ${
                       row.getIsGrouped()
                         ? 'hover:bg-primary/5'
-                        : 'hover:bg-primary/5'
+                        : onRowClick
+                          ? 'hover:bg-primary/5 cursor-pointer'
+                          : 'hover:bg-primary/5'
                     }`}
+                    onClick={() => {
+                      if (row.getIsGrouped()) return;
+                      onRowClick?.(row.original as TData);
+                    }}
                     style={{
                       display: 'flex',
                       position: 'absolute',

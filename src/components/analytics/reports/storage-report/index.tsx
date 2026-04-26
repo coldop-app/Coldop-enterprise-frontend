@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { format, parseISO } from 'date-fns';
 import {
   useGetStorageGatePassReports,
@@ -176,6 +177,7 @@ function mapStoragePassesToRows(
 }
 
 const StorageReportsTable = () => {
+  const navigate = useNavigate();
   const coldStorage = useStore((s) => s.coldStorage);
   const tableRef = useRef<StorageReportDataTableRef<StorageReportRow>>(null);
   const reportContentRef = useRef<HTMLDivElement>(null);
@@ -331,6 +333,14 @@ const StorageReportsTable = () => {
     }
   };
 
+  const handleRowClick = (row: StorageReportRow) => {
+    if (!row.id) return;
+    void navigate({
+      to: '/store-admin/storage/edit',
+      search: { id: String(row.id) },
+    });
+  };
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-7xl p-2 sm:p-4 lg:p-6">
@@ -378,6 +388,7 @@ const StorageReportsTable = () => {
           ref={tableRef}
           columns={columns}
           data={rows}
+          onRowClick={handleRowClick}
           totalColumnIds={totalColumnIds}
           initialColumnVisibility={{
             farmerName: false,

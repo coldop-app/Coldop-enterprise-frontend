@@ -39,7 +39,8 @@ export type EditStorageGatePassParams = EditStorageGatePassInput & {
  *
  * API: PUT /api/v1/storage-gate-pass/:id
  * Headers: Authorization: Bearer <token>, Content-Type: application/json
- * Body: { date?, manualGatePassNumber?, reason? }
+ * Body: accepts editable fields (e.g. gatePassNo, manualGatePassNumber, date,
+ * variety, bagSizes, remarks, reason)
  * Response: { success: true, data: {}, message: "Storage gate pass updated successfully" }
  *
  * @example

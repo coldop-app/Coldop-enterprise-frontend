@@ -128,6 +128,29 @@ export interface StorageGatePassWithLink {
   manualGatePassNumber?: number;
 }
 
+/** Admin user object returned as createdBy in GET /storage-gate-pass/:id */
+export interface StorageGatePassCreatedByAdmin {
+  _id: string;
+  name: string;
+}
+
+/** Storage gate pass as returned by GET /storage-gate-pass/:id */
+export interface StorageGatePassById {
+  _id: string;
+  farmerStorageLinkId: StorageGatePassFarmerStorageLink;
+  createdBy: StorageGatePassCreatedByAdmin;
+  gatePassNo: number;
+  manualGatePassNumber?: number;
+  date: string;
+  variety: string;
+  bagSizes: StorageGatePassBagSize[];
+  editHistory: unknown[];
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
 /** Pagination as returned by GET /storage-gate-pass */
 export interface StorageGatePassPagination {
   page: number;
@@ -143,6 +166,13 @@ export interface GetStorageGatePassesApiResponse {
   success: boolean;
   data: StorageGatePassWithLink[];
   pagination: StorageGatePassPagination;
+  message?: string;
+}
+
+/** API response for GET /storage-gate-pass/:id */
+export interface GetStorageGatePassByIdApiResponse {
+  success: boolean;
+  data: StorageGatePassById;
   message?: string;
 }
 
@@ -202,7 +232,11 @@ export interface CreateStorageGatePassApiResponse {
 
 /** Request body for PUT /storage-gate-pass/:id */
 export interface EditStorageGatePassInput {
+  gatePassNo?: number;
   date?: string;
+  variety?: string;
+  bagSizes?: CreateStorageGatePassBagSize[];
+  remarks?: string;
   manualGatePassNumber?: number;
   reason?: string;
 }
