@@ -32,6 +32,10 @@ interface FarmerSeedSummarySheetProps {
   remarks?: string;
   isPending: boolean;
   onSubmit: () => void;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
+  pendingSubmitLabel?: string;
 }
 
 const formatAmount = (value: number) =>
@@ -56,6 +60,10 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
   remarks,
   isPending,
   onSubmit,
+  title = 'Farmer Seed Summary',
+  description = 'Review details before updating this entry.',
+  submitLabel = 'Update Farmer Seed Entry',
+  pendingSubmitLabel = 'Updating...',
 }: FarmerSeedSummarySheetProps) {
   const rowsWithQty = bagSizes.filter((row) => (row.quantity ?? 0) > 0);
   const totalQty = rowsWithQty.reduce(
@@ -79,10 +87,10 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
       >
         <SheetHeader className="border-b px-5 py-4">
           <SheetTitle className="font-custom text-xl font-semibold">
-            Farmer Seed Summary
+            {title}
           </SheetTitle>
           <SheetDescription className="font-custom text-sm">
-            Review details before updating this entry.
+            {description}
           </SheetDescription>
         </SheetHeader>
 
@@ -197,10 +205,10 @@ export const FarmerSeedSummarySheet = memo(function FarmerSeedSummarySheet({
               {isPending ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Updating...
+                  {pendingSubmitLabel}
                 </span>
               ) : (
-                'Update Farmer Seed Entry'
+                submitLabel
               )}
             </Button>
           </div>

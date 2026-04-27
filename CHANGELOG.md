@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9] - 2026-04-28
+
+### Added
+- Full farmer seed gate pass creation workflow with a dedicated form route, farmer selection/create support, dynamic bag-size rows, and create summary confirmation.
+- New interactive daybook placeholders for grading, nikasi, outgoing, and storage tabs with search, sort, item-count, action buttons, and pagination controls.
+
+### Changed
+- Seed daybook actions now route directly to farmer seed create and edit-history screens.
+- Farmer seed summary sheet now supports configurable title/description and submit labels for reuse across create and edit flows.
+
 ## [0.3.8] - 2026-04-28
 
 ### Added

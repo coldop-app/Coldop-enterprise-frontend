@@ -5,6 +5,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -143,6 +144,7 @@ interface SeedTabProps {
 }
 
 const SeedTab = ({ isActive = true }: SeedTabProps) => {
+  const navigate = useNavigate();
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,6 +253,14 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
     [isOnLastPage]
   );
 
+  const handleNavigateHistory = useCallback(() => {
+    void navigate({ to: '/store-admin/farmer-seed-gate-pass/history' });
+  }, [navigate]);
+
+  const handleNavigateAdd = useCallback(() => {
+    void navigate({ to: '/store-admin/farmer-seed-gate-pass' });
+  }, [navigate]);
+
   const emptyTitle = useMemo(() => {
     if (isLoading) return 'Loading farmer seed gate passes...';
     if (isError) return 'Failed to load farmer seed gate passes';
@@ -320,9 +330,19 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button className="font-custom w-full cursor-pointer sm:w-auto">
+            <Button
+              variant="secondary"
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={handleNavigateHistory}
+            >
+              Seed Edit History
+            </Button>
+            <Button
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={handleNavigateAdd}
+            >
               <ArrowUpFromLine className="h-4 w-4" />
-              Add Farmer Seed Gate Pass
+              Add Farmer Seed
             </Button>
           </div>
         </ItemFooter>
