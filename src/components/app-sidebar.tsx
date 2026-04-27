@@ -72,9 +72,9 @@ const SidebarHeaderContent = memo(() => {
   return (
     <SidebarHeader>
       <div className="flex items-center gap-2 px-2 py-2">
-        <h1 className="text-lg font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+        <h1 className="text-sidebar-foreground text-lg font-semibold group-data-[collapsible=icon]:hidden">
           Coldop
-          <span className="text-[10px] ml-1 font-medium text-muted-foreground">
+          <span className="text-muted-foreground ml-1 text-[10px] font-medium">
             BETA
           </span>
         </h1>
@@ -134,7 +134,12 @@ const AppSidebar = () => {
                       isActive={item.isActive}
                       tooltip={item.name}
                     >
-                      <Link to={item.href}>
+                      <Link
+                        preload="intent"
+                        preloadDelay={100}
+                        activeOptions={{ exact: true }}
+                        to={item.href}
+                      >
                         <Icon className="h-4 w-4 text-current" />
                         <span>{item.name}</span>
                       </Link>
