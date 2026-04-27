@@ -4,6 +4,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { queryClient } from '@/lib/queryClient';
 import type { StoreAdmin } from '@/types/store-admin';
+import ErrorPage from '@/components/error-page';
+import NotFound from '@/components/not-found';
 
 // Define the router context type
 interface MyRouterContext {
@@ -23,4 +25,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       </ThemeProvider>
     </QueryClientProvider>
   ),
+  errorComponent: ErrorPage,
+  notFoundComponent: NotFound,
 });

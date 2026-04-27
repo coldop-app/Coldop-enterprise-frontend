@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-04-27
+
+### Added
+- Global error and not-found experiences wired at the router root with dedicated fallback screens
+- Farmer listing data service for fetching and prefetching farmer-storage links from the store-admin API
+
+### Changed
+- People module now uses live farmer API data with debounced search, sorting options, refresh action, and empty/error/loading states
+- Farmer cards redesigned with improved visual hierarchy and quicker scanability for key details
+
 ## [0.3.1] - 2026-04-27
 
 ### Added

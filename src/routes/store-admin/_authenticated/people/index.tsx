@@ -1,9 +1,17 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useDebounceValue } from 'usehooks-ts';
 
-import { User, RefreshCw } from 'lucide-react';
+import { User, RefreshCw, Plus } from 'lucide-react';
 import { FilterBar } from '@/components/filter-bar';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import {
   Item,
@@ -13,49 +21,56 @@ import {
   ItemTitle,
 } from '@/components/ui/item';
 import { FarmerCard } from '@/components/people/FarmerCard';
+import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 
 export const Route = createFileRoute('/store-admin/_authenticated/people/')({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
-  const mockFarmers = [
-    {
-      _id: '1',
-      farmerId: {
-        _id: 'f1',
-        name: 'DEEPAK KUMAR S/O TIRATH RAM SHARMA',
-        address: 'BANDA',
-        mobileNumber: '9935361340',
-      },
-      accountNumber: 23,
-      isActive: true,
-    },
-    {
-      _id: '2',
-      farmerId: {
-        _id: 'f2',
-        name: 'JASVINDER SINGH S/O MOHAN SINGH',
-        address: 'PURANPUR',
-        mobileNumber: '9759414199',
-      },
-      accountNumber: 11,
-      isActive: true,
-    },
-    {
-      _id: '3',
-      farmerId: {
-        _id: 'f3',
-        name: 'JITENDAR SINGH S/O SUKHPAL SINGH',
-        address: 'BANDA',
-        mobileNumber: '8840732647',
-      },
-      accountNumber: 34,
-      isActive: true,
-    },
-  ];
+  const [search, setSearch] = useDebounceValue('', 500);
+  const [sortBy, setSortBy] = useState('name-asc');
+  const {
+    data: farmers = [],
+    isFetching,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetAllFarmers();
+  const trimmedSearch = search.trim().toLowerCase();
+  const filteredFarmers = farmers.filter((farmer) => {
+    if (!trimmedSearch) {
+      return true;
+    }
+
+    const searchableText = [
+      farmer.farmerId.name,
+      farmer.farmerId.address,
+      farmer.farmerId.mobileNumber,
+      String(farmer.accountNumber),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return searchableText.includes(trimmedSearch);
+  });
+
+  const sortedFarmers = [...filteredFarmers].sort((a, b) => {
+    if (sortBy === 'account-number-asc') {
+      return a.accountNumber - b.accountNumber;
+    }
+
+    if (sortBy === 'account-number-desc') {
+      return b.accountNumber - a.accountNumber;
+    }
+
+    if (sortBy === 'name-desc') {
+      return b.farmerId.name.localeCompare(a.farmerId.name);
+    }
+
+    return a.farmerId.name.localeCompare(b.farmerId.name);
+  });
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -71,26 +86,17 @@ function RouteComponent() {
                 <User className="text-primary h-5 w-5" />
               </ItemMedia>
               <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-                (add count here) 500 farmers
+                {sortedFarmers.length} farmers
               </ItemTitle>
             </div>
             <ItemActions>
-              {/* <Button
-              variant="outline"
-              size="sm"
-              disabled={isFetching}
-              onClick={() => refetch()}
-              className="font-custom h-8 gap-2 rounded-lg px-3"
-            >
-              <RefreshCw
-                className={`h-4 w-4 shrink-0 ${
-                  isFetching ? 'animate-spin' : ''
-                }`}
-              />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button> */}
-              <Button variant="outline" size="sm">
-                <RefreshCw />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+              >
+                <RefreshCw className={isFetching ? 'animate-spin' : ''} />
               </Button>
             </ItemActions>
           </ItemHeader>
@@ -98,25 +104,55 @@ function RouteComponent() {
 
         <FilterBar
           searchPlaceholder="Search farmers..."
-          searchValue={search}
+          searchValue=""
           onSearchChange={setSearch}
+          debounceDelay={0}
           selectedSort={sortBy}
           onSortChange={setSortBy}
           sortOptions={[
-            { label: 'Name', value: 'name' },
-            { label: 'Account Number', value: 'account-number' },
+            { label: 'Name (A-Z)', value: 'name-asc' },
+            { label: 'Name (Z-A)', value: 'name-desc' },
+            { label: 'Account Number (Low-High)', value: 'account-number-asc' },
+            {
+              label: 'Account Number (High-Low)',
+              value: 'account-number-desc',
+            },
           ]}
         >
-          <Button
-            size="sm"
-            variant="default"
-            className="font-custom rounded-lg"
-          >
-            Apply
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+            <Button className="font-custom w-full sm:w-auto">
+              <Plus className="h-4 w-4" />
+              Add Farmer
+            </Button>
+          </div>
         </FilterBar>
 
-        <FarmerCard data={mockFarmers} />
+        {sortedFarmers.length > 0 ? (
+          <FarmerCard data={sortedFarmers} />
+        ) : (
+          <Empty className="bg-muted/10 rounded-xl border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <User />
+              </EmptyMedia>
+              <EmptyTitle className="font-custom">
+                {isLoading
+                  ? 'Loading farmers...'
+                  : isError
+                    ? 'Failed to load farmers'
+                    : 'No farmers found'}
+              </EmptyTitle>
+              <EmptyDescription className="font-custom">
+                {isLoading
+                  ? 'Please wait while we fetch farmers.'
+                  : isError
+                    ? (error?.message ??
+                      'Please refresh and try loading farmers again.')
+                    : 'Try a different search term.'}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
       </div>
     </main>
   );
