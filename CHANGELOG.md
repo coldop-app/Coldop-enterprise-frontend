@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-27
+
+### Added
+- Daybook workflow tabs for Seed, Incoming, Grading, Storage, Dispatch (Pre Outgoing), and Dispatch (Outgoing)
+- Dedicated daybook tab screens and gate pass cards for incoming, outgoing, nikasi, grading, and seed flows
+- New reusable UI primitives for empty states and pagination
+- Incoming gate pass data services and shared incoming gate pass type definitions
+
+### Changed
+- Daybook route now renders tab-specific screens and persists active tab state in the global store
+- Topbar and button component implementation updated for improved consistency and Radix slot usage
+- Router tree and daybook module wiring refreshed to support the expanded daybook experience
+
 ## [0.2.0] - 2026-04-27
 
 ### Added

@@ -1,99 +1,102 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+  ArrowRightFromLine,
+  ArrowRightLeft,
+  Inbox,
+  PackageCheck,
+  Scale,
+  Sprout,
+} from 'lucide-react';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useStore } from '@/stores/store';
+import SeedTab from './SeedTab';
+import IncomingTab from './IncomingTab';
+import GradingTab from './GradingTab';
+import StorageTab from './StorageTab';
+import NikasiTab from './NikasiTab';
+import OutgoingTab from './OutgoingTab';
+
+const DAYBOOK_TABS = [
+  'seed',
+  'incoming',
+  'grading',
+  'storage',
+  'dispatch-pre-outgoing',
+  'dispatch-outgoing',
+] as const;
+
+type DaybookTab = (typeof DAYBOOK_TABS)[number];
 
 export const Route = createFileRoute('/store-admin/_authenticated/daybook/')({
   component: RouteComponent,
 });
 
 function RouteComponent() {
+  const activeTab = useStore((state) => state.daybookActiveTab);
+  const setActiveTab = useStore((state) => state.setDaybookActiveTab);
+  const handleValueChange = (value: string) => {
+    if ((DAYBOOK_TABS as readonly string[]).includes(value)) {
+      setActiveTab(value as DaybookTab);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
-      <Tabs defaultValue="seed" className="w-full max-w-7xl">
-        <TabsList>
-          <TabsTrigger value="seed">Seed</TabsTrigger>
-          <TabsTrigger value="incoming">Incoming</TabsTrigger>
-          <TabsTrigger value="grading">Grading</TabsTrigger>
-          <TabsTrigger value="dispatch-pre-outgoing">
-            Dispatch (Pre outgoing)
+      <Tabs
+        value={activeTab}
+        onValueChange={handleValueChange}
+        className="w-full space-y-4"
+      >
+        <TabsList className="w-full">
+          <TabsTrigger className="flex-1" value="seed">
+            <Sprout aria-hidden="true" className="size-4 sm:hidden" />
+            <span className="sr-only sm:not-sr-only">Seed</span>
           </TabsTrigger>
-          <TabsTrigger value="dispatch-outgoing">
-            Dispatch (Outgoing)
+          <TabsTrigger className="flex-1" value="incoming">
+            <Inbox aria-hidden="true" className="size-4 sm:hidden" />
+            <span className="sr-only sm:not-sr-only">Incoming</span>
+          </TabsTrigger>
+          <TabsTrigger className="flex-1" value="grading">
+            <Scale aria-hidden="true" className="size-4 sm:hidden" />
+            <span className="sr-only sm:not-sr-only">Grading</span>
+          </TabsTrigger>
+          <TabsTrigger className="flex-1" value="storage">
+            <PackageCheck aria-hidden="true" className="size-4 sm:hidden" />
+            <span className="sr-only sm:not-sr-only">Storage</span>
+          </TabsTrigger>
+          <TabsTrigger className="flex-1" value="dispatch-pre-outgoing">
+            <ArrowRightLeft aria-hidden="true" className="size-4 sm:hidden" />
+            <span className="sr-only sm:not-sr-only">
+              Dispatch (Pre outgoing)
+            </span>
+          </TabsTrigger>
+          <TabsTrigger className="flex-1" value="dispatch-outgoing">
+            <ArrowRightFromLine
+              aria-hidden="true"
+              className="size-4 sm:hidden"
+            />
+            <span className="sr-only sm:not-sr-only">Dispatch (Outgoing)</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="seed">
-          <Card>
-            <CardHeader>
-              <CardTitle>Seed</CardTitle>
-              <CardDescription>
-                Manage daybook entries for seed procurement, inventory, and
-                usage.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Seed tab content will appear here.
-            </CardContent>
-          </Card>
+          <SeedTab />
         </TabsContent>
         <TabsContent value="incoming">
-          <Card>
-            <CardHeader>
-              <CardTitle>Incoming</CardTitle>
-              <CardDescription>
-                Record incoming material details and verify received quantities.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Incoming tab content will appear here.
-            </CardContent>
-          </Card>
+          <IncomingTab />
         </TabsContent>
         <TabsContent value="grading">
-          <Card>
-            <CardHeader>
-              <CardTitle>Grading</CardTitle>
-              <CardDescription>
-                Track quality grades and related grading observations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Grading tab content will appear here.
-            </CardContent>
-          </Card>
+          <GradingTab />
+        </TabsContent>
+        <TabsContent value="storage">
+          <StorageTab />
         </TabsContent>
         <TabsContent value="dispatch-pre-outgoing">
-          <Card>
-            <CardHeader>
-              <CardTitle>Dispatch (Pre outgoing)</CardTitle>
-              <CardDescription>
-                Prepare dispatch records before goods move out.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Dispatch (Pre outgoing) tab content will appear here.
-            </CardContent>
-          </Card>
+          <NikasiTab />
         </TabsContent>
         <TabsContent value="dispatch-outgoing">
-          <Card>
-            <CardHeader>
-              <CardTitle>Dispatch (Outgoing)</CardTitle>
-              <CardDescription>
-                Finalize outgoing dispatch details and confirmations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Dispatch (Outgoing) tab content will appear here.
-            </CardContent>
-          </Card>
+          <OutgoingTab />
         </TabsContent>
       </Tabs>
     </main>

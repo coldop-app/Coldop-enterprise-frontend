@@ -1,0 +1,88 @@
+export type GatePassStatus = 'NOT_GRADED' | 'GRADED' | 'PARTIALLY_GRADED';
+
+export interface Farmer {
+  _id: string;
+  name: string;
+  address: string;
+  mobileNumber: string;
+}
+
+export interface User {
+  _id: string;
+  name: string;
+  mobileNumber: string;
+}
+
+export interface LinkedBy {
+  _id: string;
+  name: string;
+}
+
+export interface FarmerStorageLink {
+  _id: string;
+  farmerId: Farmer;
+  coldStorageId: string;
+  linkedById: LinkedBy;
+  accountNumber: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface WeightSlip {
+  slipNumber: string;
+  grossWeightKg: number;
+  tareWeightKg: number;
+}
+
+// API can send either object references or just ids for relational fields.
+export type IncomingGatePassWithLink = IncomingGatePass;
+
+export interface IncomingGatePass {
+  _id: string;
+  farmerStorageLinkId: FarmerStorageLink | string;
+  createdBy: User | string;
+  gatePassNo: number;
+  manualGatePassNumber: number;
+  date: string; // ISO string
+  variety: string;
+  location: string;
+  truckNumber: string;
+  bagsReceived: number;
+  weightSlip: WeightSlip;
+  status: GatePassStatus;
+  remarks: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface IncomingGatePassPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage?: boolean;
+  hasPrevPage?: boolean;
+  nextPage?: number | null;
+  prevPage?: number | null;
+}
+
+export interface GetIncomingGatePassesApiResponse {
+  success: boolean;
+  message?: string;
+  data?: IncomingGatePassWithLink[] | null;
+  pagination?: IncomingGatePassPagination;
+}
+
+export type IncomingGatePassByFarmerStorageLinkItem = IncomingGatePassWithLink;
+
+export interface SearchIncomingGatePassApiResponse {
+  success: boolean;
+  message?: string;
+  data?: IncomingGatePassByFarmerStorageLinkItem[] | null;
+}
+
+// Backward compatible alias for existing callers/imports.
+export type IncomingGatePassResponse = GetIncomingGatePassesApiResponse;
