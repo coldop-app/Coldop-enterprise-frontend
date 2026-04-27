@@ -11,12 +11,12 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStore } from '@/stores/store';
-import SeedTab from './SeedTab';
-import IncomingTab from './IncomingTab';
-import GradingTab from './GradingTab';
-import StorageTab from './StorageTab';
-import NikasiTab from './NikasiTab';
-import OutgoingTab from './OutgoingTab';
+import SeedTab from './-SeedTab';
+import IncomingTab from './-IncomingTab';
+import GradingTab from './-GradingTab';
+import StorageTab from './-StorageTab';
+import NikasiTab from './-NikasiTab';
+import OutgoingTab from './-OutgoingTab';
 
 const DAYBOOK_TABS = [
   'seed',

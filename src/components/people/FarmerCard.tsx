@@ -1,8 +1,6 @@
 import React from 'react';
 import { Link } from '@tanstack/react-router';
 import { Phone, MapPin, ArrowUpRight, Hash } from 'lucide-react';
-import { Route as FarmerDetailsRoute } from '@/routes/store-admin/_authenticated/people/$farmerStorageLinkId/index';
-import { Route as PeopleRoute } from '@/routes/store-admin/_authenticated/people/index';
 
 type Farmer = {
   _id: string;
@@ -35,17 +33,10 @@ export const FarmerCard: React.FC<FarmerCardProps> = ({ data }) => {
       {data.map((farmer) => (
         <Link
           key={farmer._id}
-          from={PeopleRoute.fullPath}
-          to={FarmerDetailsRoute.to}
+          to="/store-admin/people/$farmerStorageLinkId"
           params={{ farmerStorageLinkId: farmer._id }}
-          state={(prev) => ({
-            ...prev,
-            farmerName: farmer.farmerId.name,
-            farmerAddress: farmer.farmerId.address,
-          })}
           preload="intent"
           preloadDelay={100}
-          activeOptions={{ exact: true }}
           className="group focus-visible:ring-primary rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           <div className="border-border/40 bg-card hover:border-border/70 relative overflow-hidden rounded-2xl border px-5 py-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">

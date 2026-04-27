@@ -1,0 +1,265 @@
+import { queryOptions, useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
+import storeAdminAxiosClient from '@/lib/axios';
+import { queryClient } from '@/lib/queryClient';
+import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
+
+export interface GradingGatePass {
+  _id: string;
+  farmerStorageLinkId: string;
+  gatePassNo: number;
+  date: string;
+  orderDetails?: Array<{ initialQuantity?: number }>;
+  incomingGatePassIds?: Array<{
+    _id: string;
+    gatePassNo: number;
+    bagsReceived: number;
+    date: string;
+    variety: string;
+    truckNumber: string;
+    weightSlip: string;
+  }>;
+}
+
+export interface StorageGatePassWithLink {
+  _id: string;
+  farmerStorageLinkId: string;
+  gatePassNo: number;
+  date: string;
+  bagSizes?: Array<{ name: string; initialQuantity: number }>;
+}
+
+export interface NikasiGatePass {
+  _id: string;
+  farmerStorageLinkId: string;
+  gatePassNo: number;
+  date: string;
+  bagSize?: Array<{ name: string; quantityIssued: number }>;
+}
+
+export interface OutgoingGatePass {
+  _id: string;
+  farmerStorageLinkId: string;
+  gatePassNo: number;
+  date: string;
+  orderDetails?: Array<{ variety?: string; quantityIssued?: number }>;
+}
+
+export interface FarmerSeedGatePass {
+  _id: string;
+  farmerStorageLinkId: string;
+  gatePassNo: number;
+  invoiceNumber: string;
+  date: string;
+  variety: string;
+  generation: string;
+  bagSizes: Array<{
+    name: string;
+    quantity: number;
+    rate: number;
+    acres: number;
+  }>;
+  remarks?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Totals returned by the get-all-gate-passes-of-farmer API */
+export interface GatePassesTotals {
+  incoming: number;
+  grading: number;
+  dispatch: number;
+  storage: number;
+  outgoing: number;
+  totalUngraded: number;
+}
+
+/** Payload of the get-all-gate-passes-of-farmer API (data key) */
+export interface GetAllGatePassesOfFarmerData {
+  incoming: IncomingGatePassByFarmerStorageLinkItem[];
+  grading: GradingGatePass[];
+  dispatch: NikasiGatePass[];
+  storage: StorageGatePassWithLink[];
+  outgoing: OutgoingGatePass[];
+  farmerSeeds: FarmerSeedGatePass[];
+  totals: GatePassesTotals;
+}
+
+/** API response for GET .../passes */
+export interface GetAllGatePassesOfFarmerApiResponse {
+  success: boolean;
+  message?: string;
+  data?: GetAllGatePassesOfFarmerData | null;
+}
+
+export interface AllGatePassesOfFarmer {
+  incoming: {
+    data: IncomingGatePassByFarmerStorageLinkItem[];
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+  };
+  grading: {
+    data: GradingGatePass[];
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+  };
+  storage: {
+    data: StorageGatePassWithLink[];
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+  };
+  nikasi: {
+    data: NikasiGatePass[];
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+  };
+  outgoing: {
+    data: OutgoingGatePass[];
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+  };
+  farmerSeeds: {
+    data: FarmerSeedGatePass[];
+    isLoading: boolean;
+    isError: boolean;
+    error: unknown;
+  };
+  totals: GatePassesTotals | null;
+}
+
+export const allGatePassesOfFarmerKeys = {
+  all: ['store-admin', 'farmer-storage-link-gate-passes'] as const,
+  detail: (farmerStorageLinkId: string) =>
+    [...allGatePassesOfFarmerKeys.all, farmerStorageLinkId] as const,
+};
+
+type GetError = {
+  success?: boolean;
+  message?: string;
+  error?: { code?: string; message?: string };
+};
+
+function getFetchErrorMessage(data?: GetError): string {
+  return (
+    data?.error?.message ??
+    data?.message ??
+    'Failed to fetch gate passes for farmer'
+  );
+}
+
+function normalizeGatePassesData(
+  data: GetAllGatePassesOfFarmerData
+): GetAllGatePassesOfFarmerData {
+  return {
+    incoming: Array.isArray(data.incoming) ? data.incoming : [],
+    grading: Array.isArray(data.grading) ? data.grading : [],
+    dispatch: Array.isArray(data.dispatch) ? data.dispatch : [],
+    storage: Array.isArray(data.storage) ? data.storage : [],
+    outgoing: Array.isArray(data.outgoing) ? data.outgoing : [],
+    farmerSeeds: Array.isArray(data.farmerSeeds) ? data.farmerSeeds : [],
+    totals: data.totals,
+  };
+}
+
+async function fetchAllGatePassesOfFarmer(
+  farmerStorageLinkId: string
+): Promise<GetAllGatePassesOfFarmerData> {
+  try {
+    const { data } = await storeAdminAxiosClient.get<
+      GetAllGatePassesOfFarmerApiResponse | GetError
+    >(`/farmer-storage-link/${encodeURIComponent(farmerStorageLinkId)}/passes`);
+
+    if (!data.success || !('data' in data) || data.data == null) {
+      throw new Error(getFetchErrorMessage(data));
+    }
+
+    return normalizeGatePassesData(data.data);
+  } catch (error) {
+    if (isAxiosError<GetError>(error)) {
+      throw new Error(
+        getFetchErrorMessage(error.response?.data),
+        error.cause ? { cause: error.cause } : undefined
+      );
+    }
+
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error('Failed to fetch gate passes for farmer', { cause: error });
+  }
+}
+
+export function allGatePassesOfFarmerQueryOptions(farmerStorageLinkId: string) {
+  return queryOptions({
+    queryKey: allGatePassesOfFarmerKeys.detail(farmerStorageLinkId),
+    queryFn: () => fetchAllGatePassesOfFarmer(farmerStorageLinkId),
+    enabled: Boolean(farmerStorageLinkId),
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
+/** Prefetch helper for TanStack Router loaders and hover preloading */
+export function prefetchAllGatePassesOfFarmer(farmerStorageLinkId: string) {
+  return queryClient.prefetchQuery(
+    allGatePassesOfFarmerQueryOptions(farmerStorageLinkId)
+  );
+}
+
+/**
+ * Fetches all gate pass types and totals for a single farmer (by farmer-storage-link id)
+ * from GET /farmer-storage-link/:id/passes
+ */
+export function useGetAllGatePassesOfFarmer(
+  farmerStorageLinkId: string
+): AllGatePassesOfFarmer {
+  const query = useQuery(
+    allGatePassesOfFarmerQueryOptions(farmerStorageLinkId)
+  );
+  const data = query.data;
+
+  return {
+    incoming: {
+      data: data?.incoming ?? [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+    },
+    grading: {
+      data: data?.grading ?? [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+    },
+    storage: {
+      data: data?.storage ?? [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+    },
+    nikasi: {
+      data: data?.dispatch ?? [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+    },
+    outgoing: {
+      data: data?.outgoing ?? [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+    },
+    farmerSeeds: {
+      data: data?.farmerSeeds ?? [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+      error: query.error,
+    },
+    totals: data?.totals ?? null,
+  };
+}

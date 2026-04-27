@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FarmerProfileHeaderCard } from '@/components/people/FarmerProfileHeaderCard';
 import { FarmerProfileMetricsGrid } from '@/components/people/FarmerProfileMetricsCard';
+import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -21,6 +22,9 @@ export const Route = createFileRoute(
 });
 
 function RouteComponent() {
+  const { farmerStorageLinkId } = Route.useParams();
+  const gatePassesResponse = useGetAllGatePassesOfFarmer(farmerStorageLinkId);
+
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
       <div className="space-y-6">
@@ -47,6 +51,13 @@ function RouteComponent() {
             <span> chart1</span>
             <span> chart2</span>
           </div>
+          <Card className="overflow-hidden rounded-xl shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <pre className="font-custom bg-muted/20 max-h-112 overflow-auto rounded-lg p-3 text-xs sm:text-sm">
+                {JSON.stringify(gatePassesResponse, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
         </div>
 
         <Item

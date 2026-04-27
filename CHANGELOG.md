@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-04-27
+
+### Added
+- Incoming gate pass edit workflow with route screens, summary sheet UI, and update service integration
+- Quick add farmer flow with reusable modal, search selector, shared farmer types, and related constants
+- New reusable date picker and supporting shadcn UI primitives (`calendar`, `command`, `dialog`, `popover`)
+
+### Changed
+- Daybook tab modules refactored into file-based route components with updated route wiring
+- People and farmer profile experiences updated to support gate pass data improvements and quick-add farmer actions
+- Core UI components (`button`, `sheet`, `FarmerCard`) refined for consistency with the expanded store-admin workflows
+
 ## [0.3.2] - 2026-04-27
 
 ### Added

@@ -14,8 +14,10 @@ import { Route as ZustandIndexRouteImport } from './routes/zustand/index'
 import { Route as StoreAdminAuthenticatedRouteImport } from './routes/store-admin/_authenticated'
 import { Route as StoreAdminLoginIndexRouteImport } from './routes/store-admin/login/index'
 import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes/store-admin/_authenticated/people/index'
+import { Route as StoreAdminAuthenticatedIncomingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
 import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/index'
+import { Route as StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/edit/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -43,6 +45,12 @@ const StoreAdminAuthenticatedPeopleIndexRoute =
     path: '/people/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedIncomingGatePassIndexRoute =
+  StoreAdminAuthenticatedIncomingGatePassIndexRouteImport.update({
+    id: '/incoming-gate-pass/',
+    path: '/incoming-gate-pass/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedDaybookIndexRoute =
   StoreAdminAuthenticatedDaybookIndexRouteImport.update({
     id: '/daybook/',
@@ -55,6 +63,12 @@ const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute =
     path: '/people/$farmerStorageLinkId/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedIncomingGatePassEditIndexRoute =
+  StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport.update({
+    id: '/incoming-gate-pass/edit/',
+    path: '/incoming-gate-pass/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -62,7 +76,9 @@ export interface FileRoutesByFullPath {
   '/zustand/': typeof ZustandIndexRoute
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
+  '/store-admin/incoming-gate-pass/edit/': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -71,7 +87,9 @@ export interface FileRoutesByTo {
   '/zustand': typeof ZustandIndexRoute
   '/store-admin/login': typeof StoreAdminLoginIndexRoute
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/incoming-gate-pass': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
+  '/store-admin/incoming-gate-pass/edit': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRoutesById {
@@ -81,7 +99,9 @@ export interface FileRoutesById {
   '/zustand/': typeof ZustandIndexRoute
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
+  '/store-admin/_authenticated/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
+  '/store-admin/_authenticated/incoming-gate-pass/edit/': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -92,7 +112,9 @@ export interface FileRouteTypes {
     | '/zustand/'
     | '/store-admin/login/'
     | '/store-admin/daybook/'
+    | '/store-admin/incoming-gate-pass/'
     | '/store-admin/people/'
+    | '/store-admin/incoming-gate-pass/edit/'
     | '/store-admin/people/$farmerStorageLinkId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -101,7 +123,9 @@ export interface FileRouteTypes {
     | '/zustand'
     | '/store-admin/login'
     | '/store-admin/daybook'
+    | '/store-admin/incoming-gate-pass'
     | '/store-admin/people'
+    | '/store-admin/incoming-gate-pass/edit'
     | '/store-admin/people/$farmerStorageLinkId'
   id:
     | '__root__'
@@ -110,7 +134,9 @@ export interface FileRouteTypes {
     | '/zustand/'
     | '/store-admin/login/'
     | '/store-admin/_authenticated/daybook/'
+    | '/store-admin/_authenticated/incoming-gate-pass/'
     | '/store-admin/_authenticated/people/'
+    | '/store-admin/_authenticated/incoming-gate-pass/edit/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
   fileRoutesById: FileRoutesById
 }
@@ -158,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/incoming-gate-pass/': {
+      id: '/store-admin/_authenticated/incoming-gate-pass/'
+      path: '/incoming-gate-pass'
+      fullPath: '/store-admin/incoming-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/daybook/': {
       id: '/store-admin/_authenticated/daybook/'
       path: '/daybook'
@@ -172,12 +205,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/incoming-gate-pass/edit/': {
+      id: '/store-admin/_authenticated/incoming-gate-pass/edit/'
+      path: '/incoming-gate-pass/edit'
+      fullPath: '/store-admin/incoming-gate-pass/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
   }
 }
 
 interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
+  StoreAdminAuthenticatedIncomingGatePassIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
+  StoreAdminAuthenticatedIncomingGatePassEditIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 
@@ -185,8 +227,12 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
   {
     StoreAdminAuthenticatedDaybookIndexRoute:
       StoreAdminAuthenticatedDaybookIndexRoute,
+    StoreAdminAuthenticatedIncomingGatePassIndexRoute:
+      StoreAdminAuthenticatedIncomingGatePassIndexRoute,
     StoreAdminAuthenticatedPeopleIndexRoute:
       StoreAdminAuthenticatedPeopleIndexRoute,
+    StoreAdminAuthenticatedIncomingGatePassEditIndexRoute:
+      StoreAdminAuthenticatedIncomingGatePassEditIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute:
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute,
   }

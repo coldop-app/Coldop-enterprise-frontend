@@ -93,10 +93,14 @@ function RouteComponent() {
               <Button
                 variant="outline"
                 size="sm"
+                className="font-custom gap-2"
                 onClick={() => void refetch()}
                 disabled={isFetching}
               >
-                <RefreshCw className={isFetching ? 'animate-spin' : ''} />
+                <RefreshCw
+                  className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+                />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
             </ItemActions>
           </ItemHeader>

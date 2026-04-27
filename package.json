@@ -1,7 +1,7 @@
 {
   "name": "erp-frontend",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -32,15 +32,19 @@
     "axios": "^1.15.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "date-fns": "^4.1.0",
     "lucide-react": "^1.11.0",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",
     "react": "^19.2.5",
+    "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.4",
     "usehooks-ts": "^3.1.1",
+    "vibe-rules": "^0.3.91",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"
   },
