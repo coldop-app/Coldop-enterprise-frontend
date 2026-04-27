@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.4] - 2026-04-27
 
+## [0.3.5] - 2026-04-27
+
+### Added
+- New Incoming Gate Pass edit history page with audit cards, state comparisons, metadata, and pagination controls.
+- Dedicated incoming edit history data service with API integration, query caching, and route wiring for history navigation.
+- Incoming gate pass audit response typings to support edit-history records and pagination metadata.
+
+### Changed
+- Incoming daybook tab now includes a quick action to navigate directly to incoming edit history.
+- Incoming gate pass pagination types expanded for API compatibility with both previous-page key variants.
+
+## [0.3.4] - 2026-04-27
+
 ### Added
 - Incoming gate pass edit flow now pre-fills voucher data from daybook cards and submits updates through the dedicated edit mutation hook.
 - New edit API request/response typings for incoming gate pass update payloads and status-aware edits.

@@ -17,6 +17,7 @@ import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes
 import { Route as StoreAdminAuthenticatedIncomingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
 import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/index'
+import { Route as StoreAdminAuthenticatedIncomingGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/history/index'
 import { Route as StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/edit/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -63,6 +64,12 @@ const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute =
     path: '/people/$farmerStorageLinkId/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute =
+  StoreAdminAuthenticatedIncomingGatePassHistoryIndexRouteImport.update({
+    id: '/incoming-gate-pass/history/',
+    path: '/incoming-gate-pass/history/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedIncomingGatePassEditIndexRoute =
   StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport.update({
     id: '/incoming-gate-pass/edit/',
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/incoming-gate-pass/edit/': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  '/store-admin/incoming-gate-pass/history/': typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
   '/store-admin/incoming-gate-pass': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/incoming-gate-pass/edit': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  '/store-admin/incoming-gate-pass/history': typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRoutesById {
@@ -102,6 +111,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/_authenticated/incoming-gate-pass/edit/': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  '/store-admin/_authenticated/incoming-gate-pass/history/': typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/store-admin/incoming-gate-pass/'
     | '/store-admin/people/'
     | '/store-admin/incoming-gate-pass/edit/'
+    | '/store-admin/incoming-gate-pass/history/'
     | '/store-admin/people/$farmerStorageLinkId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/store-admin/incoming-gate-pass'
     | '/store-admin/people'
     | '/store-admin/incoming-gate-pass/edit'
+    | '/store-admin/incoming-gate-pass/history'
     | '/store-admin/people/$farmerStorageLinkId'
   id:
     | '__root__'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/incoming-gate-pass/'
     | '/store-admin/_authenticated/people/'
     | '/store-admin/_authenticated/incoming-gate-pass/edit/'
+    | '/store-admin/_authenticated/incoming-gate-pass/history/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
   fileRoutesById: FileRoutesById
 }
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/incoming-gate-pass/history/': {
+      id: '/store-admin/_authenticated/incoming-gate-pass/history/'
+      path: '/incoming-gate-pass/history'
+      fullPath: '/store-admin/incoming-gate-pass/history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/incoming-gate-pass/edit/': {
       id: '/store-admin/_authenticated/incoming-gate-pass/edit/'
       path: '/incoming-gate-pass/edit'
@@ -220,6 +240,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedIncomingGatePassIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
   StoreAdminAuthenticatedIncomingGatePassEditIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
 }
 
@@ -233,6 +254,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedPeopleIndexRoute,
     StoreAdminAuthenticatedIncomingGatePassEditIndexRoute:
       StoreAdminAuthenticatedIncomingGatePassEditIndexRoute,
+    StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute:
+      StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute:
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute,
   }

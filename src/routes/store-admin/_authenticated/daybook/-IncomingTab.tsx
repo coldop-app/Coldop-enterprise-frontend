@@ -43,11 +43,13 @@ import {
   useGetIncomingGatePasses,
 } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useSearchIncomingGatePassNumber } from '@/services/store-admin/incoming-gate-pass/useSearchIncomingGatePassNumber';
+import { useNavigate } from '@tanstack/react-router';
 
 const SORT_ORDER_OPTIONS = ['Latest first', 'Oldest first'] as const;
 const STATUS_OPTIONS = ['All', 'Graded', 'Ungraded'] as const;
 
 const IncomingTab = () => {
+  const navigate = useNavigate();
   const [selectedSortOrder, setSelectedSortOrder] =
     useState<(typeof SORT_ORDER_OPTIONS)[number]>('Latest first');
   const [selectedStatus, setSelectedStatus] =
@@ -211,6 +213,17 @@ const IncomingTab = () => {
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+            <Button
+              variant="secondary"
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={() => {
+                void navigate({
+                  to: '/store-admin/incoming-gate-pass/history',
+                });
+              }}
+            >
+              Incoming Edit History
+            </Button>
             <Button className="font-custom w-full sm:w-auto">
               <ArrowUpFromLine className="h-4 w-4" />
               Add Incoming

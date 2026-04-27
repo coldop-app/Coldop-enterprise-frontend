@@ -64,6 +64,7 @@ export interface IncomingGatePassPagination {
   total: number;
   totalPages: number;
   hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
   hasPrevPage?: boolean;
   nextPage?: number | null;
   prevPage?: number | null;
@@ -107,6 +108,26 @@ export interface EditIncomingGatePassApiResponse {
   success: boolean;
   message?: string;
   data?: Record<string, never>;
+}
+
+export interface IncomingGatePassAuditItem {
+  _id: string;
+  incomingGatePassId: IncomingGatePass;
+  editedById: User;
+  previousState: IncomingGatePass;
+  updatedState: IncomingGatePass;
+  reason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  __v: number;
+}
+
+export interface GetIncomingGatePassAuditApiResponse {
+  success: boolean;
+  message?: string;
+  data?: IncomingGatePassAuditItem[] | null;
+  pagination?: IncomingGatePassPagination;
 }
 
 // Backward compatible alias for existing callers/imports.
