@@ -222,22 +222,26 @@ type PdfColumn = {
   align: 'left' | 'center' | 'right';
 };
 
-/** Build PDF column defs: base + size + remarks. Widths sum to 100%. Size cols capped so remarks gets remainder. */
-function getPdfColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
+function getAllColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
   const n = sizeColumnIds.length;
   const sizeWidthOld = n > 0 ? Math.min(7, Math.floor(50 / n)) : 0;
   const remarksOld = Math.max(15, 100 - 47 - n * sizeWidthOld);
   const remarksNew = Math.max(8, Math.floor(remarksOld / 2));
   const remainderForSizes = 100 - 47 - remarksNew;
-  const maxSizeWidthPerCol = 9.5; // ~16px wider per col than 6.8 on A4
+  const maxSizeWidthPerCol = 9.5;
   const sizeWidth =
     n > 0 ? Math.min(maxSizeWidthPerCol, remainderForSizes / n) : 0;
   const remarksWidth = 100 - 47 - n * sizeWidth;
   const base: PdfColumn[] = [
-    { key: 'gatePassNo', label: 'Gate pass no.', width: '9%', align: 'right' },
+    {
+      key: 'gatePassNo',
+      label: 'System Generated Gate Pass No.',
+      width: '9%',
+      align: 'right',
+    },
     {
       key: 'manualGatePassNumber',
-      label: 'Manual GP no.',
+      label: 'Manual Gate Pass No.',
       width: '9%',
       align: 'right',
     },
@@ -245,11 +249,11 @@ function getPdfColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
     { key: 'variety', label: 'Variety', width: '12%', align: 'left' },
     { key: 'totalBags', label: 'Bags', width: '8%', align: 'right' },
   ];
-  const sizeCols = sizeColumnIds.map((size) => ({
+  const sizeCols: PdfColumn[] = sizeColumnIds.map((size) => ({
     key: getSizeColumnId(size),
     label: size.includes('(mm)') ? size : `${size} (mm)`,
     width: `${sizeWidth}%`,
-    align: 'center' as const,
+    align: 'center',
   }));
   return [
     ...base,
@@ -261,6 +265,31 @@ function getPdfColumns(sizeColumnIds: readonly string[]): PdfColumn[] {
       align: 'left',
     },
   ];
+}
+
+function getColumnsForPdf(
+  sizeColumnIds: readonly string[],
+  visibleColumnIds: readonly string[]
+): PdfColumn[] {
+  const allColumns = getAllColumns(sizeColumnIds);
+  if (visibleColumnIds.length === 0) return allColumns;
+  const byKey = new Map(
+    allColumns.map((column) => [column.key, column] as const)
+  );
+  const filtered = visibleColumnIds
+    .map((columnId) => byKey.get(columnId))
+    .filter((column): column is PdfColumn => Boolean(column));
+  if (filtered.length === 0) return allColumns;
+  const totalPercent = filtered.reduce(
+    (sum, column) => sum + parseFloat(column.width),
+    0
+  );
+  if (totalPercent <= 0) return filtered;
+  const scale = 100 / totalPercent;
+  return filtered.map((column) => ({
+    ...column,
+    width: `${(parseFloat(column.width) * scale).toFixed(1)}%`,
+  }));
 }
 
 interface TableRowProps {
@@ -705,7 +734,10 @@ export const StorageReportTablePdf = ({
           item.type === 'leaf'
       )
       .map((item) => item.row) ?? rows;
-  const columns = getPdfColumns(sizeColumnIds);
+  const columns = getColumnsForPdf(
+    sizeColumnIds,
+    tableSnapshot?.visibleColumnIds ?? []
+  );
   const summary = computeStorageReportSummary(leafRows, sizeColumnIds);
 
   const totalBags = leafRows.reduce(
