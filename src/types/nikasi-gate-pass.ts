@@ -14,10 +14,10 @@ export interface CreateNikasiGatePassBagSize {
 /** Request body for POST /nikasi-gate-pass */
 export interface CreateNikasiGatePassInput {
   farmerStorageLinkId: string;
+  dispatchLedgerId: string;
   gatePassNo: number;
   date: string;
   from: string;
-  toField: string;
   isInternalTransfer?: boolean;
   bagSizes: CreateNikasiGatePassBagSize[];
   manualGatePassNumber?: number;
@@ -87,11 +87,11 @@ export interface CreateNikasiGatePassApiResponse {
 
 /** Request body for PATCH /nikasi-gate-pass/:id */
 export interface EditNikasiGatePassInput {
+  dispatchLedgerId?: string;
   gatePassNo?: number;
   manualGatePassNumber?: number;
   date?: string;
   from?: string;
-  toField?: string;
   isInternalTransfer?: boolean;
   bagSizes?: CreateNikasiGatePassBagSize[];
   remarks?: string;

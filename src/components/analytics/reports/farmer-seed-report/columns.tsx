@@ -45,6 +45,42 @@ function normalizeBagSize(size: string): string {
   return size.replace(/–/g, '-').trim().toLowerCase();
 }
 
+function roundToTwoDecimals(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function toSafeNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function sumRoundedValues(
+  columnId: string,
+  leafRows: Array<{ getValue: (id: string) => unknown }>
+): number {
+  const sum = leafRows.reduce(
+    (acc, row) => acc + toSafeNumber(row.getValue(columnId)),
+    0
+  );
+  return roundToTwoDecimals(sum);
+}
+
+function averageRoundedValues(
+  columnId: string,
+  leafRows: Array<{ getValue: (id: string) => unknown }>
+): number {
+  if (leafRows.length === 0) return 0;
+  const sum = leafRows.reduce(
+    (acc, row) => acc + toSafeNumber(row.getValue(columnId)),
+    0
+  );
+  return roundToTwoDecimals(sum / leafRows.length);
+}
+
 const FARMER_SEED_BAG_SIZE_ORDER_INDEX = new Map(
   FARMER_SEED_BAG_SIZE_ORDER.map(
     (size, idx) => [normalizeBagSize(size), idx] as const
@@ -254,6 +290,16 @@ export function createFarmerSeedReportColumns(
     {
       accessorKey: 'rate',
       header: 'Rate',
+      aggregationFn: (columnId, leafRows) =>
+        averageRoundedValues(columnId, leafRows),
+      aggregatedCell: ({ row }) => (
+        <span className="font-custom text-right font-semibold">
+          {toSafeNumber(row.getValue('rate')).toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      ),
       cell: ({ row }) => (
         <span className="font-custom text-right font-semibold">
           {row.original.rate.toLocaleString('en-IN', {
@@ -266,6 +312,19 @@ export function createFarmerSeedReportColumns(
     {
       accessorKey: 'totalSeedAmount',
       header: 'Total Seed Amount',
+      aggregationFn: (columnId, leafRows) =>
+        sumRoundedValues(columnId, leafRows),
+      aggregatedCell: ({ row }) => (
+        <span className="font-custom text-right font-semibold">
+          {toSafeNumber(row.getValue('totalSeedAmount')).toLocaleString(
+            'en-IN',
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}
+        </span>
+      ),
       cell: ({ row }) => (
         <span className="font-custom text-right font-semibold">
           {row.original.totalSeedAmount.toLocaleString('en-IN', {
@@ -274,7 +333,6 @@ export function createFarmerSeedReportColumns(
           })}
         </span>
       ),
-      aggregationFn: 'sum',
     },
     {
       accessorKey: 'remarks',

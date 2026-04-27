@@ -111,9 +111,13 @@ const FarmerSeedReportTable = () => {
   }>({});
 
   const rows = useMemo(() => mapEntriesToRows(data?.data ?? []), [data]);
+  const rowsWithBags = useMemo(
+    () => rows.filter((row) => row.totalBags > 0),
+    [rows]
+  );
 
   const filteredRows = useMemo(() => {
-    if (!appliedRange.dateFrom && !appliedRange.dateTo) return rows;
+    if (!appliedRange.dateFrom && !appliedRange.dateTo) return rowsWithBags;
 
     const fromTs = appliedRange.dateFrom
       ? new Date(appliedRange.dateFrom).getTime()
@@ -122,13 +126,13 @@ const FarmerSeedReportTable = () => {
       ? new Date(appliedRange.dateTo).getTime()
       : Number.POSITIVE_INFINITY;
 
-    return rows.filter((row) => {
+    return rowsWithBags.filter((row) => {
       if (!row.date || row.date === '—') return false;
       const [day, month, year] = row.date.split('.');
       const parsed = new Date(`${year}-${month}-${day}`).getTime();
       return parsed >= fromTs && parsed <= toTs;
     });
-  }, [appliedRange.dateFrom, appliedRange.dateTo, rows]);
+  }, [appliedRange.dateFrom, appliedRange.dateTo, rowsWithBags]);
 
   const visibleBagSizes = useMemo(() => {
     const sizes = new Set<string>();
@@ -148,6 +152,7 @@ const FarmerSeedReportTable = () => {
   const totalColumnIds = useMemo(
     () => [
       'totalBags',
+      'rate',
       'totalSeedAmount',
       ...visibleBagSizes.map((s) => farmerSeedBagSizeColumnId(s)),
     ],

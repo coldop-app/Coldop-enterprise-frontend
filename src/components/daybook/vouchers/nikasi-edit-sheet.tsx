@@ -1,10 +1,11 @@
-import { memo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/forms/date-picker';
 import { SearchSelector } from '@/components/forms/search-selector';
+import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-modal';
 import {
   GRADING_SIZES,
   POTATO_VARIETIES,
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui/sheet';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 import { useEditNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useEditNikasiGatePass';
+import { useGetNikasiLedgers } from '@/services/store-admin/nikasi-gate-pass/nikasi-ledger/useGetNikasiLedgers';
 import type { PassVoucherData } from './types';
 
 interface NikasiEditRow {
@@ -72,6 +74,11 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
   voucher,
 }: NikasiEditSheetProps) {
   const { mutate: editNikasiGatePass, isPending } = useEditNikasiGatePass();
+  const {
+    data: dispatchLedgers,
+    isLoading: isLoadingDispatchLedgers,
+    refetch: refetchDispatchLedgers,
+  } = useGetNikasiLedgers();
 
   const [gatePassNo, setGatePassNo] = useState<string>(
     voucher.gatePassNo != null ? String(voucher.gatePassNo) : ''
@@ -83,6 +90,7 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
   );
   const [date, setDate] = useState<string>(isoToDdMmYyyy(voucher.date));
   const [from, setFrom] = useState<string>(voucher.from ?? '');
+  const [dispatchLedgerId, setDispatchLedgerId] = useState<string>('');
   const [toField, setToField] = useState<string>(voucher.toField ?? '');
   const [isInternalTransfer, setIsInternalTransfer] = useState<boolean>(
     voucher.isInternalTransfer ?? false
@@ -112,6 +120,26 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
           variety: voucher.variety ?? '',
           quantityIssued: row.quantityIssued ?? 0,
         }))
+  );
+
+  const dispatchLedgerOptions = useMemo(() => {
+    if (!dispatchLedgers) return [];
+    return dispatchLedgers.map((ledger) => ({
+      value: ledger._id,
+      label: ledger.mobileNumber
+        ? `${ledger.name} (${ledger.mobileNumber})`
+        : ledger.name,
+      searchableText: `${ledger.name} ${ledger.mobileNumber ?? ''} ${ledger.address}`,
+    }));
+  }, [dispatchLedgers]);
+
+  const handleDispatchLedgerAdded = useCallback(
+    (name: string) => {
+      setToField(name);
+      setDispatchLedgerId('');
+      refetchDispatchLedgers();
+    },
+    [refetchDispatchLedgers]
   );
 
   const handleBagSizeChange = (
@@ -147,6 +175,12 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
         row.variety.trim() !== '' &&
         Number.isFinite(row.quantityIssued)
     );
+    const resolvedDispatchLedgerId =
+      dispatchLedgerId ||
+      dispatchLedgers?.find(
+        (ledger) =>
+          ledger.name.trim().toLowerCase() === toField.trim().toLowerCase()
+      )?._id;
 
     editNikasiGatePass(
       {
@@ -155,7 +189,7 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
         manualGatePassNumber: toNumberOrUndefined(manualGatePassNumber),
         date: formatDateToISO(date),
         from: from.trim(),
-        toField: toField.trim(),
+        dispatchLedgerId: resolvedDispatchLedgerId || undefined,
         isInternalTransfer,
         bagSizes: payloadBagSizes,
         remarks: remarks.trim() || undefined,
@@ -234,7 +268,7 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
             id="nikasi-edit-date"
           />
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-3">
             <div className="space-y-1">
               <label className="font-custom text-sm font-medium">From</label>
               <Input
@@ -245,11 +279,31 @@ export const NikasiEditSheet = memo(function NikasiEditSheet({
             </div>
             <div className="space-y-1">
               <label className="font-custom text-sm font-medium">To</label>
-              <Input
-                value={toField}
-                onChange={(e) => setToField(e.target.value)}
-                className="font-custom"
-              />
+              <div className="flex flex-col gap-3">
+                <SearchSelector
+                  id="nikasi-edit-to"
+                  options={dispatchLedgerOptions}
+                  placeholder="Search or select dispatch ledger"
+                  searchPlaceholder="Search by name, mobile, or address..."
+                  value={dispatchLedgerId}
+                  onSelect={(value) => {
+                    const selectedId = value ?? '';
+                    setDispatchLedgerId(selectedId);
+                    const selectedLedger = dispatchLedgers?.find(
+                      (ledger) => ledger._id === selectedId
+                    );
+                    setToField(selectedLedger?.name ?? '');
+                  }}
+                  loading={isLoadingDispatchLedgers}
+                  loadingMessage="Loading dispatch ledgers..."
+                  emptyMessage="No dispatch ledgers found"
+                  className="w-full"
+                  buttonClassName="w-full justify-between"
+                />
+                <AddDispatchLedgerModal
+                  onLedgerAdded={handleDispatchLedgerAdded}
+                />
+              </div>
             </div>
           </div>
 

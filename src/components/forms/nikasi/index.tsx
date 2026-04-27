@@ -22,9 +22,11 @@ import {
   SearchSelector,
   type Option,
 } from '@/components/forms/search-selector';
+import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-modal';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/functions/useGetVoucherNumber';
 import { useGetAllFarmers } from '@/services/store-admin/functions/useGetAllFarmers';
 import { useCreateNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useCreateNikasiGatePass';
+import { useGetNikasiLedgers } from '@/services/store-admin/nikasi-gate-pass/nikasi-ledger/useGetNikasiLedgers';
 import { useStore } from '@/stores/store';
 import { toast } from 'sonner';
 import { formatDate, formatDateToYYYYMMDD } from '@/lib/helpers';
@@ -86,6 +88,11 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
   );
   const isFixedFarmerMode = coldStorageId === FIXED_FARMER_COLD_STORAGE_ID;
   const { data: farmerLinks, isLoading: isLoadingFarmers } = useGetAllFarmers();
+  const {
+    data: dispatchLedgers,
+    isLoading: isLoadingDispatchLedgers,
+    refetch: refetchDispatchLedgers,
+  } = useGetNikasiLedgers();
 
   const farmerOptions: Option<string>[] = useMemo(() => {
     if (!farmerLinks) return [];
@@ -97,6 +104,17 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
         searchableText: `${link.farmerId.name} ${link.accountNumber} ${link.farmerId.mobileNumber} ${link.farmerId.address}`,
       }));
   }, [farmerLinks]);
+
+  const dispatchLedgerOptions: Option<string>[] = useMemo(() => {
+    if (!dispatchLedgers) return [];
+    return dispatchLedgers.map((ledger) => ({
+      value: ledger._id,
+      label: ledger.mobileNumber
+        ? `${ledger.name} (${ledger.mobileNumber})`
+        : ledger.name,
+      searchableText: `${ledger.name} ${ledger.mobileNumber ?? ''} ${ledger.address}`,
+    }));
+  }, [dispatchLedgers]);
 
   const [farmerStorageLinkId, setFarmerStorageLinkId] = useState(
     () => initialFarmerStorageLinkId ?? ''
@@ -110,6 +128,7 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     number | undefined
   >(undefined);
   const [from, setFrom] = useState('');
+  const [dispatchLedgerId, setDispatchLedgerId] = useState('');
   const [toField, setToField] = useState('');
   const [date, setDate] = useState(formatDate(new Date()));
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
@@ -218,6 +237,18 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
       toast.error('Please enter at least one quantity.');
       return;
     }
+    const resolvedDispatchLedgerId =
+      dispatchLedgerId ||
+      dispatchLedgers?.find(
+        (ledger) =>
+          ledger.name.trim().toLowerCase() === toField.trim().toLowerCase()
+      )?._id ||
+      '';
+
+    if (!resolvedDispatchLedgerId) {
+      toast.error('Please select a dispatch ledger in "To".');
+      return;
+    }
 
     const gatePassNoToUse =
       manualGatePassNumber != null ? manualGatePassNumber : voucherNumber;
@@ -225,10 +256,10 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     createNikasiGatePass(
       {
         farmerStorageLinkId: effectiveFarmerStorageLinkId,
+        dispatchLedgerId: resolvedDispatchLedgerId,
         gatePassNo: gatePassNoToUse,
         date: formatDateToYYYYMMDD(date),
         from: from.trim(),
-        toField: toField.trim(),
         bagSizes,
         manualGatePassNumber:
           manualGatePassNumber != null ? manualGatePassNumber : undefined,
@@ -249,6 +280,8 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     voucherNumber,
     manualGatePassNumber,
     effectiveFarmerStorageLinkId,
+    dispatchLedgerId,
+    dispatchLedgers,
     date,
     from,
     toField,
@@ -267,12 +300,22 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
     setIsSummarySheetOpen(true);
   }, []);
 
+  const handleDispatchLedgerAdded = useCallback(
+    (name: string) => {
+      setToField(name);
+      setDispatchLedgerId('');
+      refetchDispatchLedgers();
+    },
+    [refetchDispatchLedgers]
+  );
+
   const resetForm = useCallback(() => {
     if (!isFixedFarmerMode) {
       setFarmerStorageLinkId(initialFarmerStorageLinkId ?? '');
     }
     setManualGatePassNumber(undefined);
     setFrom('');
+    setDispatchLedgerId('');
     setToField('');
     setDate(formatDate(new Date()));
     setSizeQuantities({ ...defaultSizeQuantities });
@@ -400,38 +443,56 @@ const NikasiGatePassForm = memo(function NikasiGatePassForm({
             )}
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel
-                htmlFor="nikasi-from"
-                className="font-custom mb-2 block text-base font-semibold"
-              >
-                From
-              </FieldLabel>
-              <Input
-                id="nikasi-from"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                placeholder="e.g. Warehouse A"
-                className="font-custom"
+          <Field>
+            <FieldLabel
+              htmlFor="nikasi-from"
+              className="font-custom mb-2 block text-base font-semibold"
+            >
+              From
+            </FieldLabel>
+            <Input
+              id="nikasi-from"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              placeholder="e.g. Warehouse A"
+              className="font-custom"
+            />
+          </Field>
+          <Field>
+            <FieldLabel
+              htmlFor="nikasi-to"
+              className="font-custom mb-2 block text-base font-semibold"
+            >
+              To
+            </FieldLabel>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <SearchSelector
+                  id="nikasi-to"
+                  options={dispatchLedgerOptions}
+                  placeholder="Search or select dispatch ledger"
+                  searchPlaceholder="Search by name, mobile, or address..."
+                  value={dispatchLedgerId}
+                  onSelect={(value) => {
+                    const selectedId = value ?? '';
+                    setDispatchLedgerId(selectedId);
+                    const selectedLedger = dispatchLedgers?.find(
+                      (ledger) => ledger._id === selectedId
+                    );
+                    setToField(selectedLedger?.name ?? '');
+                  }}
+                  loading={isLoadingDispatchLedgers}
+                  loadingMessage="Loading dispatch ledgers..."
+                  emptyMessage="No dispatch ledgers found"
+                  className="w-full"
+                  buttonClassName="w-full justify-between"
+                />
+              </div>
+              <AddDispatchLedgerModal
+                onLedgerAdded={handleDispatchLedgerAdded}
               />
-            </Field>
-            <Field>
-              <FieldLabel
-                htmlFor="nikasi-to"
-                className="font-custom mb-2 block text-base font-semibold"
-              >
-                To
-              </FieldLabel>
-              <Input
-                id="nikasi-to"
-                value={toField}
-                onChange={(e) => setToField(e.target.value)}
-                placeholder="e.g. Location B"
-                className="font-custom"
-              />
-            </Field>
-          </div>
+            </div>
+          </Field>
 
           <Field>
             <DatePicker

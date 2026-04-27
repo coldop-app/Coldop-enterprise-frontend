@@ -253,6 +253,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
   });
 
   const rows = table.getRowModel().rows;
+  const filteredLeafRows = table.getFilteredRowModel().rows;
 
   useEffect(() => {
     onColumnVisibilityChange?.(columnVisibility);
@@ -269,13 +270,14 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
   const totals = useMemo(() => {
     const acc: Record<string, number> = {};
     for (const id of totalColumnIds) acc[id] = 0;
-    for (const row of typedData as Record<string, unknown>[]) {
+    for (const filteredRow of filteredLeafRows) {
+      const row = filteredRow.original as Record<string, unknown>;
       for (const id of totalColumnIds) {
         acc[id] += toNum(row[id]);
       }
     }
     return acc;
-  }, [typedData, totalColumnIds]);
+  }, [filteredLeafRows, totalColumnIds]);
 
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     count: rows.length,
@@ -528,6 +530,49 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                 );
               })}
             </tbody>
+            <tfoot
+              className="border-border border-t-2"
+              style={{
+                display: 'grid',
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 9,
+              }}
+            >
+              <tr style={{ display: 'flex', width: '100%' }}>
+                {table.getVisibleLeafColumns().map((column, columnIndex) => {
+                  const isBagSizeColumn = column.id.startsWith(
+                    BAG_SIZE_COLUMN_PREFIX
+                  );
+                  const isRightAligned =
+                    RIGHT_ALIGNED_COLUMN_IDS.has(column.id) || isBagSizeColumn;
+                  const isTotalColumn = totalColumnIds.includes(column.id);
+                  const showLabel = columnIndex === 0;
+                  const totalValue = totals[column.id] ?? 0;
+
+                  return (
+                    <td
+                      key={`total-${column.id}`}
+                      style={{
+                        display: 'flex',
+                        width: column.getSize(),
+                      }}
+                      className={`border-border bg-muted/70 text-foreground min-w-0 overflow-hidden border-r px-3 py-2 font-semibold last:border-r-0 ${
+                        isRightAligned ? 'justify-end' : ''
+                      }`}
+                    >
+                      {showLabel ? (
+                        <span className="font-custom">Total</span>
+                      ) : isTotalColumn ? (
+                        <span className="font-custom">
+                          {totalValue.toLocaleString('en-IN')}
+                        </span>
+                      ) : null}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
           </table>
         )}
       </div>
@@ -538,18 +583,6 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
         </span>
         <span>Filters: Column-based</span>
       </div>
-
-      {typedData.length > 0 && totalColumnIds.length > 0 ? (
-        <div className="text-muted-foreground font-custom flex flex-wrap gap-3 text-xs">
-          {(Object.entries(totals) as Array<[string, number]>).map(
-            ([columnId, total]) => (
-              <span key={columnId}>
-                {columnId}: <strong>{total.toLocaleString('en-IN')}</strong>
-              </span>
-            )
-          )}
-        </div>
-      ) : null}
     </div>
   );
 }) as <TData, TValue>(

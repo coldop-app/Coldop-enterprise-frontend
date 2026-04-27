@@ -29,7 +29,7 @@ function getNikasiGatePassErrorMessage(
 /**
  * Hook to create a nikasi gate pass.
  * POST /nikasi-gate-pass
- * Payload may include optional manualGatePassNumber (number).
+ * Payload expects dispatchLedgerId and may include optional manualGatePassNumber.
  */
 export function useCreateNikasiGatePass() {
   return useMutation<

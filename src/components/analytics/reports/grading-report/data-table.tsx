@@ -469,11 +469,13 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
         : null,
     [rowSpanColumnIds]
   );
+  const filteredLeafRows = table.getFilteredRowModel().rows;
 
   const totals = useMemo(() => {
     const acc: Record<string, number> = {};
     for (const id of totalColumnIds) acc[id] = 0;
-    for (const row of typedData) {
+    for (const filteredRow of filteredLeafRows) {
+      const row = filteredRow.original as Record<string, unknown>;
       const rowPassIndex =
         typeof row.gradingPassRowIndex === 'number'
           ? row.gradingPassRowIndex
@@ -492,7 +494,7 @@ const DataTableInner = forwardRef(function DataTableInner<TData, TValue>(
       }
     }
     return acc;
-  }, [typedData, totalColumnIds, spanColumnSet]);
+  }, [filteredLeafRows, totalColumnIds, spanColumnSet]);
 
   const headerGroups = table.getHeaderGroups();
   const rowModel = table.getRowModel();

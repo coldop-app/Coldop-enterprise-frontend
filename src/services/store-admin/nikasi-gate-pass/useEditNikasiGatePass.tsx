@@ -33,6 +33,7 @@ export type EditNikasiGatePassParams = EditNikasiGatePassInput & {
  * Hook to update a nikasi (dispatch) gate pass.
  *
  * API: PATCH /api/v1/nikasi-gate-pass/:id
+ * Payload supports dispatchLedgerId to update destination ledger.
  * Headers: Authorization: Bearer <token>, Content-Type: application/json
  */
 export function useEditNikasiGatePass() {

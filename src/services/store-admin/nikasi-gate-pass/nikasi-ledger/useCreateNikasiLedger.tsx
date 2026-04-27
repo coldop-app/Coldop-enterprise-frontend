@@ -7,7 +7,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 export interface CreateNikasiLedgerInput {
   name: string;
   address: string;
-  mobileNumber: string;
+  mobileNumber?: string;
 }
 
 /** Created dispatch ledger entry */
