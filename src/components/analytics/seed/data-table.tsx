@@ -1,24 +1,15 @@
 'use client';
 
-import {
-  forwardRef,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import type { Row } from '@tanstack/react-table';
+import { useMemo, useRef, useState } from 'react';
 import type {
   ColumnDef,
   ColumnFiltersState,
-  ColumnResizeDirection,
-  ColumnResizeMode,
   ExpandedState,
-  FilterFn,
   GroupingState,
   Header,
   SortingState,
   VisibilityState,
+  FilterFn,
 } from '@tanstack/react-table';
 import {
   flexRender,
@@ -34,197 +25,132 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import type { IncomingReportRow } from './columns';
+import {
+  RIGHT_ALIGNED_COLUMN_IDS,
+  TOTAL_COLUMN_IDS,
+  TWO_DECIMAL_TOTAL_COLUMN_IDS,
+  type ContractFarmingTableRow,
+} from './columns';
+import { ViewFiltersSheet } from './view-filters-sheet';
 import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
   type FilterGroupNode,
 } from './advanced-filters';
-import { ViewFiltersSheet } from './view-filters-sheet';
 
 const DEFAULT_COLUMN_SIZE = 180;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
-const DEFAULT_COLUMN_MAX_SIZE = 360;
+const DEFAULT_COLUMN_MAX_SIZE = 380;
 const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
-const DEFAULT_COLUMN_ORDER = [
-  'farmerName',
-  'farmerAddress',
-  'farmerMobile',
-  'createdByName',
-  'location',
-  'gatePassNo',
-  'manualGatePassNumber',
-  'date',
-  'variety',
-  'truckNumber',
-  'bags',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-  'status',
-  'remarks',
-];
 
 function toNum(value: unknown): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string') {
     const n = Number(value);
-    return Number.isNaN(n) ? 0 : n;
+    return Number.isFinite(n) ? n : 0;
   }
   return 0;
 }
 
-export interface IncomingReportPdfSnapshot<TData> {
-  visibleColumnIds: string[];
-  grouping: string[];
-  sorting: { id: string; desc: boolean }[];
-  rows: Array<
-    | {
-        type: 'group';
-        depth: number;
-        groupingColumnId: string;
-        groupingValue: unknown;
-        displayValue: string;
-        firstLeaf?: TData;
-      }
-    | { type: 'leaf'; row: TData }
-  >;
-}
-
-export interface IncomingReportDataTableRef<TData> {
-  getPdfSnapshot: () => IncomingReportPdfSnapshot<TData> | null;
+function roundToTwo(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 type GlobalFilterValue = string | FilterGroupNode;
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[];
-  initialColumnVisibility?: VisibilityState;
-  totalColumnIds?: readonly string[];
-  toolbarLeftContent?: React.ReactNode;
-  toolbarRightContent?: React.ReactNode;
-  onRowClick?: (row: TData) => void;
-}
-
-const TOTAL_COLUMN_IDS = [
-  'bags',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-] as const;
-const RIGHT_ALIGNED_COLUMN_IDS = new Set([
-  'bags',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-]);
-const TWO_DECIMAL_TOTAL_COLUMN_IDS = new Set([
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-]);
-
-const globalGatePassFilterFn: FilterFn<IncomingReportRow> = (
+const globalFilterFn: FilterFn<ContractFarmingTableRow> = (
   row,
   _columnId,
   filterValue
 ) => {
-  const value = filterValue as GlobalFilterValue;
-  if (isAdvancedFilterGroup(value)) {
-    return evaluateFilterGroup(row.original, value);
+  if (isAdvancedFilterGroup(filterValue)) {
+    return evaluateFilterGroup(row.original, filterValue);
   }
-  const normalized = String(value ?? '')
+  const query = String(filterValue ?? '')
     .trim()
     .toLowerCase();
-  if (!normalized) return true;
-  return String(row.original.manualGatePassNumber)
-    .toLowerCase()
-    .includes(normalized);
+  if (!query) return true;
+  const values = [
+    row.original.variety,
+    row.original.name,
+    row.original.accountNumber,
+    row.original.address,
+    row.original.generation,
+    row.original.sizeName,
+  ];
+  return values.some((value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .includes(query)
+  );
 };
 
-const multiValueFilterFn: FilterFn<IncomingReportRow> = (
+const multiValueFilterFn: FilterFn<ContractFarmingTableRow> = (
   row,
   columnId,
   filterValue
 ) => {
   const cellValue = String(row.getValue(columnId));
-  if (typeof filterValue === 'string') {
-    const normalized = filterValue.trim().toLowerCase();
-    if (!normalized) return true;
-    return cellValue.toLowerCase().includes(normalized);
-  }
   if (!Array.isArray(filterValue)) return true;
   if (filterValue.length === 0) return false;
   return filterValue.includes(cellValue);
 };
 
-function getFirstLeaf<TData>(row: Row<TData>): TData | undefined {
-  if (!row.getIsGrouped() || !row.subRows.length) return row.original;
-  return getFirstLeaf(row.subRows[0] as Row<TData>);
+interface ContractFarmingDataTableProps {
+  columns: ColumnDef<ContractFarmingTableRow>[];
+  data: ContractFarmingTableRow[];
+  initialColumnVisibility: VisibilityState;
+  toolbarLeftContent?: React.ReactNode;
+  toolbarRightContent?: React.ReactNode;
 }
 
-export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
-  {
-    columns,
-    data,
-    initialColumnVisibility = {},
-    totalColumnIds = [...TOTAL_COLUMN_IDS],
-    toolbarLeftContent,
-    toolbarRightContent,
-    onRowClick,
-  }: DataTableProps<TData, TValue>,
-  ref: React.Ref<IncomingReportDataTableRef<TData>>
-) {
-  const typedData = data as IncomingReportRow[];
-  const typedColumns = columns as ColumnDef<IncomingReportRow, unknown>[];
+export function ContractFarmingDataTable({
+  columns,
+  data,
+  initialColumnVisibility,
+  toolbarLeftContent,
+  toolbarRightContent,
+}: ContractFarmingDataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     initialColumnVisibility
   );
-  const [columnOrder, setColumnOrder] =
-    useState<string[]>(DEFAULT_COLUMN_ORDER);
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [grouping, setGrouping] = useState<GroupingState>([]);
-  const [globalFilter, setGlobalFilter] = useState<GlobalFilterValue>('');
   const [expanded, setExpanded] = useState<ExpandedState>({});
-  const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
-  const [columnResizeDirection] = useState<ColumnResizeDirection>('ltr');
+  const [globalFilter, setGlobalFilter] = useState<GlobalFilterValue>('');
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
-  const table = useReactTable<IncomingReportRow>({
-    data: typedData,
-    columns: typedColumns,
+  const table = useReactTable({
+    data,
+    columns,
     defaultColumn: {
       size: DEFAULT_COLUMN_SIZE,
       minSize: DEFAULT_COLUMN_MIN_SIZE,
       maxSize: DEFAULT_COLUMN_MAX_SIZE,
       filterFn: multiValueFilterFn,
     },
-    filterFns: {
-      multiValue: multiValueFilterFn,
-    },
+    filterFns: { multiValue: multiValueFilterFn },
     state: {
       sorting,
       columnVisibility,
       columnOrder,
       columnFilters,
       grouping,
-      globalFilter,
       expanded,
+      globalFilter,
     },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange: setColumnOrder,
     onColumnFiltersChange: setColumnFilters,
     onGroupingChange: setGrouping,
-    onGlobalFilterChange: setGlobalFilter,
     onExpandedChange: setExpanded,
-    columnResizeMode,
-    columnResizeDirection,
-    globalFilterFn: globalGatePassFilterFn,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
@@ -233,23 +159,26 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
     getGroupedRowModel: getGroupedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     groupedColumnMode: 'reorder',
-    getRowId: (row) => String(row.id),
   });
 
   const rows = table.getRowModel().rows;
-  const filteredLeafRows = table.getFilteredRowModel().rows;
+  const filteredRows = table.getFilteredRowModel().rows;
 
   const totals = useMemo(() => {
     const acc: Record<string, number> = {};
-    for (const id of totalColumnIds) acc[id] = 0;
-    for (const filteredRow of filteredLeafRows) {
-      const row = filteredRow.original as Record<string, unknown>;
-      for (const id of totalColumnIds) {
-        acc[id] += toNum(row[id]);
+    for (const id of TOTAL_COLUMN_IDS) acc[id] = 0;
+    for (const filteredRow of filteredRows) {
+      for (const id of TOTAL_COLUMN_IDS) {
+        const nextTotal =
+          acc[id] +
+          toNum((filteredRow.original as Record<string, unknown>)[id]);
+        acc[id] = TWO_DECIMAL_TOTAL_COLUMN_IDS.has(id)
+          ? roundToTwo(nextTotal)
+          : nextTotal;
       }
     }
     return acc;
-  }, [filteredLeafRows, totalColumnIds]);
+  }, [filteredRows]);
 
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     count: rows.length,
@@ -261,9 +190,9 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
     overscan: 8,
   });
 
-  const virtualRows = rowVirtualizer.getVirtualItems();
-
-  const renderHeaderCell = (header: Header<IncomingReportRow, unknown>) => {
+  const renderHeaderCell = (
+    header: Header<ContractFarmingTableRow, unknown>
+  ) => {
     const isRightAligned = RIGHT_ALIGNED_COLUMN_IDS.has(header.id);
     return (
       <th
@@ -273,7 +202,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
           width: header.getSize(),
           position: 'relative',
         }}
-        className="border-border bg-muted/60 text-foreground h-10 overflow-hidden border-r px-3 py-2 text-xs font-semibold tracking-wide uppercase last:border-r-0"
+        className="border-border bg-muted/60 text-foreground h-10 overflow-hidden border-r px-3 py-2 text-xs font-semibold uppercase last:border-r-0"
       >
         {header.isPlaceholder ? null : (
           <div
@@ -305,82 +234,10 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
               ? 'bg-primary/50'
               : 'hover:bg-primary/30 bg-transparent'
           }`}
-          style={{
-            transform:
-              table.options.columnResizeMode === 'onEnd' &&
-              header.column.getIsResizing()
-                ? `translateX(${
-                    (table.options.columnResizeDirection === 'rtl' ? -1 : 1) *
-                    (table.getState().columnSizingInfo.deltaOffset ?? 0)
-                  }px)`
-                : '',
-          }}
         />
       </th>
     );
   };
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      getPdfSnapshot: (): IncomingReportPdfSnapshot<TData> | null => {
-        const state = table.getState();
-        const groupingIds = state.grouping ?? [];
-        const visibleIds = table.getVisibleLeafColumns().map((col) => col.id);
-        const snapshotRows: IncomingReportPdfSnapshot<TData>['rows'] = [];
-
-        if (groupingIds.length === 0) {
-          const sortedRows = table.getSortedRowModel().rows;
-          for (const row of sortedRows) {
-            snapshotRows.push({ type: 'leaf', row: row.original as TData });
-          }
-        } else {
-          const groupedModel = table.getGroupedRowModel();
-          const walkRows = (
-            modelRows: Row<IncomingReportRow>[],
-            depth: number
-          ): void => {
-            for (const row of modelRows) {
-              if (row.getIsGrouped()) {
-                const groupingColumnId = groupingIds[depth];
-                const groupingValue = groupingColumnId
-                  ? row.getValue(groupingColumnId)
-                  : undefined;
-                snapshotRows.push({
-                  type: 'group',
-                  depth,
-                  groupingColumnId: groupingColumnId ?? '',
-                  groupingValue,
-                  displayValue:
-                    groupingValue != null && groupingValue !== ''
-                      ? String(groupingValue)
-                      : '—',
-                  firstLeaf: getFirstLeaf(row) as TData | undefined,
-                });
-                if (row.subRows.length > 0) {
-                  walkRows(row.subRows as Row<IncomingReportRow>[], depth + 1);
-                }
-                continue;
-              }
-              snapshotRows.push({ type: 'leaf', row: row.original as TData });
-            }
-          };
-          walkRows(groupedModel.rows as Row<IncomingReportRow>[], 0);
-        }
-
-        return {
-          visibleColumnIds: visibleIds,
-          grouping: groupingIds,
-          sorting: (state.sorting ?? []).map((item) => ({
-            id: item.id,
-            desc: item.desc,
-          })),
-          rows: snapshotRows,
-        };
-      },
-    }),
-    [table]
-  );
 
   return (
     <div className="space-y-4">
@@ -390,20 +247,16 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
             {toolbarLeftContent}
           </div>
           <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
               <Input
                 value={typeof globalFilter === 'string' ? globalFilter : ''}
                 onChange={(event) => setGlobalFilter(event.target.value)}
-                placeholder="Search manual gate pass..."
+                placeholder="Search contract farming rows..."
                 className="font-custom h-10 pl-9"
               />
             </div>
-            <ViewFiltersSheet
-              table={table}
-              defaultColumnOrder={DEFAULT_COLUMN_ORDER}
-              defaultColumnVisibility={initialColumnVisibility}
-            />
+            <ViewFiltersSheet table={table} />
             {toolbarRightContent}
           </div>
         </div>
@@ -412,11 +265,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
       <div
         ref={tableContainerRef}
         className="border-border bg-card overflow-x-auto overflow-y-auto rounded-xl border shadow-sm"
-        style={{
-          direction: table.options.columnResizeDirection,
-          height: '560px',
-          position: 'relative',
-        }}
+        style={{ height: '560px', position: 'relative' }}
       >
         {rows.length === 0 ? (
           <div className="text-muted-foreground font-custom flex h-24 items-center justify-center">
@@ -441,11 +290,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                   key={headerGroup.id}
                   style={{ display: 'flex', width: '100%' }}
                 >
-                  {headerGroup.headers.map((header) =>
-                    renderHeaderCell(
-                      header as Header<IncomingReportRow, unknown>
-                    )
-                  )}
+                  {headerGroup.headers.map(renderHeaderCell)}
                 </tr>
               ))}
             </thead>
@@ -456,9 +301,8 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                 position: 'relative',
               }}
             >
-              {virtualRows.map((virtualRow) => {
-                const row = rows[virtualRow.index] as Row<IncomingReportRow>;
-                const visibleCells = row.getVisibleCells();
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
                 return (
                   <tr
                     key={row.id}
@@ -467,15 +311,8 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                     className={`border-border bg-background even:bg-muted/30 dark:even:bg-muted/20 border-b transition-colors ${
                       row.getIsGrouped()
                         ? 'hover:bg-primary/5'
-                        : onRowClick
-                          ? 'hover:bg-primary/5 cursor-pointer'
-                          : 'hover:bg-primary/5'
+                        : 'hover:bg-primary/5'
                     }`}
-                    onClick={() => {
-                      if (!row.getIsGrouped() && onRowClick) {
-                        onRowClick(row.original as TData);
-                      }
-                    }}
                     style={{
                       display: 'flex',
                       position: 'absolute',
@@ -483,7 +320,7 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                       width: '100%',
                     }}
                   >
-                    {visibleCells.map((cell) => {
+                    {row.getVisibleCells().map((cell) => {
                       const isGroupedCell = cell.getIsGrouped();
                       const isAggregatedCell = cell.getIsAggregated();
                       const isPlaceholderCell = cell.getIsPlaceholder();
@@ -495,6 +332,10 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
                             width: cell.column.getSize(),
                           }}
                           className={`border-border text-foreground min-w-0 overflow-hidden border-r px-3 py-2 whitespace-nowrap last:border-r-0 ${
+                            RIGHT_ALIGNED_COLUMN_IDS.has(cell.column.id)
+                              ? 'justify-end'
+                              : ''
+                          } ${
                             isGroupedCell
                               ? 'bg-primary/10'
                               : isAggregatedCell
@@ -554,38 +395,25 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
               }}
             >
               <tr style={{ display: 'flex', width: '100%' }}>
-                {table.getVisibleLeafColumns().map((column, columnIndex) => {
-                  const isRightAligned = RIGHT_ALIGNED_COLUMN_IDS.has(
-                    column.id
-                  );
-                  const isTotalColumn = totalColumnIds.includes(column.id);
-                  const showLabel = columnIndex === 0;
+                {table.getVisibleLeafColumns().map((column, index) => {
                   const totalValue = totals[column.id] ?? 0;
-
                   return (
                     <td
                       key={`total-${column.id}`}
-                      style={{
-                        display: 'flex',
-                        width: column.getSize(),
-                      }}
+                      style={{ display: 'flex', width: column.getSize() }}
                       className={`border-border bg-muted/70 text-foreground min-w-0 overflow-hidden border-r px-3 py-2 font-semibold last:border-r-0 ${
-                        isRightAligned ? 'justify-end' : ''
+                        RIGHT_ALIGNED_COLUMN_IDS.has(column.id)
+                          ? 'justify-end'
+                          : ''
                       }`}
                     >
-                      {showLabel ? (
+                      {index === 0 ? (
                         <span className="font-custom">Total</span>
-                      ) : isTotalColumn ? (
+                      ) : TOTAL_COLUMN_IDS.includes(column.id) ? (
                         <span className="font-custom">
                           {totalValue.toLocaleString('en-IN', {
-                            minimumFractionDigits:
-                              TWO_DECIMAL_TOTAL_COLUMN_IDS.has(column.id)
-                                ? 2
-                                : 0,
-                            maximumFractionDigits:
-                              TWO_DECIMAL_TOTAL_COLUMN_IDS.has(column.id)
-                                ? 2
-                                : 0,
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
                           })}
                         </span>
                       ) : null}
@@ -600,14 +428,10 @@ export const DataTable = forwardRef(function DataTableInner<TData, TValue>(
 
       <div className="text-muted-foreground font-custom flex items-center justify-between px-1 text-sm">
         <span>
-          Showing {rows.length} of {typedData.length} entries
+          Showing {rows.length} of {data.length} entries
         </span>
-        <span>Filters: Column-based</span>
+        <span>Filters: Search + column visibility</span>
       </div>
     </div>
   );
-}) as <TData, TValue>(
-  props: DataTableProps<TData, TValue> & {
-    ref?: React.Ref<IncomingReportDataTableRef<TData>>;
-  }
-) => React.ReactElement;
+}

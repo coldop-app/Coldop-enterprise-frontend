@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import * as z from 'zod';
@@ -33,6 +33,15 @@ const SICM_SIJS_LOCATIONS: Option<string>[] = [
   { label: 'SRCS', value: 'SRCS' },
   { label: 'SRS', value: 'SRS' },
 ];
+
+const numberInputClassName =
+  'font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
+const preventNumberInputStepKeys = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+  }
+};
 
 const SingleIncomingGatePassScreen = () => {
   const reasonTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -439,13 +448,8 @@ const SingleIncomingGatePassScreen = () => {
                     type="number"
                     min="0"
                     step="1"
-                    value={
-                      field.state.value === 0 ? '' : (field.state.value ?? '')
-                    }
+                    value={String(field.state.value ?? 0)}
                     onBlur={field.handleBlur}
-                    onFocus={(e) => {
-                      if (field.state.value === 0) e.target.select();
-                    }}
                     onChange={(e) => {
                       const raw = e.target.value;
                       if (raw === '' || raw === '-') {
@@ -455,9 +459,11 @@ const SingleIncomingGatePassScreen = () => {
                       const parsed = parseInt(raw, 10);
                       field.handleChange(Number.isNaN(parsed) ? 0 : parsed);
                     }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onKeyDown={preventNumberInputStepKeys}
                     aria-invalid={isInvalid}
                     placeholder="0"
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className={numberInputClassName}
                   />
                   {isInvalid && (
                     <FieldError
@@ -500,7 +506,9 @@ const SingleIncomingGatePassScreen = () => {
                       Number.isNaN(parsed) ? undefined : parsed
                     );
                   }}
-                  className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={preventNumberInputStepKeys}
+                  className={numberInputClassName}
                 />
               </Field>
             )}
@@ -524,13 +532,7 @@ const SingleIncomingGatePassScreen = () => {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={
-                        field.state.value === undefined ||
-                        field.state.value === null ||
-                        field.state.value === 0
-                          ? ''
-                          : field.state.value
-                      }
+                      value={String(field.state.value ?? 0)}
                       onBlur={field.handleBlur}
                       onChange={(e) => {
                         const raw = e.target.value;
@@ -541,8 +543,10 @@ const SingleIncomingGatePassScreen = () => {
                         const parsed = parseFloat(raw);
                         field.handleChange(Number.isNaN(parsed) ? 0 : parsed);
                       }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={preventNumberInputStepKeys}
                       placeholder="0"
-                      className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className={numberInputClassName}
                     />
                   </Field>
                 )}
@@ -562,13 +566,7 @@ const SingleIncomingGatePassScreen = () => {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={
-                        field.state.value === undefined ||
-                        field.state.value === null ||
-                        field.state.value === 0
-                          ? ''
-                          : field.state.value
-                      }
+                      value={String(field.state.value ?? 0)}
                       onBlur={field.handleBlur}
                       onChange={(e) => {
                         const raw = e.target.value;
@@ -579,8 +577,10 @@ const SingleIncomingGatePassScreen = () => {
                         const parsed = parseFloat(raw);
                         field.handleChange(Number.isNaN(parsed) ? 0 : parsed);
                       }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={preventNumberInputStepKeys}
                       placeholder="0"
-                      className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className={numberInputClassName}
                     />
                   </Field>
                 )}

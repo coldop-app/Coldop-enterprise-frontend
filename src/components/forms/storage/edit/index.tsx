@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, type KeyboardEvent } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import * as z from 'zod';
@@ -67,6 +67,15 @@ const formSchema = z
       path: ['bagRows'],
     }
   );
+
+const numberInputClassName =
+  'font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
+const preventNumberInputStepKeys = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+  }
+};
 
 const StorageEdit = memo(function StorageEdit() {
   const navigate = useNavigate();
@@ -233,6 +242,9 @@ const StorageEdit = memo(function StorageEdit() {
                       Number.isNaN(parsed) ? undefined : parsed
                     );
                   }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={preventNumberInputStepKeys}
+                  className={numberInputClassName}
                 />
               </Field>
             )}
@@ -301,7 +313,7 @@ const StorageEdit = memo(function StorageEdit() {
                         type="number"
                         min={0}
                         placeholder="Qty"
-                        value={row.quantity === 0 ? '' : String(row.quantity)}
+                        value={String(row.quantity)}
                         onChange={(e) => {
                           const qty =
                             e.target.value === '' ? 0 : Number(e.target.value);
@@ -312,6 +324,9 @@ const StorageEdit = memo(function StorageEdit() {
                           };
                           field.handleChange(next);
                         }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onKeyDown={preventNumberInputStepKeys}
+                        className={numberInputClassName}
                       />
                       <select
                         aria-label="Bag type"

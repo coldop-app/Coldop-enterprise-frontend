@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useState, type KeyboardEvent } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
 import * as z from 'zod';
@@ -109,6 +109,15 @@ const formatAcresValue = (value: number) =>
     ? String(value)
     : value.toFixed(2).replace(/\.?0+$/, '');
 
+const numberInputClassName =
+  'font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
+const preventNumberInputStepKeys = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+  }
+};
+
 function toInputDate(isoDate: string | undefined): string {
   if (!isoDate) return formatDate(new Date());
   const parsed = new Date(isoDate);
@@ -180,8 +189,7 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
         {
           id: value.id,
           farmerStorageLinkId: value.farmerStorageLinkId || undefined,
-          gatePassNo:
-            value.gatePassNo > 0 ? Number(value.gatePassNo) : undefined,
+          gatePassNo: Number(value.gatePassNo),
           invoiceNumber: value.invoiceNumber.trim() || undefined,
           date: formatDateToISO(value.date),
           variety: value.variety.trim(),
@@ -279,8 +287,6 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                 Boolean(field.state.meta.errorMap?.onSubmit) ||
                 (field.state.meta.isTouched && !field.state.meta.isValid);
               const showInvalid = isInvalid && field.state.value < 0;
-              const valueDisplay =
-                field.state.value === 0 ? '' : String(field.state.value);
               return (
                 <Field data-invalid={showInvalid}>
                   <FieldLabel className="font-custom mb-2 block text-base font-semibold">
@@ -288,9 +294,9 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                   </FieldLabel>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
                     step={1}
-                    value={valueDisplay}
+                    value={String(field.state.value)}
                     onChange={(e) =>
                       field.handleChange(
                         e.target.value === ''
@@ -300,7 +306,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                     }
                     onBlur={field.handleBlur}
                     onWheel={(e) => e.currentTarget.blur()}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    onKeyDown={preventNumberInputStepKeys}
+                    className={numberInputClassName}
                   />
                   {showInvalid && (
                     <FieldError
@@ -547,7 +554,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                                 field.handleChange(next);
                               }}
                               onWheel={(e) => e.currentTarget.blur()}
-                              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              onKeyDown={preventNumberInputStepKeys}
+                              className={numberInputClassName}
                             />
                             <Input
                               type="number"
@@ -570,7 +578,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                                 field.handleChange(next);
                               }}
                               onWheel={(e) => e.currentTarget.blur()}
-                              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              onKeyDown={preventNumberInputStepKeys}
+                              className={numberInputClassName}
                             />
                             <Input
                               type="number"
@@ -593,7 +602,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                                 field.handleChange(next);
                               }}
                               onWheel={(e) => e.currentTarget.blur()}
-                              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              onKeyDown={preventNumberInputStepKeys}
+                              className={numberInputClassName}
                             />
                           </div>
                         ))}
@@ -652,7 +662,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                                 });
                               }}
                               onWheel={(e) => e.currentTarget.blur()}
-                              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              onKeyDown={preventNumberInputStepKeys}
+                              className={numberInputClassName}
                             />
                             <Input
                               type="number"
@@ -672,7 +683,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                                 })
                               }
                               onWheel={(e) => e.currentTarget.blur()}
-                              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              onKeyDown={preventNumberInputStepKeys}
+                              className={numberInputClassName}
                             />
                             <Input
                               type="number"
@@ -692,7 +704,8 @@ const FarmerSeedEditForm = memo(function FarmerSeedEditForm({
                                 })
                               }
                               onWheel={(e) => e.currentTarget.blur()}
-                              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              onKeyDown={preventNumberInputStepKeys}
+                              className={numberInputClassName}
                             />
                           </div>
                         ))}

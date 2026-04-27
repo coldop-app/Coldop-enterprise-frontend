@@ -36,7 +36,7 @@ import {
 import {
   CONTRACT_FARMING_COLUMN_OPTIONS,
   type ContractFarmingColumnVisibility,
-} from '@/components/people/contractFarmingColumns';
+} from '@/components/analytics/seed/contractFarmingColumns';
 
 const styles = StyleSheet.create({
   page: {
@@ -154,10 +154,6 @@ type PdfColumn = {
   width: number;
 };
 
-/**
- * These columns are tied to an individual seed-size line and should repeat for
- * every expanded row of the same farmer.
- */
 const SIZE_LINE_REPEAT_COLUMNS = new Set<string>([
   'sNo',
   'acresPlanted',
@@ -166,7 +162,6 @@ const SIZE_LINE_REPEAT_COLUMNS = new Set<string>([
   'seedBags',
 ]);
 
-/** Keep a stable number of data entries per page in the PDF table. */
 const PDF_ENTRIES_PER_PAGE = 18;
 const PDF_ROW_HEIGHT = 18;
 
