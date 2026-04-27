@@ -277,9 +277,12 @@ function buildBagSizeColumns(
   return visibleBagSizes.map((size) => {
     const colId = gradedBagSizeColumnId(size);
     const baseLabel = GRADING_REPORT_BAG_SIZE_LABELS[size] ?? size;
-    const headerLabel = baseLabel.includes('(mm)')
-      ? baseLabel
-      : `${baseLabel} (mm)`;
+    const headerLabel =
+      size === 'Cut'
+        ? 'Cut'
+        : baseLabel.includes('(mm)')
+          ? baseLabel
+          : `${baseLabel} (mm)`;
     return {
       id: colId,
       accessorFn: (row) =>
@@ -535,7 +538,7 @@ export function createGradingReportColumns(
           </div>
         );
       },
-      aggregationFn: 'sum',
+      aggregationFn: 'mean',
     },
     {
       accessorKey: 'grader',

@@ -51,7 +51,8 @@ const DEFAULT_COLUMN_ORDER_BASE = [
   'manualGatePassNumber',
   'date',
   'variety',
-  // dynamic bags_* columns are inserted here
+  'totalBags',
+  // dynamic bags_* columns are inserted after total bags
   'remarks',
 ] as const;
 const BAG_SIZE_COLUMN_PREFIX = 'bags_';

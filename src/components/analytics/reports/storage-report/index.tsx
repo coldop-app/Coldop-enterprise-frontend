@@ -396,7 +396,7 @@ const StorageReportsTable = () => {
             farmerAddress: false,
             farmerMobile: false,
             createdByName: false,
-            totalBags: false,
+            totalBags: true,
             gatePassNo: false,
           }}
           toolbarLeftContent={

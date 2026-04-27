@@ -410,10 +410,12 @@ function GroupedTableBody({
                   ]}
                   wrap
                 >
-                  {formatCell(
-                    (first as Record<string, unknown>)[col.key],
-                    col.key
-                  )}
+                  {col.key === 'farmerName'
+                    ? formatFarmerWithAccount(first)
+                    : formatCell(
+                        (first as Record<string, unknown>)[col.key],
+                        col.key
+                      )}
                 </Text>
               )
             ) : (
@@ -450,10 +452,12 @@ function GroupedTableBody({
                         ]}
                         wrap
                       >
-                        {formatCell(
-                          (row as Record<string, unknown>)[col.key],
-                          col.key
-                        )}
+                        {col.key === 'farmerName'
+                          ? formatFarmerWithAccount(row)
+                          : formatCell(
+                              (row as Record<string, unknown>)[col.key],
+                              col.key
+                            )}
                       </Text>
                     )}
                   </View>
@@ -493,6 +497,16 @@ function formatCell(value: unknown, columnKey?: string): string {
     }
   }
   return String(value);
+}
+
+function formatFarmerWithAccount(row: GradingReportRow): string {
+  const farmerName = formatCell(row.farmerName, 'farmerName');
+  const accountNumber = row.accountNumber;
+  const accountSuffix =
+    accountNumber != null && accountNumber !== '' && accountNumber !== '—'
+      ? ` #${accountNumber}`
+      : '';
+  return `${farmerName}${accountSuffix}`;
 }
 
 function ReportHeader({
