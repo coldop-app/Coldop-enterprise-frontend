@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -47,6 +47,14 @@ function toIsoDateFromDisplay(value: string): string | undefined {
 
   return date.toISOString();
 }
+
+const preventNumberInputArrowKeys = (
+  event: KeyboardEvent<HTMLInputElement>
+) => {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+  }
+};
 
 function AddIncomingGatePassComponent() {
   const navigate = useNavigate();
@@ -191,6 +199,8 @@ function AddIncomingGatePassComponent() {
               className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={manualGatePassNumber}
               onChange={(e) => setManualGatePassNumber(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={preventNumberInputArrowKeys}
             />
           </Field>
 
@@ -287,6 +297,8 @@ function AddIncomingGatePassComponent() {
               className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={bagsReceived}
               onChange={(e) => setBagsReceived(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={preventNumberInputArrowKeys}
             />
           </Field>
 
@@ -324,6 +336,8 @@ function AddIncomingGatePassComponent() {
                   className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={weightSlipGrossKg}
                   onChange={(e) => setWeightSlipGrossKg(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={preventNumberInputArrowKeys}
                 />
               </Field>
               <Field>
@@ -342,6 +356,8 @@ function AddIncomingGatePassComponent() {
                   className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={weightSlipTareKg}
                   onChange={(e) => setWeightSlipTareKg(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={preventNumberInputArrowKeys}
                 />
               </Field>
             </div>

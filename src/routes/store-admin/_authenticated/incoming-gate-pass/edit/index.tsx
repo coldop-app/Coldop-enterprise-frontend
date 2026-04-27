@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -108,6 +108,14 @@ function toIsoDateFromDisplay(value: string): string | undefined {
 
   return date.toISOString();
 }
+
+const preventNumberInputArrowKeys = (
+  event: KeyboardEvent<HTMLInputElement>
+) => {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault();
+  }
+};
 
 function EditIncomingFormComponent() {
   const navigate = useNavigate();
@@ -336,6 +344,8 @@ function EditIncomingFormComponent() {
               className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={manualGatePassNumber}
               onChange={(e) => setManualGatePassNumber(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={preventNumberInputArrowKeys}
               disabled={isMarkedAsNull}
             />
           </Field>
@@ -457,6 +467,8 @@ function EditIncomingFormComponent() {
               className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={bagsReceived}
               onChange={(e) => setBagsReceived(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
+              onKeyDown={preventNumberInputArrowKeys}
               disabled={isMarkedAsNull}
             />
           </Field>
@@ -497,6 +509,8 @@ function EditIncomingFormComponent() {
                   className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={weightSlipGrossKg}
                   onChange={(e) => setWeightSlipGrossKg(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={preventNumberInputArrowKeys}
                   disabled={isMarkedAsNull}
                 />
               </Field>
@@ -516,6 +530,8 @@ function EditIncomingFormComponent() {
                   className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={weightSlipTareKg}
                   onChange={(e) => setWeightSlipTareKg(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={preventNumberInputArrowKeys}
                   disabled={isMarkedAsNull}
                 />
               </Field>

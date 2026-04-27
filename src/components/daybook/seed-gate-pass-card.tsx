@@ -1,4 +1,5 @@
 import { memo, useState, type ComponentType } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ interface SeedBagSizeRow {
   name: string;
   quantity: number;
   rate: number;
+  acres: number;
   amount: number;
   received: number | null;
 }
@@ -58,6 +60,7 @@ interface SeedCardViewModel {
   bagSizes: SeedBagSizeRow[];
   totals: {
     totalBags: number;
+    totalAcres: number;
     totalAmount: number;
     totalReceived: number;
   };
@@ -132,6 +135,7 @@ function mapBagSizes(entry: FarmerSeedEntryListItem): SeedBagSizeRow[] {
     const rowObj = (row ?? {}) as Record<string, unknown>;
     const quantity = toNumber(rowObj.quantity);
     const rate = toNumber(rowObj.rate);
+    const acres = toNumber(rowObj.acres);
     const amountValue = rowObj.amount;
     const receivedValue = toNumberOrNull(rowObj.received);
 
@@ -139,6 +143,7 @@ function mapBagSizes(entry: FarmerSeedEntryListItem): SeedBagSizeRow[] {
       name: getFromObject(rowObj, ['name', 'bagSize'], `Bag ${index + 1}`),
       quantity,
       rate,
+      acres,
       amount:
         amountValue === undefined ? quantity * rate : toNumber(amountValue),
       received: receivedValue,
@@ -158,6 +163,9 @@ function buildViewModel(entry: FarmerSeedEntryListItem): SeedCardViewModel {
     totalBags:
       toNumber(entry.totalBags) ||
       bagSizes.reduce((sum, row) => sum + row.quantity, 0),
+    totalAcres:
+      toNumber(entry.totalAcres) ||
+      bagSizes.reduce((sum, row) => sum + row.acres, 0),
     totalAmount:
       toNumber(entry.totalAmount) ||
       bagSizes.reduce((sum, row) => sum + row.amount, 0),
@@ -191,8 +199,62 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
   entry,
 }: FarmerSeedVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const seedData = buildViewModel(entry);
+
+  const handleEditClick = () => {
+    const id = toStringValue(entry._id, '');
+    if (!id) return;
+
+    const dateForEdit =
+      typeof entry.date === 'string' && entry.date.trim().length > 0
+        ? entry.date
+        : typeof entry.createdAt === 'string' &&
+            entry.createdAt.trim().length > 0
+          ? entry.createdAt
+          : '';
+
+    const farmerStorageLink = (entry.farmerStorageLinkId ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const farmer = (farmerStorageLink.farmerId ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+    const bagSizesJson = JSON.stringify(
+      seedData.bagSizes.map((row) => ({
+        name: row.name,
+        quantity: row.quantity,
+        rate: row.rate,
+        acres: row.acres,
+      }))
+    );
+
+    void navigate({
+      to: '/store-admin/farmer-seed-gate-pass/edit',
+      search: {
+        id,
+        farmerLinkId: getFromObject(farmerStorageLink, ['_id'], ''),
+        farmerName: getFromObject(farmer, ['name'], ''),
+        farmerAccountNumber: getFromObject(
+          farmerStorageLink,
+          ['accountNumber', 'accountNo'],
+          ''
+        ),
+        gatePassNo: seedData.gatePassNo,
+        invoiceNumber: seedData.invoiceNumber,
+        date: dateForEdit,
+        variety: seedData.variety === FALLBACK_TEXT ? '' : seedData.variety,
+        generation:
+          seedData.generation === FALLBACK_TEXT ? '' : seedData.generation,
+        remarks: seedData.remarks === FALLBACK_TEXT ? '' : seedData.remarks,
+        bagSizesJson,
+      },
+    });
+  };
 
   return (
     <Card className="border-border/40 hover:border-primary/30 w-full overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
@@ -276,6 +338,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
             size="sm"
             className="focus-visible:ring-primary h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
             aria-label="Edit seed voucher"
+            onClick={handleEditClick}
           >
             <Pencil className="text-muted-foreground h-3.5 w-3.5" />
           </Button>
@@ -312,12 +375,13 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                 </h4>
                 <div className="bg-muted/30 border-border/50 overflow-hidden rounded-lg border">
                   <div className="overflow-x-auto">
-                    <table className="font-custom w-full min-w-[480px] text-sm">
+                    <table className="font-custom w-full min-w-[560px] text-sm">
                       <thead className="bg-muted/50">
                         <tr className="text-muted-foreground border-b text-left text-[10px] font-bold tracking-wider uppercase">
                           <th className="px-4 py-3">Bag Size</th>
                           <th className="px-4 py-3 text-right">Qty</th>
                           <th className="px-4 py-3 text-right">Rate (₹)</th>
+                          <th className="px-4 py-3 text-right">Acres</th>
                           <th className="px-4 py-3 text-right">Amount (₹)</th>
                           <th className="px-4 py-3 text-right">Received (₹)</th>
                         </tr>
@@ -338,6 +402,9 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                               {row.rate.toLocaleString('en-IN')}
                             </td>
                             <td className="px-4 py-3 text-right">
+                              {row.acres.toLocaleString('en-IN')}
+                            </td>
+                            <td className="px-4 py-3 text-right">
                               {row.amount.toLocaleString('en-IN')}
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-emerald-600">
@@ -355,6 +422,9 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                             {seedData.totals.totalBags.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-3 text-right">—</td>
+                          <td className="px-4 py-3 text-right">
+                            {seedData.totals.totalAcres.toLocaleString('en-IN')}
+                          </td>
                           <td className="px-4 py-3 text-right">
                             {seedData.totals.totalAmount.toLocaleString(
                               'en-IN'
