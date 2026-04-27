@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2026-04-27
+
+### Added
+- Skeleton loading placeholders across daybook tabs, incoming gate pass history, and people screens for better perceived responsiveness.
+- Query prefetching from route loaders and next-page prefetch effects for incoming gate pass lists and edit-history pagination.
+
+### Changed
+- Incoming, history, and people data services now use stronger cache lifecycles (`staleTime`/`gcTime`) for smoother navigation and fewer redundant refetches.
+- People listing search/sort flow now uses memoized filtering to reduce re-computation during interactive input updates.
+
 ## [0.3.4] - 2026-04-27
 
 ## [0.3.5] - 2026-04-27

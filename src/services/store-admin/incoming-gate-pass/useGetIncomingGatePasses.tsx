@@ -116,6 +116,7 @@ export const incomingGatePassesQueryOptions = (
     ],
     queryFn: () => fetchIncomingGatePasses(params),
     staleTime: 1000 * 60 * 2, // 2 min — prevents refetch on every mount
+    gcTime: 1000 * 60 * 10,
   });
 
 /** Hook to fetch paginated gate passes — retains previous data during page/filter changes */

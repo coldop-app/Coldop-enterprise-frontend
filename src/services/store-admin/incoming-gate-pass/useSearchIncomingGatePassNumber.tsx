@@ -76,6 +76,8 @@ export const searchIncomingGatePassNumberQueryOptions = (
     queryKey: [...incomingGatePassKeys.all, 'search', normalized] as const,
     queryFn: () => fetchSearchIncomingGatePassByNumber(normalized!),
     enabled: normalized !== null,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
   });
 };
 

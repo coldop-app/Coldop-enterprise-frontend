@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
 import { Search, ChevronDown } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,36 +14,59 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FarmerProfileHeaderCard } from '@/components/people/FarmerProfileHeaderCard';
 import { FarmerProfileMetricsGrid } from '@/components/people/FarmerProfileMetricsCard';
-import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import {
+  prefetchAllGatePassesOfFarmer,
+  useGetAllGatePassesOfFarmer,
+} from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
 )({
+  loader: ({ params }) =>
+    prefetchAllGatePassesOfFarmer(params.farmerStorageLinkId),
   component: RouteComponent,
 });
 
 function RouteComponent() {
   const { farmerStorageLinkId } = Route.useParams();
   const gatePassesResponse = useGetAllGatePassesOfFarmer(farmerStorageLinkId);
+  const isLoading = gatePassesResponse.incoming.isLoading;
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
       <div className="space-y-6">
         <Card className="overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-4 sm:p-5">
-            <div className="space-y-6">
-              <FarmerProfileHeaderCard />
-              <FarmerProfileMetricsGrid
-                aggregates={{
-                  totalBagsIncoming: 1200,
-                  totalBagsUngraded: 0,
-                  totalBagsGraded: 1000,
-                  totalBagsStored: 600,
-                  totalBagsNikasi: 400,
-                  totalBagsOutgoing: 0,
-                }}
-              />
-            </div>
+            {isLoading ? (
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Skeleton className="h-6 w-44" />
+                  <Skeleton className="h-4 w-60" />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <FarmerProfileHeaderCard />
+                <FarmerProfileMetricsGrid
+                  aggregates={{
+                    totalBagsIncoming: 1200,
+                    totalBagsUngraded: 0,
+                    totalBagsGraded: 1000,
+                    totalBagsStored: 600,
+                    totalBagsNikasi: 400,
+                    totalBagsOutgoing: 0,
+                  }}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -53,9 +77,18 @@ function RouteComponent() {
           </div>
           <Card className="overflow-hidden rounded-xl shadow-sm">
             <CardContent className="p-4 sm:p-5">
-              <pre className="font-custom bg-muted/20 max-h-112 overflow-auto rounded-lg p-3 text-xs sm:text-sm">
-                {JSON.stringify(gatePassesResponse, null, 2)}
-              </pre>
+              {isLoading ? (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/6" />
+                  <Skeleton className="h-4 w-3/6" />
+                </div>
+              ) : (
+                <pre className="font-custom bg-muted/20 max-h-112 overflow-auto rounded-lg p-3 text-xs sm:text-sm">
+                  {JSON.stringify(gatePassesResponse, null, 2)}
+                </pre>
+              )}
             </CardContent>
           </Card>
         </div>

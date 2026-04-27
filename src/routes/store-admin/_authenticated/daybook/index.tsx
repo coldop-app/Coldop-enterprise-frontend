@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
+import { Suspense } from 'react';
 import {
   ArrowRightFromLine,
   ArrowRightLeft,
@@ -10,6 +11,8 @@ import {
 } from 'lucide-react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { prefetchIncomingGatePasses } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useStore } from '@/stores/store';
 import SeedTab from './-SeedTab';
 import IncomingTab from './-IncomingTab';
@@ -30,6 +33,8 @@ const DAYBOOK_TABS = [
 type DaybookTab = (typeof DAYBOOK_TABS)[number];
 
 export const Route = createFileRoute('/store-admin/_authenticated/daybook/')({
+  loader: () =>
+    prefetchIncomingGatePasses({ page: 1, limit: 10, sortOrder: 'desc' }),
   component: RouteComponent,
 });
 
@@ -81,24 +86,56 @@ function RouteComponent() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="seed">
-          <SeedTab />
+          <Suspense fallback={<DaybookTabSkeleton />}>
+            <SeedTab />
+          </Suspense>
         </TabsContent>
         <TabsContent value="incoming">
-          <IncomingTab />
+          <Suspense fallback={<DaybookTabSkeleton />}>
+            <IncomingTab />
+          </Suspense>
         </TabsContent>
         <TabsContent value="grading">
-          <GradingTab />
+          <Suspense fallback={<DaybookTabSkeleton />}>
+            <GradingTab />
+          </Suspense>
         </TabsContent>
         <TabsContent value="storage">
-          <StorageTab />
+          <Suspense fallback={<DaybookTabSkeleton />}>
+            <StorageTab />
+          </Suspense>
         </TabsContent>
         <TabsContent value="dispatch-pre-outgoing">
-          <NikasiTab />
+          <Suspense fallback={<DaybookTabSkeleton />}>
+            <NikasiTab />
+          </Suspense>
         </TabsContent>
         <TabsContent value="dispatch-outgoing">
-          <OutgoingTab />
+          <Suspense fallback={<DaybookTabSkeleton />}>
+            <OutgoingTab />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </main>
+  );
+}
+
+function DaybookTabSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-10 w-56" />
+      <div className="rounded-xl border p-4">
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-3/5" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-24 w-full rounded-lg" />
+      </div>
+    </div>
   );
 }

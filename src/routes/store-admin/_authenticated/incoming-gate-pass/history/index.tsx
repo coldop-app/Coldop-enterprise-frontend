@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
 import { Clock3, Globe, Monitor, RefreshCw, UserPen } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Card,
   CardContent,
@@ -17,15 +18,20 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { useGetIncomingEditHistory } from '@/services/store-admin/incoming-gate-pass/useGetIncomingEditHistory';
+import {
+  prefetchIncomingEditHistory,
+  useGetIncomingEditHistory,
+} from '@/services/store-admin/incoming-gate-pass/useGetIncomingEditHistory';
+
+const DEFAULT_PAGE_SIZE = 20;
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/incoming-gate-pass/history/'
 )({
+  loader: () =>
+    prefetchIncomingEditHistory({ page: 1, limit: DEFAULT_PAGE_SIZE }),
   component: RouteComponent,
 });
-
-const DEFAULT_PAGE_SIZE = 20;
 
 function formatDateTime(value: string | undefined): string {
   if (!value) return 'N/A';
@@ -61,6 +67,16 @@ function RouteComponent() {
   const totalPages = pagination?.totalPages ?? 1;
   const isOnFirstPage = currentPage <= 1;
   const isOnLastPage = currentPage >= totalPages;
+  const shouldShowSkeleton = isLoading && records.length === 0;
+
+  useEffect(() => {
+    if (!isLoading && !isError && pagination?.hasNextPage) {
+      void prefetchIncomingEditHistory({
+        page: currentPage + 1,
+        limit: DEFAULT_PAGE_SIZE,
+      });
+    }
+  }, [currentPage, isError, isLoading, pagination?.hasNextPage]);
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -96,6 +112,51 @@ function RouteComponent() {
         </Card>
 
         <div className="space-y-4">
+          {shouldShowSkeleton && (
+            <>
+              <Card className="rounded-xl border shadow-sm">
+                <CardHeader className="space-y-3 border-b pb-4">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-52" />
+                </CardHeader>
+                <CardContent className="space-y-4 pt-5">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border p-3">
+                      <Skeleton className="mb-2 h-4 w-32" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-4/6" />
+                      </div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <Skeleton className="mb-2 h-4 w-30" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-4/6" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-xl border shadow-sm">
+                <CardHeader className="space-y-3 border-b pb-4">
+                  <Skeleton className="h-5 w-44" />
+                  <Skeleton className="h-4 w-48" />
+                </CardHeader>
+                <CardContent className="space-y-4 pt-5">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            </>
+          )}
+
           {records.map((audit) => (
             <Card key={audit._id} className="rounded-xl border shadow-sm">
               <CardHeader className="space-y-2 border-b pb-4">
@@ -199,7 +260,7 @@ function RouteComponent() {
             </Card>
           ))}
 
-          {records.length === 0 && (
+          {!shouldShowSkeleton && records.length === 0 && (
             <Card className="rounded-xl border-dashed">
               <CardContent className="py-10 text-center">
                 <p className="font-custom text-base font-medium text-[#333]">

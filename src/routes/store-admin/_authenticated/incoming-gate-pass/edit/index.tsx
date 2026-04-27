@@ -575,5 +575,3 @@ function EditIncomingFormComponent() {
     </main>
   );
 }
-
-export default EditIncomingFormComponent;

@@ -36,6 +36,8 @@ export const farmerStorageLinksQueryOptions = () =>
   queryOptions({
     queryKey: farmerStorageLinksKeys.list(),
     queryFn: fetchFarmerStorageLinks,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
   });
 
 /** Hook to fetch farmer-storage links (farmerId, accountNumber, isActive, etc.) */

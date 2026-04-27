@@ -89,19 +89,23 @@ async function fetchIncomingEditHistory(
 
 export const incomingGatePassEditHistoryQueryOptions = (
   params: GetIncomingEditHistoryParams = {}
-) =>
-  queryOptions({
+) => {
+  const safeParams = sanitizeParams(params);
+
+  return queryOptions({
     queryKey: [
       ...incomingGatePassKeys.all,
       'audit-history',
       {
-        page: params.page,
-        limit: params.limit,
+        page: safeParams.page,
+        limit: safeParams.limit,
       },
     ],
-    queryFn: () => fetchIncomingEditHistory(params),
+    queryFn: () => fetchIncomingEditHistory(safeParams),
     staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
   });
+};
 
 export function useGetIncomingEditHistory(
   params: GetIncomingEditHistoryParams = {}

@@ -5,7 +5,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 import { IncomingVoucherCard } from '@/components/daybook/incoming-gate-pass-card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/pagination';
 import {
   INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+  prefetchIncomingGatePasses,
   useGetIncomingGatePasses,
 } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useSearchIncomingGatePassNumber } from '@/services/store-admin/incoming-gate-pass/useSearchIncomingGatePassNumber';
@@ -103,6 +104,36 @@ const IncomingTab = () => {
 
   const isOnFirstPage = currentPage <= 1;
   const isOnLastPage = currentPage >= totalPages;
+
+  useEffect(() => {
+    if (
+      !isSearching &&
+      !isListLoading &&
+      !isListError &&
+      data?.pagination?.hasNextPage
+    ) {
+      void prefetchIncomingGatePasses({
+        page: currentPage + 1,
+        limit: itemsPerPage,
+        sortOrder: selectedSortOrder === 'Latest first' ? 'desc' : 'asc',
+        status:
+          selectedStatus === 'All'
+            ? undefined
+            : selectedStatus === 'Graded'
+              ? 'GRADED'
+              : INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+      });
+    }
+  }, [
+    currentPage,
+    data?.pagination?.hasNextPage,
+    isListError,
+    isListLoading,
+    isSearching,
+    itemsPerPage,
+    selectedSortOrder,
+    selectedStatus,
+  ]);
 
   return (
     <main className="space-y-5">

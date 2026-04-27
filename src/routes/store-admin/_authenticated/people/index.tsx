@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 
 import { User, RefreshCw, Plus } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { FilterBar } from '@/components/filter-bar';
 import {
   Empty,
@@ -21,9 +22,13 @@ import {
   ItemTitle,
 } from '@/components/ui/item';
 import { FarmerCard } from '@/components/people/FarmerCard';
-import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
+import {
+  prefetchAllFarmers,
+  useGetAllFarmers,
+} from '@/services/store-admin/people/useGetAllFarmers';
 
 export const Route = createFileRoute('/store-admin/_authenticated/people/')({
+  loader: () => prefetchAllFarmers(),
   component: RouteComponent,
 });
 
@@ -39,38 +44,42 @@ function RouteComponent() {
     refetch,
   } = useGetAllFarmers();
   const trimmedSearch = search.trim().toLowerCase();
-  const filteredFarmers = farmers.filter((farmer) => {
-    if (!trimmedSearch) {
-      return true;
-    }
+  const sortedFarmers = useMemo(() => {
+    const filteredFarmers = farmers.filter((farmer) => {
+      if (!trimmedSearch) {
+        return true;
+      }
 
-    const searchableText = [
-      farmer.farmerId.name,
-      farmer.farmerId.address,
-      farmer.farmerId.mobileNumber,
-      String(farmer.accountNumber),
-    ]
-      .join(' ')
-      .toLowerCase();
+      const searchableText = [
+        farmer.farmerId.name,
+        farmer.farmerId.address,
+        farmer.farmerId.mobileNumber,
+        String(farmer.accountNumber),
+      ]
+        .join(' ')
+        .toLowerCase();
 
-    return searchableText.includes(trimmedSearch);
-  });
+      return searchableText.includes(trimmedSearch);
+    });
 
-  const sortedFarmers = [...filteredFarmers].sort((a, b) => {
-    if (sortBy === 'account-number-asc') {
-      return a.accountNumber - b.accountNumber;
-    }
+    return [...filteredFarmers].sort((a, b) => {
+      if (sortBy === 'account-number-asc') {
+        return a.accountNumber - b.accountNumber;
+      }
 
-    if (sortBy === 'account-number-desc') {
-      return b.accountNumber - a.accountNumber;
-    }
+      if (sortBy === 'account-number-desc') {
+        return b.accountNumber - a.accountNumber;
+      }
 
-    if (sortBy === 'name-desc') {
-      return b.farmerId.name.localeCompare(a.farmerId.name);
-    }
+      if (sortBy === 'name-desc') {
+        return b.farmerId.name.localeCompare(a.farmerId.name);
+      }
 
-    return a.farmerId.name.localeCompare(b.farmerId.name);
-  });
+      return a.farmerId.name.localeCompare(b.farmerId.name);
+    });
+  }, [farmers, sortBy, trimmedSearch]);
+
+  const shouldShowSkeleton = isLoading && sortedFarmers.length === 0;
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -131,7 +140,30 @@ function RouteComponent() {
           </div>
         </FilterBar>
 
-        {sortedFarmers.length > 0 ? (
+        {shouldShowSkeleton ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border p-4">
+              <div className="flex items-start gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-64" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border p-4">
+              <div className="flex items-start gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-44" />
+                  <Skeleton className="h-4 w-60" />
+                  <Skeleton className="h-4 w-36" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : sortedFarmers.length > 0 ? (
           <FarmerCard data={sortedFarmers} />
         ) : (
           <Empty className="bg-muted/10 rounded-xl border">
