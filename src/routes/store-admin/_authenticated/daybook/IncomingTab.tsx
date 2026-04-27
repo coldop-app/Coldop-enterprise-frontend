@@ -6,6 +6,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useDebounceValue } from 'usehooks-ts';
 import { IncomingVoucherCard } from '@/components/daybook/incoming-gate-pass-card';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +38,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import {
+  useGetIncomingGatePasses,
+  INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+} from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
+import { useSearchIncomingGatePassNumber } from '@/services/store-admin/incoming-gate-pass/useSearchIncomingGatePassNumber';
 
 const SORT_ORDER_OPTIONS = ['Latest first', 'Oldest first'] as const;
 const STATUS_OPTIONS = ['All', 'Graded', 'Ungraded'] as const;
@@ -46,10 +52,52 @@ const IncomingTab = () => {
     useState<(typeof SORT_ORDER_OPTIONS)[number]>('Latest first');
   const [selectedStatus, setSelectedStatus] =
     useState<(typeof STATUS_OPTIONS)[number]>('All');
+  const [searchQuery, setSearchQuery] = useDebounceValue('', 500);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const hasIncomingGatePasses = false;
-  const totalPages = 65;
+  const trimmedSearchQuery = searchQuery.trim();
+  const isSearching = trimmedSearchQuery.length > 0;
+
+  const {
+    data,
+    isLoading: isListLoading,
+    isError: isListError,
+    error: listError,
+    refetch: refetchList,
+    isFetching: isListFetching,
+  } = useGetIncomingGatePasses({
+    page: currentPage,
+    limit: itemsPerPage,
+    sortOrder: selectedSortOrder === 'Latest first' ? 'desc' : 'asc',
+    status:
+      selectedStatus === 'All'
+        ? undefined
+        : selectedStatus === 'Graded'
+          ? 'GRADED'
+          : INCOMING_GATE_PASS_STATUS_NOT_GRADED,
+  });
+
+  const {
+    data: searchData,
+    isLoading: isSearchLoading,
+    isError: isSearchError,
+    error: searchError,
+    refetch: refetchSearch,
+    isFetching: isSearchFetching,
+  } = useSearchIncomingGatePassNumber(isSearching ? trimmedSearchQuery : null);
+
+  const incomingGatePasses = isSearching
+    ? (searchData ?? [])
+    : (data?.data ?? []);
+  const hasIncomingGatePasses = incomingGatePasses.length > 0;
+  const totalPages = isSearching ? 1 : (data?.pagination?.totalPages ?? 1);
+  const totalIncomingGatePasses = isSearching
+    ? incomingGatePasses.length
+    : (data?.pagination?.total ?? incomingGatePasses.length);
+  const isLoading = isSearching ? isSearchLoading : isListLoading;
+  const isError = isSearching ? isSearchError : isListError;
+  const error = isSearching ? searchError : listError;
+  const isFetching = isSearching ? isSearchFetching : isListFetching;
 
   const isOnFirstPage = currentPage <= 1;
   const isOnLastPage = currentPage >= totalPages;
@@ -63,12 +111,26 @@ const IncomingTab = () => {
               <NotebookText className="text-primary h-5 w-5" />
             </ItemMedia>
             <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-              500 incoming gate passes
+              {totalIncomingGatePasses} incoming gate passes
             </ItemTitle>
           </div>
           <ItemActions>
-            <Button variant="outline" size="sm" className="font-custom gap-2">
-              <RefreshCw className="h-4 w-4" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom gap-2"
+              onClick={() => {
+                if (isSearching) {
+                  void refetchSearch();
+                } else {
+                  void refetchList();
+                }
+              }}
+              disabled={isFetching}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+              />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
           </ItemActions>
@@ -84,6 +146,10 @@ const IncomingTab = () => {
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             defaultValue=""
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Enter Gate Pass Number"
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
           />
@@ -106,7 +172,10 @@ const IncomingTab = () => {
                 {SORT_ORDER_OPTIONS.map((option) => (
                   <DropdownMenuItem
                     key={option}
-                    onClick={() => setSelectedSortOrder(option)}
+                    onClick={() => {
+                      setSelectedSortOrder(option);
+                      setCurrentPage(1);
+                    }}
                   >
                     {option}
                   </DropdownMenuItem>
@@ -129,7 +198,10 @@ const IncomingTab = () => {
                 {STATUS_OPTIONS.map((option) => (
                   <DropdownMenuItem
                     key={option}
-                    onClick={() => setSelectedStatus(option)}
+                    onClick={() => {
+                      setSelectedStatus(option);
+                      setCurrentPage(1);
+                    }}
                   >
                     {option}
                   </DropdownMenuItem>
@@ -148,7 +220,11 @@ const IncomingTab = () => {
       </Item>
 
       {hasIncomingGatePasses ? (
-        <IncomingVoucherCard />
+        <div className="space-y-4">
+          {incomingGatePasses.map((gatePass) => (
+            <IncomingVoucherCard key={gatePass._id} gatePass={gatePass} />
+          ))}
+        </div>
       ) : (
         <Empty className="bg-muted/10 rounded-xl border">
           <EmptyHeader>
@@ -156,11 +232,23 @@ const IncomingTab = () => {
               <NotebookText />
             </EmptyMedia>
             <EmptyTitle className="font-custom">
-              No Incoming Gate Passes yet
+              {isLoading
+                ? 'Loading incoming gate passes...'
+                : isError
+                  ? 'Failed to load incoming gate passes'
+                  : isSearching
+                    ? 'No matching gate pass found'
+                    : 'No Incoming Gate Passes yet'}
             </EmptyTitle>
             <EmptyDescription className="font-custom">
-              Incoming entries will appear here once gate passes are created.
-              Start by adding your first incoming gate pass.
+              {isLoading
+                ? 'Please wait while we fetch the latest entries.'
+                : isError
+                  ? (error?.message ??
+                    'Please try again, or refresh to fetch incoming gate passes.')
+                  : isSearching
+                    ? 'Try a different gate pass number to search incoming entries.'
+                    : 'Incoming entries will appear here once gate passes are created. Start by adding your first incoming gate pass.'}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -209,9 +297,11 @@ const IncomingTab = () => {
                       setCurrentPage((page) => page - 1);
                     }
                   }}
-                  aria-disabled={isOnFirstPage}
+                  aria-disabled={isOnFirstPage || isSearching}
                   className={
-                    isOnFirstPage ? 'pointer-events-none opacity-50' : ''
+                    isOnFirstPage || isSearching
+                      ? 'pointer-events-none opacity-50'
+                      : ''
                   }
                 />
               </PaginationItem>
@@ -229,9 +319,11 @@ const IncomingTab = () => {
                       setCurrentPage((page) => page + 1);
                     }
                   }}
-                  aria-disabled={isOnLastPage}
+                  aria-disabled={isOnLastPage || isSearching}
                   className={
-                    isOnLastPage ? 'pointer-events-none opacity-50' : ''
+                    isOnLastPage || isSearching
+                      ? 'pointer-events-none opacity-50'
+                      : ''
                   }
                 />
               </PaginationItem>
