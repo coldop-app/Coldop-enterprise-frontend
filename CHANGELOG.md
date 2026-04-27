@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2026-04-28
+
+### Added
+- Farmer seed voucher card UI with expandable details and itemized bag-size/amount rendering in the daybook.
+- Farmer seed daybook data layer for listing, creating, and editing entries with shared response/request typings.
+
+### Changed
+- Seed daybook tab upgraded from empty state to a searchable, sortable, paginated listing experience.
+- Incoming daybook tab refactored for controlled search, memoized query params, reusable filter/pagination controls, and tab-aware query enabling.
+- Daybook tab container now passes active-tab state to child tabs and removes eager incoming prefetch from route loading.
+
 ## [0.3.6] - 2026-04-27
 
 ## [0.3.7] - 2026-04-28

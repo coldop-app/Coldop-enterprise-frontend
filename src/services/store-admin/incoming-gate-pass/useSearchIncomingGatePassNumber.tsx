@@ -86,9 +86,14 @@ export const searchIncomingGatePassNumberQueryOptions = (
  * GET /incoming-gate-pass/search/:gatePassNo
  */
 export function useSearchIncomingGatePassNumber(
-  gatePassNo: string | number | undefined | null
+  gatePassNo: string | number | undefined | null,
+  options?: { enabled?: boolean }
 ) {
-  return useQuery(searchIncomingGatePassNumberQueryOptions(gatePassNo));
+  const query = searchIncomingGatePassNumberQueryOptions(gatePassNo);
+  return useQuery({
+    ...query,
+    enabled: (query.enabled ?? true) && (options?.enabled ?? true),
+  });
 }
 
 export function prefetchSearchIncomingGatePassNumber(

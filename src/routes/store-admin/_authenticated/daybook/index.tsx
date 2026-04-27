@@ -12,7 +12,6 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { prefetchIncomingGatePasses } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePasses';
 import { useStore } from '@/stores/store';
 import SeedTab from './-SeedTab';
 import IncomingTab from './-IncomingTab';
@@ -33,8 +32,6 @@ const DAYBOOK_TABS = [
 type DaybookTab = (typeof DAYBOOK_TABS)[number];
 
 export const Route = createFileRoute('/store-admin/_authenticated/daybook/')({
-  loader: () =>
-    prefetchIncomingGatePasses({ page: 1, limit: 10, sortOrder: 'desc' }),
   component: RouteComponent,
 });
 
@@ -87,12 +84,12 @@ function RouteComponent() {
         </TabsList>
         <TabsContent value="seed">
           <Suspense fallback={<DaybookTabSkeleton />}>
-            <SeedTab />
+            <SeedTab isActive={activeTab === 'seed'} />
           </Suspense>
         </TabsContent>
         <TabsContent value="incoming">
           <Suspense fallback={<DaybookTabSkeleton />}>
-            <IncomingTab />
+            <IncomingTab isActive={activeTab === 'incoming'} />
           </Suspense>
         </TabsContent>
         <TabsContent value="grading">

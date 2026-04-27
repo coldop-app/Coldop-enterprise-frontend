@@ -121,11 +121,13 @@ export const incomingGatePassesQueryOptions = (
 
 /** Hook to fetch paginated gate passes — retains previous data during page/filter changes */
 export function useGetIncomingGatePasses(
-  params: GetIncomingGatePassesParams = {}
+  params: GetIncomingGatePassesParams = {},
+  options?: { enabled?: boolean }
 ) {
   return useQuery({
     ...incomingGatePassesQueryOptions(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
   });
 }
 
