@@ -84,5 +84,30 @@ export interface SearchIncomingGatePassApiResponse {
   data?: IncomingGatePassByFarmerStorageLinkItem[] | null;
 }
 
+export interface EditIncomingGatePassInput {
+  farmerStorageLinkId?: string;
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  date?: string;
+  variety?: string;
+  location?: string;
+  truckNumber?: string;
+  bagsReceived?: number;
+  weightSlip?: {
+    slipNumber?: string;
+    grossWeightKg: number;
+    tareWeightKg: number;
+  };
+  status?: GatePassStatus;
+  remarks?: string;
+  reason?: string;
+}
+
+export interface EditIncomingGatePassApiResponse {
+  success: boolean;
+  message?: string;
+  data?: Record<string, never>;
+}
+
 // Backward compatible alias for existing callers/imports.
 export type IncomingGatePassResponse = GetIncomingGatePassesApiResponse;

@@ -108,7 +108,7 @@ export const SummarySheet = memo(function SummarySheet({
             Order Summary
           </SheetTitle>
           <SheetDescription className="font-custom text-sm">
-            Review before creating the order
+            Review before updating the order
           </SheetDescription>
         </SheetHeader>
 
@@ -191,10 +191,10 @@ export const SummarySheet = memo(function SummarySheet({
               {isPending ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating...
+                  Updating...
                 </span>
               ) : (
-                'Create Incoming Order'
+                'Update Incoming Order'
               )}
             </Button>
           </div>

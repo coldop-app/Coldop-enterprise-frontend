@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-04-27
+
+### Added
+- Incoming gate pass edit flow now pre-fills voucher data from daybook cards and submits updates through the dedicated edit mutation hook.
+- New edit API request/response typings for incoming gate pass update payloads and status-aware edits.
+
+### Changed
+- Incoming daybook card UI now visually marks zero-bag vouchers as cancelled and shows a null-state overlay.
+- Edit voucher screen UX refined with controlled form fields, null-pass handling, validation feedback, and updated summary sheet action copy.
+
 ## [0.3.3] - 2026-04-27
 
 ### Added

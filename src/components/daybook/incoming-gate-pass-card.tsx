@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import {
   Pencil,
   Weight,
   FileText,
+  Ban,
   type LucideIcon,
 } from 'lucide-react';
 import type {
@@ -21,6 +23,7 @@ import type {
   IncomingGatePassWithLink,
   User as IncomingUser,
 } from '@/types/incoming-gate-pass';
+import { cn } from '@/lib/utils';
 
 const STATUS_LABELS = {
   NOT_GRADED: 'Pending Grading',
@@ -86,6 +89,7 @@ function formatDateTime(value: string) {
 
 export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const farmerStorageLink = isFarmerStorageLink(gatePass.farmerStorageLinkId)
     ? gatePass.farmerStorageLinkId
@@ -100,16 +104,75 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
   const netKg = gross - tare;
   const bardanaKg = gatePass.bagsReceived * JUTE_BAG_WEIGHT;
   const netProductKg = netKg - bardanaKg;
+  const isCancelledGatePass = gatePass.bagsReceived === 0;
+
+  const handleEditClick = () => {
+    const editSearch = {
+      id: gatePass._id,
+      gatePassNo: String(gatePass.gatePassNo),
+      manualGatePassNumber: String(gatePass.manualGatePassNumber ?? ''),
+      date: gatePass.date,
+      variety: gatePass.variety,
+      location: gatePass.location,
+      truckNumber: gatePass.truckNumber,
+      bagsReceived: String(gatePass.bagsReceived),
+      weightSlipNumber: gatePass.weightSlip?.slipNumber ?? '',
+      weightSlipGrossKg: String(gatePass.weightSlip?.grossWeightKg ?? ''),
+      weightSlipTareKg: String(gatePass.weightSlip?.tareWeightKg ?? ''),
+      remarks: gatePass.remarks ?? '',
+      farmerName: farmer?.name ?? '',
+      farmerAccountNumber: String(farmerStorageLink?.accountNumber ?? ''),
+      farmerLinkId: farmerStorageLink?._id ?? '',
+      status: gatePass.status,
+    };
+
+    navigate({
+      to: '/store-admin/incoming-gate-pass/edit',
+      search: editSearch,
+    });
+  };
 
   return (
-    <Card className="border-border/40 bg-card overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
+    <Card
+      className={cn(
+        'border-border/40 bg-card relative overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md',
+        isCancelledGatePass &&
+          'border-border/20 bg-muted/30 opacity-55 saturate-0'
+      )}
+    >
+      {isCancelledGatePass ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-1">
+            <div className="border-border/30 bg-background/40 rounded-full border p-3">
+              <Ban className="text-muted-foreground/50 h-7 w-7" />
+            </div>
+            <span className="font-custom text-muted-foreground/60 text-[10px] tracking-[0.18em] uppercase">
+              Null
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* --- Card Header --- */}
-      <div className="bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4">
+      <div
+        className={cn(
+          'bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4',
+          isCancelledGatePass && 'bg-muted/30 border-border/30'
+        )}
+      >
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
             <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
             <h3 className="text-foreground font-custom text-sm font-bold tracking-tight sm:text-base">
-              IGP <span className="text-primary">#{gatePass.gatePassNo}</span>
+              IGP{' '}
+              <span
+                className={cn(
+                  'text-primary',
+                  isCancelledGatePass && 'text-muted-foreground'
+                )}
+              >
+                #{gatePass.gatePassNo}
+              </span>
             </h3>
             {gatePass.manualGatePassNumber ? (
               <Badge
@@ -128,10 +191,22 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
         <div className="flex shrink-0 items-center gap-1.5">
           <Badge
             variant="outline"
-            className="bg-background font-custom px-2 py-0.5 text-[10px] font-medium"
+            className={cn(
+              'bg-background font-custom px-2 py-0.5 text-[10px] font-medium',
+              isCancelledGatePass &&
+                'border-border/50 bg-muted/40 text-muted-foreground'
+            )}
           >
             {gatePass.bagsReceived.toLocaleString('en-IN')} Bags
           </Badge>
+          {isCancelledGatePass ? (
+            <Badge
+              variant="secondary"
+              className="font-custom border-border/60 bg-muted/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium"
+            >
+              Cancelled Gate Pass
+            </Badge>
+          ) : null}
           <Badge className="font-custom px-2 py-0.5 text-[10px] font-medium">
             {statusLabel}
           </Badge>
@@ -176,6 +251,8 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
             variant="outline"
             size="sm"
             className="font-custom h-8 w-8 p-0"
+            onClick={handleEditClick}
+            aria-label={`Edit incoming gate pass ${gatePass.gatePassNo}`}
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
@@ -238,7 +315,18 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
                   <Weight className="text-primary h-4 w-4" />
                   Weight Slip Details
                 </h4>
-                <div className="border-primary/20 bg-primary/5 mt-2.5 rounded-lg border p-3">
+                <div
+                  className={cn(
+                    'border-primary/20 bg-primary/5 mt-2.5 rounded-lg border p-3',
+                    isCancelledGatePass && 'border-border/30 bg-muted/30'
+                  )}
+                >
+                  {isCancelledGatePass ? (
+                    <p className="font-custom text-muted-foreground mb-3 text-xs font-medium">
+                      This entry is treated as cancelled because bags received
+                      is zero.
+                    </p>
+                  ) : null}
                   <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <InfoBlock
                       label="Slip No"
