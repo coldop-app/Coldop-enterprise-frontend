@@ -75,7 +75,7 @@ const SidebarHeaderContent = memo(() => {
         <h1 className="text-sidebar-foreground text-lg font-semibold group-data-[collapsible=icon]:hidden">
           Coldop
           <span className="text-muted-foreground ml-1 text-[10px] font-medium">
-            BETA
+            V1.0.0
           </span>
         </h1>
       </div>

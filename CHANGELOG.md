@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.6] - 2026-04-27
 
+## [0.3.7] - 2026-04-28
+
+### Added
+- Incoming gate pass creation service and expanded incoming gate pass typings for create payloads and responses.
+- Service scaffolding for farmer seed workflows (create, edit, list, single entry, and edit history) plus daybook/grading data access hooks.
+
+### Changed
+- Incoming gate pass create/edit flows now support manual gate pass numbers, dynamic farmer selection, and summary-sheet enhancements for submit behavior and labels.
+- Daybook incoming tab and cards now include improved navigation actions and shared constants for weight calculations.
+- Sidebar branding label updated to reflect the v1.0.0 application marker.
+
+## [0.3.6] - 2026-04-27
+
 ### Added
 - Skeleton loading placeholders across daybook tabs, incoming gate pass history, and people screens for better perceived responsiveness.
 - Query prefetching from route loaders and next-page prefetch effects for incoming gate pass lists and edit-history pagination.

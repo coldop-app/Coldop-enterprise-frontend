@@ -110,6 +110,17 @@ export interface EditIncomingGatePassApiResponse {
   data?: Record<string, never>;
 }
 
+export type CreateIncomingGatePassInput = Omit<
+  EditIncomingGatePassInput,
+  'reason'
+>;
+
+export interface CreateIncomingGatePassApiResponse {
+  success: boolean;
+  message?: string;
+  data?: IncomingGatePassWithLink;
+}
+
 export interface IncomingGatePassAuditItem {
   _id: string;
   incomingGatePassId: IncomingGatePass;

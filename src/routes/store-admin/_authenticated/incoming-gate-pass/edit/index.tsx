@@ -14,6 +14,7 @@ import {
 import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
 import { POTATO_VARIETIES } from '@/lib/constants';
 import { useEditIncomingGatePass } from '@/services/store-admin/incoming-gate-pass/useEditIncomingGatePass';
+import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import type { GatePassStatus } from '@/types/incoming-gate-pass';
 import { SummarySheet } from './-SummarySheet';
 
@@ -112,6 +113,7 @@ function EditIncomingFormComponent() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const { mutate: editGatePass, isPending } = useEditIncomingGatePass();
+  const { data: farmerLinks = [] } = useGetAllFarmers();
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
   const [isMarkedAsNull, setIsMarkedAsNull] = useState(false);
 
@@ -122,6 +124,9 @@ function EditIncomingFormComponent() {
   const [selectedVariety, setSelectedVariety] = useState(search.variety ?? '');
   const [selectedLocation, setSelectedLocation] = useState(
     search.location ?? ''
+  );
+  const [selectedFarmerLinkId, setSelectedFarmerLinkId] = useState(
+    search.farmerLinkId ?? ''
   );
   const [submissionDate, setSubmissionDate] = useState(
     toDisplayDate(search.date)
@@ -144,17 +149,37 @@ function EditIncomingFormComponent() {
     gatePassNo !== undefined ? `#${gatePassNo}` : undefined;
 
   const farmerOptions = useMemo<Option<string>[]>(() => {
-    if (!search.farmerLinkId || !search.farmerName) return [];
-    const accountSuffix = search.farmerAccountNumber
-      ? ` • A/C ${search.farmerAccountNumber}`
-      : '';
-    return [
-      {
+    const options = farmerLinks.map((link) => ({
+      label: `${link.farmerId.name} (Account #${link.accountNumber})`,
+      value: link._id,
+      searchableText:
+        `${link.farmerId.name} ${link.accountNumber} ${link.farmerId.mobileNumber}`.trim(),
+    }));
+
+    // Keep currently selected farmer visible even if not in fetched list.
+    if (
+      search.farmerLinkId &&
+      search.farmerName &&
+      !options.some((option) => option.value === search.farmerLinkId)
+    ) {
+      const accountSuffix = search.farmerAccountNumber
+        ? ` (Account #${search.farmerAccountNumber})`
+        : '';
+      options.unshift({
         label: `${search.farmerName}${accountSuffix}`,
         value: search.farmerLinkId,
-      },
-    ];
-  }, [search.farmerAccountNumber, search.farmerLinkId, search.farmerName]);
+        searchableText:
+          `${search.farmerName} ${search.farmerAccountNumber ?? ''}`.trim(),
+      });
+    }
+
+    return options;
+  }, [
+    farmerLinks,
+    search.farmerAccountNumber,
+    search.farmerLinkId,
+    search.farmerName,
+  ]);
 
   const varietyOptions = useMemo<Option<string>[]>(() => {
     const exists = POTATO_VARIETIES.some(
@@ -181,6 +206,9 @@ function EditIncomingFormComponent() {
   const gross = parseNumber(weightSlipGrossKg) ?? 0;
   const tare = parseNumber(weightSlipTareKg) ?? 0;
   const netWeight = gross - tare;
+  const selectedFarmerLink = farmerLinks.find(
+    (link) => link._id === selectedFarmerLinkId
+  );
 
   const canEdit = Boolean(search.id);
 
@@ -215,7 +243,7 @@ function EditIncomingFormComponent() {
     editGatePass(
       {
         id: search.id,
-        farmerStorageLinkId: search.farmerLinkId,
+        farmerStorageLinkId: selectedFarmerLinkId || undefined,
         gatePassNo,
         manualGatePassNumber: parseNumber(manualGatePassNumber),
         date: toIsoDateFromDisplay(submissionDate),
@@ -314,24 +342,27 @@ function EditIncomingFormComponent() {
 
           {/* Farmer Selection */}
           <Field>
+            <FieldLabel
+              htmlFor="farmer-select"
+              className="font-custom mb-2 block text-base font-semibold"
+            >
+              Enter Account Name (search and select)
+            </FieldLabel>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="flex-1">
-                <FieldLabel
-                  htmlFor="farmer-select"
-                  className="font-custom mb-2 block text-base font-semibold"
-                >
-                  Enter Account Name (search and select)
-                </FieldLabel>
-                <SearchSelector
-                  id="farmer-select"
-                  options={farmerOptions}
-                  placeholder="Search or Create Farmer"
-                  searchPlaceholder="Search by name, account number, or mobile..."
-                  className="w-full"
-                  buttonClassName="w-full justify-between"
-                  value={search.farmerLinkId ?? ''}
-                  disabled
-                />
+                <div className={isMarkedAsNull ? 'pointer-events-none' : ''}>
+                  <SearchSelector
+                    id="farmer-select"
+                    options={farmerOptions}
+                    placeholder="Search or Create Farmer"
+                    searchPlaceholder="Search by name, account number, or mobile..."
+                    className="w-full"
+                    buttonClassName="w-full justify-between"
+                    value={selectedFarmerLinkId}
+                    onSelect={(value) => setSelectedFarmerLinkId(value)}
+                    disabled={isMarkedAsNull}
+                  />
+                </div>
               </div>
               {isMarkedAsNull ? (
                 <Button
@@ -342,7 +373,7 @@ function EditIncomingFormComponent() {
                   New Farmer
                 </Button>
               ) : (
-                <AddFarmerModal links={[]} onFarmerAdded={() => {}} />
+                <AddFarmerModal links={farmerLinks} onFarmerAdded={() => {}} />
               )}
             </div>
           </Field>
@@ -547,14 +578,20 @@ function EditIncomingFormComponent() {
         onOpenChange={setIsSummarySheetOpen}
         voucherNumberDisplay={voucherNumberDisplay}
         selectedFarmer={
-          search.farmerName
+          selectedFarmerLink
             ? {
-                farmerId: { name: search.farmerName },
-                accountNumber: search.farmerAccountNumber ?? '--',
+                farmerId: { name: selectedFarmerLink.farmerId.name },
+                accountNumber: String(selectedFarmerLink.accountNumber),
               }
-            : null
+            : search.farmerName
+              ? {
+                  farmerId: { name: search.farmerName },
+                  accountNumber: search.farmerAccountNumber ?? '--',
+                }
+              : null
         }
         formValues={{
+          manualGatePassNumber,
           date: submissionDate,
           variety: selectedVariety,
           location: selectedLocation,

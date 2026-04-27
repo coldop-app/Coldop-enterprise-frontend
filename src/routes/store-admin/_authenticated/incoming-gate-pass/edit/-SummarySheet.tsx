@@ -29,6 +29,7 @@ type SelectedFarmer = {
 };
 
 type SummaryFormValues = {
+  manualGatePassNumber?: number | string;
   date: string;
   variety: string;
   location: string;
@@ -52,6 +53,8 @@ interface SummarySheetProps {
   isLoadingVoucher: boolean;
   gatePassNo: number | null | undefined;
   onSubmit: () => void;
+  submitLabel?: string;
+  allowSubmitWithoutGatePassNo?: boolean;
 }
 
 function SummaryRow({
@@ -96,6 +99,8 @@ export const SummarySheet = memo(function SummarySheet({
   isLoadingVoucher,
   gatePassNo,
   onSubmit,
+  submitLabel = 'Update Incoming Order',
+  allowSubmitWithoutGatePassNo = false,
 }: SummarySheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -117,6 +122,11 @@ export const SummarySheet = memo(function SummarySheet({
             <SummaryRow
               label="Voucher"
               value={voucherNumberDisplay}
+              icon={FileText}
+            />
+            <SummaryRow
+              label="Manual Gate Pass No."
+              value={formValues.manualGatePassNumber}
               icon={FileText}
             />
             {selectedFarmer ? (
@@ -186,7 +196,11 @@ export const SummarySheet = memo(function SummarySheet({
               size="lg"
               className="font-custom w-full font-bold sm:flex-1"
               onClick={onSubmit}
-              disabled={isPending || isLoadingVoucher || !gatePassNo}
+              disabled={
+                isPending ||
+                isLoadingVoucher ||
+                (!allowSubmitWithoutGatePassNo && !gatePassNo)
+              }
             >
               {isPending ? (
                 <span className="flex items-center gap-2">
@@ -194,7 +208,7 @@ export const SummarySheet = memo(function SummarySheet({
                   Updating...
                 </span>
               ) : (
-                'Update Incoming Order'
+                submitLabel
               )}
             </Button>
           </div>

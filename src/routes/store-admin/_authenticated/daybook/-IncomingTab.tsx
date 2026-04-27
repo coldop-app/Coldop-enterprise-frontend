@@ -255,7 +255,14 @@ const IncomingTab = () => {
             >
               Incoming Edit History
             </Button>
-            <Button className="font-custom w-full sm:w-auto">
+            <Button
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={() => {
+                void navigate({
+                  to: '/store-admin/incoming-gate-pass',
+                });
+              }}
+            >
               <ArrowUpFromLine className="h-4 w-4" />
               Add Incoming
             </Button>

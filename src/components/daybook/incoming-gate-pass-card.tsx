@@ -24,14 +24,13 @@ import type {
   User as IncomingUser,
 } from '@/types/incoming-gate-pass';
 import { cn } from '@/lib/utils';
+import { JUTE_BAG_WEIGHT } from '@/lib/constants';
 
 const STATUS_LABELS = {
   NOT_GRADED: 'Pending Grading',
   GRADED: 'Graded',
   PARTIALLY_GRADED: 'Partially Graded',
 } as const;
-
-const JUTE_BAG_WEIGHT = 1.2;
 
 // --- Helper Component for consistent data display ---
 interface InfoBlockProps {
