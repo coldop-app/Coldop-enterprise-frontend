@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-04-28
+
+### Added
+- Store-admin analytics module with a dedicated route, date-range filter controls, and an overview dashboard composed of reusable stat cards.
+- Analytics overview data service and shared analytics response typings for fetching and prefetching overview metrics from the store-admin API.
+
+### Changed
+- Generated route tree now registers and types the new analytics route under authenticated store-admin navigation.
+
 ## [0.4.0] - 2026-04-28
 
 ### Added
