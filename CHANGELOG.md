@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-04-28
+
+### Added
+- New incoming analytics report composition with reusable table primitives, typed report columns, and a dedicated report data table implementation.
+- Shared incoming report helpers and filter sheet controls to support consistent report rendering and filtering behavior.
+
+### Changed
+- Incoming analytics route now renders the new report-first screen architecture and removes legacy digital report/pdf components.
+- Project version updated to `0.4.2` for this analytics report release.
+
 ## [0.4.1] - 2026-04-28
 
 ### Added

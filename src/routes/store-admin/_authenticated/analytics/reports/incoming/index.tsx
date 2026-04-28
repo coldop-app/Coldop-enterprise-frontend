@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import IncomingDigitalReport from '@/components/analytics/incoming/report/incoming-digital-report';
+import IncomingReportMain from '@/components/analytics/incoming/report/incoming-report-main';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/analytics/reports/incoming/'
 )({
-  component: IncomingDigitalReport,
+  component: IncomingReportMain,
 });
