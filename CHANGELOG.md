@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-04-29
+
+### Added
+- Incoming gate pass analytics report service for fetching, typing, and caching report table data with route-friendly query options.
+- Dedicated incoming report table screen component consolidating filters, table rendering, and export-ready report layout behavior.
+
+### Changed
+- Incoming analytics report modules were refactored to remove legacy digital report composition files and simplify report route wiring.
+- Reusable report table primitives and analytics column definitions were updated to align with the new incoming report architecture.
+- Project version updated to `0.4.3` for this incoming analytics report refactor release.
+
 ## [0.4.2] - 2026-04-28
 
 ### Added
