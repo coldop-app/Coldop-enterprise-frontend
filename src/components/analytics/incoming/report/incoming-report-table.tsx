@@ -21,7 +21,14 @@ function getFarmerName(gatePass: IncomingGatePassWithLink): string {
     gatePass.farmerStorageLinkId.farmerId &&
     typeof gatePass.farmerStorageLinkId.farmerId !== 'string'
   ) {
-    return gatePass.farmerStorageLinkId.farmerId.name;
+    const farmerName = gatePass.farmerStorageLinkId.farmerId.name;
+    const accountNumber = gatePass.farmerStorageLinkId.accountNumber;
+
+    if (typeof accountNumber === 'number') {
+      return `${farmerName} (#${accountNumber})`;
+    }
+
+    return farmerName;
   }
 
   return '-';
@@ -140,6 +147,9 @@ const IncomingReportTable = () => {
         slipNumber: item.weightSlip?.slipNumber ?? '-',
         grossWeightKg: item.weightSlip?.grossWeightKg ?? 0,
         tareWeightKg: item.weightSlip?.tareWeightKg ?? 0,
+        netWeightKg:
+          (item.weightSlip?.grossWeightKg ?? 0) -
+          (item.weightSlip?.tareWeightKg ?? 0),
         remarks: item.remarks ?? '-',
         date: toDisplayDate(item.date),
         createdAt: toDisplayDate(item.createdAt),

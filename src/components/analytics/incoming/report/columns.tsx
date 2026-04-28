@@ -3,90 +3,91 @@ import type { ColumnDef } from '@tanstack/react-table';
 export type IncomingReportRow = {
   id: string;
   farmerId: string;
+  farmerName: string;
+  farmerAddress: string;
+  farmerMobileNumber: string;
+  createdByName: string;
+  location: string;
   gatePassNo: number;
   manualGatePassNumber: number;
-  farmerName: string;
-  farmerMobileNumber: string;
-  farmerAddress: string;
-  createdByName: string;
-  createdByMobileNumber: string;
+  date: string;
   variety: string;
-  location: string;
   truckNumber: string;
   bagsReceived: number;
-  slipNumber: string;
   grossWeightKg: number;
   tareWeightKg: number;
+  netWeightKg: number;
+  status: string;
   remarks: string;
-  date: string;
+  createdByMobileNumber: string;
+  slipNumber: string;
   createdAt: string;
   updatedAt: string;
-  status: string;
 };
 
 export const columns: ColumnDef<IncomingReportRow>[] = [
-  {
-    accessorKey: 'gatePassNo',
-    header: 'Gate Pass No',
-  },
-  {
-    accessorKey: 'manualGatePassNumber',
-    header: 'Manual Gate Pass No',
-  },
   {
     accessorKey: 'farmerName',
     header: 'Farmer',
   },
   {
-    accessorKey: 'farmerMobileNumber',
-    header: 'Farmer Mobile',
+    accessorKey: 'farmerAddress',
+    header: 'Address',
   },
   {
-    accessorKey: 'farmerAddress',
-    header: 'Farmer Address',
+    accessorKey: 'farmerMobileNumber',
+    header: 'Mobile Number',
   },
   {
     accessorKey: 'createdByName',
     header: 'Created By',
   },
   {
-    accessorKey: 'variety',
-    header: 'Variety',
-  },
-  {
     accessorKey: 'location',
     header: 'Location',
   },
   {
-    accessorKey: 'truckNumber',
-    header: 'Truck Number',
+    accessorKey: 'gatePassNo',
+    header: 'System Generated Gate Pass No',
+  },
+  {
+    accessorKey: 'manualGatePassNumber',
+    header: 'Manual Gate Pass No',
   },
   {
     accessorKey: 'date',
     header: 'Date',
   },
   {
+    accessorKey: 'variety',
+    header: 'Variety',
+  },
+  {
+    accessorKey: 'truckNumber',
+    header: 'Truck Number',
+  },
+  {
     accessorKey: 'bagsReceived',
     header: 'Bags',
   },
   {
-    accessorKey: 'slipNumber',
-    header: 'Weight Slip No',
-  },
-  {
     accessorKey: 'grossWeightKg',
-    header: 'Gross Wt (Kg)',
+    header: 'Gross (kg)',
   },
   {
     accessorKey: 'tareWeightKg',
-    header: 'Tare Wt (Kg)',
+    header: 'Tare (kg)',
   },
   {
-    accessorKey: 'remarks',
-    header: 'Remarks',
+    accessorKey: 'netWeightKg',
+    header: 'Net (kg)',
   },
   {
     accessorKey: 'status',
     header: 'Status',
+  },
+  {
+    accessorKey: 'remarks',
+    header: 'Remarks',
   },
 ];
