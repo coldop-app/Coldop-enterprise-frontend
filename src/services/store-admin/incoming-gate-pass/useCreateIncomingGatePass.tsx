@@ -7,7 +7,6 @@ import type {
   CreateIncomingGatePassApiResponse,
   CreateIncomingGatePassInput,
 } from '@/types/incoming-gate-pass';
-import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
 
 /** Query key prefix for incoming gate pass – use for invalidation */
 export const incomingGatePassKeys = {
@@ -50,7 +49,6 @@ export function useCreateIncomingGatePass() {
         toast.success(
           data.message ?? 'Incoming gate pass created successfully'
         );
-        queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all });
       } else {
         toast.error(data.message ?? 'Failed to create incoming gate pass');

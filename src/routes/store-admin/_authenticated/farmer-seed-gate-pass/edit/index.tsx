@@ -67,10 +67,9 @@ const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
   })
 );
 
-const RoutePath =
-  '/store-admin/_authenticated/farmer-seed-gate-pass/edit/' as const;
-
-export const Route = createFileRoute(RoutePath)({
+export const Route = createFileRoute(
+  '/store-admin/_authenticated/farmer-seed-gate-pass/edit/'
+)({
   validateSearch: (search: Record<string, unknown>): EditSeedSearch => ({
     id: search.id ? String(search.id) : undefined,
     farmerLinkId: search.farmerLinkId ? String(search.farmerLinkId) : undefined,

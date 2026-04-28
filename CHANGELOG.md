@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-04-28
+
+### Added
+- Farmer seed gate pass edit history page with audit metadata, previous/updated state comparisons, refresh controls, loading skeletons, and pagination.
+- Farmer seed edit-history data service with API integration, pagination support, query options, and route-level prefetch support.
+- New grading gate pass service hooks for create, edit, list, and edit-history workflows.
+
+### Changed
+- Farmer seed edit route registration updated for cleaner file-route declaration.
+- Incoming gate pass creation flow now invalidates only incoming query keys and removes daybook coupling.
+- Farmer seed typings expanded to include audit response and pagination-compatible history entry shapes.
+
 ## [0.3.9] - 2026-04-28
 
 ### Added

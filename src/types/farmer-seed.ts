@@ -48,3 +48,14 @@ export interface EditFarmerSeedApiResponse {
   message?: string;
   data?: unknown;
 }
+
+export interface FarmerSeedAuditEntry {
+  [key: string]: unknown;
+}
+
+export interface GetFarmerSeedAuditApiResponse {
+  success: boolean;
+  message?: string;
+  data: FarmerSeedAuditEntry[];
+  pagination?: FarmerSeedEntryPagination;
+}
