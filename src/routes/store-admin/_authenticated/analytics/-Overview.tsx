@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   ArrowUpRight,
   BarChart3,
@@ -117,6 +118,7 @@ interface StatCardProps {
   value: string;
   description?: string;
   icon: React.ReactNode;
+  onGetReportClick?: () => void;
 }
 
 const StatCard = memo(function StatCard({
@@ -124,6 +126,7 @@ const StatCard = memo(function StatCard({
   value,
   description,
   icon,
+  onGetReportClick,
 }: StatCardProps) {
   return (
     <Card className="group font-custom border-border/40 bg-card relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
@@ -148,7 +151,8 @@ const StatCard = memo(function StatCard({
         <Button
           variant="outline"
           size="sm"
-          className="font-custom border-border/60 bg-background hover:bg-muted mt-2 gap-1.5 rounded-lg"
+          onClick={onGetReportClick}
+          className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
         >
           <FileText className="h-4 w-4" />
           Get Reports
@@ -196,7 +200,7 @@ const GradingCard = memo(function GradingCard({
           <Button
             variant="outline"
             size="sm"
-            className="font-custom border-border/60 bg-background hover:bg-muted mt-2 gap-1.5 rounded-lg"
+            className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
           >
             <FileText className="h-4 w-4" />
             Get Reports
@@ -257,6 +261,7 @@ function OverviewSkeleton() {
 }
 
 const Overview = memo(function Overview() {
+  const navigate = useNavigate();
   const { data, isLoading, isError, error, refetch } = useGetOverview();
   const normalized = normalizeOverviewData(data);
 
@@ -322,6 +327,9 @@ const Overview = memo(function Overview() {
         value={formatNumber(normalized.totalIncomingBags)}
         description={`${formatWeight(normalized.totalIncomingWeight)} (excl bardana)`}
         icon={<Package className="h-5 w-5" />}
+        onGetReportClick={() =>
+          void navigate({ to: '/store-admin/analytics/reports/incoming' })
+        }
       />
       <StatCard
         title="Ungraded Bags"
