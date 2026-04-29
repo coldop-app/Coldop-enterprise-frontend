@@ -17,6 +17,7 @@ export type IncomingReportRow = {
   grossWeightKg: number;
   tareWeightKg: number;
   netWeightKg: number;
+  netWeightPrecision: number;
   status: string;
   remarks: string;
   createdByMobileNumber: string;

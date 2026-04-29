@@ -25,7 +25,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  BarChart3,
   RefreshCw,
   Search,
 } from 'lucide-react';
@@ -33,16 +32,19 @@ import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Item,
-  ItemActions,
-  ItemHeader,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item';
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Item } from '@/components/ui/item';
 import { useGetIncomingGatePassReport } from '@/services/store-admin/incoming-gate-pass/analytics/useGetIncomingGatePassReport';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
-import { ViewFiltersSheet } from './view-filters-sheet';
+import { ViewFiltersSheet } from './view-filters-sheet/index';
 import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
@@ -143,6 +145,47 @@ function toApiDate(value: string): string | undefined {
   return `${year}-${normalizedMonth}-${normalizedDay}`;
 }
 
+function getDecimalPlaces(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const asString = value.toString().toLowerCase();
+  if (!asString.includes('e')) {
+    return asString.includes('.') ? (asString.split('.')[1]?.length ?? 0) : 0;
+  }
+
+  const [base, exponentPart] = asString.split('e');
+  const exponent = Number(exponentPart);
+  const baseDecimals = base.includes('.')
+    ? (base.split('.')[1]?.length ?? 0)
+    : 0;
+
+  if (!Number.isFinite(exponent)) return baseDecimals;
+  if (exponent >= 0) return Math.max(0, baseDecimals - exponent);
+  return baseDecimals + Math.abs(exponent);
+}
+
+function subtractWithPrecision(
+  grossWeightKg: number,
+  tareWeightKg: number
+): { value: number; precision: number } {
+  const precision = Math.max(
+    getDecimalPlaces(grossWeightKg),
+    getDecimalPlaces(tareWeightKg)
+  );
+  const factor = 10 ** precision;
+  const value =
+    (Math.round(grossWeightKg * factor) - Math.round(tareWeightKg * factor)) /
+    factor;
+
+  return { value, precision };
+}
+
+function formatIndianNumber(value: number, precision = 0): string {
+  return value.toLocaleString('en-IN', {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
+  });
+}
+
 const columnHelper = createColumnHelper<IncomingReportRow>();
 const isFirefoxBrowser =
   typeof window !== 'undefined' &&
@@ -154,6 +197,8 @@ const DEFAULT_COLUMN_MAX_SIZE = 550;
 const defaultColumnOrder: string[] = [
   'farmerName',
   'farmerAddress',
+  'farmerMobileNumber',
+  'createdByName',
   'location',
   'gatePassNo',
   'manualGatePassNumber',
@@ -161,6 +206,8 @@ const defaultColumnOrder: string[] = [
   'variety',
   'truckNumber',
   'bagsReceived',
+  'grossWeightKg',
+  'tareWeightKg',
   'netWeightKg',
   'status',
   'remarks',
@@ -178,12 +225,12 @@ const multiValueFilterFn = (
     return cellValue.toLowerCase().includes(normalized);
   }
   if (!Array.isArray(filterValue)) return true;
-  if (filterValue.length === 0) return false;
+  if (filterValue.length === 0) return true;
   return filterValue.includes(cellValue);
 };
 
 type GlobalFilterValue = string | FilterGroupNode;
-const globalGatePassFilterFn: FilterFn<IncomingReportRow> = (
+const globalManualGatePassFilterFn: FilterFn<IncomingReportRow> = (
   row,
   _columnId,
   filterValue: GlobalFilterValue
@@ -193,12 +240,14 @@ const globalGatePassFilterFn: FilterFn<IncomingReportRow> = (
   }
   const normalized = String(filterValue).trim().toLowerCase();
   if (!normalized) return true;
-  return String(row.original.gatePassNo).toLowerCase().includes(normalized);
+  return String(row.original.manualGatePassNumber ?? '-')
+    .toLowerCase()
+    .includes(normalized);
 };
 
 const columns = [
   columnHelper.accessor('gatePassNo', {
-    header: 'Gate Pass',
+    header: 'System Generated Gate Pass No',
     sortingFn: 'alphanumeric',
     filterFn: multiValueFilterFn,
     cell: (info) => (
@@ -206,7 +255,7 @@ const columns = [
     ),
   }),
   columnHelper.accessor('manualGatePassNumber', {
-    header: 'Manual GP',
+    header: 'Manual Gate Pass No',
     sortingFn: 'alphanumeric',
     filterFn: multiValueFilterFn,
   }),
@@ -224,6 +273,16 @@ const columns = [
   }),
   columnHelper.accessor('farmerAddress', {
     header: 'Address',
+    sortingFn: 'text',
+    filterFn: multiValueFilterFn,
+  }),
+  columnHelper.accessor('farmerMobileNumber', {
+    header: 'Mobile Number',
+    sortingFn: 'text',
+    filterFn: multiValueFilterFn,
+  }),
+  columnHelper.accessor('createdByName', {
+    header: 'Created By',
     sortingFn: 'text',
     filterFn: multiValueFilterFn,
   }),
@@ -249,20 +308,87 @@ const columns = [
     minSize: 90,
     maxSize: 180,
     cell: (info) => (
-      <div className="w-full text-right tabular-nums">{info.getValue()}</div>
+      <div className="w-full text-right tabular-nums">
+        {formatIndianNumber(Number(info.getValue()), 0)}
+      </div>
     ),
+  }),
+  columnHelper.accessor('grossWeightKg', {
+    header: () => <div className="w-full text-right">Gross (kg)</div>,
+    sortingFn: 'basic',
+    filterFn: multiValueFilterFn,
+    minSize: 120,
+    maxSize: 220,
+    cell: (info) => {
+      const value = info.row.original.grossWeightKg;
+      const precision = getDecimalPlaces(value);
+      return (
+        <div className="w-full text-right tabular-nums">
+          {formatIndianNumber(value, precision)}
+        </div>
+      );
+    },
+  }),
+  columnHelper.accessor('tareWeightKg', {
+    header: () => <div className="w-full text-right">Tare (kg)</div>,
+    sortingFn: 'basic',
+    filterFn: multiValueFilterFn,
+    minSize: 120,
+    maxSize: 220,
+    cell: (info) => {
+      const value = info.row.original.tareWeightKg;
+      const precision = getDecimalPlaces(value);
+      return (
+        <div className="w-full text-right tabular-nums">
+          {formatIndianNumber(value, precision)}
+        </div>
+      );
+    },
   }),
   columnHelper.accessor('netWeightKg', {
     header: () => <div className="w-full text-right">Net (kg)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: (_columnId, leafRows) => {
+      const maxPrecision = leafRows.reduce((max, row) => {
+        const precision = Number(row.original.netWeightPrecision ?? 0);
+        return Math.max(max, precision);
+      }, 0);
+      const factor = 10 ** maxPrecision;
+      const scaledSum = leafRows.reduce((sum, row) => {
+        const value = Number(row.original.netWeightKg ?? 0);
+        return sum + Math.round(value * factor);
+      }, 0);
+      return scaledSum / factor;
+    },
+    aggregatedCell: (info) => {
+      const groupedRows = info.row.getLeafRows();
+      const maxPrecision = groupedRows.reduce((max, row) => {
+        const precision = Number(row.original.netWeightPrecision ?? 0);
+        return Math.max(max, precision);
+      }, 0);
+      const factor = 10 ** maxPrecision;
+      const scaledSum = groupedRows.reduce((sum, row) => {
+        const value = Number(row.original.netWeightKg ?? 0);
+        return sum + Math.round(value * factor);
+      }, 0);
+      const safeTotal = scaledSum / factor;
+      return (
+        <div className="w-full text-right font-medium tabular-nums">
+          {formatIndianNumber(safeTotal, maxPrecision)}
+        </div>
+      );
+    },
     minSize: 110,
     maxSize: 200,
-    cell: (info) => (
-      <div className="w-full text-right font-medium tabular-nums">
-        {info.getValue()}
-      </div>
-    ),
+    cell: (info) => {
+      const { netWeightKg, netWeightPrecision } = info.row.original;
+      return (
+        <div className="w-full text-right font-medium tabular-nums">
+          {formatIndianNumber(netWeightKg, netWeightPrecision)}
+        </div>
+      );
+    },
   }),
   columnHelper.accessor('status', {
     header: 'Status',
@@ -270,7 +396,7 @@ const columns = [
     filterFn: (row, columnId, filterValue: string[]) => {
       const statusValue = row.getValue(columnId) as string;
       if (!Array.isArray(filterValue)) return true;
-      if (filterValue.length === 0) return false;
+      if (filterValue.length === 0) return true;
       return filterValue.includes(statusValue);
     },
     cell: (info) => {
@@ -295,6 +421,9 @@ const columns = [
   }),
 ];
 
+const TABLE_SKELETON_COLUMNS = 8;
+const TABLE_SKELETON_ROWS = 10;
+
 const IncomingReportTable = () => {
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
@@ -303,7 +432,14 @@ const IncomingReportTable = () => {
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>({
+      farmerMobileNumber: false,
+      createdByName: false,
+      location: false,
+      gatePassNo: false,
+      grossWeightKg: false,
+      tareWeightKg: false,
+    });
   const [columnOrder, setColumnOrder] =
     React.useState<string[]>(defaultColumnOrder);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -334,32 +470,38 @@ const IncomingReportTable = () => {
 
   const incomingReportData = React.useMemo<IncomingReportRow[]>(
     () =>
-      (data ?? []).map((item) => ({
-        id: item._id,
-        farmerId: getFarmerId(item),
-        gatePassNo: item.gatePassNo,
-        manualGatePassNumber: item.manualGatePassNumber,
-        farmerName: getFarmerName(item),
-        farmerMobileNumber: getFarmerMobile(item),
-        farmerAddress: getFarmerAddress(item),
-        createdByName: getCreatedByName(item),
-        createdByMobileNumber: getCreatedByMobile(item),
-        variety: item.variety,
-        location: item.location,
-        truckNumber: item.truckNumber,
-        bagsReceived: item.bagsReceived,
-        slipNumber: item.weightSlip?.slipNumber ?? '-',
-        grossWeightKg: item.weightSlip?.grossWeightKg ?? 0,
-        tareWeightKg: item.weightSlip?.tareWeightKg ?? 0,
-        netWeightKg:
-          (item.weightSlip?.grossWeightKg ?? 0) -
-          (item.weightSlip?.tareWeightKg ?? 0),
-        remarks: item.remarks ?? '-',
-        date: toDisplayDate(item.date),
-        createdAt: toDisplayDate(item.createdAt),
-        updatedAt: toDisplayDate(item.updatedAt),
-        status: item.status,
-      })),
+      (data ?? []).map((item) => {
+        const grossWeightKg = item.weightSlip?.grossWeightKg ?? 0;
+        const tareWeightKg = item.weightSlip?.tareWeightKg ?? 0;
+        const { value: netWeightKg, precision: netWeightPrecision } =
+          subtractWithPrecision(grossWeightKg, tareWeightKg);
+
+        return {
+          id: item._id,
+          farmerId: getFarmerId(item),
+          gatePassNo: item.gatePassNo,
+          manualGatePassNumber: item.manualGatePassNumber,
+          farmerName: getFarmerName(item),
+          farmerMobileNumber: getFarmerMobile(item),
+          farmerAddress: getFarmerAddress(item),
+          createdByName: getCreatedByName(item),
+          createdByMobileNumber: getCreatedByMobile(item),
+          variety: item.variety,
+          location: item.location,
+          truckNumber: item.truckNumber,
+          bagsReceived: item.bagsReceived,
+          slipNumber: item.weightSlip?.slipNumber ?? '-',
+          grossWeightKg,
+          tareWeightKg,
+          netWeightKg,
+          netWeightPrecision,
+          remarks: item.remarks ?? '-',
+          date: toDisplayDate(item.date),
+          createdAt: toDisplayDate(item.createdAt),
+          updatedAt: toDisplayDate(item.updatedAt),
+          status: item.status,
+        };
+      }),
     [data]
   );
 
@@ -387,7 +529,7 @@ const IncomingReportTable = () => {
     onGlobalFilterChange: setGlobalFilter,
     columnResizeMode,
     columnResizeDirection,
-    globalFilterFn: globalGatePassFilterFn,
+    globalFilterFn: globalManualGatePassFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
@@ -399,11 +541,60 @@ const IncomingReportTable = () => {
   });
 
   const rows = table.getRowModel().rows;
+  const filteredRows = table.getFilteredRowModel().rows;
   const visibleColumns = table.getVisibleLeafColumns();
   const visibleColumnIds = React.useMemo(
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
   );
+  const totalsByColumn = React.useMemo(() => {
+    const totals = {
+      bagsReceived: 0,
+      grossWeightKg: 0,
+      tareWeightKg: 0,
+      netWeightKg: 0,
+      grossPrecision: 0,
+      tarePrecision: 0,
+      netPrecision: 0,
+    };
+
+    for (const row of filteredRows) {
+      const original = row.original;
+      totals.bagsReceived += Number(original.bagsReceived ?? 0);
+      totals.grossWeightKg += Number(original.grossWeightKg ?? 0);
+      totals.tareWeightKg += Number(original.tareWeightKg ?? 0);
+      totals.netWeightKg += Number(original.netWeightKg ?? 0);
+      totals.grossPrecision = Math.max(
+        totals.grossPrecision,
+        getDecimalPlaces(Number(original.grossWeightKg ?? 0))
+      );
+      totals.tarePrecision = Math.max(
+        totals.tarePrecision,
+        getDecimalPlaces(Number(original.tareWeightKg ?? 0))
+      );
+      totals.netPrecision = Math.max(
+        totals.netPrecision,
+        Number(original.netWeightPrecision ?? 0)
+      );
+    }
+
+    return totals;
+  }, [filteredRows]);
+  const hasVisibleNumericTotals = React.useMemo(
+    () =>
+      visibleColumnIds.some((columnId) =>
+        [
+          'bagsReceived',
+          'grossWeightKg',
+          'tareWeightKg',
+          'netWeightKg',
+        ].includes(columnId)
+      ),
+    [visibleColumnIds]
+  );
+
+  const formatTotal = (value: number, precision = 0): string =>
+    formatIndianNumber(value, precision);
 
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     count: rows.length,
@@ -438,39 +629,7 @@ const IncomingReportTable = () => {
   return (
     <>
       <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
-        <div className="space-y-6">
-          <Item
-            variant="outline"
-            size="sm"
-            className="cursor-pointer rounded-xl shadow-sm"
-          >
-            <ItemHeader className="h-full">
-              <div className="flex items-center gap-3">
-                <ItemMedia variant="icon" className="rounded-lg">
-                  <BarChart3 className="text-primary h-5 w-5" />
-                </ItemMedia>
-                <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-                  Incoming Gate Pass Report
-                </ItemTitle>
-              </div>
-
-              <ItemActions>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-custom gap-2"
-                  disabled={isFetching}
-                  onClick={() => refetch()}
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
-                  />
-                  <span className="hidden sm:inline">Refresh</span>
-                </Button>
-              </ItemActions>
-            </ItemHeader>
-          </Item>
-
+        <div className="space-y-4">
           <Item
             variant="outline"
             size="sm"
@@ -517,7 +676,7 @@ const IncomingReportTable = () => {
                   <Input
                     value={typeof globalFilter === 'string' ? globalFilter : ''}
                     onChange={(event) => setGlobalFilter(event.target.value)}
-                    placeholder="Search gate pass..."
+                    placeholder="Search manual gate pass..."
                     className="font-custom h-9 pl-8"
                   />
                 </div>
@@ -528,35 +687,76 @@ const IncomingReportTable = () => {
                 >
                   View Filters
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-custom gap-2 rounded-lg"
+                  disabled={isFetching}
+                  onClick={() => refetch()}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+                  />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
               </div>
             </div>
           </Item>
 
-          <Item
-            variant="outline"
-            size="sm"
-            className="rounded-2xl p-3 shadow-sm"
-          >
+          <div className="w-full">
             {isError && (
-              <p className="mb-3 text-sm text-red-600">
+              <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error instanceof Error
                   ? error.message
                   : 'Failed to load incoming report'}
               </p>
             )}
-            {isLoading && (
-              <p className="mb-3 text-sm text-gray-600">Loading report...</p>
-            )}
             <div
               ref={tableContainerRef}
-              className="overflow-x-auto overflow-y-auto rounded-lg border"
+              className="border-border/60 bg-background/95 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)]"
               style={{
                 direction: table.options.columnResizeDirection,
                 height: '560px',
                 position: 'relative',
               }}
             >
-              {rows.length === 0 ? (
+              {isLoading ? (
+                <div className="space-y-4 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <Skeleton className="h-8 w-44 rounded-lg" />
+                    <Skeleton className="h-8 w-24 rounded-lg" />
+                  </div>
+                  <div className="grid grid-cols-8 gap-2">
+                    {Array.from({ length: TABLE_SKELETON_COLUMNS }).map(
+                      (_, index) => (
+                        <Skeleton
+                          key={`incoming-report-header-skeleton-${index}`}
+                          className="h-8 w-full rounded-md"
+                        />
+                      )
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {Array.from({ length: TABLE_SKELETON_ROWS }).map(
+                      (_, rowIndex) => (
+                        <div
+                          key={`incoming-report-row-skeleton-${rowIndex}`}
+                          className="grid grid-cols-8 gap-2"
+                        >
+                          {Array.from({ length: TABLE_SKELETON_COLUMNS }).map(
+                            (_, columnIndex) => (
+                              <Skeleton
+                                key={`incoming-report-cell-skeleton-${rowIndex}-${columnIndex}`}
+                                className="h-7 w-full rounded-md"
+                              />
+                            )
+                          )}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              ) : rows.length === 0 ? (
                 <div className="text-muted-foreground flex h-24 items-center justify-center">
                   No records found.
                 </div>
@@ -565,8 +765,8 @@ const IncomingReportTable = () => {
                   style={{ display: 'grid', width: table.getTotalSize() }}
                   className="font-custom text-sm"
                 >
-                  <thead
-                    className="bg-muted/40 border-b"
+                  <TableHeader
+                    className="bg-background/95 border-border/60 border-b backdrop-blur-sm"
                     style={{
                       display: 'grid',
                       position: 'sticky',
@@ -575,9 +775,10 @@ const IncomingReportTable = () => {
                     }}
                   >
                     {table.getHeaderGroups().map((headerGroup) => (
-                      <tr
+                      <TableRow
                         key={headerGroup.id}
                         style={{ display: 'flex', width: '100%' }}
+                        className="hover:bg-transparent"
                       >
                         {visibleColumnIds.map((columnId) => {
                           const header = headerGroup.headers.find(
@@ -586,20 +787,22 @@ const IncomingReportTable = () => {
                           if (!header) return null;
                           const isRightAligned =
                             header.id === 'bagsReceived' ||
+                            header.id === 'grossWeightKg' ||
+                            header.id === 'tareWeightKg' ||
                             header.id === 'netWeightKg';
                           return (
-                            <th
+                            <TableHead
                               key={header.id}
                               style={{
                                 display: 'flex',
                                 width: header.getSize(),
                                 position: 'relative',
                               }}
-                              className="font-custom border-r px-3 py-2 text-xs font-semibold tracking-wide uppercase select-none"
+                              className="font-custom border-border/50 text-foreground/75 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
                             >
                               {header.isPlaceholder ? null : (
                                 <div
-                                  className={`group flex w-full min-w-0 cursor-pointer items-center ${
+                                  className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors ${
                                     isRightAligned
                                       ? 'justify-end'
                                       : 'justify-between'
@@ -635,7 +838,7 @@ const IncomingReportTable = () => {
                                 onMouseDown={header.getResizeHandler()}
                                 onTouchStart={header.getResizeHandler()}
                                 onClick={(event) => event.stopPropagation()}
-                                className="hover:bg-primary/30 absolute top-0 right-0 h-full w-1 cursor-col-resize bg-transparent"
+                                className="hover:bg-primary/25 absolute top-0 right-0 h-full w-1 cursor-col-resize bg-transparent transition-colors"
                                 style={{
                                   transform:
                                     table.options.columnResizeMode ===
@@ -651,13 +854,13 @@ const IncomingReportTable = () => {
                                       : '',
                                 }}
                               />
-                            </th>
+                            </TableHead>
                           );
                         })}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </thead>
-                  <tbody
+                  </TableHeader>
+                  <TableBody
                     style={{
                       display: 'grid',
                       height: `${rowVirtualizer.getTotalSize()}px`,
@@ -670,11 +873,15 @@ const IncomingReportTable = () => {
                       ] as Row<IncomingReportRow>;
                       const visibleCells = row.getVisibleCells();
                       return (
-                        <tr
+                        <TableRow
                           key={row.id}
                           data-index={virtualRow.index}
                           ref={(node) => rowVirtualizer.measureElement(node)}
-                          className="hover:bg-muted/30 border-b transition-colors"
+                          className={`border-border/50 hover:bg-muted/35 border-b transition-colors ${
+                            virtualRow.index % 2 === 0
+                              ? 'bg-background'
+                              : 'bg-muted/15'
+                          }`}
                           style={{
                             display: 'flex',
                             position: 'absolute',
@@ -691,22 +898,26 @@ const IncomingReportTable = () => {
                             const isGroupedCell = cell.getIsGrouped();
                             const isAggregatedCell = cell.getIsAggregated();
                             const isPlaceholderCell = cell.getIsPlaceholder();
+                            const shouldSuppressAggregation =
+                              isAggregatedCell &&
+                              (cell.column.id === 'gatePassNo' ||
+                                cell.column.id === 'manualGatePassNumber');
                             return (
-                              <td
+                              <TableCell
                                 key={cell.id}
                                 style={{
                                   display: 'flex',
                                   width: cell.column.getSize(),
                                 }}
-                                className="font-custom border-r px-3 py-2 align-middle whitespace-nowrap"
+                                className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
                               >
                                 {isGroupedCell ? (
                                   <button
                                     type="button"
                                     onClick={row.getToggleExpandedHandler()}
-                                    className={`inline-flex items-center gap-1 text-left ${
+                                    className={`inline-flex items-center gap-1 text-left transition-colors ${
                                       row.getCanExpand()
-                                        ? 'cursor-pointer'
+                                        ? 'hover:text-primary cursor-pointer'
                                         : 'cursor-default'
                                     }`}
                                   >
@@ -722,10 +933,16 @@ const IncomingReportTable = () => {
                                     </span>
                                   </button>
                                 ) : isAggregatedCell ? (
-                                  flexRender(
-                                    cell.column.columnDef.aggregatedCell ??
-                                      cell.column.columnDef.cell,
-                                    cell.getContext()
+                                  shouldSuppressAggregation ? (
+                                    <span className="text-muted-foreground/50">
+                                      -
+                                    </span>
+                                  ) : (
+                                    flexRender(
+                                      cell.column.columnDef.aggregatedCell ??
+                                        cell.column.columnDef.cell,
+                                      cell.getContext()
+                                    )
                                   )
                                 ) : isPlaceholderCell ? null : (
                                   flexRender(
@@ -733,17 +950,76 @@ const IncomingReportTable = () => {
                                     cell.getContext()
                                   )
                                 )}
-                              </td>
+                              </TableCell>
                             );
                           })}
-                        </tr>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
+                  </TableBody>
+                  {rows.length > 0 && hasVisibleNumericTotals ? (
+                    <TableFooter
+                      className="bg-background/95 border-border/70 border-t backdrop-blur-sm"
+                      style={{
+                        display: 'grid',
+                        position: 'sticky',
+                        bottom: 0,
+                        zIndex: 9,
+                      }}
+                    >
+                      <TableRow
+                        style={{ display: 'flex', width: '100%' }}
+                        className="hover:bg-transparent"
+                      >
+                        {visibleColumnIds.map((columnId, columnIndex) => {
+                          const cellValue =
+                            columnId === 'bagsReceived'
+                              ? formatTotal(totalsByColumn.bagsReceived, 0)
+                              : columnId === 'grossWeightKg'
+                                ? formatTotal(
+                                    totalsByColumn.grossWeightKg,
+                                    totalsByColumn.grossPrecision
+                                  )
+                                : columnId === 'tareWeightKg'
+                                  ? formatTotal(
+                                      totalsByColumn.tareWeightKg,
+                                      totalsByColumn.tarePrecision
+                                    )
+                                  : columnId === 'netWeightKg'
+                                    ? formatTotal(
+                                        totalsByColumn.netWeightKg,
+                                        totalsByColumn.netPrecision
+                                      )
+                                    : '';
+                          const isRightAligned = [
+                            'bagsReceived',
+                            'grossWeightKg',
+                            'tareWeightKg',
+                            'netWeightKg',
+                          ].includes(columnId);
+
+                          return (
+                            <TableCell
+                              key={`totals-${columnId}`}
+                              style={{
+                                display: 'flex',
+                                width: table.getColumn(columnId)?.getSize(),
+                              }}
+                              className={`font-custom border-border/50 text-foreground border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
+                                isRightAligned ? 'justify-end tabular-nums' : ''
+                              }`}
+                            >
+                              {columnIndex === 0 ? 'Totals' : cellValue}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    </TableFooter>
+                  ) : null}
                 </table>
               )}
             </div>
-          </Item>
+          </div>
         </div>
       </main>
       <ViewFiltersSheet
