@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { PreparedIncomingReportPdf } from './pdf-prepare';
 
@@ -99,7 +100,27 @@ export function ReportContentTable({
     (sum, column) => sum + Number(column.weight || 1),
     0
   );
-  const getCellWidth = (weight: number) => `${(weight / totalWeight) * 100}%`;
+  const columnRenderMeta = React.useMemo(
+    () =>
+      report.columns.map((column, index) => {
+        const width = `${(Number(column.weight || 1) / totalWeight) * 100}%`;
+        const isLast = index === report.columns.length - 1;
+        return {
+          id: column.id,
+          label: column.label,
+          align: column.align,
+          cellStyle: [
+            s.tableCell,
+            { width },
+            { borderRightWidth: isLast ? 0 : 0.6 },
+          ],
+          headerTextStyle: [s.tableHeaderText, { textAlign: column.align }],
+          bodyTextStyle: [s.tableBodyText, { textAlign: column.align }],
+          totalsTextStyle: [s.tableTotalsText, { textAlign: column.align }],
+        };
+      }),
+    [report.columns, totalWeight]
+  );
   // Keep title + column header together, and ensure there is room for at least
   // one data row after the intro block. Otherwise this section starts on next page.
   const minSectionPresenceAhead = 120;
@@ -122,27 +143,13 @@ export function ReportContentTable({
                 <Text style={s.sectionTitle}>{section.title}</Text>
               ) : null}
               <View style={s.tableHeaderRow}>
-                {report.columns.map((column, index) => (
+                {columnRenderMeta.map((columnMeta) => (
                   <View
-                    key={`${section.id}-${column.id}`}
-                    style={[
-                      s.tableCell,
-                      { width: getCellWidth(column.weight) },
-                      {
-                        borderRightWidth:
-                          index === report.columns.length - 1 ? 0 : 0.6,
-                      },
-                    ]}
+                    key={`${section.id}-${columnMeta.id}`}
+                    style={columnMeta.cellStyle}
                   >
-                    <Text
-                      style={[
-                        s.tableHeaderText,
-                        {
-                          textAlign: column.align,
-                        },
-                      ]}
-                    >
-                      {column.label}
+                    <Text style={columnMeta.headerTextStyle}>
+                      {columnMeta.label}
                     </Text>
                   </View>
                 ))}
@@ -151,27 +158,13 @@ export function ReportContentTable({
 
             {section.rows.map((row) => (
               <View key={row.id} style={s.tableRow} wrap={false}>
-                {report.columns.map((column, index) => (
+                {columnRenderMeta.map((columnMeta) => (
                   <View
-                    key={`${section.id}-${row.id}-${column.id}`}
-                    style={[
-                      s.tableCell,
-                      { width: getCellWidth(column.weight) },
-                      {
-                        borderRightWidth:
-                          index === report.columns.length - 1 ? 0 : 0.6,
-                      },
-                    ]}
+                    key={`${section.id}-${row.id}-${columnMeta.id}`}
+                    style={columnMeta.cellStyle}
                   >
-                    <Text
-                      style={[
-                        s.tableBodyText,
-                        {
-                          textAlign: column.align,
-                        },
-                      ]}
-                    >
-                      {row.values[column.id]}
+                    <Text style={columnMeta.bodyTextStyle}>
+                      {row.values[columnMeta.id]}
                     </Text>
                   </View>
                 ))}
@@ -179,27 +172,15 @@ export function ReportContentTable({
             ))}
 
             <View style={s.tableRow} wrap={false}>
-              {report.columns.map((column, index) => (
+              {columnRenderMeta.map((columnMeta, index) => (
                 <View
-                  key={`${section.id}-total-${column.id}`}
-                  style={[
-                    s.tableCell,
-                    { width: getCellWidth(column.weight) },
-                    {
-                      borderRightWidth:
-                        index === report.columns.length - 1 ? 0 : 0.6,
-                    },
-                  ]}
+                  key={`${section.id}-total-${columnMeta.id}`}
+                  style={columnMeta.cellStyle}
                 >
-                  <Text
-                    style={[
-                      s.tableTotalsText,
-                      {
-                        textAlign: column.align,
-                      },
-                    ]}
-                  >
-                    {index === 0 ? 'TOTALS' : (section.totals[column.id] ?? '')}
+                  <Text style={columnMeta.totalsTextStyle}>
+                    {index === 0
+                      ? 'TOTALS'
+                      : (section.totals[columnMeta.id] ?? '')}
                   </Text>
                 </View>
               ))}

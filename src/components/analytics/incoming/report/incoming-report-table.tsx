@@ -451,14 +451,10 @@ const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
 
 type IncomingPdfButtonProps = {
-  buildDocument: () => React.ReactElement<DocumentProps>;
-  onRegenerate: () => void;
+  buildDocument: (generatedAt: string) => React.ReactElement<DocumentProps>;
 };
 
-const IncomingPdfButton = ({
-  buildDocument,
-  onRegenerate,
-}: IncomingPdfButtonProps) => {
+const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
   const objectUrlRef = React.useRef<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
 
@@ -528,10 +524,10 @@ const IncomingPdfButton = ({
     previewTab.document.close();
 
     setIsGeneratingPdf(true);
-    onRegenerate();
 
     try {
-      const document = buildDocument();
+      const generatedAt = new Date().toLocaleString('en-IN');
+      const document = buildDocument(generatedAt);
       const blob = await pdf(document).toBlob();
       const nextUrl = URL.createObjectURL(blob);
 
@@ -631,9 +627,6 @@ const IncomingReportTable = () => {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
-  const [pdfGeneratedAt, setPdfGeneratedAt] = React.useState(() =>
-    new Date().toLocaleString('en-IN')
-  );
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
   const hasDateFilters = Boolean(fromDate && toDate);
@@ -815,18 +808,14 @@ const IncomingReportTable = () => {
     setAppliedToDate('');
   };
 
-  const handleRegeneratePdf = () => {
-    setPdfGeneratedAt(new Date().toLocaleString('en-IN'));
-  };
-
-  const pdfDocument = React.useMemo(
-    () => (
+  const buildPdfDocument = React.useCallback(
+    (generatedAt: string) => (
       <InwardLedgerReportDocument
-        generatedAt={pdfGeneratedAt}
+        generatedAt={generatedAt}
         report={preparedPdfReport}
       />
     ),
-    [pdfGeneratedAt, preparedPdfReport]
+    [preparedPdfReport]
   );
 
   return (
@@ -903,10 +892,7 @@ const IncomingReportTable = () => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
-                <IncomingPdfButton
-                  buildDocument={() => pdfDocument}
-                  onRegenerate={handleRegeneratePdf}
-                />
+                <IncomingPdfButton buildDocument={buildPdfDocument} />
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 rounded-lg px-2 leading-none"

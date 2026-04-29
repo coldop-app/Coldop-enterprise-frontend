@@ -175,12 +175,16 @@ export function prepareIncomingReportPdf(options: {
       } satisfies PreparedPdfColumn;
     })
     .filter((column): column is PreparedPdfColumn => Boolean(column));
+  const resolvedColumnConfigs = columns.map((column) => ({
+    column,
+    config: columnConfig[column.id],
+  }));
 
   const buildPreparedRows = (sourceRows: IncomingReportRow[]) =>
     sourceRows.map((row) => {
       const values: Record<string, string> = {};
-      for (const column of columns) {
-        const value = columnConfig[column.id]?.value(row) ?? '-';
+      for (const { column, config } of resolvedColumnConfigs) {
+        const value = config?.value(row) ?? '-';
         values[column.id] = value || '-';
       }
       return {
@@ -191,8 +195,8 @@ export function prepareIncomingReportPdf(options: {
 
   const buildTotals = (sourceRows: IncomingReportRow[]) => {
     const nextTotals: PreparedPdfTotals = {};
-    for (const column of columns) {
-      const totalFn = columnConfig[column.id]?.total;
+    for (const { column, config } of resolvedColumnConfigs) {
+      const totalFn = config?.total;
       nextTotals[column.id] = totalFn ? totalFn(sourceRows) : '';
     }
     return nextTotals;
