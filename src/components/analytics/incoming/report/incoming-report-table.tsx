@@ -217,6 +217,7 @@ const numericColumnIds = new Set([
   'tareWeightKg',
   'netWeightKg',
 ]);
+const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 
 const multiValueFilterFn = (
   row: { getValue: (columnId: string) => unknown },
@@ -710,7 +711,7 @@ const IncomingReportTable = () => {
             )}
             <div
               ref={tableContainerRef}
-              className="border-border/60 bg-background/95 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)]"
+              className="subtle-scrollbar border-border/60 bg-background/95 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)]"
               style={{
                 direction: table.options.columnResizeDirection,
                 height: '560px',
@@ -790,7 +791,7 @@ const IncomingReportTable = () => {
                                 width: header.getSize(),
                                 position: 'relative',
                               }}
-                              className="font-custom border-border/50 text-foreground/75 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
+                              className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
                             >
                               <div
                                 className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors ${
@@ -944,6 +945,8 @@ const IncomingReportTable = () => {
                         display: 'grid',
                         position: 'sticky',
                         bottom: 0,
+                        // Reserve space for the native scrollbar so it doesn't overlap totals values.
+                        paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
                         zIndex: 9,
                       }}
                     >
@@ -980,7 +983,7 @@ const IncomingReportTable = () => {
                                 display: 'flex',
                                 width: table.getColumn(columnId)?.getSize(),
                               }}
-                              className={`font-custom border-border/50 text-foreground border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
+                              className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
                                 isRightAligned ? 'justify-end tabular-nums' : ''
                               }`}
                             >
