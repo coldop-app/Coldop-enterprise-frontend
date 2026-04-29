@@ -1,4 +1,4 @@
-import { Document, Font, Page, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, StyleSheet } from '@react-pdf/renderer';
 import { ReportContentTable } from './content';
 import {
   ReportCover,
@@ -8,13 +8,6 @@ import {
 } from './header';
 import type { PreparedIncomingReportPdf } from './pdf-prepare';
 import { ReportSummaryPage } from './summary';
-
-Font.register({
-  family: 'Oswald',
-  // src: 'https://fonts.gstatic.com/s/oswald/v13/Y_TKV6o8WovbUd3m_X9aAA.ttf',
-  // TODO: Download Oswald-Regular.ttf and place it in public/fonts.
-  src: '/fonts/Oswald-Regular.ttf',
-});
 
 const s = StyleSheet.create({
   page: {

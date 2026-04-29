@@ -62,6 +62,16 @@ type ColumnConfig = {
   total?: (rows: IncomingReportRow[]) => string;
 };
 
+type AggregatedTotals = {
+  bagsReceived: number;
+  grossWeightKg: number;
+  tareWeightKg: number;
+  netWeightKg: number;
+  grossPrecision: number;
+  tarePrecision: number;
+  netPrecision: number;
+};
+
 const numericColumnIds = new Set([
   'bagsReceived',
   'grossWeightKg',
@@ -179,6 +189,40 @@ const columnConfig: Record<string, ColumnConfig> = {
   },
 };
 
+function createAggregatedTotals(): AggregatedTotals {
+  return {
+    bagsReceived: 0,
+    grossWeightKg: 0,
+    tareWeightKg: 0,
+    netWeightKg: 0,
+    grossPrecision: 0,
+    tarePrecision: 0,
+    netPrecision: 0,
+  };
+}
+
+function addRowToAggregatedTotals(
+  totals: AggregatedTotals,
+  row: IncomingReportRow
+): void {
+  totals.bagsReceived += Number(row.bagsReceived || 0);
+  totals.grossWeightKg += Number(row.grossWeightKg || 0);
+  totals.tareWeightKg += Number(row.tareWeightKg || 0);
+  totals.netWeightKg += Number(row.netWeightKg || 0);
+  totals.grossPrecision = Math.max(
+    totals.grossPrecision,
+    getDecimalPlaces(Number(row.grossWeightKg || 0))
+  );
+  totals.tarePrecision = Math.max(
+    totals.tarePrecision,
+    getDecimalPlaces(Number(row.tareWeightKg || 0))
+  );
+  totals.netPrecision = Math.max(
+    totals.netPrecision,
+    Number(row.netWeightPrecision || 0)
+  );
+}
+
 export function prepareIncomingReportPdf(options: {
   rows: IncomingReportRow[];
   visibleColumnIds: string[];
@@ -203,22 +247,25 @@ export function prepareIncomingReportPdf(options: {
     config: columnConfig[column.id],
   }));
 
-  const buildPreparedRows = (sourceRows: IncomingReportRow[]) =>
-    sourceRows.map((row) => {
+  const prepareRowsAndTotals = (sourceRows: IncomingReportRow[]) => {
+    const preparedRows: PreparedPdfRow[] = new Array(sourceRows.length);
+    const aggregates = createAggregatedTotals();
+
+    for (let index = 0; index < sourceRows.length; index += 1) {
+      const row = sourceRows[index] as IncomingReportRow;
       const values: Record<string, string> = {};
       for (const { column, config } of resolvedColumnConfigs) {
         const value = config?.value(row) ?? '-';
         values[column.id] = value || '-';
       }
-      return {
+      preparedRows[index] = {
         id: row.id,
         values,
       };
-    });
+      addRowToAggregatedTotals(aggregates, row);
+    }
 
-  const buildTotals = (sourceRows: IncomingReportRow[]) => {
     const nextTotals: PreparedPdfTotals = {};
-    const aggregates = aggregateTotals(sourceRows);
 
     for (const { column, config } of resolvedColumnConfigs) {
       if (column.id === 'bagsReceived') {
@@ -250,24 +297,25 @@ export function prepareIncomingReportPdf(options: {
       const totalFn = config?.total;
       nextTotals[column.id] = totalFn ? totalFn(sourceRows) : '';
     }
-    return nextTotals;
+    return {
+      rows: preparedRows,
+      totals: nextTotals,
+    };
   };
 
-  const preparedRows = buildPreparedRows(rows);
-  const totals = buildTotals(rows);
+  const preparedMain = prepareRowsAndTotals(rows);
   const sections = buildGroupedSections(
     rows,
     grouping,
     columns,
-    buildPreparedRows,
-    buildTotals
+    prepareRowsAndTotals
   );
   const summary = buildSummary(rows);
 
   return {
     columns,
-    rows: preparedRows,
-    totals,
+    rows: preparedMain.rows,
+    totals: preparedMain.totals,
     sections,
     summary,
     isGrouped: sections.length > 0,
@@ -397,8 +445,10 @@ function buildGroupedSections(
   rows: IncomingReportRow[],
   grouping: string[],
   columns: PreparedPdfColumn[],
-  buildPreparedRows: (rows: IncomingReportRow[]) => PreparedPdfRow[],
-  buildTotals: (rows: IncomingReportRow[]) => PreparedPdfTotals
+  prepareRowsAndTotals: (rows: IncomingReportRow[]) => {
+    rows: PreparedPdfRow[];
+    totals: PreparedPdfTotals;
+  }
 ): PreparedIncomingReportSection[] {
   if (!grouping.length || !rows.length) return [];
 
@@ -427,11 +477,12 @@ function buildGroupedSections(
       ];
       const isLeaf = level === grouping.length - 1;
       if (isLeaf) {
+        const prepared = prepareRowsAndTotals(childRows);
         sections.push({
           id: `${groupId}-${nextLabels.join('|')}`,
           title: nextLabels.join(' | '),
-          rows: buildPreparedRows(childRows),
-          totals: buildTotals(childRows),
+          rows: prepared.rows,
+          totals: prepared.totals,
         });
       } else {
         walk(childRows, level + 1, nextLabels);
@@ -487,80 +538,35 @@ function maxBy(
 
 function getDecimalPlaces(value: number): number {
   if (!Number.isFinite(value) || Number.isInteger(value)) return 0;
-  const asString = value.toString().toLowerCase();
-  if (!asString.includes('e')) {
-    const dotIndex = asString.indexOf('.');
-    return dotIndex === -1 ? 0 : asString.length - dotIndex - 1;
+
+  let scaled = Math.abs(value);
+  const maxPrecision = 12;
+  const epsilon = 1e-9;
+  for (let precision = 0; precision < maxPrecision; precision += 1) {
+    if (Math.abs(scaled - Math.round(scaled)) < epsilon) {
+      return precision;
+    }
+    scaled *= 10;
   }
 
-  const [base, exponentPart] = asString.split('e');
-  const exponent = Number(exponentPart);
-  const baseDecimals = base.includes('.')
-    ? (base.split('.')[1]?.length ?? 0)
-    : 0;
-
-  if (!Number.isFinite(exponent)) return baseDecimals;
-  if (exponent >= 0) return Math.max(0, baseDecimals - exponent);
-  return baseDecimals + Math.abs(exponent);
+  return maxPrecision;
 }
 
-type AggregatedTotals = {
-  bagsReceived: number;
-  grossWeightKg: number;
-  tareWeightKg: number;
-  netWeightKg: number;
-  grossPrecision: number;
-  tarePrecision: number;
-  netPrecision: number;
-};
+const formatterCache: Intl.NumberFormat[] = [];
 
-function aggregateTotals(rows: IncomingReportRow[]): AggregatedTotals {
-  const totals: AggregatedTotals = {
-    bagsReceived: 0,
-    grossWeightKg: 0,
-    tareWeightKg: 0,
-    netWeightKg: 0,
-    grossPrecision: 0,
-    tarePrecision: 0,
-    netPrecision: 0,
-  };
+function getFormatter(precision: number): Intl.NumberFormat {
+  const cached = formatterCache[precision];
+  if (cached) return cached;
 
-  for (const row of rows) {
-    totals.bagsReceived += Number(row.bagsReceived || 0);
-    totals.grossWeightKg += Number(row.grossWeightKg || 0);
-    totals.tareWeightKg += Number(row.tareWeightKg || 0);
-    totals.netWeightKg += Number(row.netWeightKg || 0);
-
-    totals.grossPrecision = Math.max(
-      totals.grossPrecision,
-      getDecimalPlaces(Number(row.grossWeightKg || 0))
-    );
-    totals.tarePrecision = Math.max(
-      totals.tarePrecision,
-      getDecimalPlaces(Number(row.tareWeightKg || 0))
-    );
-    totals.netPrecision = Math.max(
-      totals.netPrecision,
-      Number(row.netWeightPrecision || 0)
-    );
-  }
-
-  return totals;
+  const formatter = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
+  });
+  formatterCache[precision] = formatter;
+  return formatter;
 }
-
-const formatterCache = new Map<number, Intl.NumberFormat>();
 
 function formatIndianNumber(value: number, precision = 0): string {
   const safePrecision = Math.max(0, Number(precision || 0));
-  let formatter = formatterCache.get(safePrecision);
-
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-IN', {
-      minimumFractionDigits: safePrecision,
-      maximumFractionDigits: safePrecision,
-    });
-    formatterCache.set(safePrecision, formatter);
-  }
-
-  return formatter.format(Number(value || 0));
+  return getFormatter(safePrecision).format(Number(value || 0));
 }

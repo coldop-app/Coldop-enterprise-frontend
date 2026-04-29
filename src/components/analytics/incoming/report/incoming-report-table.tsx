@@ -29,7 +29,6 @@ import {
   SlidersHorizontal,
   Search,
 } from 'lucide-react';
-import { pdf, type DocumentProps } from '@react-pdf/renderer';
 import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,9 +52,12 @@ import {
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
 import type { IncomingReportRow } from './columns';
-import { InwardLedgerReportDocument } from './pdf/incoming-report-table-pdf';
-import { prepareIncomingReportPdf } from './pdf/pdf-prepare';
 import { useStore } from '@/stores/store';
+import PdfWorker from './pdf.worker?worker';
+import type {
+  IncomingPdfWorkerRequest,
+  IncomingPdfWorkerResponse,
+} from './pdf.worker';
 
 function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   if (
@@ -452,15 +454,20 @@ const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
 
 type IncomingPdfButtonProps = {
-  buildDocument: (generatedAt: string) => React.ReactElement<DocumentProps>;
+  buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
 };
 
-const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
+const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
   const objectUrlRef = React.useRef<string | null>(null);
+  const workerRef = React.useRef<Worker | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
 
   React.useEffect(() => {
     return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current);
       }
@@ -530,8 +537,30 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
       // Let the new tab paint the loading UI before heavy PDF generation starts.
       await new Promise((resolve) => setTimeout(resolve, 50));
       const generatedAt = new Date().toLocaleString('en-IN');
-      const document = buildDocument(generatedAt);
-      const blob = await pdf(document).toBlob();
+      const payload = buildPayload(generatedAt);
+      const worker = new PdfWorker();
+      workerRef.current = worker;
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        worker.onmessage = (event: MessageEvent<IncomingPdfWorkerResponse>) => {
+          const data = event.data;
+          if (data.status === 'success') {
+            resolve(data.blob);
+            return;
+          }
+          reject(new Error(data.message));
+        };
+        worker.onmessageerror = () => {
+          reject(new Error('PDF worker message channel failed.'));
+        };
+        worker.onerror = (event) => {
+          reject(
+            new Error(
+              `PDF worker execution failed: ${event.message || 'Unknown worker error'}`
+            )
+          );
+        };
+        worker.postMessage(payload);
+      });
       const nextUrl = URL.createObjectURL(blob);
 
       if (objectUrlRef.current) {
@@ -580,6 +609,10 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
       }
       window.alert(`Failed to generate PDF: ${message}`);
     } finally {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
       setIsGeneratingPdf(false);
     }
   };
@@ -801,22 +834,15 @@ const IncomingReportTable = () => {
     setAppliedToDate('');
   };
 
-  const buildPdfDocument = React.useCallback(
+  const buildPdfWorkerPayload = React.useCallback(
     (generatedAt: string) => {
-      const preparedPdfReport = prepareIncomingReportPdf({
+      return {
         rows: getLeafRowsForPdf(sortedRows),
         visibleColumnIds,
         grouping,
-      });
-
-      return (
-        <InwardLedgerReportDocument
-          generatedAt={generatedAt}
-          report={preparedPdfReport}
-          grouping={grouping}
-          coldStorageName={coldStorageName}
-        />
-      );
+        coldStorageName,
+        generatedAt,
+      } satisfies IncomingPdfWorkerRequest;
     },
     [coldStorageName, grouping, sortedRows, visibleColumnIds]
   );
@@ -895,7 +921,7 @@ const IncomingReportTable = () => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
-                <IncomingPdfButton buildDocument={buildPdfDocument} />
+                <IncomingPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 rounded-lg px-2 leading-none"

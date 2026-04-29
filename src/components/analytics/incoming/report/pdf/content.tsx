@@ -68,10 +68,9 @@ const s = StyleSheet.create({
     paddingTop: 7,
     marginTop: 2,
   },
-  tableCell: {
+  tableCellText: {
     paddingVertical: 5,
     paddingHorizontal: 4,
-    justifyContent: 'center',
   },
   tableHeaderText: {
     color: C.muted,
@@ -145,13 +144,21 @@ export function ReportContentTable({
           label: column.label,
           align: column.align,
           shouldWrap,
-          cellStyle: [s.tableCell, { width }],
-          headerTextStyle: [s.tableHeaderText, { textAlign: column.align }],
+          headerTextStyle: [
+            s.tableHeaderText,
+            s.tableCellText,
+            { textAlign: column.align, width },
+          ],
           bodyTextStyle: [
             shouldWrap ? s.tableBodyTextWrap : s.tableBodyText,
-            { textAlign: column.align },
+            s.tableCellText,
+            { textAlign: column.align, width },
           ],
-          totalsTextStyle: [s.tableTotalsText, { textAlign: column.align }],
+          totalsTextStyle: [
+            s.tableTotalsText,
+            s.tableCellText,
+            { textAlign: column.align, width },
+          ],
         };
       }),
     [report.columns, totalWeight]
@@ -183,14 +190,13 @@ export function ReportContentTable({
                   (!isGroupedReport && section.rows.length > 0) ? (
                     <View style={s.tableHeaderRow}>
                       {columnRenderMeta.map((columnMeta) => (
-                        <View
+                        <Text
                           key={`${section.id}-${columnMeta.id}`}
-                          style={columnMeta.cellStyle}
+                          style={columnMeta.headerTextStyle}
+                          wrap={false}
                         >
-                          <Text style={columnMeta.headerTextStyle}>
-                            {columnMeta.label}
-                          </Text>
-                        </View>
+                          {columnMeta.label}
+                        </Text>
                       ))}
                     </View>
                   ) : null}
@@ -204,33 +210,28 @@ export function ReportContentTable({
                     wrap={false}
                   >
                     {columnRenderMeta.map((columnMeta) => (
-                      <View
+                      <Text
                         key={`${section.id}-${row.id}-${columnMeta.id}`}
-                        style={columnMeta.cellStyle}
+                        style={columnMeta.bodyTextStyle}
+                        wrap={columnMeta.shouldWrap}
                       >
-                        <Text
-                          style={columnMeta.bodyTextStyle}
-                          wrap={columnMeta.shouldWrap}
-                        >
-                          {row.values[columnMeta.id]}
-                        </Text>
-                      </View>
+                        {row.values[columnMeta.id]}
+                      </Text>
                     ))}
                   </View>
                 ))}
 
                 <View style={s.tableTotalsRow} wrap={false}>
                   {columnRenderMeta.map((columnMeta, index) => (
-                    <View
+                    <Text
                       key={`${section.id}-total-${columnMeta.id}`}
-                      style={columnMeta.cellStyle}
+                      style={columnMeta.totalsTextStyle}
+                      wrap={false}
                     >
-                      <Text style={columnMeta.totalsTextStyle} wrap={false}>
-                        {index === 0
-                          ? 'Total'
-                          : (section.totals[columnMeta.id] ?? '')}
-                      </Text>
-                    </View>
+                      {index === 0
+                        ? 'Total'
+                        : (section.totals[columnMeta.id] ?? '')}
+                    </Text>
                   ))}
                 </View>
               </View>
