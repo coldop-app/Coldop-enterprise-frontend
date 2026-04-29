@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.7] - 2026-04-29
+
+### Changed
+- Incoming report PDF export now builds from the latest table state at generation time, improving consistency with active sorting, grouping, and visible columns.
+- PDF cover/header rendering now uses the active cold storage name and local Oswald font asset configuration for report branding.
+- Report table PDF layout now improves wrapped text handling for long fields and refines grouped/non-grouped header rendering behavior.
+- Numeric decimal precision detection for PDF preparation was tightened to avoid unnecessary decimal expansion for whole numbers.
+- Project version updated to `0.4.7` for this incoming report PDF quality and branding refinement release.
+
 ## [0.4.6] - 2026-04-29
 
 ### Added

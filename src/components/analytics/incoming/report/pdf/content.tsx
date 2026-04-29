@@ -12,6 +12,13 @@ const C = {
   border: '#E2E8F0', // slate-200
 };
 
+const WRAP_COLUMN_IDS = new Set([
+  'farmerName',
+  'farmerAddress',
+  'truckNumber',
+  'remarks',
+]);
+
 const s = StyleSheet.create({
   tableWrap: {
     marginTop: 14,
@@ -76,12 +83,22 @@ const s = StyleSheet.create({
   tableBodyText: {
     fontSize: 10,
     color: C.textStrong,
+    maxLines: 1,
+    // @ts-expect-error react-pdf accepts hidden overflow at runtime.
+    textOverflow: 'hidden',
+  },
+  tableBodyTextWrap: {
+    fontSize: 10,
+    color: C.textStrong,
   },
   tableTotalsText: {
     fontSize: 10,
     color: C.navy,
     fontFamily: 'Helvetica-Bold',
     textTransform: 'uppercase',
+    maxLines: 1,
+    // @ts-expect-error react-pdf accepts hidden overflow at runtime.
+    textOverflow: 'hidden',
   },
   emptyState: {
     backgroundColor: C.rowAlt,
@@ -122,13 +139,18 @@ export function ReportContentTable({
     () =>
       report.columns.map((column) => {
         const width = `${(Number(column.weight || 1) / totalWeight) * 100}%`;
+        const shouldWrap = WRAP_COLUMN_IDS.has(column.id);
         return {
           id: column.id,
           label: column.label,
           align: column.align,
+          shouldWrap,
           cellStyle: [s.tableCell, { width }],
           headerTextStyle: [s.tableHeaderText, { textAlign: column.align }],
-          bodyTextStyle: [s.tableBodyText, { textAlign: column.align }],
+          bodyTextStyle: [
+            shouldWrap ? s.tableBodyTextWrap : s.tableBodyText,
+            { textAlign: column.align },
+          ],
           totalsTextStyle: [s.tableTotalsText, { textAlign: column.align }],
         };
       }),
@@ -145,21 +167,6 @@ export function ReportContentTable({
         </Text>
       ) : (
         <>
-          {!isGroupedReport ? (
-            <View style={s.tableHeaderRow} fixed>
-              {columnRenderMeta.map((columnMeta) => (
-                <View
-                  key={`non-grouped-fixed-header-${columnMeta.id}`}
-                  style={columnMeta.cellStyle}
-                >
-                  <Text style={columnMeta.headerTextStyle}>
-                    {columnMeta.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
           <View style={!isGroupedReport ? s.nonGroupedBodyWrap : undefined}>
             {sections.map((section) => (
               <View key={section.id} style={s.sectionBlock}>
@@ -172,7 +179,8 @@ export function ReportContentTable({
                     <Text style={s.sectionTitle}>{section.title}</Text>
                   ) : null}
 
-                  {isGroupedReport ? (
+                  {isGroupedReport ||
+                  (!isGroupedReport && section.rows.length > 0) ? (
                     <View style={s.tableHeaderRow}>
                       {columnRenderMeta.map((columnMeta) => (
                         <View
@@ -200,7 +208,10 @@ export function ReportContentTable({
                         key={`${section.id}-${row.id}-${columnMeta.id}`}
                         style={columnMeta.cellStyle}
                       >
-                        <Text style={columnMeta.bodyTextStyle}>
+                        <Text
+                          style={columnMeta.bodyTextStyle}
+                          wrap={columnMeta.shouldWrap}
+                        >
                           {row.values[columnMeta.id]}
                         </Text>
                       </View>
@@ -214,7 +225,7 @@ export function ReportContentTable({
                       key={`${section.id}-total-${columnMeta.id}`}
                       style={columnMeta.cellStyle}
                     >
-                      <Text style={columnMeta.totalsTextStyle}>
+                      <Text style={columnMeta.totalsTextStyle} wrap={false}>
                         {index === 0
                           ? 'Total'
                           : (section.totals[columnMeta.id] ?? '')}

@@ -486,10 +486,11 @@ function maxBy(
 }
 
 function getDecimalPlaces(value: number): number {
-  if (!Number.isFinite(value)) return 0;
+  if (!Number.isFinite(value) || Number.isInteger(value)) return 0;
   const asString = value.toString().toLowerCase();
   if (!asString.includes('e')) {
-    return asString.includes('.') ? (asString.split('.')[1]?.length ?? 0) : 0;
+    const dotIndex = asString.indexOf('.');
+    return dotIndex === -1 ? 0 : asString.length - dotIndex - 1;
   }
 
   const [base, exponentPart] = asString.split('e');

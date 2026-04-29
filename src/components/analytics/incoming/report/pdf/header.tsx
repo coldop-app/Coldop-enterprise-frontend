@@ -127,9 +127,11 @@ const buildCoverLabel = (grouping: string[]): string => {
 export function ReportCover({
   generatedAt,
   grouping = [],
+  coldStorageName,
 }: {
   generatedAt: string;
   grouping?: string[];
+  coldStorageName: string;
 }) {
   return (
     <View style={s.coverBlock}>
@@ -138,7 +140,7 @@ export function ReportCover({
         style={s.coverLogo}
       />
       <Text style={s.coverLabel}>{buildCoverLabel(grouping)}</Text>
-      <Text style={s.coverTitle}>Jindal Ice{'\n'}And Cold Storage</Text>
+      <Text style={s.coverTitle}>{coldStorageName}</Text>
       <View style={s.coverRule} />
       <Text style={s.coverMeta}>GENERATED: {generatedAt.toUpperCase()}</Text>
     </View>

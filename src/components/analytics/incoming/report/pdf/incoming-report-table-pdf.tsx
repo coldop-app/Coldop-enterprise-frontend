@@ -11,7 +11,9 @@ import { ReportSummaryPage } from './summary';
 
 Font.register({
   family: 'Oswald',
-  src: 'https://fonts.gstatic.com/s/oswald/v13/Y_TKV6o8WovbUd3m_X9aAA.ttf',
+  // src: 'https://fonts.gstatic.com/s/oswald/v13/Y_TKV6o8WovbUd3m_X9aAA.ttf',
+  // TODO: Download Oswald-Regular.ttf and place it in public/fonts.
+  src: '/fonts/Oswald-Regular.ttf',
 });
 
 const s = StyleSheet.create({
@@ -28,19 +30,25 @@ type InwardLedgerReportDocumentProps = {
   generatedAt: string;
   report: PreparedIncomingReportPdf;
   grouping?: string[];
+  coldStorageName: string;
 };
 
 export function InwardLedgerReportDocument({
   generatedAt,
   report,
   grouping = [],
+  coldStorageName,
 }: InwardLedgerReportDocumentProps) {
   return (
     <Document title="Incoming Report" author="Bhatti Agritech Pvt Ltd">
       <Page size="A4" orientation="landscape" style={s.page}>
         <ReportRunHeader />
         <ReportPageNumber />
-        <ReportCover generatedAt={generatedAt} grouping={grouping} />
+        <ReportCover
+          generatedAt={generatedAt}
+          grouping={grouping}
+          coldStorageName={coldStorageName}
+        />
         <ReportDivider mb={14} />
       </Page>
 

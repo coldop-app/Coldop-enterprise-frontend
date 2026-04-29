@@ -55,6 +55,7 @@ import {
 import type { IncomingReportRow } from './columns';
 import { InwardLedgerReportDocument } from './pdf/incoming-report-table-pdf';
 import { prepareIncomingReportPdf } from './pdf/pdf-prepare';
+import { useStore } from '@/stores/store';
 
 function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   if (
@@ -466,14 +467,6 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
     };
   }, []);
 
-  const waitForNextFrame = React.useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => resolve());
-      }),
-    []
-  );
-
   const handleGenerate = async () => {
     if (isGeneratingPdf) return;
 
@@ -535,7 +528,7 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
 
     try {
       // Let the new tab paint the loading UI before heavy PDF generation starts.
-      await waitForNextFrame();
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const generatedAt = new Date().toLocaleString('en-IN');
       const document = buildDocument(generatedAt);
       const blob = await pdf(document).toBlob();
@@ -611,6 +604,9 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
 };
 
 const IncomingReportTable = () => {
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const [appliedFromDate, setAppliedFromDate] = React.useState('');
@@ -734,19 +730,6 @@ const IncomingReportTable = () => {
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
   );
-  const pdfRows = React.useMemo(
-    () => getLeafRowsForPdf(sortedRows),
-    [sortedRows]
-  );
-  const preparedPdfReport = React.useMemo(
-    () =>
-      prepareIncomingReportPdf({
-        rows: pdfRows,
-        visibleColumnIds,
-        grouping,
-      }),
-    [grouping, pdfRows, visibleColumnIds]
-  );
   const totalsByColumn = React.useMemo(() => {
     const totals = {
       bagsReceived: 0,
@@ -819,14 +802,23 @@ const IncomingReportTable = () => {
   };
 
   const buildPdfDocument = React.useCallback(
-    (generatedAt: string) => (
-      <InwardLedgerReportDocument
-        generatedAt={generatedAt}
-        report={preparedPdfReport}
-        grouping={grouping}
-      />
-    ),
-    [grouping, preparedPdfReport]
+    (generatedAt: string) => {
+      const preparedPdfReport = prepareIncomingReportPdf({
+        rows: getLeafRowsForPdf(sortedRows),
+        visibleColumnIds,
+        grouping,
+      });
+
+      return (
+        <InwardLedgerReportDocument
+          generatedAt={generatedAt}
+          report={preparedPdfReport}
+          grouping={grouping}
+          coldStorageName={coldStorageName}
+        />
+      );
+    },
+    [coldStorageName, grouping, sortedRows, visibleColumnIds]
   );
 
   return (
