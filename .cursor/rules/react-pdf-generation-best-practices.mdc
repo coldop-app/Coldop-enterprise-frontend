@@ -1,0 +1,170 @@
+---
+description: React PDF generation best practices using @react-pdf/renderer official docs
+globs: src/**/*pdf*.ts,src/**/*pdf*.tsx,src/**/pdf/**/*.ts,src/**/pdf/**/*.tsx
+alwaysApply: false
+---
+
+# React PDF Generation Best Practices (`@react-pdf/renderer`)
+
+Use this rule whenever generating or modifying PDF templates, download flows, or PDF rendering logic.
+
+## 1) Document and page structure rules
+
+- Always keep `<Document />` as the root component.
+- Only render `<Page />` as direct children of `<Document />`.
+- Never nest `<Document />` inside any other react-pdf primitive.
+- Use `<Page size="A4" orientation="portrait" wrap>` unless a specific requirement says otherwise.
+- Keep sections composable: define small primitives like `HR`, `ChapterHeading`, `PageHeader`, `PageFooter`.
+- Prefer semantic tree shape:
+  - `Document` -> `Page` -> `View`/`Text`/`Image`/`Link`.
+
+## 2) Metadata, security, and document-level options
+
+Set document metadata when available:
+
+- `title`, `author`, `subject`, `keywords`
+- `creator`, `producer`, `language`
+- `creationDate`, `modificationDate`
+- `pdfVersion` (default `1.3`)
+- `pageMode` (`useNone`, `useOutlines`, `useThumbs`, `fullScreen`, `useOC`, `useAttachments`)
+- `pageLayout` (`singlePage`, `oneColumn`, `twoColumnLeft`, `twoColumnRight`, `twoPageLeft`, `twoPageRight`)
+
+For protected files:
+
+- Use `ownerPassword` before applying `permissions`.
+- Optionally set `userPassword` for open protection.
+- Restrict `permissions` explicitly (`printing`, `modifying`, `copying`, etc.) instead of relying on defaults.
+
+## 3) Styling standards
+
+- Prefer `StyleSheet.create` for shared, reusable styles.
+- Use inline style objects only for tiny one-off dynamic overrides.
+- Combine styles with arrays when needed: `style={[styles.base, dynamicStyle]}`.
+- Use valid react-pdf units: `pt` (default), `in`, `mm`, `cm`, `%`, `vw`, `vh`.
+- Use Flexbox/layout props supported by react-pdf (not web-only CSS assumptions).
+- Keep typography readable in PDFs:
+  - body text around `10-12`
+  - line-height around `1.4-1.8`
+  - strong contrast (`#333` on light background is safe)
+- Use `debug` prop temporarily for layout troubleshooting; remove before merge.
+
+## 4) Fonts and text rendering
+
+- Register custom fonts before rendering with `Font.register`.
+- Supported formats are only `TTF` and `WOFF`.
+- Do not use variable OpenType fonts; register explicit sources per style/weight.
+- If text uses italic/oblique/bold, ensure those variants are registered.
+- Register all family variants together via `fonts: []` when possible.
+- Use `Font.registerHyphenationCallback` when language or wrapping quality needs custom control.
+- Disable hyphenation when required with:
+  - `Font.registerHyphenationCallback(word => [word])`.
+
+## 5) Layout, wrapping, and pagination
+
+- Keep page wrapping enabled (`wrap={true}` default) for long documents.
+- Understand wrapping behavior:
+  - Breakable by default: `View`, `Text`, `Link`
+  - Unbreakable by default: `Image`
+- Use `wrap={false}` on blocks that must not split awkwardly.
+- Use `break` on elements that must start on a new page (e.g., chapter starts).
+- Use `fixed` for repeated headers, footers, and page numbers.
+- Use `render={({ pageNumber, totalPages }) => ...}` for dynamic pagination text.
+- Improve visual quality with widow/orphan controls:
+  - `orphans`
+  - `widows`
+  - `minPresenceAhead` (useful to keep headings with following content).
+
+## 6) Images, links, and navigation
+
+Images:
+- Prefer stable URLs or known local Node paths.
+- `Image` supports JPG/PNG/base64/buffer/function sources.
+- Keep `cache` enabled unless debugging fresh image fetch behavior.
+- Use `srcSet`/`sizes` when resolution-sensitive assets are needed.
+
+Navigation:
+- Internal destinations: set `id` on target and link with `Link src="#id"`.
+- Use `bookmark` to build table-of-contents style navigation.
+- Assume some old viewers may ignore bookmarks/page mode/layout.
+
+## 7) Web integrations and rendering flows
+
+Use the right API by use case:
+
+- `<PDFViewer />`: embedded preview iframe.
+- `<PDFDownloadLink />`: simple user-triggered download.
+- `<BlobProvider />`: access `blob`/`url` declaratively.
+- `usePDF({ document })`: controlled rendering and explicit updates.
+- `pdf(document).toBlob()`: imperative blob generation on web.
+- Node/Express streaming: `renderToStream` and pipe response with `application/pdf`.
+
+## 8) Performance and reliability
+
+- Rendering is expensive; avoid unnecessary re-renders of large documents.
+- Use `usePDF` update function for explicit regeneration boundaries.
+- For browser documents with ~30+ pages, render inside a Web Worker to avoid blocking the UI thread.
+- Keep document components pure and deterministic:
+  - no random values during render
+  - no mutable shared style objects
+  - stable input data mapping.
+
+## 9) Canvas and math usage
+
+Canvas:
+- Always define explicit `width` and `height` in style for `<Canvas />`.
+- Keep `paint` deterministic and side-effect free.
+
+Math:
+- Use `@react-pdf/math` for LaTeX formulas.
+- Use `inline` for in-text equations; default display mode for standalone equations.
+
+## 10) Recommended template pattern
+
+Follow this structure for report-like documents:
+
+```tsx
+import { Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer';
+
+Font.register({
+  family: 'Oswald',
+  src: 'https://fonts.gstatic.com/s/oswald/v13/Y_TKV6o8WovbUd3m_X9aAA.ttf',
+});
+
+const styles = StyleSheet.create({
+  body: { paddingTop: 50, paddingBottom: 65, paddingHorizontal: 65 },
+  header: { fontSize: 8, textAlign: 'center', color: '#999', letterSpacing: 3, textTransform: 'uppercase' },
+  text: { fontSize: 11, lineHeight: 1.7, textAlign: 'justify', color: '#333' },
+  pageNumber: { position: 'absolute', bottom: 30, left: 0, right: 0, fontSize: 9, textAlign: 'center', color: '#999' },
+});
+
+const HR = () => <View style={{ borderBottomWidth: 1, borderBottomColor: '#8B4513', width: 60, marginVertical: 16 }} />;
+
+const MyDoc = () => (
+  <Document title="Report" author="Bhatti Agri-tech" pageMode="useOutlines" pageLayout="singlePage">
+    <Page size="A4" style={styles.body} wrap>
+      <Text style={styles.header} fixed>Report Header</Text>
+      <HR />
+      <Text style={styles.text}>Body content...</Text>
+      <Text
+        style={styles.pageNumber}
+        render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+        fixed
+      />
+    </Page>
+  </Document>
+);
+```
+
+## 11) Guardrails (do/don't)
+
+Do:
+- Keep PDF component code isolated in `pdf` modules.
+- Keep style constants and helpers close to the template file.
+- Validate long-text behavior with wrapping and page breaks.
+- Test in at least two PDF viewers for navigation/metadata behavior.
+
+Don't:
+- Don't use unsupported CSS properties expecting browser behavior.
+- Don't forget to register font variants you reference in styles.
+- Don't render very large browser PDFs on the main thread.
+- Don't assume all viewers honor `pageMode`, `pageLayout`, or bookmarks.
