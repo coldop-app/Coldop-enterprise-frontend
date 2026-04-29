@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
-export function SortableColumnRow({
+export const SortableColumnRow = React.memo(function SortableColumnRow({
   columnId,
   label,
   visible,
@@ -50,9 +50,9 @@ export function SortableColumnRow({
       />
     </div>
   );
-}
+});
 
-export function SortableGroupingRow({
+export const SortableGroupingRow = React.memo(function SortableGroupingRow({
   columnId,
   label,
   groupedIndex,
@@ -96,9 +96,9 @@ export function SortableGroupingRow({
       </button>
     </div>
   );
-}
+});
 
-export function GroupingDropZone({
+export const GroupingDropZone = React.memo(function GroupingDropZone({
   index,
   isActive,
 }: {
@@ -113,9 +113,9 @@ export function GroupingDropZone({
       aria-hidden
     />
   );
-}
+});
 
-export function EmptyState({
+export const EmptyState = React.memo(function EmptyState({
   icon,
   title,
   description,
@@ -131,9 +131,9 @@ export function EmptyState({
       <p className="text-muted-foreground/70 text-xs">{description}</p>
     </div>
   );
-}
+});
 
-export function SectionLabel({
+export const SectionLabel = React.memo(function SectionLabel({
   children,
   action,
 }: {
@@ -148,4 +148,4 @@ export function SectionLabel({
       {action}
     </div>
   );
-}
+});

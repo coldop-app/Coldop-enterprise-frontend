@@ -38,7 +38,7 @@ type LogicBuilderProps = {
   onRemoveNode: (nodeId: string) => void;
 };
 
-export function LogicBuilder({
+export const LogicBuilder = React.memo(function LogicBuilder({
   group,
   advancedFieldValueOptions,
   onSetGroupOperator,
@@ -211,4 +211,4 @@ export function LogicBuilder({
   }
 
   return renderGroup(group);
-}
+});

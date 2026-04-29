@@ -5,7 +5,6 @@ import {
   type ColumnResizeMode,
   type FilterFn,
   type GroupingState,
-  type Header,
   type Row,
   type SortingState,
   type VisibilityState,
@@ -212,6 +211,12 @@ const defaultColumnOrder: string[] = [
   'status',
   'remarks',
 ];
+const numericColumnIds = new Set([
+  'bagsReceived',
+  'grossWeightKg',
+  'tareWeightKg',
+  'netWeightKg',
+]);
 
 const multiValueFilterFn = (
   row: { getValue: (columnId: string) => unknown },
@@ -581,15 +586,7 @@ const IncomingReportTable = () => {
     return totals;
   }, [filteredRows]);
   const hasVisibleNumericTotals = React.useMemo(
-    () =>
-      visibleColumnIds.some((columnId) =>
-        [
-          'bagsReceived',
-          'grossWeightKg',
-          'tareWeightKg',
-          'netWeightKg',
-        ].includes(columnId)
-      ),
+    () => visibleColumnIds.some((columnId) => numericColumnIds.has(columnId)),
     [visibleColumnIds]
   );
 
@@ -780,16 +777,11 @@ const IncomingReportTable = () => {
                         style={{ display: 'flex', width: '100%' }}
                         className="hover:bg-transparent"
                       >
-                        {visibleColumnIds.map((columnId) => {
-                          const header = headerGroup.headers.find(
-                            (groupHeader) => groupHeader.id === columnId
-                          ) as Header<IncomingReportRow, unknown> | undefined;
-                          if (!header) return null;
-                          const isRightAligned =
-                            header.id === 'bagsReceived' ||
-                            header.id === 'grossWeightKg' ||
-                            header.id === 'tareWeightKg' ||
-                            header.id === 'netWeightKg';
+                        {headerGroup.headers.map((header) => {
+                          if (header.isPlaceholder) return null;
+                          const isRightAligned = numericColumnIds.has(
+                            header.id
+                          );
                           return (
                             <TableHead
                               key={header.id}
@@ -800,39 +792,33 @@ const IncomingReportTable = () => {
                               }}
                               className="font-custom border-border/50 text-foreground/75 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
                             >
-                              {header.isPlaceholder ? null : (
-                                <div
-                                  className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors ${
-                                    isRightAligned
-                                      ? 'justify-end'
-                                      : 'justify-between'
-                                  }`}
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <span className="truncate">
-                                    {flexRender(
-                                      header.column.columnDef.header,
-                                      header.getContext()
-                                    )}
-                                  </span>
-                                  <span
-                                    className={isRightAligned ? 'ml-2' : ''}
-                                  >
-                                    {{
-                                      asc: (
-                                        <ArrowUp className="ml-1 h-3.5 w-3.5" />
-                                      ),
-                                      desc: (
-                                        <ArrowDown className="ml-1 h-3.5 w-3.5" />
-                                      ),
-                                    }[
-                                      header.column.getIsSorted() as string
-                                    ] ?? (
-                                      <ArrowUpDown className="text-muted-foreground ml-1 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-                                    )}
-                                  </span>
-                                </div>
-                              )}
+                              <div
+                                className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors ${
+                                  isRightAligned
+                                    ? 'justify-end'
+                                    : 'justify-between'
+                                }`}
+                                onClick={header.column.getToggleSortingHandler()}
+                              >
+                                <span className="truncate">
+                                  {flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                                </span>
+                                <span className={isRightAligned ? 'ml-2' : ''}>
+                                  {{
+                                    asc: (
+                                      <ArrowUp className="ml-1 h-3.5 w-3.5" />
+                                    ),
+                                    desc: (
+                                      <ArrowDown className="ml-1 h-3.5 w-3.5" />
+                                    ),
+                                  }[header.column.getIsSorted() as string] ?? (
+                                    <ArrowUpDown className="text-muted-foreground ml-1 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                                  )}
+                                </span>
+                              </div>
                               <div
                                 onDoubleClick={() => header.column.resetSize()}
                                 onMouseDown={header.getResizeHandler()}
@@ -871,7 +857,6 @@ const IncomingReportTable = () => {
                       const row = rows[
                         virtualRow.index
                       ] as Row<IncomingReportRow>;
-                      const visibleCells = row.getVisibleCells();
                       return (
                         <TableRow
                           key={row.id}
@@ -889,12 +874,7 @@ const IncomingReportTable = () => {
                             width: '100%',
                           }}
                         >
-                          {visibleColumnIds.map((columnId) => {
-                            const cell = visibleCells.find(
-                              (visibleCell) =>
-                                visibleCell.column.id === columnId
-                            );
-                            if (!cell) return null;
+                          {row.getVisibleCells().map((cell) => {
                             const isGroupedCell = cell.getIsGrouped();
                             const isAggregatedCell = cell.getIsAggregated();
                             const isPlaceholderCell = cell.getIsPlaceholder();
@@ -991,12 +971,7 @@ const IncomingReportTable = () => {
                                         totalsByColumn.netPrecision
                                       )
                                     : '';
-                          const isRightAligned = [
-                            'bagsReceived',
-                            'grossWeightKg',
-                            'tareWeightKg',
-                            'netWeightKg',
-                          ].includes(columnId);
+                          const isRightAligned = numericColumnIds.has(columnId);
 
                           return (
                             <TableCell

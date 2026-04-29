@@ -7,7 +7,7 @@ import Footer from './Footer';
 
 const LandingPage = () => {
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen">
       <Navbar />
       <Hero data={heroData} />
       <HowItWorks

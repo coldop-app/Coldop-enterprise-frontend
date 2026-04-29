@@ -28,10 +28,10 @@ const Navbar = () => {
   return (
     <>
       {/* Mobile/Tablet Navbar */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between px-6 bg-background/80 backdrop-blur-md border-b border-border/50 shadow-sm lg:hidden">
+      <header className="bg-background/80 border-border/50 fixed top-0 right-0 left-0 z-50 flex h-16 items-center justify-between border-b px-6 shadow-sm backdrop-blur-md lg:hidden">
         <Link
           to="/"
-          className="flex items-center transition-transform duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+          className="focus-visible:ring-primary flex items-center rounded transition-transform duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           <img src="/coldop-logo.webp" alt="Coldop Logo" className="w-10" />
         </Link>
@@ -39,7 +39,7 @@ const Navbar = () => {
         <div className="flex items-center gap-3">
           <ModeToggle />
           <Sheet>
-            <SheetTrigger className="flex items-center p-2 rounded-lg hover:bg-accent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            <SheetTrigger className="hover:bg-accent focus-visible:ring-primary flex items-center rounded-lg p-2 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2">
               <Menu size={24} className="text-foreground" />
             </SheetTrigger>
             <SheetContent side="right" className="w-80">
@@ -52,7 +52,7 @@ const Navbar = () => {
                           <SheetClose asChild>
                             <Link
                               to={link.to}
-                              className="text-xl font-medium text-foreground hover:text-primary transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-2 py-1"
+                              className="text-foreground hover:text-primary focus-visible:ring-primary rounded px-2 py-1 text-xl font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                             >
                               {link.label}
                             </Link>
@@ -65,7 +65,7 @@ const Navbar = () => {
                             onClick={handleSignIn}
                             variant="default"
                             size="lg"
-                            className="font-custom px-8 py-3 text-xl cursor-pointer"
+                            className="font-custom cursor-pointer px-8 py-3 text-xl"
                           >
                             Sign In
                           </Button>
@@ -81,10 +81,10 @@ const Navbar = () => {
       </header>
 
       {/* Desktop Navbar */}
-      <header className="fixed top-0 left-0 right-0 z-50 hidden h-20 items-center justify-between px-16 bg-background/80 backdrop-blur-md border-b border-border/50 shadow-sm lg:flex">
+      <header className="bg-background/80 border-border/50 fixed top-0 right-0 left-0 z-50 hidden h-20 items-center justify-between border-b px-16 shadow-sm backdrop-blur-md lg:flex">
         <Link
           to="/"
-          className="flex items-center transition-transform duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+          className="focus-visible:ring-primary flex items-center rounded transition-transform duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           <img src="/coldop-logo.webp" alt="Coldop Logo" className="w-16" />
         </Link>
@@ -95,10 +95,10 @@ const Navbar = () => {
               <li key={link.to}>
                 <Link
                   to={link.to}
-                  className="font-custom text-xl font-medium text-foreground hover:text-primary transition-colors duration-200 relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-2 py-1"
+                  className="font-custom text-foreground hover:text-primary group focus-visible:ring-primary relative rounded px-2 py-1 text-xl font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 >
                   {link.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 ease-in-out group-hover:w-full group-focus-visible:w-full" />
+                  <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-200 ease-in-out group-hover:w-full group-focus-visible:w-full" />
                 </Link>
               </li>
             ))}

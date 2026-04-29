@@ -28,28 +28,28 @@ const DemoVideo = ({
   return (
     <section
       id="demo"
-      className="relative w-full overflow-hidden bg-gradient-to-b from-background via-secondary/30 to-background py-20 sm:py-32"
+      className="from-background via-secondary/30 to-background relative w-full overflow-hidden bg-gradient-to-b py-20 sm:py-32"
     >
       {/* Background decoration */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-50" />
+      <div className="from-primary/5 to-primary/5 absolute inset-0 bg-gradient-to-r via-transparent opacity-50" />
 
       <div className="relative mx-auto max-w-[75rem] px-8 sm:px-16 lg:px-24">
         {/* Header */}
         <div className="mb-16 text-center sm:mb-20">
-          <span className="font-custom mb-6 block text-base font-medium uppercase tracking-[0.075rem] text-foreground">
+          <span className="font-custom text-foreground mb-6 block text-base font-medium tracking-[0.075rem] uppercase">
             {eyebrow}
           </span>
-          <h2 className="font-custom mb-8 text-4xl font-bold tracking-tighter text-foreground md:text-5xl">
+          <h2 className="font-custom text-foreground mb-8 text-4xl font-bold tracking-tighter md:text-5xl">
             {title}
           </h2>
-          <p className="font-custom mx-auto max-w-[50rem] text-lg leading-[1.8] text-muted-foreground">
+          <p className="font-custom text-muted-foreground mx-auto max-w-[50rem] text-lg leading-[1.8]">
             {description}
           </p>
         </div>
 
         {/* Video */}
         <div className="mx-auto max-w-4xl">
-          <div className="overflow-hidden rounded-[11px] bg-card shadow-2xl">
+          <div className="bg-card overflow-hidden rounded-[11px] shadow-2xl">
             <div className="aspect-video">
               <iframe
                 src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
@@ -65,10 +65,10 @@ const DemoVideo = ({
 
           {/* Video details */}
           <div className="mt-12 text-center">
-            <h3 className="font-custom mb-4 text-2xl font-semibold text-foreground">
+            <h3 className="font-custom text-foreground mb-4 text-2xl font-semibold">
               {detailsTitle}
             </h3>
-            <p className="font-custom mx-auto max-w-2xl leading-relaxed text-muted-foreground">
+            <p className="font-custom text-muted-foreground mx-auto max-w-2xl leading-relaxed">
               {detailsDescription}
             </p>
           </div>

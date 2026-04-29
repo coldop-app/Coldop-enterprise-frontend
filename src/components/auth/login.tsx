@@ -46,9 +46,9 @@ const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
   });
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="mx-auto w-full max-w-md">
       <CardHeader>
-        <CardTitle className="font-custom text-2xl font-bold text-center">
+        <CardTitle className="font-custom text-center text-2xl font-bold">
           Login
         </CardTitle>
       </CardHeader>
@@ -125,7 +125,7 @@ const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded p-1"
+                        className="text-muted-foreground hover:text-foreground focus-visible:ring-primary absolute top-1/2 right-3 -translate-y-1/2 rounded p-1 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                         aria-label={
                           showPassword ? 'Hide password' : 'Show password'
                         }

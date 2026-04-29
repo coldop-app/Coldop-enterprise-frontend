@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2026-04-29
+
+### Added
+- Expanded incoming report filter interactions with optimized advanced-tab composition and memoized filter primitives for smoother sheet rendering.
+
+### Changed
+- Incoming report table header/body rendering was refined to rely on visible header and cell order directly, with shared numeric-column alignment logic for totals and sorting UI consistency.
+- Landing, auth, shared UI primitives, and supporting route components were polished as part of this release cycle to align behavior and presentation across the frontend.
+- Project version updated to `0.4.5` for this analytics and UI refinement release.
+
 ## [0.4.4] - 2026-04-29
 
 ### Added

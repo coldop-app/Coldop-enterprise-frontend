@@ -81,6 +81,130 @@ import {
 } from './primitives';
 import { LogicBuilder } from './logic-builder';
 
+const columnLabels: Record<string, string> = {
+  gatePassNo: 'System Generated Gate Pass No',
+  manualGatePassNumber: 'Manual Gate Pass No',
+  date: 'Date',
+  farmerName: 'Farmer',
+  variety: 'Variety',
+  bagsReceived: 'Bags',
+  netWeightKg: 'Net Weight (kg)',
+  status: 'Status',
+  location: 'Location',
+  truckNumber: 'Truck No.',
+  remarks: 'Remarks',
+};
+
+const getInitialValueFilterTouched = (): Record<
+  FilterableColumnId,
+  boolean
+> => ({
+  gatePassNo: false,
+  date: false,
+  farmerName: false,
+  variety: false,
+  bagsReceived: false,
+  netWeightKg: false,
+  location: false,
+  truckNumber: false,
+});
+
+type AdvancedTabContentProps = {
+  draftLogicFilter: FilterGroupNode;
+  advancedFieldValueOptions: Record<FilterField, string[]>;
+  onResetLogicBuilder: () => void;
+  onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
+  onAddConditionToGroup: (groupId: string) => void;
+  onAddNestedGroup: (groupId: string) => void;
+  onSetConditionField: (conditionId: string, field: FilterField) => void;
+  onSetConditionOperator: (
+    conditionId: string,
+    operator: FilterOperator
+  ) => void;
+  onSetConditionValue: (conditionId: string, value: string) => void;
+  onRemoveNode: (nodeId: string) => void;
+  onResetColumnResizing: () => void;
+  onResetColumnWidths: () => void;
+};
+
+const AdvancedTabContent = React.memo(function AdvancedTabContent({
+  draftLogicFilter,
+  advancedFieldValueOptions,
+  onResetLogicBuilder,
+  onSetGroupOperator,
+  onAddConditionToGroup,
+  onAddNestedGroup,
+  onSetConditionField,
+  onSetConditionOperator,
+  onSetConditionValue,
+  onRemoveNode,
+  onResetColumnResizing,
+  onResetColumnWidths,
+}: AdvancedTabContentProps) {
+  return (
+    <TabsContent value="advanced" className="m-0 focus-visible:ring-0">
+      <div className="space-y-6 p-5">
+        <div>
+          <SectionLabel
+            action={
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
+                onClick={onResetLogicBuilder}
+              >
+                <RotateCcw className="h-3 w-3" /> Reset
+              </button>
+            }
+          >
+            Logic Builder
+          </SectionLabel>
+          <p className="text-muted-foreground mb-3 text-xs">
+            Combine filters with AND / OR logic. E.g. status is Graded AND bags
+            &gt; 10.
+          </p>
+          <LogicBuilder
+            group={draftLogicFilter}
+            advancedFieldValueOptions={advancedFieldValueOptions}
+            onSetGroupOperator={onSetGroupOperator}
+            onAddConditionToGroup={onAddConditionToGroup}
+            onAddNestedGroup={onAddNestedGroup}
+            onSetConditionField={onSetConditionField}
+            onSetConditionOperator={onSetConditionOperator}
+            onSetConditionValue={onSetConditionValue}
+            onRemoveNode={onRemoveNode}
+          />
+        </div>
+
+        <div>
+          <SectionLabel
+            action={
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
+                onClick={onResetColumnResizing}
+              >
+                <RotateCcw className="h-3 w-3" /> Reset
+              </button>
+            }
+          >
+            Column Resizing
+          </SectionLabel>
+          <div className="bg-background space-y-3 rounded-lg border p-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 w-full text-xs"
+              onClick={onResetColumnWidths}
+            >
+              Reset all column widths
+            </Button>
+          </div>
+        </div>
+      </div>
+    </TabsContent>
+  );
+});
+
 export function ViewFiltersSheet({
   open,
   onOpenChange,
@@ -97,10 +221,14 @@ export function ViewFiltersSheet({
     Record<FilterableColumnId, boolean>
   >(getInitialExpandedFilters());
 
-  const hidableColumns = table
-    .getAllLeafColumns()
-    .filter((column) => column.getCanHide());
-  const hidableColumnIds = hidableColumns.map((column) => column.id);
+  const hidableColumns = React.useMemo(
+    () => table.getAllLeafColumns().filter((column) => column.getCanHide()),
+    [table]
+  );
+  const hidableColumnIds = React.useMemo(
+    () => hidableColumns.map((column) => column.id),
+    [hidableColumns]
+  );
 
   const [draftColumnVisibility, setDraftColumnVisibility] = React.useState<
     Record<string, boolean>
@@ -131,36 +259,13 @@ export function ViewFiltersSheet({
   >(getEmptyValueFilters());
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
     Record<FilterableColumnId, boolean>
-  >({
-    gatePassNo: false,
-    date: false,
-    farmerName: false,
-    variety: false,
-    bagsReceived: false,
-    netWeightKg: false,
-    location: false,
-    truckNumber: false,
-  });
+  >(getInitialValueFilterTouched());
 
   const sensors = useSensors(
     useSensor(MouseSensor),
     useSensor(TouchSensor),
     useSensor(KeyboardSensor)
   );
-  const columnLabels: Record<string, string> = {
-    gatePassNo: 'System Generated Gate Pass No',
-    manualGatePassNumber: 'Manual Gate Pass No',
-    date: 'Date',
-    farmerName: 'Farmer',
-    variety: 'Variety',
-    bagsReceived: 'Bags',
-    netWeightKg: 'Net Weight (kg)',
-    status: 'Status',
-    location: 'Location',
-    truckNumber: 'Truck No.',
-    remarks: 'Remarks',
-  };
-
   const coreRowCount = table.getCoreRowModel().rows.length;
 
   const getUniqueColumnValues = React.useCallback(
@@ -336,24 +441,18 @@ export function ViewFiltersSheet({
     table,
   ]);
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen);
-    if (!nextOpen) return;
-    syncDraftFromTable();
-    setValueFilterTouched({
-      gatePassNo: false,
-      date: false,
-      farmerName: false,
-      variety: false,
-      bagsReceived: false,
-      netWeightKg: false,
-      location: false,
-      truckNumber: false,
-    });
-    setActiveTab('filters');
-  };
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      onOpenChange(nextOpen);
+      if (!nextOpen) return;
+      syncDraftFromTable();
+      setValueFilterTouched(getInitialValueFilterTouched());
+      setActiveTab('filters');
+    },
+    [onOpenChange, syncDraftFromTable]
+  );
 
-  const handleResetAll = () => {
+  const handleResetAll = React.useCallback(() => {
     table.setColumnVisibility({});
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
@@ -365,19 +464,25 @@ export function ViewFiltersSheet({
     syncDraftFromTable();
     setSearchQueries(getInitialSearchQueries());
     setExpandedFilters(getInitialExpandedFilters());
-    setValueFilterTouched({
-      gatePassNo: false,
-      date: false,
-      farmerName: false,
-      variety: false,
-      bagsReceived: false,
-      netWeightKg: false,
-      location: false,
-      truckNumber: false,
-    });
-  };
+    setValueFilterTouched(getInitialValueFilterTouched());
+  }, [
+    defaultColumnOrder,
+    onColumnResizeDirectionChange,
+    onColumnResizeModeChange,
+    syncDraftFromTable,
+    table,
+  ]);
 
-  const handleApplyView = () => {
+  const getEffectiveDraftValues = React.useCallback(
+    (columnId: FilterableColumnId) => {
+      const selected = draftValueFilters[columnId];
+      if (valueFilterTouched[columnId] || selected.length > 0) return selected;
+      return availableFilterOptions[columnId];
+    },
+    [availableFilterOptions, draftValueFilters, valueFilterTouched]
+  );
+
+  const handleApplyView = React.useCallback(() => {
     table.setColumnVisibility(draftColumnVisibility);
     table.setColumnOrder(draftColumnOrder);
     table.setGrouping(draftGrouping);
@@ -405,7 +510,17 @@ export function ViewFiltersSheet({
       table.setGlobalFilter('');
     }
     onOpenChange(false);
-  };
+  }, [
+    availableFilterOptions,
+    draftColumnOrder,
+    draftColumnVisibility,
+    draftGrouping,
+    draftLogicFilter,
+    draftStatusFilters,
+    getEffectiveDraftValues,
+    onOpenChange,
+    table,
+  ]);
 
   const handleColumnDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -481,122 +596,155 @@ export function ViewFiltersSheet({
     });
   };
 
-  const toggleStatusDraft = (status: StatusFilterValue, checked: boolean) => {
-    setDraftStatusFilters((current) =>
-      checked
-        ? current.includes(status)
-          ? current
-          : [...current, status]
-        : current.filter((v) => v !== status)
-    );
-  };
+  const toggleStatusDraft = React.useCallback(
+    (status: StatusFilterValue, checked: boolean) => {
+      setDraftStatusFilters((current) =>
+        checked
+          ? current.includes(status)
+            ? current
+            : [...current, status]
+          : current.filter((v) => v !== status)
+      );
+    },
+    []
+  );
 
-  const toggleValueDraft = (
-    columnId: FilterableColumnId,
-    value: string,
-    checked: boolean
-  ) => {
-    setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
-    setDraftValueFilters((current) => {
-      const currentValues =
-        valueFilterTouched[columnId] || current[columnId].length > 0
-          ? current[columnId]
-          : availableFilterOptions[columnId];
-      if (checked) {
-        return currentValues.includes(value)
-          ? current
-          : { ...current, [columnId]: [...currentValues, value] };
-      }
-      return {
+  const toggleValueDraft = React.useCallback(
+    (columnId: FilterableColumnId, value: string, checked: boolean) => {
+      setDraftValueFilters((current) => {
+        const hasTouchedFilter = valueFilterTouched[columnId];
+        const currentValues =
+          hasTouchedFilter || current[columnId].length > 0
+            ? current[columnId]
+            : availableFilterOptions[columnId];
+        if (checked) {
+          return currentValues.includes(value)
+            ? current
+            : { ...current, [columnId]: [...currentValues, value] };
+        }
+        return {
+          ...current,
+          [columnId]: currentValues.filter((v) => v !== value),
+        };
+      });
+      setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
+    },
+    [availableFilterOptions, valueFilterTouched]
+  );
+
+  const handleToggleAllValues = React.useCallback(
+    (columnId: FilterableColumnId) => {
+      setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
+      const allValues = availableFilterOptions[columnId];
+      const areAllSelected =
+        allValues.length > 0 &&
+        getEffectiveDraftValues(columnId).length === allValues.length;
+      setDraftValueFilters((current) => ({
         ...current,
-        [columnId]: currentValues.filter((v) => v !== value),
-      };
-    });
-  };
+        [columnId]: areAllSelected ? [] : [...allValues],
+      }));
+    },
+    [availableFilterOptions, getEffectiveDraftValues]
+  );
 
-  const handleToggleAllValues = (columnId: FilterableColumnId) => {
-    setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
-    const allValues = availableFilterOptions[columnId];
-    const areAllSelected =
-      allValues.length > 0 &&
-      getEffectiveDraftValues(columnId).length === allValues.length;
-    setDraftValueFilters((current) => ({
-      ...current,
-      [columnId]: areAllSelected ? [] : [...allValues],
-    }));
-  };
+  const getFilteredOptionsForColumn = React.useCallback(
+    (columnId: FilterableColumnId) => {
+      const query = searchQueries[columnId].trim().toLowerCase();
+      const allValues = availableFilterOptions[columnId];
+      return query
+        ? allValues.filter((option) => option.toLowerCase().includes(query))
+        : allValues;
+    },
+    [availableFilterOptions, searchQueries]
+  );
 
-  const getFilteredOptionsForColumn = (columnId: FilterableColumnId) => {
-    const query = searchQueries[columnId].trim().toLowerCase();
-    const allValues = availableFilterOptions[columnId];
-    return query
-      ? allValues.filter((option) => option.toLowerCase().includes(query))
-      : allValues;
-  };
-  const getEffectiveDraftValues = (columnId: FilterableColumnId) => {
-    const selected = draftValueFilters[columnId];
-    if (valueFilterTouched[columnId] || selected.length > 0) return selected;
-    return availableFilterOptions[columnId];
-  };
-
-  const setGroupOperator = (groupId: string, operator: 'AND' | 'OR') =>
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, groupId, (node) =>
-        node.type === 'group' ? { ...node, operator } : node
-      )
-    );
-  const addConditionToGroup = (groupId: string) =>
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, groupId, (node) =>
-        node.type === 'group'
-          ? {
-              ...node,
-              conditions: [...node.conditions, createDefaultCondition()],
-            }
-          : node
-      )
-    );
-  const addNestedGroup = (groupId: string) =>
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, groupId, (node) =>
-        node.type === 'group'
-          ? {
-              ...node,
-              conditions: [...node.conditions, createDefaultFilterGroup()],
-            }
-          : node
-      )
-    );
-  const setConditionField = (conditionId: string, field: FilterField) =>
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, conditionId, (node) =>
-        node.type === 'condition'
-          ? {
-              ...node,
-              field,
-              operator: getDefaultOperatorForField(field),
-              value: '',
-            }
-          : node
-      )
-    );
-  const setConditionOperator = (
-    conditionId: string,
-    operator: FilterOperator
-  ) =>
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, conditionId, (node) =>
-        node.type === 'condition' ? { ...node, operator } : node
-      )
-    );
-  const setConditionValue = (conditionId: string, value: string) =>
-    setDraftLogicFilter((current) =>
-      mutateFilterNodeById(current, conditionId, (node) =>
-        node.type === 'condition' ? { ...node, value } : node
-      )
-    );
-  const removeNode = (nodeId: string) =>
-    setDraftLogicFilter((current) => removeFilterNodeById(current, nodeId));
+  const setGroupOperator = React.useCallback(
+    (groupId: string, operator: 'AND' | 'OR') =>
+      setDraftLogicFilter((current) =>
+        mutateFilterNodeById(current, groupId, (node) =>
+          node.type === 'group' ? { ...node, operator } : node
+        )
+      ),
+    []
+  );
+  const addConditionToGroup = React.useCallback(
+    (groupId: string) =>
+      setDraftLogicFilter((current) =>
+        mutateFilterNodeById(current, groupId, (node) =>
+          node.type === 'group'
+            ? {
+                ...node,
+                conditions: [...node.conditions, createDefaultCondition()],
+              }
+            : node
+        )
+      ),
+    []
+  );
+  const addNestedGroup = React.useCallback(
+    (groupId: string) =>
+      setDraftLogicFilter((current) =>
+        mutateFilterNodeById(current, groupId, (node) =>
+          node.type === 'group'
+            ? {
+                ...node,
+                conditions: [...node.conditions, createDefaultFilterGroup()],
+              }
+            : node
+        )
+      ),
+    []
+  );
+  const setConditionField = React.useCallback(
+    (conditionId: string, field: FilterField) =>
+      setDraftLogicFilter((current) =>
+        mutateFilterNodeById(current, conditionId, (node) =>
+          node.type === 'condition'
+            ? {
+                ...node,
+                field,
+                operator: getDefaultOperatorForField(field),
+                value: '',
+              }
+            : node
+        )
+      ),
+    []
+  );
+  const setConditionOperator = React.useCallback(
+    (conditionId: string, operator: FilterOperator) =>
+      setDraftLogicFilter((current) =>
+        mutateFilterNodeById(current, conditionId, (node) =>
+          node.type === 'condition' ? { ...node, operator } : node
+        )
+      ),
+    []
+  );
+  const setConditionValue = React.useCallback(
+    (conditionId: string, value: string) =>
+      setDraftLogicFilter((current) =>
+        mutateFilterNodeById(current, conditionId, (node) =>
+          node.type === 'condition' ? { ...node, value } : node
+        )
+      ),
+    []
+  );
+  const removeNode = React.useCallback(
+    (nodeId: string) =>
+      setDraftLogicFilter((current) => removeFilterNodeById(current, nodeId)),
+    []
+  );
+  const handleResetLogicBuilder = React.useCallback(() => {
+    setDraftLogicFilter(createDefaultFilterGroup());
+  }, []);
+  const handleResetColumnResizing = React.useCallback(() => {
+    onColumnResizeModeChange('onChange');
+    onColumnResizeDirectionChange('ltr');
+    table.resetColumnSizing();
+  }, [onColumnResizeDirectionChange, onColumnResizeModeChange, table]);
+  const handleResetColumnWidths = React.useCallback(() => {
+    table.resetColumnSizing();
+  }, [table]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -713,8 +861,10 @@ export function ViewFiltersSheet({
                     <SectionLabel>Column Filters</SectionLabel>
                     <div className="divide-border bg-background divide-y overflow-hidden rounded-lg border">
                       {filterableColumns.map(({ id, label }) => {
-                        const selectedCount =
-                          getEffectiveDraftValues(id).length;
+                        const effectiveDraftValues =
+                          getEffectiveDraftValues(id);
+                        const selectedValuesSet = new Set(effectiveDraftValues);
+                        const selectedCount = effectiveDraftValues.length;
                         const allValues = availableFilterOptions[id];
                         const filteredValues = getFilteredOptionsForColumn(id);
                         const isExpanded = expandedFilters[id];
@@ -786,9 +936,7 @@ export function ViewFiltersSheet({
                                         className="hover:bg-muted/50 flex cursor-pointer items-center gap-3 px-4 py-2"
                                       >
                                         <Checkbox
-                                          checked={getEffectiveDraftValues(
-                                            id
-                                          ).includes(value)}
+                                          checked={selectedValuesSet.has(value)}
                                           onCheckedChange={(checked) =>
                                             toggleValueDraft(
                                               id,
@@ -994,75 +1142,20 @@ export function ViewFiltersSheet({
                 </div>
               </TabsContent>
 
-              <TabsContent
-                value="advanced"
-                className="m-0 focus-visible:ring-0"
-              >
-                <div className="space-y-6 p-5">
-                  <div>
-                    <SectionLabel
-                      action={
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
-                          onClick={() =>
-                            setDraftLogicFilter(createDefaultFilterGroup())
-                          }
-                        >
-                          <RotateCcw className="h-3 w-3" /> Reset
-                        </button>
-                      }
-                    >
-                      Logic Builder
-                    </SectionLabel>
-                    <p className="text-muted-foreground mb-3 text-xs">
-                      Combine filters with AND / OR logic. E.g. status is Graded
-                      AND bags &gt; 10.
-                    </p>
-                    <LogicBuilder
-                      group={draftLogicFilter}
-                      advancedFieldValueOptions={advancedFieldValueOptions}
-                      onSetGroupOperator={setGroupOperator}
-                      onAddConditionToGroup={addConditionToGroup}
-                      onAddNestedGroup={addNestedGroup}
-                      onSetConditionField={setConditionField}
-                      onSetConditionOperator={setConditionOperator}
-                      onSetConditionValue={setConditionValue}
-                      onRemoveNode={removeNode}
-                    />
-                  </div>
-
-                  <div>
-                    <SectionLabel
-                      action={
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-medium"
-                          onClick={() => {
-                            onColumnResizeModeChange('onChange');
-                            onColumnResizeDirectionChange('ltr');
-                            table.resetColumnSizing();
-                          }}
-                        >
-                          <RotateCcw className="h-3 w-3" /> Reset
-                        </button>
-                      }
-                    >
-                      Column Resizing
-                    </SectionLabel>
-                    <div className="bg-background space-y-3 rounded-lg border p-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-8 w-full text-xs"
-                        onClick={() => table.resetColumnSizing()}
-                      >
-                        Reset all column widths
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
+              <AdvancedTabContent
+                draftLogicFilter={draftLogicFilter}
+                advancedFieldValueOptions={advancedFieldValueOptions}
+                onResetLogicBuilder={handleResetLogicBuilder}
+                onSetGroupOperator={setGroupOperator}
+                onAddConditionToGroup={addConditionToGroup}
+                onAddNestedGroup={addNestedGroup}
+                onSetConditionField={setConditionField}
+                onSetConditionOperator={setConditionOperator}
+                onSetConditionValue={setConditionValue}
+                onRemoveNode={removeNode}
+                onResetColumnResizing={handleResetColumnResizing}
+                onResetColumnWidths={handleResetColumnWidths}
+              />
             </div>
           </Tabs>
 
