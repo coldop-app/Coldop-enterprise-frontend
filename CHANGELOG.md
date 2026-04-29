@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.8] - 2026-04-29
+
+### Added
+- New ungraded analytics report route at `/store-admin/analytics/reports/ungraded/`, reusing the incoming report screen with enforced status filtering.
+
+### Changed
+- Overview "Ungraded" metric card now has a direct "Get Report" navigation action to open the dedicated ungraded report route.
+- Incoming report table now supports an `enforcedStatus` prop and applies normalized status filtering before table rendering.
+- Generated router route tree was refreshed to register and type the ungraded analytics report route.
+- Project version updated to `0.4.8` for this ungraded report navigation and filtering release.
+
 ## [0.4.7] - 2026-04-29
 
 ### Changed

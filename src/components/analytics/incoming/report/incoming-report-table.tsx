@@ -457,6 +457,14 @@ type IncomingPdfButtonProps = {
   buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
 };
 
+type IncomingReportTableProps = {
+  enforcedStatus?: string;
+};
+
+function normalizeStatusValue(value: string): string {
+  return value.trim().replace(/_/g, ' ').toUpperCase();
+}
+
 const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
   const objectUrlRef = React.useRef<string | null>(null);
   const workerRef = React.useRef<Worker | null>(null);
@@ -636,7 +644,7 @@ const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
   );
 };
 
-const IncomingReportTable = () => {
+const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
@@ -720,8 +728,18 @@ const IncomingReportTable = () => {
     [data]
   );
 
+  const filteredIncomingReportData = React.useMemo(() => {
+    if (!enforcedStatus) return incomingReportData;
+
+    const normalizedEnforcedStatus = normalizeStatusValue(enforcedStatus);
+    return incomingReportData.filter(
+      (row) =>
+        normalizeStatusValue(String(row.status)) === normalizedEnforcedStatus
+    );
+  }, [enforcedStatus, incomingReportData]);
+
   const table = useReactTable<IncomingReportRow>({
-    data: incomingReportData,
+    data: filteredIncomingReportData,
     columns,
     defaultColumn: {
       size: DEFAULT_COLUMN_SIZE,

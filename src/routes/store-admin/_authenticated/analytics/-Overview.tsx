@@ -336,6 +336,11 @@ const Overview = memo(function Overview() {
         value={formatNumber(normalized.totalUngradedBags)}
         description={`${formatWeight(normalized.totalUngradedWeight)} ungraded`}
         icon={<Boxes className="h-5 w-5" />}
+        onGetReportClick={() =>
+          void navigate({
+            to: '/store-admin/analytics/reports/ungraded',
+          })
+        }
       />
       <GradingCard
         initialQuantity={normalized.totalGradingBags.initialQuantity}
