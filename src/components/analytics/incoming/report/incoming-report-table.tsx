@@ -714,19 +714,21 @@ const IncomingReportTable = () => {
 
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
+  const sortedRows = table.getSortedRowModel().rows;
   const visibleColumns = table.getVisibleLeafColumns();
   const visibleColumnIds = React.useMemo(
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
   );
-  const pdfRows = rows.map((row) => row.original);
+  const pdfRows = sortedRows.map((row) => row.original);
   const preparedPdfReport = React.useMemo(
     () =>
       prepareIncomingReportPdf({
         rows: pdfRows,
         visibleColumnIds,
+        grouping,
       }),
-    [pdfRows, visibleColumnIds]
+    [grouping, pdfRows, visibleColumnIds]
   );
   const totalsByColumn = React.useMemo(() => {
     const totals = {

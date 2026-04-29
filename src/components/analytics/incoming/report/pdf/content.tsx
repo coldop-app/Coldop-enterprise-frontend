@@ -55,6 +55,19 @@ const s = StyleSheet.create({
     color: C.navy,
     fontFamily: 'Helvetica-Bold',
   },
+  sectionTitle: {
+    marginTop: 10,
+    marginBottom: 6,
+    color: C.navy,
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+  },
+  sectionBlock: {
+    marginBottom: 14,
+  },
+  sectionIntro: {
+    width: '100%',
+  },
   emptyState: {
     borderWidth: 0.6,
     borderColor: C.rule,
@@ -70,104 +83,130 @@ export function ReportContentTable({
 }: {
   report: PreparedIncomingReportPdf;
 }) {
+  const sections =
+    report.isGrouped && report.sections.length
+      ? report.sections
+      : [
+          {
+            id: 'all-records',
+            title: '',
+            rows: report.rows,
+            totals: report.totals,
+          },
+        ];
+  const hasRows = sections.some((section) => section.rows.length > 0);
   const totalWeight = report.columns.reduce(
     (sum, column) => sum + Number(column.weight || 1),
     0
   );
   const getCellWidth = (weight: number) => `${(weight / totalWeight) * 100}%`;
-  const hasRows = report.rows.length > 0;
+  // Keep title + column header together, and ensure there is room for at least
+  // one data row after the intro block. Otherwise this section starts on next page.
+  const minSectionPresenceAhead = 120;
 
   return (
     <View style={s.tableWrap}>
-      <View style={s.tableHeaderRow} fixed>
-        {report.columns.map((column, index) => (
-          <View
-            key={column.id}
-            style={[
-              s.tableCell,
-              { width: getCellWidth(column.weight) },
-              {
-                borderRightWidth: index === report.columns.length - 1 ? 0 : 0.6,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                s.tableHeaderText,
-                {
-                  textAlign: column.align,
-                },
-              ]}
-            >
-              {column.label}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {hasRows ? (
-        report.rows.map((row) => (
-          <View key={row.id} style={s.tableRow} wrap={false}>
-            {report.columns.map((column, index) => (
-              <View
-                key={`${row.id}-${column.id}`}
-                style={[
-                  s.tableCell,
-                  { width: getCellWidth(column.weight) },
-                  {
-                    borderRightWidth:
-                      index === report.columns.length - 1 ? 0 : 0.6,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    s.tableBodyText,
-                    {
-                      textAlign: column.align,
-                    },
-                  ]}
-                >
-                  {row.values[column.id]}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ))
-      ) : (
+      {!hasRows ? (
         <Text style={s.emptyState}>
           No records found for current table state.
         </Text>
-      )}
-
-      {hasRows ? (
-        <View style={s.tableRow} wrap={false}>
-          {report.columns.map((column, index) => (
+      ) : (
+        sections.map((section) => (
+          <View key={section.id} style={s.sectionBlock}>
             <View
-              key={`total-${column.id}`}
-              style={[
-                s.tableCell,
-                { width: getCellWidth(column.weight) },
-                {
-                  borderRightWidth:
-                    index === report.columns.length - 1 ? 0 : 0.6,
-                },
-              ]}
+              style={s.sectionIntro}
+              wrap={false}
+              minPresenceAhead={minSectionPresenceAhead}
             >
-              <Text
-                style={[
-                  s.tableTotalsText,
-                  {
-                    textAlign: column.align,
-                  },
-                ]}
-              >
-                {index === 0 ? 'TOTALS' : (report.totals[column.id] ?? '')}
-              </Text>
+              {section.title ? (
+                <Text style={s.sectionTitle}>{section.title}</Text>
+              ) : null}
+              <View style={s.tableHeaderRow}>
+                {report.columns.map((column, index) => (
+                  <View
+                    key={`${section.id}-${column.id}`}
+                    style={[
+                      s.tableCell,
+                      { width: getCellWidth(column.weight) },
+                      {
+                        borderRightWidth:
+                          index === report.columns.length - 1 ? 0 : 0.6,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.tableHeaderText,
+                        {
+                          textAlign: column.align,
+                        },
+                      ]}
+                    >
+                      {column.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          ))}
-        </View>
-      ) : null}
+
+            {section.rows.map((row) => (
+              <View key={row.id} style={s.tableRow} wrap={false}>
+                {report.columns.map((column, index) => (
+                  <View
+                    key={`${section.id}-${row.id}-${column.id}`}
+                    style={[
+                      s.tableCell,
+                      { width: getCellWidth(column.weight) },
+                      {
+                        borderRightWidth:
+                          index === report.columns.length - 1 ? 0 : 0.6,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.tableBodyText,
+                        {
+                          textAlign: column.align,
+                        },
+                      ]}
+                    >
+                      {row.values[column.id]}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            <View style={s.tableRow} wrap={false}>
+              {report.columns.map((column, index) => (
+                <View
+                  key={`${section.id}-total-${column.id}`}
+                  style={[
+                    s.tableCell,
+                    { width: getCellWidth(column.weight) },
+                    {
+                      borderRightWidth:
+                        index === report.columns.length - 1 ? 0 : 0.6,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      s.tableTotalsText,
+                      {
+                        textAlign: column.align,
+                      },
+                    ]}
+                  >
+                    {index === 0 ? 'TOTALS' : (section.totals[column.id] ?? '')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))
+      )}
     </View>
   );
 }

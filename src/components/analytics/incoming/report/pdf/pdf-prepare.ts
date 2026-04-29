@@ -20,6 +20,15 @@ export type PreparedIncomingReportPdf = {
   columns: PreparedPdfColumn[];
   rows: PreparedPdfRow[];
   totals: PreparedPdfTotals;
+  sections: PreparedIncomingReportSection[];
+  isGrouped: boolean;
+};
+
+export type PreparedIncomingReportSection = {
+  id: string;
+  title: string;
+  rows: PreparedPdfRow[];
+  totals: PreparedPdfTotals;
 };
 
 type ColumnConfig = {
@@ -150,8 +159,9 @@ const columnConfig: Record<string, ColumnConfig> = {
 export function prepareIncomingReportPdf(options: {
   rows: IncomingReportRow[];
   visibleColumnIds: string[];
+  grouping?: string[];
 }): PreparedIncomingReportPdf {
-  const { rows, visibleColumnIds } = options;
+  const { rows, visibleColumnIds, grouping = [] } = options;
 
   const columns = visibleColumnIds
     .map((id) => {
@@ -166,29 +176,120 @@ export function prepareIncomingReportPdf(options: {
     })
     .filter((column): column is PreparedPdfColumn => Boolean(column));
 
-  const preparedRows = rows.map((row) => {
-    const values: Record<string, string> = {};
-    for (const column of columns) {
-      const value = columnConfig[column.id]?.value(row) ?? '-';
-      values[column.id] = value || '-';
-    }
-    return {
-      id: row.id,
-      values,
-    };
-  });
+  const buildPreparedRows = (sourceRows: IncomingReportRow[]) =>
+    sourceRows.map((row) => {
+      const values: Record<string, string> = {};
+      for (const column of columns) {
+        const value = columnConfig[column.id]?.value(row) ?? '-';
+        values[column.id] = value || '-';
+      }
+      return {
+        id: row.id,
+        values,
+      };
+    });
 
-  const totals: PreparedPdfTotals = {};
-  for (const column of columns) {
-    const totalFn = columnConfig[column.id]?.total;
-    totals[column.id] = totalFn ? totalFn(rows) : '';
-  }
+  const buildTotals = (sourceRows: IncomingReportRow[]) => {
+    const nextTotals: PreparedPdfTotals = {};
+    for (const column of columns) {
+      const totalFn = columnConfig[column.id]?.total;
+      nextTotals[column.id] = totalFn ? totalFn(sourceRows) : '';
+    }
+    return nextTotals;
+  };
+
+  const preparedRows = buildPreparedRows(rows);
+  const totals = buildTotals(rows);
+  const sections = buildGroupedSections(
+    rows,
+    grouping,
+    columns,
+    buildPreparedRows,
+    buildTotals
+  );
 
   return {
     columns,
     rows: preparedRows,
     totals,
+    sections,
+    isGrouped: sections.length > 0,
   };
+}
+
+function buildGroupedSections(
+  rows: IncomingReportRow[],
+  grouping: string[],
+  columns: PreparedPdfColumn[],
+  buildPreparedRows: (rows: IncomingReportRow[]) => PreparedPdfRow[],
+  buildTotals: (rows: IncomingReportRow[]) => PreparedPdfTotals
+): PreparedIncomingReportSection[] {
+  if (!grouping.length || !rows.length) return [];
+
+  const sections: PreparedIncomingReportSection[] = [];
+
+  const walk = (
+    currentRows: IncomingReportRow[],
+    level: number,
+    labels: string[]
+  ) => {
+    const groupId = grouping[level];
+    if (!groupId) return;
+
+    const groupedRows = new Map<string, IncomingReportRow[]>();
+    for (const row of currentRows) {
+      const groupLabel = getGroupLabel(row, groupId, columns);
+      const list = groupedRows.get(groupLabel) ?? [];
+      list.push(row);
+      groupedRows.set(groupLabel, list);
+    }
+
+    for (const [groupLabel, childRows] of groupedRows) {
+      const nextLabels = [
+        ...labels,
+        `${getColumnLabel(groupId, columns)}: ${groupLabel}`,
+      ];
+      const isLeaf = level === grouping.length - 1;
+      if (isLeaf) {
+        sections.push({
+          id: `${groupId}-${nextLabels.join('|')}`,
+          title: nextLabels.join(' | '),
+          rows: buildPreparedRows(childRows),
+          totals: buildTotals(childRows),
+        });
+      } else {
+        walk(childRows, level + 1, nextLabels);
+      }
+    }
+  };
+
+  walk(rows, 0, []);
+  return sections;
+}
+
+function getColumnLabel(
+  columnId: string,
+  columns: PreparedPdfColumn[]
+): string {
+  return columns.find((column) => column.id === columnId)?.label ?? columnId;
+}
+
+function getGroupLabel(
+  row: IncomingReportRow,
+  groupId: string,
+  columns: PreparedPdfColumn[]
+): string {
+  const config = columnConfig[groupId];
+  if (config) {
+    const value = config.value(row);
+    return value || '-';
+  }
+
+  const rowAsRecord = row as unknown as Record<string, unknown>;
+  const fallback = rowAsRecord[groupId];
+  if (typeof fallback === 'number') return formatIndianNumber(fallback);
+  if (typeof fallback === 'string' && fallback.trim()) return fallback;
+  return getColumnLabel(groupId, columns);
 }
 
 function sumBy(
