@@ -25,6 +25,8 @@ import {
   ArrowUp,
   ArrowUpDown,
   RefreshCw,
+  Download,
+  SlidersHorizontal,
   Search,
 } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
@@ -628,6 +630,10 @@ const IncomingReportTable = () => {
     setAppliedToDate('');
   };
 
+  const handleExport = () => {
+    window.alert('Export functionality will be added soon.');
+  };
+
   return (
     <>
       <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -635,10 +641,11 @@ const IncomingReportTable = () => {
           <Item
             variant="outline"
             size="sm"
-            className="border-primary/20 from-card to-muted/20 rounded-2xl border bg-linear-to-r p-2 shadow-sm sm:p-3"
+            className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
-            <div className="flex w-full flex-wrap items-end gap-4 px-1 py-1">
-              <div className="min-w-max">
+            <div className="flex w-full flex-wrap items-end gap-3 lg:flex-nowrap">
+              {/* Date range */}
+              <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="analytics-from-date"
                   label="From"
@@ -646,9 +653,9 @@ const IncomingReportTable = () => {
                   value={fromDate}
                   onChange={setFromDate}
                 />
-              </div>
-
-              <div className="min-w-max">
+                <span className="text-muted-foreground mb-2 self-end text-sm">
+                  →
+                </span>
                 <DatePicker
                   id="analytics-to-date"
                   label="To"
@@ -658,48 +665,69 @@ const IncomingReportTable = () => {
                 />
               </div>
 
-              <Button
-                className="font-custom rounded-lg px-5 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md"
-                disabled={!canApply}
-                onClick={handleApply}
-              >
-                Apply
-              </Button>
-              <Button
-                variant="secondary"
-                className="font-custom border-border/70 bg-background/80 text-foreground hover:bg-secondary rounded-lg border px-5 transition-colors duration-200 ease-in-out"
-                onClick={handleResetFilters}
-              >
-                Reset
-              </Button>
-              <div className="ml-auto flex items-center gap-2">
-                <div className="relative w-60">
-                  <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2 h-4 w-4" />
-                  <Input
-                    value={typeof globalFilter === 'string' ? globalFilter : ''}
-                    onChange={(event) => setGlobalFilter(event.target.value)}
-                    placeholder="Search manual gate pass..."
-                    className="font-custom h-9 pl-8"
-                  />
-                </div>
+              {/* Divider */}
+              <div className="bg-border/40 hidden h-7 w-px lg:block" />
+
+              {/* Apply / Reset */}
+              <div className="flex items-center gap-2 self-end">
                 <Button
-                  variant="default"
-                  className="font-custom bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-5"
-                  onClick={() => setIsViewFiltersOpen(true)}
+                  className="h-8 rounded-lg px-4 text-sm shadow-none"
+                  disabled={!canApply}
+                  onClick={handleApply}
                 >
-                  View Filters
+                  Apply
                 </Button>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="font-custom gap-2 rounded-lg"
+                  className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
+                  onClick={handleResetFilters}
+                >
+                  Reset
+                </Button>
+              </div>
+
+              {/* Divider */}
+              <div className="bg-border/40 hidden h-7 w-px lg:block" />
+
+              {/* Search */}
+              <div className="relative min-w-[160px] flex-1 self-end lg:max-w-[220px]">
+                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
+                <Input
+                  value={typeof globalFilter === 'string' ? globalFilter : ''}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  placeholder="Search manual gate pass…"
+                  className="h-8 pl-8 text-sm"
+                />
+              </div>
+
+              {/* Right actions */}
+              <div className="ml-auto flex items-center gap-1 self-end">
+                <Button
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/5 h-8 rounded-lg px-4 text-sm leading-none"
+                  onClick={() => setIsViewFiltersOpen(true)}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  View Filters
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-muted-foreground h-8 rounded-lg px-4 text-sm leading-none"
+                  onClick={handleExport}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-muted-foreground h-8 rounded-lg px-4 text-sm leading-none"
                   disabled={isFetching}
                   onClick={() => refetch()}
                 >
                   <RefreshCw
-                    className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+                    className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
                   />
-                  <span className="hidden sm:inline">Refresh</span>
+                  Refresh
                 </Button>
               </div>
             </div>
