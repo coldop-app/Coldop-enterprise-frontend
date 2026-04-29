@@ -25,10 +25,11 @@ import {
   ArrowUp,
   ArrowUpDown,
   RefreshCw,
-  Download,
+  FileText,
   SlidersHorizontal,
   Search,
 } from 'lucide-react';
+import { pdf, type DocumentProps } from '@react-pdf/renderer';
 import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,8 @@ import {
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
 import type { IncomingReportRow } from './columns';
+import { InwardLedgerReportDocument } from './pdf/incoming-report-table-pdf';
+import { prepareIncomingReportPdf } from './pdf/pdf-prepare';
 
 function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   if (
@@ -436,6 +439,160 @@ const columns = [
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
 
+type IncomingPdfButtonProps = {
+  buildDocument: () => React.ReactElement<DocumentProps>;
+  onRegenerate: () => void;
+};
+
+const IncomingPdfButton = ({
+  buildDocument,
+  onRegenerate,
+}: IncomingPdfButtonProps) => {
+  const objectUrlRef = React.useRef<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
+
+  React.useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+    };
+  }, []);
+
+  const handleGenerate = async () => {
+    if (isGeneratingPdf) return;
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      window.alert(
+        'Popup blocked by your browser. Please allow popups and try again.'
+      );
+      return;
+    }
+    previewTab.opener = null;
+    previewTab.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Generating PDF...</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      .wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .spinner {
+        width: 24px;
+        height: 24px;
+        border-radius: 9999px;
+        border: 3px solid #d1d5db;
+        border-top-color: #16a34a;
+        animation: spin 0.8s linear infinite;
+      }
+      .label {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="spinner"></div>
+      <div class="label">Generating PDF...</div>
+    </div>
+  </body>
+</html>`);
+    previewTab.document.close();
+
+    setIsGeneratingPdf(true);
+    onRegenerate();
+
+    try {
+      const document = buildDocument();
+      const blob = await pdf(document).toBlob();
+      const nextUrl = URL.createObjectURL(blob);
+
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = nextUrl;
+
+      if (!previewTab.closed) {
+        previewTab.location.replace(nextUrl);
+      } else {
+        window.open(nextUrl, '_blank');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      if (!previewTab.closed) {
+        previewTab.document.open();
+        previewTab.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PDF generation failed</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #fff7ed;
+        color: #7c2d12;
+      }
+      .wrap { max-width: 680px; padding: 20px; text-align: center; }
+      .title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+      .msg { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="title">Failed to generate PDF</div>
+      <div class="msg">${message}</div>
+    </div>
+  </body>
+</html>`);
+        previewTab.document.close();
+      }
+      window.alert(`Failed to generate PDF: ${message}`);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleClick = () => void handleGenerate();
+
+  return (
+    <Button
+      variant="default"
+      className="h-8 rounded-lg px-4 text-sm leading-none"
+      disabled={isGeneratingPdf}
+      onClick={handleClick}
+    >
+      {isGeneratingPdf ? (
+        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <FileText className="h-3.5 w-3.5" />
+      )}
+      {isGeneratingPdf ? 'Generating...' : 'Pdf'}
+    </Button>
+  );
+};
+
 const IncomingReportTable = () => {
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
@@ -463,6 +620,9 @@ const IncomingReportTable = () => {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
+  const [pdfGeneratedAt, setPdfGeneratedAt] = React.useState(() =>
+    new Date().toLocaleString('en-IN')
+  );
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
   const hasDateFilters = Boolean(fromDate && toDate);
@@ -559,6 +719,15 @@ const IncomingReportTable = () => {
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
   );
+  const pdfRows = rows.map((row) => row.original);
+  const preparedPdfReport = React.useMemo(
+    () =>
+      prepareIncomingReportPdf({
+        rows: pdfRows,
+        visibleColumnIds,
+      }),
+    [pdfRows, visibleColumnIds]
+  );
   const totalsByColumn = React.useMemo(() => {
     const totals = {
       bagsReceived: 0,
@@ -630,9 +799,19 @@ const IncomingReportTable = () => {
     setAppliedToDate('');
   };
 
-  const handleExport = () => {
-    window.alert('Export functionality will be added soon.');
+  const handleRegeneratePdf = () => {
+    setPdfGeneratedAt(new Date().toLocaleString('en-IN'));
   };
+
+  const pdfDocument = React.useMemo(
+    () => (
+      <InwardLedgerReportDocument
+        generatedAt={pdfGeneratedAt}
+        report={preparedPdfReport}
+      />
+    ),
+    [pdfGeneratedAt, preparedPdfReport]
+  );
 
   return (
     <>
@@ -689,19 +868,17 @@ const IncomingReportTable = () => {
               {/* Divider */}
               <div className="bg-border/40 hidden h-7 w-px lg:block" />
 
-              {/* Search */}
-              <div className="relative min-w-[160px] flex-1 self-end lg:max-w-[220px]">
-                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
-                <Input
-                  value={typeof globalFilter === 'string' ? globalFilter : ''}
-                  onChange={(e) => setGlobalFilter(e.target.value)}
-                  placeholder="Search manual gate pass…"
-                  className="h-8 pl-8 text-sm"
-                />
-              </div>
-
-              {/* Right actions */}
-              <div className="ml-auto flex items-center gap-1 self-end">
+              {/* Search + Right actions */}
+              <div className="ml-auto flex items-center gap-2 self-end">
+                <div className="relative min-w-[160px] lg:w-[220px]">
+                  <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
+                  <Input
+                    value={typeof globalFilter === 'string' ? globalFilter : ''}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    placeholder="Search manual gate pass…"
+                    className="h-8 pl-8 text-sm"
+                  />
+                </div>
                 <Button
                   variant="outline"
                   className="border-primary text-primary hover:bg-primary/5 h-8 rounded-lg px-4 text-sm leading-none"
@@ -710,24 +887,20 @@ const IncomingReportTable = () => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
+                <IncomingPdfButton
+                  buildDocument={() => pdfDocument}
+                  onRegenerate={handleRegeneratePdf}
+                />
                 <Button
                   variant="ghost"
-                  className="text-muted-foreground h-8 rounded-lg px-4 text-sm leading-none"
-                  onClick={handleExport}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="text-muted-foreground h-8 rounded-lg px-4 text-sm leading-none"
+                  className="text-muted-foreground h-8 rounded-lg px-2 leading-none"
                   disabled={isFetching}
                   onClick={() => refetch()}
+                  aria-label="Refresh"
                 >
                   <RefreshCw
                     className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
                   />
-                  Refresh
                 </Button>
               </div>
             </div>
