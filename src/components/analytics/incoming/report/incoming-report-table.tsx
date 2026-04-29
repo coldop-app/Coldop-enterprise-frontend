@@ -411,7 +411,11 @@ const columns = [
       return (
         <Badge
           variant={isGraded ? 'default' : 'secondary'}
-          className="font-custom rounded-sm text-xs uppercase"
+          className={`font-custom rounded-md border px-2 py-0.5 text-[11px] tracking-wide uppercase ${
+            isGraded
+              ? 'border-primary/40 bg-primary/15 text-primary'
+              : 'border-muted-foreground/20 bg-muted text-muted-foreground'
+          }`}
         >
           {String(value).replace('_', ' ')}
         </Badge>
@@ -626,12 +630,12 @@ const IncomingReportTable = () => {
 
   return (
     <>
-      <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
+      <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
         <div className="space-y-4">
           <Item
             variant="outline"
             size="sm"
-            className="border-border/70 rounded-2xl p-2 shadow-sm sm:p-3"
+            className="border-primary/20 from-card to-muted/20 rounded-2xl border bg-linear-to-r p-2 shadow-sm sm:p-3"
           >
             <div className="flex w-full flex-wrap items-end gap-4 px-1 py-1">
               <div className="min-w-max">
@@ -663,7 +667,7 @@ const IncomingReportTable = () => {
               </Button>
               <Button
                 variant="secondary"
-                className="font-custom border-border/70 bg-background/80 hover:bg-secondary rounded-lg border px-5 text-[#333] transition-colors duration-200 ease-in-out"
+                className="font-custom border-border/70 bg-background/80 text-foreground hover:bg-secondary rounded-lg border px-5 transition-colors duration-200 ease-in-out"
                 onClick={handleResetFilters}
               >
                 Reset
@@ -679,8 +683,8 @@ const IncomingReportTable = () => {
                   />
                 </div>
                 <Button
-                  variant="outline"
-                  className="font-custom rounded-lg px-5"
+                  variant="default"
+                  className="font-custom bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-5"
                   onClick={() => setIsViewFiltersOpen(true)}
                 >
                   View Filters
@@ -711,7 +715,7 @@ const IncomingReportTable = () => {
             )}
             <div
               ref={tableContainerRef}
-              className="subtle-scrollbar border-border/60 bg-background/95 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)]"
+              className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1"
               style={{
                 direction: table.options.columnResizeDirection,
                 height: '560px',
@@ -764,7 +768,7 @@ const IncomingReportTable = () => {
                   className="font-custom text-sm"
                 >
                   <TableHeader
-                    className="bg-background/95 border-border/60 border-b backdrop-blur-sm"
+                    className="bg-secondary border-border/60 text-secondary-foreground border-b backdrop-blur-sm"
                     style={{
                       display: 'grid',
                       position: 'sticky',
@@ -863,10 +867,10 @@ const IncomingReportTable = () => {
                           key={row.id}
                           data-index={virtualRow.index}
                           ref={(node) => rowVirtualizer.measureElement(node)}
-                          className={`border-border/50 hover:bg-muted/35 border-b transition-colors ${
+                          className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
                             virtualRow.index % 2 === 0
                               ? 'bg-background'
-                              : 'bg-muted/15'
+                              : 'bg-muted/25'
                           }`}
                           style={{
                             display: 'flex',
@@ -940,7 +944,7 @@ const IncomingReportTable = () => {
                   </TableBody>
                   {rows.length > 0 && hasVisibleNumericTotals ? (
                     <TableFooter
-                      className="bg-background/95 border-border/70 border-t backdrop-blur-sm"
+                      className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
                       style={{
                         display: 'grid',
                         position: 'sticky',
