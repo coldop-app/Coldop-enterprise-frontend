@@ -76,6 +76,17 @@ function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   return '-';
 }
 
+function getLeafRowsForPdf(
+  rows: Row<IncomingReportRow>[]
+): IncomingReportRow[] {
+  return rows.flatMap((row) => {
+    if (row.getIsGrouped()) {
+      return row.getLeafRows().map((leafRow) => leafRow.original);
+    }
+    return row.original;
+  });
+}
+
 function getFarmerId(gatePass: IncomingGatePassWithLink): string {
   if (
     gatePass.farmerStorageLinkId &&
@@ -720,7 +731,10 @@ const IncomingReportTable = () => {
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
   );
-  const pdfRows = sortedRows.map((row) => row.original);
+  const pdfRows = React.useMemo(
+    () => getLeafRowsForPdf(sortedRows),
+    [sortedRows]
+  );
   const preparedPdfReport = React.useMemo(
     () =>
       prepareIncomingReportPdf({
