@@ -466,6 +466,14 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
     };
   }, []);
 
+  const waitForNextFrame = React.useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      }),
+    []
+  );
+
   const handleGenerate = async () => {
     if (isGeneratingPdf) return;
 
@@ -526,6 +534,8 @@ const IncomingPdfButton = ({ buildDocument }: IncomingPdfButtonProps) => {
     setIsGeneratingPdf(true);
 
     try {
+      // Let the new tab paint the loading UI before heavy PDF generation starts.
+      await waitForNextFrame();
       const generatedAt = new Date().toLocaleString('en-IN');
       const document = buildDocument(generatedAt);
       const blob = await pdf(document).toBlob();
@@ -813,9 +823,10 @@ const IncomingReportTable = () => {
       <InwardLedgerReportDocument
         generatedAt={generatedAt}
         report={preparedPdfReport}
+        grouping={grouping}
       />
     ),
-    [preparedPdfReport]
+    [grouping, preparedPdfReport]
   );
 
   return (
@@ -1194,7 +1205,7 @@ const IncomingReportTable = () => {
                                 isRightAligned ? 'justify-end tabular-nums' : ''
                               }`}
                             >
-                              {columnIndex === 0 ? 'Totals' : cellValue}
+                              {columnIndex === 0 ? 'Total' : cellValue}
                             </TableCell>
                           );
                         })}

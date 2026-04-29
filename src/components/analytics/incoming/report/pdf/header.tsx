@@ -1,81 +1,86 @@
-import { StyleSheet, Text, View } from '@react-pdf/renderer';
+import { StyleSheet, Text, View, Image } from '@react-pdf/renderer';
 
 const C = {
   navy: '#0F2D1F',
-  accent: '#34B46A',
-  rule: '#CBD5E1',
+  primary: '#16A34A', // Your Shadcn theme primary green translated to Hex
+  rule: '#E2E8F0',
   muted: '#64748B',
 };
 
 const s = StyleSheet.create({
   runHeader: {
     position: 'absolute',
-    top: 18,
-    left: 16,
-    right: 16,
+    top: 24,
+    left: 32,
+    right: 32,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: C.rule,
   },
   runOrg: {
-    fontSize: 9,
+    fontSize: 8,
     color: C.muted,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   runPeriod: {
-    fontSize: 9,
+    fontSize: 8,
     color: C.muted,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   pageNum: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 32,
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontSize: 9,
+    fontSize: 8,
     color: C.muted,
+    letterSpacing: 1,
   },
   coverBlock: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 30,
-    paddingBottom: 24,
+    paddingHorizontal: 40,
+    paddingBottom: 60,
+  },
+  coverLogo: {
+    width: 90,
+    height: 'auto',
+    maxHeight: 80,
+    objectFit: 'contain',
+    marginBottom: 32,
   },
   coverLabel: {
-    fontSize: 10,
-    color: C.accent,
-    letterSpacing: 3,
+    fontSize: 9,
+    color: C.primary, // Applied the primary green here
+    letterSpacing: 4,
     textTransform: 'uppercase',
-    marginBottom: 10,
+    marginBottom: 16,
+    fontWeight: 'medium', // Gives it a slight punch to stand out
   },
   coverTitle: {
-    fontSize: 32,
-    fontFamily: 'Oswald',
+    fontSize: 28,
     color: C.navy,
-    letterSpacing: 1,
+    letterSpacing: 2,
     textTransform: 'uppercase',
     textAlign: 'center',
-  },
-  coverOrg: {
-    fontSize: 14,
-    color: C.muted,
-    fontStyle: 'italic',
-    marginTop: 6,
-  },
-  coverPeriod: {
-    fontSize: 11,
-    marginTop: 4,
-  },
-  coverMeta: {
-    fontSize: 10,
-    color: C.muted,
-    marginTop: 3,
+    lineHeight: 1.4,
   },
   coverRule: {
-    width: 60,
-    borderBottomWidth: 2,
-    borderBottomColor: C.accent,
-    marginVertical: 14,
+    width: 40,
+    borderBottomWidth: 1.5, // Slightly thickened to make the green pop
+    borderBottomColor: C.primary, // Applied the primary green here
+    marginVertical: 24,
+  },
+  coverMeta: {
+    fontSize: 9,
+    color: C.muted,
+    letterSpacing: 0.5,
   },
   hr: {
     borderBottomWidth: 0.5,
@@ -97,22 +102,45 @@ export function ReportPageNumber() {
     <Text
       style={s.pageNum}
       render={({ pageNumber, totalPages }) =>
-        `Page ${pageNumber} of ${totalPages}`
+        `PAGE ${pageNumber} OF ${totalPages}`
       }
       fixed
     />
   );
 }
 
-export function ReportCover({ generatedAt }: { generatedAt: string }) {
+const formatGroupingLabel = (groupId: string): string =>
+  groupId
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const buildCoverLabel = (grouping: string[]): string => {
+  if (!grouping.length) return 'Incoming Report';
+
+  const groupedBy = grouping.map(formatGroupingLabel).join(', ');
+  return `Incoming Report (Grouped by ${groupedBy})`;
+};
+
+export function ReportCover({
+  generatedAt,
+  grouping = [],
+}: {
+  generatedAt: string;
+  grouping?: string[];
+}) {
   return (
     <View style={s.coverBlock}>
-      <Text style={s.coverLabel}>Inward Ledger Report</Text>
+      <Image
+        src="https://res.cloudinary.com/dakh64xhy/image/upload/v1759410800/Bhatti-Agritech_gwqywg.jpg"
+        style={s.coverLogo}
+      />
+      <Text style={s.coverLabel}>{buildCoverLabel(grouping)}</Text>
       <Text style={s.coverTitle}>Jindal Ice{'\n'}And Cold Storage</Text>
       <View style={s.coverRule} />
-      <Text style={s.coverOrg}>Bhatti Agritech Pvt Ltd</Text>
-      <Text style={s.coverPeriod}>Operational Ledger Overview</Text>
-      <Text style={s.coverMeta}>Generated: {generatedAt}</Text>
+      <Text style={s.coverMeta}>GENERATED: {generatedAt.toUpperCase()}</Text>
     </View>
   );
 }

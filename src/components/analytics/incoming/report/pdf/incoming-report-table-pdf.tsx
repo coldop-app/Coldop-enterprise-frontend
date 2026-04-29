@@ -7,6 +7,7 @@ import {
   ReportRunHeader,
 } from './header';
 import type { PreparedIncomingReportPdf } from './pdf-prepare';
+import { ReportSummaryPage } from './summary';
 
 Font.register({
   family: 'Oswald',
@@ -26,19 +27,28 @@ const s = StyleSheet.create({
 type InwardLedgerReportDocumentProps = {
   generatedAt: string;
   report: PreparedIncomingReportPdf;
+  grouping?: string[];
 };
 
 export function InwardLedgerReportDocument({
   generatedAt,
   report,
+  grouping = [],
 }: InwardLedgerReportDocumentProps) {
   return (
-    <Document title="Inward Ledger Report" author="Bhatti Agritech Pvt Ltd">
+    <Document title="Incoming Report" author="Bhatti Agritech Pvt Ltd">
       <Page size="A4" orientation="landscape" style={s.page}>
         <ReportRunHeader />
         <ReportPageNumber />
-        <ReportCover generatedAt={generatedAt} />
+        <ReportCover generatedAt={generatedAt} grouping={grouping} />
         <ReportDivider mb={14} />
+      </Page>
+
+      <ReportSummaryPage summary={report.summary} />
+
+      <Page size="A4" orientation="landscape" style={s.page}>
+        <ReportRunHeader />
+        <ReportPageNumber />
         <ReportContentTable report={report} />
       </Page>
     </Document>

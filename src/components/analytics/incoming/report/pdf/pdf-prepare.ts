@@ -21,6 +21,7 @@ export type PreparedIncomingReportPdf = {
   rows: PreparedPdfRow[];
   totals: PreparedPdfTotals;
   sections: PreparedIncomingReportSection[];
+  summary: PreparedIncomingReportSummary;
   isGrouped: boolean;
 };
 
@@ -29,6 +30,28 @@ export type PreparedIncomingReportSection = {
   title: string;
   rows: PreparedPdfRow[];
   totals: PreparedPdfTotals;
+};
+
+type PreparedSummaryTotals = {
+  count: string;
+  bags: string;
+  gross: string;
+  tare: string;
+  net: string;
+};
+
+type PreparedVarietySummaryRow = PreparedSummaryTotals & {
+  variety: string;
+};
+
+type PreparedFarmerSummaryRow = PreparedSummaryTotals & {
+  farmerName: string;
+};
+
+export type PreparedIncomingReportSummary = {
+  byVariety: PreparedVarietySummaryRow[];
+  byFarmer: PreparedFarmerSummaryRow[];
+  overall: PreparedSummaryTotals;
 };
 
 type ColumnConfig = {
@@ -195,7 +218,35 @@ export function prepareIncomingReportPdf(options: {
 
   const buildTotals = (sourceRows: IncomingReportRow[]) => {
     const nextTotals: PreparedPdfTotals = {};
+    const aggregates = aggregateTotals(sourceRows);
+
     for (const { column, config } of resolvedColumnConfigs) {
+      if (column.id === 'bagsReceived') {
+        nextTotals[column.id] = formatIndianNumber(aggregates.bagsReceived, 0);
+        continue;
+      }
+      if (column.id === 'grossWeightKg') {
+        nextTotals[column.id] = formatIndianNumber(
+          aggregates.grossWeightKg,
+          aggregates.grossPrecision
+        );
+        continue;
+      }
+      if (column.id === 'tareWeightKg') {
+        nextTotals[column.id] = formatIndianNumber(
+          aggregates.tareWeightKg,
+          aggregates.tarePrecision
+        );
+        continue;
+      }
+      if (column.id === 'netWeightKg') {
+        nextTotals[column.id] = formatIndianNumber(
+          aggregates.netWeightKg,
+          aggregates.netPrecision
+        );
+        continue;
+      }
+
       const totalFn = config?.total;
       nextTotals[column.id] = totalFn ? totalFn(sourceRows) : '';
     }
@@ -211,13 +262,134 @@ export function prepareIncomingReportPdf(options: {
     buildPreparedRows,
     buildTotals
   );
+  const summary = buildSummary(rows);
 
   return {
     columns,
     rows: preparedRows,
     totals,
     sections,
+    summary,
     isGrouped: sections.length > 0,
+  };
+}
+
+type SummaryAccumulator = {
+  count: number;
+  bagsReceived: number;
+  grossWeightKg: number;
+  tareWeightKg: number;
+  netWeightKg: number;
+  grossPrecision: number;
+  tarePrecision: number;
+  netPrecision: number;
+};
+
+function createSummaryAccumulator(): SummaryAccumulator {
+  return {
+    count: 0,
+    bagsReceived: 0,
+    grossWeightKg: 0,
+    tareWeightKg: 0,
+    netWeightKg: 0,
+    grossPrecision: 0,
+    tarePrecision: 0,
+    netPrecision: 0,
+  };
+}
+
+function addRowToSummary(
+  accumulator: SummaryAccumulator,
+  row: IncomingReportRow
+): void {
+  accumulator.count += 1;
+  accumulator.bagsReceived += Number(row.bagsReceived || 0);
+  accumulator.grossWeightKg += Number(row.grossWeightKg || 0);
+  accumulator.tareWeightKg += Number(row.tareWeightKg || 0);
+  accumulator.netWeightKg += Number(row.netWeightKg || 0);
+  accumulator.grossPrecision = Math.max(
+    accumulator.grossPrecision,
+    getDecimalPlaces(Number(row.grossWeightKg || 0))
+  );
+  accumulator.tarePrecision = Math.max(
+    accumulator.tarePrecision,
+    getDecimalPlaces(Number(row.tareWeightKg || 0))
+  );
+  accumulator.netPrecision = Math.max(
+    accumulator.netPrecision,
+    Number(row.netWeightPrecision || 0)
+  );
+}
+
+function formatSummaryTotals(
+  totals: SummaryAccumulator
+): PreparedSummaryTotals {
+  return {
+    count: formatIndianNumber(totals.count, 0),
+    bags: formatIndianNumber(totals.bagsReceived, 0),
+    gross: formatIndianNumber(totals.grossWeightKg, totals.grossPrecision),
+    tare: formatIndianNumber(totals.tareWeightKg, totals.tarePrecision),
+    net: formatIndianNumber(totals.netWeightKg, totals.netPrecision),
+  };
+}
+
+function normalizeSummaryKey(value: string | null | undefined): string {
+  const normalized = String(value || '').trim();
+  return normalized || '-';
+}
+
+function compareLabels(a: string, b: string): number {
+  if (a === '-') return 1;
+  if (b === '-') return -1;
+  return farmerLabelCollator.compare(a, b);
+}
+
+const farmerLabelCollator = new Intl.Collator('en-IN', {
+  sensitivity: 'base',
+  ignorePunctuation: true,
+});
+
+function buildSummary(
+  rows: IncomingReportRow[]
+): PreparedIncomingReportSummary {
+  const overall = createSummaryAccumulator();
+  const byVarietyMap = new Map<string, SummaryAccumulator>();
+  const byFarmerMap = new Map<string, SummaryAccumulator>();
+
+  for (const row of rows) {
+    addRowToSummary(overall, row);
+
+    const variety = normalizeSummaryKey(row.variety);
+    const varietyTotals =
+      byVarietyMap.get(variety) ?? createSummaryAccumulator();
+    addRowToSummary(varietyTotals, row);
+    byVarietyMap.set(variety, varietyTotals);
+
+    const farmerName = normalizeSummaryKey(row.farmerName);
+    const farmerTotals =
+      byFarmerMap.get(farmerName) ?? createSummaryAccumulator();
+    addRowToSummary(farmerTotals, row);
+    byFarmerMap.set(farmerName, farmerTotals);
+  }
+
+  const byVariety = Array.from(byVarietyMap.entries())
+    .sort(([left], [right]) => compareLabels(left, right))
+    .map(([variety, totals]) => ({
+      variety,
+      ...formatSummaryTotals(totals),
+    }));
+
+  const byFarmer = Array.from(byFarmerMap.entries())
+    .sort(([left], [right]) => compareLabels(left, right))
+    .map(([farmerName, totals]) => ({
+      farmerName,
+      ...formatSummaryTotals(totals),
+    }));
+
+  return {
+    byVariety,
+    byFarmer,
+    overall: formatSummaryTotals(overall),
   };
 }
 
@@ -331,9 +503,63 @@ function getDecimalPlaces(value: number): number {
   return baseDecimals + Math.abs(exponent);
 }
 
+type AggregatedTotals = {
+  bagsReceived: number;
+  grossWeightKg: number;
+  tareWeightKg: number;
+  netWeightKg: number;
+  grossPrecision: number;
+  tarePrecision: number;
+  netPrecision: number;
+};
+
+function aggregateTotals(rows: IncomingReportRow[]): AggregatedTotals {
+  const totals: AggregatedTotals = {
+    bagsReceived: 0,
+    grossWeightKg: 0,
+    tareWeightKg: 0,
+    netWeightKg: 0,
+    grossPrecision: 0,
+    tarePrecision: 0,
+    netPrecision: 0,
+  };
+
+  for (const row of rows) {
+    totals.bagsReceived += Number(row.bagsReceived || 0);
+    totals.grossWeightKg += Number(row.grossWeightKg || 0);
+    totals.tareWeightKg += Number(row.tareWeightKg || 0);
+    totals.netWeightKg += Number(row.netWeightKg || 0);
+
+    totals.grossPrecision = Math.max(
+      totals.grossPrecision,
+      getDecimalPlaces(Number(row.grossWeightKg || 0))
+    );
+    totals.tarePrecision = Math.max(
+      totals.tarePrecision,
+      getDecimalPlaces(Number(row.tareWeightKg || 0))
+    );
+    totals.netPrecision = Math.max(
+      totals.netPrecision,
+      Number(row.netWeightPrecision || 0)
+    );
+  }
+
+  return totals;
+}
+
+const formatterCache = new Map<number, Intl.NumberFormat>();
+
 function formatIndianNumber(value: number, precision = 0): string {
-  return Number(value || 0).toLocaleString('en-IN', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
+  const safePrecision = Math.max(0, Number(precision || 0));
+  let formatter = formatterCache.get(safePrecision);
+
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: safePrecision,
+      maximumFractionDigits: safePrecision,
+    });
+    formatterCache.set(safePrecision, formatter);
+  }
+
+  return formatter.format(Number(value || 0));
 }

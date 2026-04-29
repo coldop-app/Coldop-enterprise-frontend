@@ -4,78 +4,93 @@ import type { PreparedIncomingReportPdf } from './pdf-prepare';
 
 const C = {
   navy: '#0F2D1F',
-  rule: '#CBD5E1',
-  muted: '#64748B',
+  primary: '#16A34A', // Shadcn Green
+  textStrong: '#1E293B', // slate-800 for maximum readability
+  muted: '#475569', // slate-600 for headers
+  headerBg: '#F1F5F9', // slate-100 for solid header anchor
+  rowAlt: '#F8FAFC', // slate-50 for zebra striping
+  border: '#E2E8F0', // slate-200
 };
 
 const s = StyleSheet.create({
   tableWrap: {
-    marginTop: 12,
+    marginTop: 14,
     width: '100%',
   },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    width: '100%',
-    borderTopWidth: 0.6,
-    borderLeftWidth: 0.6,
-    borderRightWidth: 0.6,
-    borderTopColor: C.rule,
-    borderLeftColor: C.rule,
-    borderRightColor: C.rule,
-    backgroundColor: '#F8FAFC',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    width: '100%',
-    borderLeftWidth: 0.6,
-    borderRightWidth: 0.6,
-    borderBottomWidth: 0.6,
-    borderLeftColor: C.rule,
-    borderRightColor: C.rule,
-    borderBottomColor: C.rule,
-  },
-  tableCell: {
-    fontSize: 9,
-    paddingVertical: 6.5,
-    paddingHorizontal: 4,
-    borderRightWidth: 0.6,
-    borderRightColor: C.rule,
-    justifyContent: 'center',
-  },
-  tableHeaderText: {
-    color: C.navy,
-    fontSize: 9,
-    textTransform: 'uppercase',
-  },
-  tableBodyText: {
-    fontSize: 9.1,
-    color: '#0B1220',
-  },
-  tableTotalsText: {
-    fontSize: 9.1,
-    color: C.navy,
-    fontFamily: 'Helvetica-Bold',
-  },
-  sectionTitle: {
-    marginTop: 10,
-    marginBottom: 6,
-    color: C.navy,
-    fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
+  nonGroupedBodyWrap: {
+    marginTop: 28,
   },
   sectionBlock: {
-    marginBottom: 14,
+    marginBottom: 24,
   },
   sectionIntro: {
     width: '100%',
   },
-  emptyState: {
-    borderWidth: 0.6,
-    borderColor: C.rule,
-    paddingVertical: 16,
-    textAlign: 'center',
+  sectionTitle: {
+    fontSize: 10,
+    color: C.primary,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    fontFamily: 'Helvetica-Bold',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    width: '100%',
+    backgroundColor: C.headerBg, // Solid background instead of just lines
+    paddingVertical: 6,
+    borderTopWidth: 2, // Strong top border in primary green to anchor the table
+    borderTopColor: C.primary,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  // Alternating row backgrounds for scannability
+  rowEven: {
+    backgroundColor: '#FFFFFF',
+  },
+  rowOdd: {
+    backgroundColor: C.rowAlt,
+  },
+  tableTotalsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    borderTopWidth: 1.5,
+    borderTopColor: C.navy, // Hard visual stop for the totals
+    paddingTop: 7,
+    marginTop: 2,
+  },
+  tableCell: {
+    paddingVertical: 5,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+  },
+  tableHeaderText: {
     color: C.muted,
     fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  tableBodyText: {
+    fontSize: 10,
+    color: C.textStrong,
+  },
+  tableTotalsText: {
+    fontSize: 10,
+    color: C.navy,
+    fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase',
+  },
+  emptyState: {
+    backgroundColor: C.rowAlt,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 32,
+    textAlign: 'center',
+    color: C.muted,
+    fontSize: 10,
   },
 });
 
@@ -84,36 +99,34 @@ export function ReportContentTable({
 }: {
   report: PreparedIncomingReportPdf;
 }) {
-  const sections =
-    report.isGrouped && report.sections.length
-      ? report.sections
-      : [
-          {
-            id: 'all-records',
-            title: '',
-            rows: report.rows,
-            totals: report.totals,
-          },
-        ];
+  const isGroupedReport = report.isGrouped && report.sections.length > 0;
+  const sections = isGroupedReport
+    ? report.sections
+    : [
+        {
+          id: 'all-records',
+          title: '',
+          rows: report.rows,
+          totals: report.totals,
+        },
+      ];
+
   const hasRows = sections.some((section) => section.rows.length > 0);
+
   const totalWeight = report.columns.reduce(
     (sum, column) => sum + Number(column.weight || 1),
     0
   );
+
   const columnRenderMeta = React.useMemo(
     () =>
-      report.columns.map((column, index) => {
+      report.columns.map((column) => {
         const width = `${(Number(column.weight || 1) / totalWeight) * 100}%`;
-        const isLast = index === report.columns.length - 1;
         return {
           id: column.id,
           label: column.label,
           align: column.align,
-          cellStyle: [
-            s.tableCell,
-            { width },
-            { borderRightWidth: isLast ? 0 : 0.6 },
-          ],
+          cellStyle: [s.tableCell, { width }],
           headerTextStyle: [s.tableHeaderText, { textAlign: column.align }],
           bodyTextStyle: [s.tableBodyText, { textAlign: column.align }],
           totalsTextStyle: [s.tableTotalsText, { textAlign: column.align }],
@@ -121,8 +134,7 @@ export function ReportContentTable({
       }),
     [report.columns, totalWeight]
   );
-  // Keep title + column header together, and ensure there is room for at least
-  // one data row after the intro block. Otherwise this section starts on next page.
+
   const minSectionPresenceAhead = 120;
 
   return (
@@ -132,62 +144,97 @@ export function ReportContentTable({
           No records found for current table state.
         </Text>
       ) : (
-        sections.map((section) => (
-          <View key={section.id} style={s.sectionBlock}>
-            <View
-              style={s.sectionIntro}
-              wrap={false}
-              minPresenceAhead={minSectionPresenceAhead}
-            >
-              {section.title ? (
-                <Text style={s.sectionTitle}>{section.title}</Text>
-              ) : null}
-              <View style={s.tableHeaderRow}>
-                {columnRenderMeta.map((columnMeta) => (
-                  <View
-                    key={`${section.id}-${columnMeta.id}`}
-                    style={columnMeta.cellStyle}
-                  >
-                    <Text style={columnMeta.headerTextStyle}>
-                      {columnMeta.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {section.rows.map((row) => (
-              <View key={row.id} style={s.tableRow} wrap={false}>
-                {columnRenderMeta.map((columnMeta) => (
-                  <View
-                    key={`${section.id}-${row.id}-${columnMeta.id}`}
-                    style={columnMeta.cellStyle}
-                  >
-                    <Text style={columnMeta.bodyTextStyle}>
-                      {row.values[columnMeta.id]}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ))}
-
-            <View style={s.tableRow} wrap={false}>
-              {columnRenderMeta.map((columnMeta, index) => (
+        <>
+          {!isGroupedReport ? (
+            <View style={s.tableHeaderRow} fixed>
+              {columnRenderMeta.map((columnMeta) => (
                 <View
-                  key={`${section.id}-total-${columnMeta.id}`}
+                  key={`non-grouped-fixed-header-${columnMeta.id}`}
                   style={columnMeta.cellStyle}
                 >
-                  <Text style={columnMeta.totalsTextStyle}>
-                    {index === 0
-                      ? 'TOTALS'
-                      : (section.totals[columnMeta.id] ?? '')}
+                  <Text style={columnMeta.headerTextStyle}>
+                    {columnMeta.label}
                   </Text>
                 </View>
               ))}
             </View>
+          ) : null}
+
+          <View style={!isGroupedReport ? s.nonGroupedBodyWrap : undefined}>
+            {sections.map((section) => (
+              <View key={section.id} style={s.sectionBlock}>
+                <View
+                  style={s.sectionIntro}
+                  wrap={false}
+                  minPresenceAhead={minSectionPresenceAhead}
+                >
+                  {section.title ? (
+                    <Text style={s.sectionTitle}>{section.title}</Text>
+                  ) : null}
+
+                  {isGroupedReport ? (
+                    <View style={s.tableHeaderRow}>
+                      {columnRenderMeta.map((columnMeta) => (
+                        <View
+                          key={`${section.id}-${columnMeta.id}`}
+                          style={columnMeta.cellStyle}
+                        >
+                          <Text style={columnMeta.headerTextStyle}>
+                            {columnMeta.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Added index to map for alternating row colors */}
+                {section.rows.map((row, index) => (
+                  <View
+                    key={row.id}
+                    style={[s.tableRow, index % 2 === 0 ? s.rowEven : s.rowOdd]}
+                    wrap={false}
+                  >
+                    {columnRenderMeta.map((columnMeta) => (
+                      <View
+                        key={`${section.id}-${row.id}-${columnMeta.id}`}
+                        style={columnMeta.cellStyle}
+                      >
+                        <Text style={columnMeta.bodyTextStyle}>
+                          {row.values[columnMeta.id]}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+
+                <View style={s.tableTotalsRow} wrap={false}>
+                  {columnRenderMeta.map((columnMeta, index) => (
+                    <View
+                      key={`${section.id}-total-${columnMeta.id}`}
+                      style={columnMeta.cellStyle}
+                    >
+                      <Text style={columnMeta.totalsTextStyle}>
+                        {index === 0
+                          ? 'Total'
+                          : (section.totals[columnMeta.id] ?? '')}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ))}
           </View>
-        ))
+        </>
       )}
+    </View>
+  );
+}
+
+export function ReportSummarySection() {
+  return (
+    <View style={s.tableWrap}>
+      <Text style={s.sectionTitle}>Summary</Text>
     </View>
   );
 }

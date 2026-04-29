@@ -453,7 +453,7 @@ export function ViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility({});
+    table.setColumnVisibility(table.initialState.columnVisibility ?? {});
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
     table.setGrouping([]);
