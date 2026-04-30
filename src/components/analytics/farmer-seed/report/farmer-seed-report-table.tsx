@@ -359,7 +359,7 @@ const columns = [
     filterFn: multiValueFilterFn,
   }),
   columnHelper.accessor('bag35to40', {
-    header: () => <div className="w-full text-right">35-40</div>,
+    header: () => <div className="w-full text-right">35-40 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
     minSize: 90,
@@ -372,7 +372,7 @@ const columns = [
       ),
   }),
   columnHelper.accessor('bag40to45', {
-    header: () => <div className="w-full text-right">40-45</div>,
+    header: () => <div className="w-full text-right">40-45 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
     minSize: 90,
@@ -385,7 +385,7 @@ const columns = [
       ),
   }),
   columnHelper.accessor('bag40to50', {
-    header: () => <div className="w-full text-right">40-50</div>,
+    header: () => <div className="w-full text-right">40-50 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
     minSize: 90,
@@ -398,7 +398,7 @@ const columns = [
       ),
   }),
   columnHelper.accessor('bag45to50', {
-    header: () => <div className="w-full text-right">45-50</div>,
+    header: () => <div className="w-full text-right">45-50 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
     minSize: 90,
@@ -411,7 +411,7 @@ const columns = [
       ),
   }),
   columnHelper.accessor('bag50to55', {
-    header: () => <div className="w-full text-right">50-55</div>,
+    header: () => <div className="w-full text-right">50-55 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
     minSize: 90,

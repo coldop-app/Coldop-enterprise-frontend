@@ -87,7 +87,7 @@ const columnConfig: Record<string, ColumnConfig> = {
   variety: { label: 'Variety', value: (row) => row.variety },
   generation: { label: 'Generation', value: (row) => row.generation },
   bag35to40: {
-    label: '35-40',
+    label: '35-40 (mm)',
     align: 'right',
     value: (row) =>
       formatBagSizePdfValue(
@@ -102,7 +102,7 @@ const columnConfig: Record<string, ColumnConfig> = {
       ),
   },
   bag40to45: {
-    label: '40-45',
+    label: '40-45 (mm)',
     align: 'right',
     value: (row) =>
       formatBagSizePdfValue(
@@ -117,7 +117,7 @@ const columnConfig: Record<string, ColumnConfig> = {
       ),
   },
   bag40to50: {
-    label: '40-50',
+    label: '40-50 (mm)',
     align: 'right',
     value: (row) =>
       formatBagSizePdfValue(
@@ -132,7 +132,7 @@ const columnConfig: Record<string, ColumnConfig> = {
       ),
   },
   bag45to50: {
-    label: '45-50',
+    label: '45-50 (mm)',
     align: 'right',
     value: (row) =>
       formatBagSizePdfValue(
@@ -147,7 +147,7 @@ const columnConfig: Record<string, ColumnConfig> = {
       ),
   },
   bag50to55: {
-    label: '50-55',
+    label: '50-55 (mm)',
     align: 'right',
     value: (row) =>
       formatBagSizePdfValue(

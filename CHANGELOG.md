@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-04-30
+
+### Added
+- Storage analytics report PDF export pipeline with dedicated worker entrypoints, typed worker messaging contracts, and modular report PDF composition sections (header, summary, and report tables).
+- Reusable storage report advanced view-filters sheet modules (constants, helper utilities, primitives, logic builder, and typed contracts) for cleaner analytics filter composition.
+- New storage gate pass analytics report query hook for API-backed report fetching in the storage analytics flow.
+
+### Changed
+- Storage analytics report table and column behavior were refined to align table rendering, filtering, and export-readiness with the new PDF/report workflow.
+- Farmer seed analytics report and PDF preparation logic were adjusted to stay consistent with the updated report export data preparation patterns.
+- Project version updated to `0.5.1` for this analytics reporting and export workflow release.
+
 ## [0.5.0] - 2026-04-30
 
 ### Added
