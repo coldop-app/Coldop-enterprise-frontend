@@ -48,6 +48,32 @@ type ColumnConfig = {
   maxWidth: number;
 };
 
+const BAG_SIZE_DISPLAY_ORDER = [
+  'Below 25',
+  '25–30',
+  'Below 30',
+  '30–35',
+  '30–40',
+  '35–40',
+  '40–45',
+  '45–50',
+  '50–55',
+  'Above 50',
+  'Above 55',
+  'Cut',
+] as const;
+
+function normalizeRangeLabel(label: string) {
+  return label.replace(/-/g, '–').toLowerCase().trim();
+}
+
+const BAG_SIZE_ORDER_INDEX = new Map<string, number>(
+  BAG_SIZE_DISPLAY_ORDER.map((size, index) => [
+    normalizeRangeLabel(size),
+    index,
+  ])
+);
+
 function formatNumber(value: number | null | undefined, decimals = 2) {
   if (value === null || value === undefined || Number.isNaN(value)) return '-';
   return Number(value).toLocaleString('en-IN', {
@@ -83,7 +109,22 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
       const sizes = variety.seed?.sizes ?? [];
       const normalizedSizes =
         sizes.length > 0
-          ? sizes
+          ? [...sizes].sort((a, b) => {
+              const aOrder = BAG_SIZE_ORDER_INDEX.get(
+                normalizeRangeLabel(a.name)
+              );
+              const bOrder = BAG_SIZE_ORDER_INDEX.get(
+                normalizeRangeLabel(b.name)
+              );
+
+              if (aOrder !== undefined && bOrder !== undefined) {
+                return aOrder - bOrder;
+              }
+
+              if (aOrder !== undefined) return -1;
+              if (bOrder !== undefined) return 1;
+              return a.name.localeCompare(b.name);
+            })
           : [{ name: '-', quantity: 0, acres: 0, amountPayable: 0 }];
       const varietyRowSpan = normalizedSizes.length;
 
@@ -127,7 +168,22 @@ const ContractFarmingReportTable = () => {
     useGetContractFarmingReport();
 
   const report = React.useMemo(() => normalizeReportData(data), [data]);
-  const gradeHeaders = report.meta.allGrades;
+  const gradeHeaders = React.useMemo(
+    () =>
+      [...report.meta.allGrades].sort((a, b) => {
+        const aOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(a));
+        const bOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(b));
+
+        if (aOrder !== undefined && bOrder !== undefined) {
+          return aOrder - bOrder;
+        }
+
+        if (aOrder !== undefined) return -1;
+        if (bOrder !== undefined) return 1;
+        return a.localeCompare(b);
+      }),
+    [report.meta.allGrades]
+  );
   const flattenedRows = React.useMemo(
     () => flattenRows(report.farmers),
     [report.farmers]
