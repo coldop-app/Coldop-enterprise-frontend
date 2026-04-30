@@ -1,5 +1,4 @@
-import type { ContractFarmingReportRow } from '../columns';
-import { GRADING_SIZES } from '@/lib/constants';
+import type { IncomingReportRow } from '../columns';
 
 type HorizontalAlign = 'left' | 'right' | 'center';
 
@@ -17,16 +16,16 @@ export type PreparedPdfRow = {
 
 export type PreparedPdfTotals = Record<string, string>;
 
-export type PreparedContractFarmingReportPdf = {
+export type PreparedIncomingReportPdf = {
   columns: PreparedPdfColumn[];
   rows: PreparedPdfRow[];
   totals: PreparedPdfTotals;
-  sections: PreparedContractFarmingReportSection[];
-  summary: PreparedContractFarmingReportSummary;
+  sections: PreparedIncomingReportSection[];
+  summary: PreparedIncomingReportSummary;
   isGrouped: boolean;
 };
 
-export type PreparedContractFarmingReportSection = {
+export type PreparedIncomingReportSection = {
   id: string;
   title: string;
   rows: PreparedPdfRow[];
@@ -49,7 +48,7 @@ type PreparedFarmerSummaryRow = PreparedSummaryTotals & {
   farmerName: string;
 };
 
-export type PreparedContractFarmingReportSummary = {
+export type PreparedIncomingReportSummary = {
   byVariety: PreparedVarietySummaryRow[];
   byFarmer: PreparedFarmerSummaryRow[];
   overall: PreparedSummaryTotals;
@@ -59,8 +58,8 @@ type ColumnConfig = {
   label: string;
   align?: HorizontalAlign;
   weight?: number;
-  value: (row: ContractFarmingReportRow) => string;
-  total?: (rows: ContractFarmingReportRow[]) => string;
+  value: (row: IncomingReportRow) => string;
+  total?: (rows: IncomingReportRow[]) => string;
 };
 
 type AggregatedTotals = {
@@ -74,23 +73,10 @@ type AggregatedTotals = {
 };
 
 const numericColumnIds = new Set([
-  'serialNumber',
-  'manualGatePassNumber',
   'bagsReceived',
   'grossWeightKg',
   'tareWeightKg',
   'netWeightKg',
-  'totalGradingBags',
-  'below40Percent',
-  'range40To50Percent',
-  'above50Percent',
-  'cutPercent',
-  'netWeightAfterGradingKg',
-  'buyBackAmount',
-  'totalSeedAmount',
-  'netAmountPayable',
-  'netAmountPerAcre',
-  'yieldPerAcreQuintals',
 ]);
 
 const columnConfig: Record<string, ColumnConfig> = {
@@ -113,15 +99,15 @@ const columnConfig: Record<string, ColumnConfig> = {
     value: (row) => row.createdByName,
   },
   location: {
-    label: 'Planted Acres',
+    label: 'Location',
     value: (row) => row.location,
   },
   gatePassNo: {
-    label: 'Account No.',
+    label: 'System Gate Pass No',
     value: (row) => String(row.gatePassNo),
   },
   manualGatePassNumber: {
-    label: 'Size Qty',
+    label: 'Manual Gate Pass No',
     value: (row) => String(row.manualGatePassNumber),
   },
   date: {
@@ -133,7 +119,7 @@ const columnConfig: Record<string, ColumnConfig> = {
     value: (row) => row.variety,
   },
   truckNumber: {
-    label: 'Buy-Back Varieties',
+    label: 'Truck No.',
     value: (row) => row.truckNumber,
   },
   bagsReceived: {
@@ -201,110 +187,7 @@ const columnConfig: Record<string, ColumnConfig> = {
     weight: 1.8,
     value: (row) => row.remarks,
   },
-  serialNumber: {
-    label: 'S. No.',
-    align: 'right',
-    value: (row) => String(row.serialNumber ?? '-'),
-  },
-  familyKey: {
-    label: 'Family',
-    value: (row) => row.familyKey ?? '-',
-  },
-  totalGradingBags: {
-    label: 'Total Grading Bags',
-    align: 'right',
-    value: (row) => formatIndianNumber(Number(row.totalGradingBags ?? 0), 0),
-  },
-  below40Percent: {
-    label: 'Below 40 %',
-    align: 'right',
-    value: (row) =>
-      row.below40Percent == null
-        ? '—'
-        : `${formatIndianNumber(Number(row.below40Percent ?? 0), 2)}%`,
-  },
-  range40To50Percent: {
-    label: '40-50 %',
-    align: 'right',
-    value: (row) =>
-      row.range40To50Percent == null
-        ? '—'
-        : `${formatIndianNumber(Number(row.range40To50Percent ?? 0), 2)}%`,
-  },
-  above50Percent: {
-    label: 'Above 50 %',
-    align: 'right',
-    value: (row) =>
-      row.above50Percent == null
-        ? '—'
-        : `${formatIndianNumber(Number(row.above50Percent ?? 0), 2)}%`,
-  },
-  cutPercent: {
-    label: 'Cut %',
-    align: 'right',
-    value: (row) =>
-      row.cutPercent == null
-        ? '—'
-        : `${formatIndianNumber(Number(row.cutPercent ?? 0), 2)}%`,
-  },
-  netWeightAfterGradingKg: {
-    label: 'Net After Grading (kg)',
-    align: 'right',
-    value: (row) =>
-      formatIndianNumber(Number(row.netWeightAfterGradingKg ?? 0), 2),
-  },
-  buyBackAmount: {
-    label: 'Buy Back Amount',
-    align: 'right',
-    value: (row) => formatIndianNumber(Number(row.buyBackAmount ?? 0), 2),
-  },
-  totalSeedAmount: {
-    label: 'Total Seed Amount',
-    align: 'right',
-    value: (row) =>
-      row.totalSeedAmount == null
-        ? '—'
-        : formatIndianNumber(Number(row.totalSeedAmount ?? 0), 2),
-  },
-  netAmountPayable: {
-    label: 'Net Amount Payable',
-    align: 'right',
-    value: (row) =>
-      row.netAmountPayable == null
-        ? '—'
-        : formatIndianNumber(Number(row.netAmountPayable ?? 0), 2),
-  },
-  netAmountPerAcre: {
-    label: 'Net Amount / Acre',
-    align: 'right',
-    value: (row) =>
-      row.netAmountPerAcre == null
-        ? '—'
-        : formatIndianNumber(Number(row.netAmountPerAcre ?? 0), 2),
-  },
-  yieldPerAcreQuintals: {
-    label: 'Yield / Acre (Qtl)',
-    align: 'right',
-    value: (row) =>
-      row.yieldPerAcreQuintals == null
-        ? '—'
-        : formatIndianNumber(Number(row.yieldPerAcreQuintals ?? 0), 2),
-  },
 };
-
-for (const size of GRADING_SIZES) {
-  const key = `grading_${size
-    .replace(/–/g, '-')
-    .replace(/\s+/g, '')
-    .toLowerCase()}`;
-  columnConfig[key] = {
-    label: size,
-    align: 'right',
-    value: (row) =>
-      formatIndianNumber(Number(row.gradingBuckets?.[key] ?? 0), 0),
-  };
-  numericColumnIds.add(key);
-}
 
 function createAggregatedTotals(): AggregatedTotals {
   return {
@@ -320,7 +203,7 @@ function createAggregatedTotals(): AggregatedTotals {
 
 function addRowToAggregatedTotals(
   totals: AggregatedTotals,
-  row: ContractFarmingReportRow
+  row: IncomingReportRow
 ): void {
   totals.bagsReceived += Number(row.bagsReceived || 0);
   totals.grossWeightKg += Number(row.grossWeightKg || 0);
@@ -340,11 +223,11 @@ function addRowToAggregatedTotals(
   );
 }
 
-export function prepareContractFarmingReportPdf(options: {
-  rows: ContractFarmingReportRow[];
+export function prepareIncomingReportPdf(options: {
+  rows: IncomingReportRow[];
   visibleColumnIds: string[];
   grouping?: string[];
-}): PreparedContractFarmingReportPdf {
+}): PreparedIncomingReportPdf {
   const { rows, visibleColumnIds, grouping = [] } = options;
 
   const columns = visibleColumnIds
@@ -364,12 +247,12 @@ export function prepareContractFarmingReportPdf(options: {
     config: columnConfig[column.id],
   }));
 
-  const prepareRowsAndTotals = (sourceRows: ContractFarmingReportRow[]) => {
+  const prepareRowsAndTotals = (sourceRows: IncomingReportRow[]) => {
     const preparedRows: PreparedPdfRow[] = new Array(sourceRows.length);
     const aggregates = createAggregatedTotals();
 
     for (let index = 0; index < sourceRows.length; index += 1) {
-      const row = sourceRows[index] as ContractFarmingReportRow;
+      const row = sourceRows[index] as IncomingReportRow;
       const values: Record<string, string> = {};
       for (const { column, config } of resolvedColumnConfigs) {
         const value = config?.value(row) ?? '-';
@@ -465,7 +348,7 @@ function createSummaryAccumulator(): SummaryAccumulator {
 
 function addRowToSummary(
   accumulator: SummaryAccumulator,
-  row: ContractFarmingReportRow
+  row: IncomingReportRow
 ): void {
   accumulator.count += 1;
   accumulator.bagsReceived += Number(row.bagsReceived || 0);
@@ -515,8 +398,8 @@ const farmerLabelCollator = new Intl.Collator('en-IN', {
 });
 
 function buildSummary(
-  rows: ContractFarmingReportRow[]
-): PreparedContractFarmingReportSummary {
+  rows: IncomingReportRow[]
+): PreparedIncomingReportSummary {
   const overall = createSummaryAccumulator();
   const byVarietyMap = new Map<string, SummaryAccumulator>();
   const byFarmerMap = new Map<string, SummaryAccumulator>();
@@ -559,27 +442,27 @@ function buildSummary(
 }
 
 function buildGroupedSections(
-  rows: ContractFarmingReportRow[],
+  rows: IncomingReportRow[],
   grouping: string[],
   columns: PreparedPdfColumn[],
-  prepareRowsAndTotals: (rows: ContractFarmingReportRow[]) => {
+  prepareRowsAndTotals: (rows: IncomingReportRow[]) => {
     rows: PreparedPdfRow[];
     totals: PreparedPdfTotals;
   }
-): PreparedContractFarmingReportSection[] {
+): PreparedIncomingReportSection[] {
   if (!grouping.length || !rows.length) return [];
 
-  const sections: PreparedContractFarmingReportSection[] = [];
+  const sections: PreparedIncomingReportSection[] = [];
 
   const walk = (
-    currentRows: ContractFarmingReportRow[],
+    currentRows: IncomingReportRow[],
     level: number,
     labels: string[]
   ) => {
     const groupId = grouping[level];
     if (!groupId) return;
 
-    const groupedRows = new Map<string, ContractFarmingReportRow[]>();
+    const groupedRows = new Map<string, IncomingReportRow[]>();
     for (const row of currentRows) {
       const groupLabel = getGroupLabel(row, groupId, columns);
       const list = groupedRows.get(groupLabel) ?? [];
@@ -619,7 +502,7 @@ function getColumnLabel(
 }
 
 function getGroupLabel(
-  row: ContractFarmingReportRow,
+  row: IncomingReportRow,
   groupId: string,
   columns: PreparedPdfColumn[]
 ): string {
@@ -637,15 +520,15 @@ function getGroupLabel(
 }
 
 function sumBy(
-  rows: ContractFarmingReportRow[],
-  selector: (row: ContractFarmingReportRow) => number
+  rows: IncomingReportRow[],
+  selector: (row: IncomingReportRow) => number
 ) {
   return rows.reduce((sum, row) => sum + Number(selector(row) || 0), 0);
 }
 
 function maxBy(
-  rows: ContractFarmingReportRow[],
-  selector: (row: ContractFarmingReportRow) => number
+  rows: IncomingReportRow[],
+  selector: (row: IncomingReportRow) => number
 ) {
   return rows.reduce(
     (max, row) => Math.max(max, Number(selector(row) || 0)),

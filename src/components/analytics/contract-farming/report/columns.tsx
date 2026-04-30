@@ -1,38 +1,23 @@
 import type { ColumnDef } from '@tanstack/react-table';
 
-export type ContractFarmingReportRow = {
+export type IncomingReportRow = {
   id: string;
-  rowKind?: 'data' | 'family-total';
-  familyKey?: string;
-  serialNumber?: number;
   farmerId: string;
   farmerName: string;
   farmerAddress: string;
   farmerMobileNumber: string;
-  createdByName: string; // size name
-  location: string; // acres planted (formatted)
+  createdByName: string;
+  location: string;
   gatePassNo: number;
-  manualGatePassNumber: number; // seed bags
-  date: string; // generation
+  manualGatePassNumber: number;
+  date: string;
   variety: string;
-  truckNumber: string; // buy-back varieties
-  bagsReceived: number; // buy-back bags
-  grossWeightKg: number; // size acres (numeric)
-  tareWeightKg: number; // seed amount payable
-  netWeightKg: number; // buy-back net weight
+  truckNumber: string;
+  bagsReceived: number;
+  grossWeightKg: number;
+  tareWeightKg: number;
+  netWeightKg: number;
   netWeightPrecision: number;
-  totalGradingBags?: number;
-  below40Percent?: number | null;
-  range40To50Percent?: number | null;
-  above50Percent?: number | null;
-  cutPercent?: number | null;
-  netWeightAfterGradingKg?: number;
-  buyBackAmount?: number;
-  totalSeedAmount?: number | null;
-  netAmountPayable?: number | null;
-  netAmountPerAcre?: number | null;
-  yieldPerAcreQuintals?: number | null;
-  gradingBuckets?: Record<string, number>;
   status: string;
   remarks: string;
   createdByMobileNumber: string;
@@ -41,7 +26,7 @@ export type ContractFarmingReportRow = {
   updatedAt: string;
 };
 
-export const columns: ColumnDef<ContractFarmingReportRow>[] = [
+export const columns: ColumnDef<IncomingReportRow>[] = [
   {
     accessorKey: 'farmerName',
     header: 'Farmer',
@@ -60,15 +45,15 @@ export const columns: ColumnDef<ContractFarmingReportRow>[] = [
   },
   {
     accessorKey: 'location',
-    header: 'Planted Acres',
+    header: 'Location',
   },
   {
     accessorKey: 'gatePassNo',
-    header: 'Account No.',
+    header: 'System Generated Gate Pass No',
   },
   {
     accessorKey: 'manualGatePassNumber',
-    header: 'Size Qty',
+    header: 'Manual Gate Pass No',
   },
   {
     accessorKey: 'date',

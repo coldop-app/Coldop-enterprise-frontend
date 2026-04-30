@@ -1,5 +1,5 @@
 import { Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import type { PreparedContractFarmingReportSummary } from './pdf-prepare';
+import type { PreparedIncomingReportSummary } from './pdf-prepare';
 
 const C = {
   navy: '#0F2D1F',
@@ -212,7 +212,7 @@ function SummaryTable({
 export function ReportSummaryPage({
   summary,
 }: {
-  summary: PreparedContractFarmingReportSummary;
+  summary: PreparedIncomingReportSummary;
 }) {
   const overallRow: SummaryTableRow = {
     label: 'Total',

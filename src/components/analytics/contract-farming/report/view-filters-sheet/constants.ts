@@ -1,7 +1,10 @@
 import type { FilterField, FilterOperator } from '@/lib/advanced-filters';
 import type { FilterableColumnId, StatusFilterValue } from './types';
 
-export const statusFilterOptions: StatusFilterValue[] = ['ACTIVE'];
+export const statusFilterOptions: StatusFilterValue[] = [
+  'GRADED',
+  'NOT_GRADED',
+];
 
 export const stringOperators: FilterOperator[] = [
   'contains',
@@ -36,26 +39,26 @@ export const filterableColumns: Array<{
   id: FilterableColumnId;
   label: string;
 }> = [
-  { id: 'gatePassNo', label: 'Account No.' },
+  { id: 'gatePassNo', label: 'System Generated Gate Pass No' },
   { id: 'date', label: 'Date' },
   { id: 'farmerName', label: 'Farmer' },
   { id: 'variety', label: 'Variety' },
   { id: 'bagsReceived', label: 'Bags' },
-  { id: 'netWeightKg', label: 'Buy-Back Net (kg)' },
-  { id: 'location', label: 'Planted Acres' },
-  { id: 'truckNumber', label: 'Buy-Back Varieties' },
+  { id: 'netWeightKg', label: 'Net Weight (kg)' },
+  { id: 'location', label: 'Location' },
+  { id: 'truckNumber', label: 'Truck No.' },
 ];
 
 export const advancedFilterFields: Array<{ id: FilterField; label: string }> = [
-  { id: 'gatePassNo', label: 'Account No.' },
+  { id: 'gatePassNo', label: 'System Generated Gate Pass No' },
   { id: 'date', label: 'Date' },
   { id: 'farmerName', label: 'Farmer' },
   { id: 'variety', label: 'Variety' },
   { id: 'bagsReceived', label: 'Bags' },
-  { id: 'netWeightKg', label: 'Buy-Back Net (kg)' },
+  { id: 'netWeightKg', label: 'Net Weight (kg)' },
   { id: 'status', label: 'Status' },
-  { id: 'location', label: 'Planted Acres' },
-  { id: 'truckNumber', label: 'Buy-Back Varieties' },
+  { id: 'location', label: 'Location' },
+  { id: 'truckNumber', label: 'Truck No.' },
 ];
 
 export const getInitialSearchQueries = (): Record<

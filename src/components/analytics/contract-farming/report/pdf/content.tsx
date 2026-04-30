@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { StyleSheet, Text, View } from '@react-pdf/renderer';
-import type { PreparedContractFarmingReportPdf } from './pdf-prepare';
+import type { PreparedIncomingReportPdf } from './pdf-prepare';
 
 const C = {
   navy: '#0F2D1F',
@@ -113,7 +113,7 @@ const s = StyleSheet.create({
 export function ReportContentTable({
   report,
 }: {
-  report: PreparedContractFarmingReportPdf;
+  report: PreparedIncomingReportPdf;
 }) {
   const isGroupedReport = report.isGrouped && report.sections.length > 0;
   const sections = isGroupedReport

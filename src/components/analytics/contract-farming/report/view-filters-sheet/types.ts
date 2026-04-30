@@ -3,12 +3,12 @@ import type {
   ColumnResizeDirection,
   ColumnResizeMode,
 } from '@tanstack/react-table';
-import type { ContractFarmingReportRow } from '../columns';
+import type { IncomingReportRow } from '../columns';
 
 export type ViewFiltersSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  table: TanstackTable<ContractFarmingReportRow>;
+  table: TanstackTable<IncomingReportRow>;
   defaultColumnOrder: string[];
   columnResizeMode: ColumnResizeMode;
   columnResizeDirection: ColumnResizeDirection;
@@ -16,7 +16,7 @@ export type ViewFiltersSheetProps = {
   onColumnResizeDirectionChange: (direction: ColumnResizeDirection) => void;
 };
 
-export type StatusFilterValue = 'ACTIVE';
+export type StatusFilterValue = 'GRADED' | 'NOT_GRADED';
 
 export type FilterableColumnId =
   | 'gatePassNo'

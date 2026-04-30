@@ -118,10 +118,10 @@ const formatGroupingLabel = (groupId: string): string =>
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
 const buildCoverLabel = (grouping: string[]): string => {
-  if (!grouping.length) return 'Contract Farming Report';
+  if (!grouping.length) return 'Incoming Report';
 
   const groupedBy = grouping.map(formatGroupingLabel).join(', ');
-  return `Contract Farming Report (Grouped by ${groupedBy})`;
+  return `Incoming Report (Grouped by ${groupedBy})`;
 };
 
 export function ReportCover({

@@ -3,51 +3,61 @@ import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 
-export interface ContractFarmingReportSize {
+type ContractFarmingSeedSize = {
   name: string;
   quantity: number;
   acres: number;
   amountPayable: number;
-}
+};
 
-export interface ContractFarmingReportBuyBackBag {
+type ContractFarmingBuyBack = {
   bags: number;
   netWeightKg: number;
-}
+};
 
-export interface ContractFarmingReportGradingEntry {
-  initialBags: number;
+type ContractFarmingGradingValue = {
+  bags: number;
   netWeightKg: number;
-}
+};
 
-export type ContractFarmingReportGrading = Record<
-  string,
-  Record<string, ContractFarmingReportGradingEntry>
->;
+type ContractFarmingSeed = {
+  generation: string;
+  sizes: ContractFarmingSeedSize[];
+  totalAcres: number;
+  totalAmountPayable: number;
+};
 
-export interface ContractFarmingReportFarmerEntry {
+export type ContractFarmingVariety = {
+  name: string;
+  seed: ContractFarmingSeed | null;
+  buyBack: ContractFarmingBuyBack | null;
+  grading: Record<string, ContractFarmingGradingValue>;
+};
+
+export type ContractFarmingReportFarmer = {
   id: string;
   name: string;
   address: string;
   mobileNumber: string;
   accountNumber: number;
-  acresPlanted: number;
-  totalSeedAmountPayable: number;
-  generations: string[];
-  sizes: ContractFarmingReportSize[];
-  'buy-back-bags': Record<string, ContractFarmingReportBuyBackBag>;
-  grading: ContractFarmingReportGrading;
-}
+  varieties: ContractFarmingVariety[];
+};
 
-export interface ContractFarmingReportData {
-  byVariety: Record<string, ContractFarmingReportFarmerEntry[]>;
-}
+type ContractFarmingReportMeta = {
+  allGrades: string[];
+  allVarieties: string[];
+};
 
-export interface GetContractFarmingReportApiResponse {
+export type ContractFarmingReportData = {
+  farmers: ContractFarmingReportFarmer[];
+  meta: ContractFarmingReportMeta;
+};
+
+type ContractFarmingReportResponse = {
   success: boolean;
-  data: ContractFarmingReportData | null;
   message?: string;
-}
+  data?: ContractFarmingReportData;
+};
 
 export interface GetContractFarmingReportParams {
   fromDate?: string;
@@ -55,7 +65,7 @@ export interface GetContractFarmingReportParams {
 }
 
 export const contractFarmingReportKeys = {
-  all: ['store-admin', 'analytics', 'contract-farming-report'] as const,
+  all: ['store-admin', 'contract-farming', 'report'] as const,
 };
 
 function sanitizeParams(
@@ -71,11 +81,9 @@ function getContractFarmingReportErrorMessage(error: unknown): string {
   if (isAxiosError<{ message?: string }>(error)) {
     const apiMessage = error.response?.data?.message;
     if (apiMessage) return apiMessage;
-
     if (error.code === 'ECONNABORTED') {
       return 'Request timed out while fetching contract farming report';
     }
-
     if (!error.response) {
       return 'Network error while fetching contract farming report';
     }
@@ -94,22 +102,22 @@ async function fetchContractFarmingReport(
   try {
     const safeParams = sanitizeParams(params);
     const { data } =
-      await storeAdminAxiosClient.get<GetContractFarmingReportApiResponse>(
+      await storeAdminAxiosClient.get<ContractFarmingReportResponse>(
         '/analytics/contract-farming-report',
         {
           params: safeParams,
         }
       );
 
-    if (!data.success || data.data == null) {
+    if (!data.success) {
       throw new Error(
         data.message ?? 'Failed to fetch contract farming report'
       );
     }
 
-    return {
-      byVariety: data.data.byVariety ?? {},
-    };
+    return (
+      data.data ?? { farmers: [], meta: { allGrades: [], allVarieties: [] } }
+    );
   } catch (error) {
     throw new Error(getContractFarmingReportErrorMessage(error), {
       cause: error,
@@ -123,10 +131,7 @@ export const contractFarmingReportQueryOptions = (
   queryOptions({
     queryKey: [
       ...contractFarmingReportKeys.all,
-      {
-        fromDate: params.fromDate,
-        toDate: params.toDate,
-      },
+      { fromDate: params.fromDate, toDate: params.toDate },
     ],
     queryFn: () => fetchContractFarmingReport(params),
     staleTime: 1000 * 60 * 2,
@@ -134,12 +139,10 @@ export const contractFarmingReportQueryOptions = (
   });
 
 export function useGetContractFarmingReport(
-  params: GetContractFarmingReportParams = {},
-  options?: { enabled?: boolean }
+  params: GetContractFarmingReportParams = {}
 ) {
   return useQuery({
     ...contractFarmingReportQueryOptions(params),
-    enabled: options?.enabled ?? true,
   });
 }
 

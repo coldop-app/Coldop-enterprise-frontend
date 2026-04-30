@@ -1,13 +1,13 @@
-import type { ContractFarmingReportRow } from './columns';
-export type ContractFarmingPdfWorkerRequest = {
-  rows: ContractFarmingReportRow[];
+import type { IncomingReportRow } from './columns';
+export type IncomingPdfWorkerRequest = {
+  rows: IncomingReportRow[];
   visibleColumnIds: string[];
   grouping: string[];
   coldStorageName: string;
   generatedAt: string;
 };
 
-export type ContractFarmingPdfWorkerResponse =
+export type IncomingPdfWorkerResponse =
   | {
       status: 'success';
       blob: Blob;
@@ -21,8 +21,8 @@ let workerRuntimePromise: Promise<{
   React: typeof import('react');
   pdf: typeof import('@react-pdf/renderer').pdf;
   Font: typeof import('@react-pdf/renderer').Font;
-  ContractFarmingReportDocument: typeof import('./pdf/contract-farming-report-table-pdf').ContractFarmingReportDocument;
-  prepareContractFarmingReportPdf: typeof import('./pdf/pdf-prepare').prepareContractFarmingReportPdf;
+  InwardLedgerReportDocument: typeof import('./pdf/incoming-report-table-pdf').InwardLedgerReportDocument;
+  prepareIncomingReportPdf: typeof import('./pdf/pdf-prepare').prepareIncomingReportPdf;
 }> | null = null;
 
 function getWorkerRuntime() {
@@ -44,7 +44,7 @@ function getWorkerRuntime() {
       await Promise.all([
         import('@react-pdf/renderer'),
         import('react'),
-        import('./pdf/contract-farming-report-table-pdf'),
+        import('./pdf/incoming-report-table-pdf'),
         import('./pdf/pdf-prepare'),
       ]);
 
@@ -57,35 +57,28 @@ function getWorkerRuntime() {
       React: ReactModule,
       pdf,
       Font,
-      ContractFarmingReportDocument: pdfModule.ContractFarmingReportDocument,
-      prepareContractFarmingReportPdf:
-        prepareModule.prepareContractFarmingReportPdf,
+      InwardLedgerReportDocument: pdfModule.InwardLedgerReportDocument,
+      prepareIncomingReportPdf: prepareModule.prepareIncomingReportPdf,
     };
   })();
 
   return workerRuntimePromise;
 }
 
-self.onmessage = async (
-  event: MessageEvent<ContractFarmingPdfWorkerRequest>
-) => {
+self.onmessage = async (event: MessageEvent<IncomingPdfWorkerRequest>) => {
   try {
-    const {
-      React,
-      pdf,
-      ContractFarmingReportDocument,
-      prepareContractFarmingReportPdf,
-    } = await getWorkerRuntime();
+    const { React, pdf, InwardLedgerReportDocument, prepareIncomingReportPdf } =
+      await getWorkerRuntime();
     const { rows, visibleColumnIds, grouping, coldStorageName, generatedAt } =
       event.data;
 
-    const report = prepareContractFarmingReportPdf({
+    const report = prepareIncomingReportPdf({
       rows,
       visibleColumnIds,
       grouping,
     });
 
-    const document = React.createElement(ContractFarmingReportDocument, {
+    const document = React.createElement(InwardLedgerReportDocument, {
       generatedAt,
       report,
       grouping,
@@ -93,13 +86,13 @@ self.onmessage = async (
     });
 
     const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
-    const response: ContractFarmingPdfWorkerResponse = {
+    const response: IncomingPdfWorkerResponse = {
       status: 'success',
       blob,
     };
     self.postMessage(response);
   } catch (error) {
-    const response: ContractFarmingPdfWorkerResponse = {
+    const response: IncomingPdfWorkerResponse = {
       status: 'error',
       message:
         error instanceof Error
@@ -112,7 +105,7 @@ self.onmessage = async (
 
 self.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
-  const response: ContractFarmingPdfWorkerResponse = {
+  const response: IncomingPdfWorkerResponse = {
     status: 'error',
     message:
       reason instanceof Error
@@ -123,7 +116,7 @@ self.addEventListener('unhandledrejection', (event) => {
 });
 
 self.addEventListener('error', (event) => {
-  const response: ContractFarmingPdfWorkerResponse = {
+  const response: IncomingPdfWorkerResponse = {
     status: 'error',
     message: `${event.message} (${event.filename}:${event.lineno}:${event.colno})`,
   };

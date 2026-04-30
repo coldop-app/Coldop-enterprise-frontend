@@ -82,16 +82,16 @@ import {
 import { LogicBuilder } from './logic-builder';
 
 const columnLabels: Record<string, string> = {
-  gatePassNo: 'Account No.',
-  manualGatePassNumber: 'Size Qty',
+  gatePassNo: 'System Generated Gate Pass No',
+  manualGatePassNumber: 'Manual Gate Pass No',
   date: 'Date',
   farmerName: 'Farmer',
   variety: 'Variety',
   bagsReceived: 'Bags',
-  netWeightKg: 'Buy-Back Net (kg)',
+  netWeightKg: 'Net Weight (kg)',
   status: 'Status',
-  location: 'Planted Acres',
-  truckNumber: 'Buy-Back Varieties',
+  location: 'Location',
+  truckNumber: 'Truck No.',
   remarks: 'Remarks',
 };
 
@@ -820,9 +820,14 @@ export function ViewFiltersSheet({
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         {
-                          value: 'ACTIVE' as StatusFilterValue,
-                          label: 'Active',
+                          value: 'GRADED' as StatusFilterValue,
+                          label: 'Graded',
                           indicator: 'bg-green-500',
+                        },
+                        {
+                          value: 'NOT_GRADED' as StatusFilterValue,
+                          label: 'Ungraded',
+                          indicator: 'bg-yellow-500',
                         },
                       ].map(({ value, label, indicator }) => {
                         const checked = draftStatusFilters.includes(value);
