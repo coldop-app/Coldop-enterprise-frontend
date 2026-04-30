@@ -354,6 +354,9 @@ const Overview = memo(function Overview() {
         title="Bags Stored"
         value={formatNumber(normalized.totalBagsStored)}
         icon={<Warehouse className="h-5 w-5" />}
+        onGetReportClick={() =>
+          void navigate({ to: '/store-admin/analytics/reports/storage' })
+        }
       />
       <StatCard
         title="Shed Stock"
