@@ -6,7 +6,7 @@ import {
   ReportPageNumber,
   ReportRunHeader,
 } from './header';
-import type { PreparedIncomingReportPdf } from './pdf-prepare';
+import type { PreparedContractFarmingReportPdf } from './pdf-prepare';
 import { ReportSummaryPage } from './summary';
 
 const s = StyleSheet.create({
@@ -19,21 +19,21 @@ const s = StyleSheet.create({
   },
 });
 
-type InwardLedgerReportDocumentProps = {
+type ContractFarmingReportDocumentProps = {
   generatedAt: string;
-  report: PreparedIncomingReportPdf;
+  report: PreparedContractFarmingReportPdf;
   grouping?: string[];
   coldStorageName: string;
 };
 
-export function InwardLedgerReportDocument({
+export function ContractFarmingReportDocument({
   generatedAt,
   report,
   grouping = [],
   coldStorageName,
-}: InwardLedgerReportDocumentProps) {
+}: ContractFarmingReportDocumentProps) {
   return (
-    <Document title="Storage Report" author="Bhatti Agritech Pvt Ltd">
+    <Document title="Contract Farming Report" author="Bhatti Agritech Pvt Ltd">
       <Page size="A4" orientation="landscape" style={s.page}>
         <ReportRunHeader />
         <ReportPageNumber />

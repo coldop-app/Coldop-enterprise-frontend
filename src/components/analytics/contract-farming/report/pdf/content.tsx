@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { StyleSheet, Text, View } from '@react-pdf/renderer';
-import type { PreparedIncomingReportPdf } from './pdf-prepare';
+import type { PreparedContractFarmingReportPdf } from './pdf-prepare';
 
 const C = {
   navy: '#0F2D1F',
@@ -113,7 +113,7 @@ const s = StyleSheet.create({
 export function ReportContentTable({
   report,
 }: {
-  report: PreparedIncomingReportPdf;
+  report: PreparedContractFarmingReportPdf;
 }) {
   const isGroupedReport = report.isGrouped && report.sections.length > 0;
   const sections = isGroupedReport
@@ -188,7 +188,7 @@ export function ReportContentTable({
 
                   {isGroupedReport ||
                   (!isGroupedReport && section.rows.length > 0) ? (
-                    <View style={s.tableHeaderRow} fixed={!isGroupedReport}>
+                    <View style={s.tableHeaderRow}>
                       {columnRenderMeta.map((columnMeta) => (
                         <Text
                           key={`${section.id}-${columnMeta.id}`}

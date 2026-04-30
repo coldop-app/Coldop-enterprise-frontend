@@ -1,5 +1,5 @@
 import { Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import type { PreparedIncomingReportSummary } from './pdf-prepare';
+import type { PreparedContractFarmingReportSummary } from './pdf-prepare';
 
 const C = {
   navy: '#0F2D1F',
@@ -110,13 +110,14 @@ type SummaryTableRow = {
   label: string;
   count: string;
   bags: string;
-  bagValues: string[];
+  gross: string;
+  tare: string;
+  net: string;
 };
 
 function SummaryTable({
   title,
   headerLabel,
-  bagHeaders,
   rows,
   totalRow,
   emptyStateLabel,
@@ -125,7 +126,6 @@ function SummaryTable({
 }: {
   title: string;
   headerLabel: string;
-  bagHeaders: string[];
   rows: SummaryTableRow[];
   totalRow: SummaryTableRow;
   emptyStateLabel?: string;
@@ -140,28 +140,21 @@ function SummaryTable({
             label: emptyStateLabel ?? 'No data',
             count: '',
             bags: '',
-            bagValues: bagHeaders.map(() => ''),
+            gross: '',
+            tare: '',
+            net: '',
           },
         ];
-  const firstColumnWidth = bagHeaders.length <= 5 ? '22%' : '18%';
-  const baseNumericWidth = `${(100 - Number.parseFloat(firstColumnWidth)) / (2 + bagHeaders.length)}%`;
   return (
     <View style={s.tableContainer}>
       <Text style={s.tableTitle}>{title}</Text>
       <View style={s.tableHeader} wrap={false}>
-        <Text style={[s.col1, { width: firstColumnWidth }, s.colHeaderText]}>
-          {headerLabel}
-        </Text>
+        <Text style={[s.col1, s.colHeaderText]}>{headerLabel}</Text>
         <Text style={[s.col2, s.colHeaderText]}>Count</Text>
         <Text style={[s.col3, s.colHeaderText]}>Bags</Text>
-        {bagHeaders.map((header) => (
-          <Text
-            key={`${title}-header-${header}`}
-            style={[s.col4, { width: baseNumericWidth }, s.colHeaderText]}
-          >
-            {header}
-          </Text>
-        ))}
+        <Text style={[s.col4, s.colHeaderText]}>Gross (kg)</Text>
+        <Text style={[s.col5, s.colHeaderText]}>Tare (kg)</Text>
+        <Text style={[s.col6, s.colHeaderText]}>Net (kg)</Text>
       </View>
 
       {bodyRows.map((row, index) => (
@@ -170,11 +163,7 @@ function SummaryTable({
           key={`${title}-${row.label}-${index}`}
         >
           <Text
-            style={[
-              s.col1,
-              { width: firstColumnWidth },
-              emphasizeBody ? s.cellTextTotal : s.cellLabelText,
-            ]}
+            style={[s.col1, emphasizeBody ? s.cellTextTotal : s.cellLabelText]}
           >
             {row.label}
           </Text>
@@ -188,69 +177,34 @@ function SummaryTable({
           >
             {row.bags}
           </Text>
-          {row.bagValues.map((value, bagIndex) => (
-            <Text
-              key={`${title}-${row.label}-${bagIndex}`}
-              style={[
-                s.col4,
-                { width: baseNumericWidth },
-                emphasizeBody ? s.cellTextTotal : s.cellNumberText,
-              ]}
-            >
-              {value}
-            </Text>
-          ))}
+          <Text
+            style={[s.col4, emphasizeBody ? s.cellTextTotal : s.cellNumberText]}
+          >
+            {row.gross}
+          </Text>
+          <Text
+            style={[s.col5, emphasizeBody ? s.cellTextTotal : s.cellNumberText]}
+          >
+            {row.tare}
+          </Text>
+          <Text
+            style={[s.col6, emphasizeBody ? s.cellTextTotal : s.cellNumberText]}
+          >
+            {row.net}
+          </Text>
         </View>
       ))}
 
       {showFooterTotal ? (
         <View style={[s.tableRow, s.tableRowTotal]} wrap={false}>
-          <Text style={[s.col1, { width: firstColumnWidth }, s.cellTextTotal]}>
-            {totalRow.label}
-          </Text>
+          <Text style={[s.col1, s.cellTextTotal]}>{totalRow.label}</Text>
           <Text style={[s.col2, s.cellTextTotal]}>{totalRow.count}</Text>
           <Text style={[s.col3, s.cellTextTotal]}>{totalRow.bags}</Text>
-          {totalRow.bagValues.map((value, bagIndex) => (
-            <Text
-              key={`${title}-footer-${bagIndex}`}
-              style={[s.col4, { width: baseNumericWidth }, s.cellTextTotal]}
-            >
-              {value}
-            </Text>
-          ))}
+          <Text style={[s.col4, s.cellTextTotal]}>{totalRow.gross}</Text>
+          <Text style={[s.col5, s.cellTextTotal]}>{totalRow.tare}</Text>
+          <Text style={[s.col6, s.cellTextTotal]}>{totalRow.net}</Text>
         </View>
       ) : null}
-    </View>
-  );
-}
-
-function BagSizeSummaryTable({
-  rows,
-  totalBags,
-}: {
-  rows: Array<{ label: string; totalBags: string }>;
-  totalBags: string;
-}) {
-  return (
-    <View style={s.tableContainer}>
-      <Text style={s.tableTitle}>Bag size-wise total</Text>
-      <View style={s.tableHeader} wrap={false}>
-        <Text style={[s.col1, s.colHeaderText]}>Bag size</Text>
-        <Text style={[s.col3, s.colHeaderText]}>Total bags</Text>
-      </View>
-      {rows.map((row, index) => (
-        <View
-          style={[s.tableRow, index % 2 === 0 ? s.rowEven : s.rowOdd]}
-          key={`bag-size-${row.label}-${index}`}
-        >
-          <Text style={s.cellLabelText}>{row.label}</Text>
-          <Text style={[s.col3, s.cellNumberText]}>{row.totalBags}</Text>
-        </View>
-      ))}
-      <View style={[s.tableRow, s.tableRowTotal]} wrap={false}>
-        <Text style={s.cellTextTotal}>Total</Text>
-        <Text style={[s.col3, s.cellTextTotal]}>{totalBags}</Text>
-      </View>
     </View>
   );
 }
@@ -258,29 +212,28 @@ function BagSizeSummaryTable({
 export function ReportSummaryPage({
   summary,
 }: {
-  summary: PreparedIncomingReportSummary;
+  summary: PreparedContractFarmingReportSummary;
 }) {
   const overallRow: SummaryTableRow = {
     label: 'Total',
-    count: summary.overall.count,
-    bags: summary.overall.bags,
-    bagValues: summary.bagColumns.map(
-      (column) => summary.overall.bagSizeTotals[column.id]
-    ),
+    ...summary.overall,
   };
   const byVarietyRows: SummaryTableRow[] = summary.byVariety.map((row) => ({
     label: row.variety,
     count: row.count,
     bags: row.bags,
-    bagValues: summary.bagColumns.map((column) => row.bagSizeTotals[column.id]),
+    gross: row.gross,
+    tare: row.tare,
+    net: row.net,
   }));
   const byFarmerRows: SummaryTableRow[] = summary.byFarmer.map((row) => ({
     label: row.farmerName,
     count: row.count,
     bags: row.bags,
-    bagValues: summary.bagColumns.map((column) => row.bagSizeTotals[column.id]),
+    gross: row.gross,
+    tare: row.tare,
+    net: row.net,
   }));
-  const bagHeaders = summary.bagColumns.map((column) => column.label);
   const minHeadingPresenceAhead = 160;
 
   return (
@@ -293,25 +246,18 @@ export function ReportSummaryPage({
         <SummaryTable
           title="Variety-wise total"
           headerLabel="Variety"
-          bagHeaders={bagHeaders}
           rows={byVarietyRows}
           totalRow={overallRow}
         />
         <SummaryTable
           title="Farmer-wise total"
           headerLabel="Farmer"
-          bagHeaders={bagHeaders}
           rows={byFarmerRows}
           totalRow={overallRow}
-        />
-        <BagSizeSummaryTable
-          rows={summary.bagSizeTotals}
-          totalBags={summary.overall.bags}
         />
         <SummaryTable
           title="Overall total"
           headerLabel=""
-          bagHeaders={bagHeaders}
           rows={[overallRow]}
           totalRow={overallRow}
           showFooterTotal={false}

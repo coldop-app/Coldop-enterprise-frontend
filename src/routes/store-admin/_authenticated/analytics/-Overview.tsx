@@ -9,6 +9,7 @@ import {
   ChevronUp,
   ClipboardList,
   FileText,
+  Handshake,
   Package,
   RefreshCw,
   Sprout,
@@ -120,6 +121,46 @@ interface StatCardProps {
   icon: React.ReactNode;
   onGetReportClick?: () => void;
 }
+
+interface StaticReportCardProps {
+  title: string;
+  icon: React.ReactNode;
+  onGetReportClick?: () => void;
+}
+
+const StaticReportCard = memo(function StaticReportCard({
+  title,
+  icon,
+  onGetReportClick,
+}: StaticReportCardProps) {
+  return (
+    <Card className="group font-custom border-border/40 bg-card relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+      <div className="bg-primary absolute inset-x-0 top-0 h-[3px] rounded-t-2xl opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+      <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
+        <CardTitle className="text-foreground text-[15px] leading-snug font-semibold sm:text-base">
+          {title}
+        </CardTitle>
+        <span className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+          {icon}
+        </span>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onGetReportClick}
+          className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
+        >
+          <FileText className="h-4 w-4" />
+          Get Reports
+        </Button>
+        <div className="bg-muted group-hover:bg-primary/10 absolute right-4 bottom-4 flex h-6 w-6 items-center justify-center rounded-full transition-all duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+          <ArrowUpRight className="text-primary h-3 w-3" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 const StatCard = memo(function StatCard({
   title,
@@ -373,6 +414,15 @@ const Overview = memo(function Overview() {
         title="Total Outgoing Bags"
         value={formatNumber(normalized.totalOutgoingBags)}
         icon={<ArrowUpRight className="h-5 w-5" />}
+      />
+      <StaticReportCard
+        title="Contract Farming Report"
+        icon={<Handshake className="h-5 w-5" />}
+        onGetReportClick={() =>
+          void navigate({
+            to: '/store-admin/analytics/reports/contract-farming',
+          })
+        }
       />
     </div>
   );

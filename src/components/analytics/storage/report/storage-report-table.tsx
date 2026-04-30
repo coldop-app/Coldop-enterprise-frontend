@@ -44,20 +44,20 @@ import {
 import { Item } from '@/components/ui/item';
 import { useGetStorageGatePassReport } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageGatePassReport';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
-import { ViewFiltersSheet } from './view-filters-sheet/index';
+import { ViewFiltersSheet } from './report/view-filters-sheet/index';
 import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
 import { GRADING_SIZES } from '@/lib/constants';
-import type { IncomingReportRow } from './columns';
+import type { IncomingReportRow } from '../columns';
 import { useStore } from '@/stores/store';
 import PdfWorker from './pdf.worker?worker';
 import type {
   IncomingPdfWorkerRequest,
   IncomingPdfWorkerResponse,
-} from './pdf-worker.types';
+} from '../pdf-worker.types';
 
 function getLeafRowsForPdf(
   rows: Row<IncomingReportRow>[]

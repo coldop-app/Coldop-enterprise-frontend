@@ -24,6 +24,8 @@ import {
   Settings2,
   Search,
   ChevronDown,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,13 +53,18 @@ import {
   type FilterGroupNode,
   type FilterOperator,
 } from '@/lib/advanced-filters';
-import type { FilterableColumnId, ViewFiltersSheetProps } from './types';
+import type {
+  FilterableColumnId,
+  StatusFilterValue,
+  ViewFiltersSheetProps,
+} from './types';
 import {
   advancedFilterFields,
   filterableColumns,
   getEmptyValueFilters,
   getInitialExpandedFilters,
   getInitialSearchQueries,
+  statusFilterOptions,
 } from './constants';
 import {
   mutateFilterNodeById,
@@ -75,41 +82,36 @@ import {
 import { LogicBuilder } from './logic-builder';
 
 const columnLabels: Record<string, string> = {
-  gatePassNo: 'System Generated Gate Pass No',
-  manualGatePassNumber: 'Manual Gate Pass No',
+  gatePassNo: 'Account No.',
+  manualGatePassNumber: 'Size Qty',
   date: 'Date',
-  accountNumber: 'Account Number',
-  farmerMobileNumber: 'Mobile Number',
+  farmerName: 'Farmer',
   variety: 'Variety',
-  bagBelow25: 'Below 25 (mm)',
-  bag25to30: '25-30 (mm)',
-  bagBelow30: 'Below 30 (mm)',
-  bag30to35: '30-35 (mm)',
-  bag30to40: '30-40 (mm)',
-  bag35to40: '35-40 (mm)',
-  bag40to45: '40-45 (mm)',
-  bag45to50: '45-50 (mm)',
-  bag50to55: '50-55 (mm)',
-  bagAbove50: 'Above 50 (mm)',
-  bagAbove55: 'Above 55 (mm)',
-  bagCut: 'Cut',
-  totalBags: 'Total Bags',
+  bagsReceived: 'Bags',
+  netWeightKg: 'Buy-Back Net (kg)',
+  status: 'Status',
+  location: 'Planted Acres',
+  truckNumber: 'Buy-Back Varieties',
   remarks: 'Remarks',
 };
 
-const getInitialValueFilterTouched = (): Partial<
-  Record<FilterableColumnId, boolean>
+const getInitialValueFilterTouched = (): Record<
+  FilterableColumnId,
+  boolean
 > => ({
   gatePassNo: false,
-  manualGatePassNumber: false,
   date: false,
+  farmerName: false,
   variety: false,
-  totalBags: false,
+  bagsReceived: false,
+  netWeightKg: false,
+  location: false,
+  truckNumber: false,
 });
 
 type AdvancedTabContentProps = {
   draftLogicFilter: FilterGroupNode;
-  advancedFieldValueOptions: Partial<Record<FilterField, string[]>>;
+  advancedFieldValueOptions: Record<FilterField, string[]>;
   onResetLogicBuilder: () => void;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
   onAddConditionToGroup: (groupId: string) => void;
@@ -248,13 +250,15 @@ export function ViewFiltersSheet({
     }
   );
   const [draftGrouping, setDraftGrouping] = React.useState<string[]>([]);
+  const [draftStatusFilters, setDraftStatusFilters] =
+    React.useState<StatusFilterValue[]>(statusFilterOptions);
   const [draftLogicFilter, setDraftLogicFilter] =
     React.useState<FilterGroupNode>(createDefaultFilterGroup());
   const [draftValueFilters, setDraftValueFilters] = React.useState<
     Record<FilterableColumnId, string[]>
   >(getEmptyValueFilters());
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
-    Partial<Record<FilterableColumnId, boolean>>
+    Record<FilterableColumnId, boolean>
   >(getInitialValueFilterTouched());
 
   const sensors = useSensors(
@@ -294,7 +298,16 @@ export function ViewFiltersSheet({
   const availableFilterOptions = React.useMemo<
     Record<FilterableColumnId, string[]>
   >(() => {
-    const options = getEmptyValueFilters();
+    const options = {
+      gatePassNo: [],
+      date: [],
+      farmerName: [],
+      variety: [],
+      bagsReceived: [],
+      netWeightKg: [],
+      location: [],
+      truckNumber: [],
+    } as Record<FilterableColumnId, string[]>;
 
     filterableColumns.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);
@@ -303,31 +316,44 @@ export function ViewFiltersSheet({
   }, [getUniqueColumnValues]);
 
   const advancedFieldValueOptions = React.useMemo<
-    Partial<Record<FilterField, string[]>>
+    Record<FilterField, string[]>
   >(() => {
     const options = {
       gatePassNo: [],
       manualGatePassNumber: [],
       date: [],
+      farmerName: [],
       variety: [],
       totalBags: [],
-    } as Partial<Record<FilterField, string[]>>;
+      bagsReceived: [],
+      netWeightKg: [],
+      status: [...statusFilterOptions],
+      location: [],
+      truckNumber: [],
+    } as Record<FilterField, string[]>;
 
     advancedFilterFields.forEach(({ id }) => {
-      options[id] = getUniqueColumnValues(id);
+      options[id] =
+        id === 'status' ? [...statusFilterOptions] : getUniqueColumnValues(id);
     });
     return options;
   }, [getUniqueColumnValues]);
 
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
+    if (draftStatusFilters.length < statusFilterOptions.length) count++;
     filterableColumns.forEach(({ id }) => {
       const all = availableFilterOptions[id];
       if (all.length > 0 && draftValueFilters[id].length < all.length) count++;
     });
     if (hasAnyUsableFilter(draftLogicFilter)) count++;
     return count;
-  }, [draftValueFilters, draftLogicFilter, availableFilterOptions]);
+  }, [
+    draftStatusFilters,
+    draftValueFilters,
+    draftLogicFilter,
+    availableFilterOptions,
+  ]);
 
   const activeColumnCount = React.useMemo(
     () => Object.values(draftColumnVisibility).filter((v) => !v).length,
@@ -392,6 +418,13 @@ export function ViewFiltersSheet({
         : [...availableFilterOptions[id]];
     });
 
+    const rawStatusFilter = table.getColumn('status')?.getFilterValue();
+
+    setDraftStatusFilters(
+      Array.isArray(rawStatusFilter)
+        ? (rawStatusFilter as StatusFilterValue[])
+        : [...statusFilterOptions]
+    );
     setDraftColumnVisibility(visibility);
     setDraftColumnOrder([...validOrder, ...missing]);
     setDraftGrouping(table.getState().grouping);
@@ -456,6 +489,13 @@ export function ViewFiltersSheet({
     table.setColumnOrder(draftColumnOrder);
     table.setGrouping(draftGrouping);
 
+    const statusColumn = table.getColumn('status');
+    statusColumn?.setFilterValue(
+      draftStatusFilters.length === statusFilterOptions.length
+        ? undefined
+        : draftStatusFilters
+    );
+
     filterableColumns.forEach(({ id }) => {
       const allValues = availableFilterOptions[id];
       const selected = getEffectiveDraftValues(id);
@@ -478,6 +518,7 @@ export function ViewFiltersSheet({
     draftColumnVisibility,
     draftGrouping,
     draftLogicFilter,
+    draftStatusFilters,
     getEffectiveDraftValues,
     onOpenChange,
     table,
@@ -556,6 +597,19 @@ export function ViewFiltersSheet({
       return next;
     });
   };
+
+  const toggleStatusDraft = React.useCallback(
+    (status: StatusFilterValue, checked: boolean) => {
+      setDraftStatusFilters((current) =>
+        checked
+          ? current.includes(status)
+            ? current
+            : [...current, status]
+          : current.filter((v) => v !== status)
+      );
+    },
+    []
+  );
 
   const toggleValueDraft = React.useCallback(
     (columnId: FilterableColumnId, value: string, checked: boolean) => {
@@ -761,6 +815,45 @@ export function ViewFiltersSheet({
             <div className="bg-muted/10 flex-1 overflow-y-auto">
               <TabsContent value="filters" className="m-0 focus-visible:ring-0">
                 <div className="space-y-6 p-5">
+                  <div className="hidden">
+                    <SectionLabel>QC Status</SectionLabel>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        {
+                          value: 'ACTIVE' as StatusFilterValue,
+                          label: 'Active',
+                          indicator: 'bg-green-500',
+                        },
+                      ].map(({ value, label, indicator }) => {
+                        const checked = draftStatusFilters.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => toggleStatusDraft(value, !checked)}
+                            className={`flex items-center gap-2.5 rounded-lg border p-3 text-left transition-all ${
+                              checked
+                                ? 'border-primary/30 bg-primary/5 shadow-sm'
+                                : 'border-border bg-background opacity-70'
+                            }`}
+                          >
+                            {checked ? (
+                              <CheckCircle2 className="text-primary h-4 w-4 shrink-0" />
+                            ) : (
+                              <Circle className="text-muted-foreground/40 h-4 w-4 shrink-0" />
+                            )}
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full ${indicator}`}
+                            />
+                            <span className="text-foreground text-sm font-medium">
+                              {label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <SectionLabel>Column Filters</SectionLabel>
                     <div className="divide-border bg-background divide-y overflow-hidden rounded-lg border">

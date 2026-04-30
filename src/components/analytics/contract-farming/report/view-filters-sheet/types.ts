@@ -3,12 +3,12 @@ import type {
   ColumnResizeDirection,
   ColumnResizeMode,
 } from '@tanstack/react-table';
-import type { IncomingReportRow } from '../columns';
+import type { ContractFarmingReportRow } from '../columns';
 
 export type ViewFiltersSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  table: TanstackTable<IncomingReportRow>;
+  table: TanstackTable<ContractFarmingReportRow>;
   defaultColumnOrder: string[];
   columnResizeMode: ColumnResizeMode;
   columnResizeDirection: ColumnResizeDirection;
@@ -16,21 +16,14 @@ export type ViewFiltersSheetProps = {
   onColumnResizeDirectionChange: (direction: ColumnResizeDirection) => void;
 };
 
+export type StatusFilterValue = 'ACTIVE';
+
 export type FilterableColumnId =
   | 'gatePassNo'
-  | 'manualGatePassNumber'
   | 'date'
+  | 'farmerName'
   | 'variety'
-  | 'bagBelow25'
-  | 'bag25to30'
-  | 'bagBelow30'
-  | 'bag30to35'
-  | 'bag30to40'
-  | 'bag35to40'
-  | 'bag40to45'
-  | 'bag45to50'
-  | 'bag50to55'
-  | 'bagAbove50'
-  | 'bagAbove55'
-  | 'bagCut'
-  | 'totalBags';
+  | 'bagsReceived'
+  | 'netWeightKg'
+  | 'location'
+  | 'truckNumber';
