@@ -1,0 +1,24 @@
+export type FarmerSeedReportRow = {
+  id: string;
+  farmerId: string;
+  farmerName: string;
+  farmerAddress: string;
+  accountNumber: number | null;
+  gatePassNo: number;
+  invoiceNumber: string;
+  date: string;
+  variety: string;
+  generation: string;
+  bag35to40: number;
+  bag40to45: number;
+  bag40to50: number;
+  bag45to50: number;
+  bag50to55: number;
+  totalBags: number;
+  totalAcres: number;
+  averageRate: number;
+  totalAmount: number;
+  remarks: string;
+  createdAt: string;
+  updatedAt: string;
+};

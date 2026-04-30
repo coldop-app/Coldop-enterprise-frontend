@@ -3,7 +3,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
 import {
   ChevronDown,
@@ -26,11 +25,11 @@ interface DetailRowProps {
 
 const DetailRow = memo(({ label, value, icon: Icon }: DetailRowProps) => (
   <div className="flex flex-col gap-1">
-    <span className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold tracking-wider uppercase">
-      {Icon && <Icon className="h-3.5 w-3.5" />}
+    <span className="text-muted-foreground flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
+      {Icon && <Icon className="h-3 w-3" />}
       {label}
     </span>
-    <span className="text-foreground font-custom truncate text-sm font-medium">
+    <span className="text-foreground font-custom truncate text-xs font-semibold sm:text-sm">
       {value}
     </span>
   </div>
@@ -258,14 +257,14 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
 
   return (
     <Card className="border-border/40 hover:border-primary/30 w-full overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
-      <div className="px-4 pt-2 pb-4">
+      <div className="px-3 pt-2 pb-3 sm:px-4 sm:pb-4">
         {/* Header Section */}
-        <CardHeader className="px-0 pt-3 pb-2">
-          <div className="flex items-start justify-between gap-3">
+        <CardHeader className="px-0 pt-0 pb-0">
+          <div className="border-border/50 flex items-start justify-between gap-2.5 border-b pb-3 sm:pb-4">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
-                <h3 className="text-foreground font-custom text-base font-bold tracking-tight">
+                <h3 className="text-foreground font-custom text-sm font-bold tracking-tight sm:text-base">
                   FSP
                   {seedData.gatePassNo ? (
                     <>
@@ -276,14 +275,14 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                     </>
                   ) : null}
                   {seedData.invoiceNumber ? (
-                    <span className="text-muted-foreground font-normal">
+                    <span className="text-muted-foreground text-xs font-normal sm:text-sm">
                       {' '}
                       · Inv #{seedData.invoiceNumber}
                     </span>
                   ) : null}
                 </h3>
               </div>
-              <p className="text-muted-foreground mt-2 text-xs font-medium">
+              <p className="text-muted-foreground mt-1 text-[11px] sm:text-xs">
                 {seedData.date}
               </p>
             </div>
@@ -291,7 +290,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
             <div className="flex shrink-0 items-center gap-1.5">
               <Badge
                 variant="secondary"
-                className="px-2.5 py-1 text-[11px] font-bold tracking-wide"
+                className="px-2 py-0.5 text-[10px] font-medium tracking-wide"
               >
                 {seedData.totals.totalBags.toLocaleString('en-IN')} BAGS
               </Badge>
@@ -300,7 +299,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
         </CardHeader>
 
         {/* Quick Details Grid */}
-        <div className="mt-2 mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="mt-3 mb-3 grid grid-cols-2 gap-x-3 gap-y-3 lg:grid-cols-4">
           <DetailRow label="Farmer" value={seedData.farmer.name} icon={User} />
           <DetailRow label="Account" value={`#${seedData.farmer.account}`} />
           <DetailRow label="Variety" value={seedData.variety} icon={Sprout} />
@@ -312,22 +311,22 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
         </div>
 
         {/* Action Bar */}
-        <div className="flex items-center justify-between pt-1">
+        <div className="bg-muted/10 border-border/50 -mx-3 flex items-center justify-between border-t px-3 py-2.5 sm:-mx-4 sm:px-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded((p) => !p)}
-            className="hover:bg-accent h-8 px-3 text-xs font-semibold"
+            className="hover:bg-accent h-8 px-2 text-xs font-medium"
           >
             {isExpanded ? (
               <>
                 <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
-                Show Less
+                Less
               </>
             ) : (
               <>
                 <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
-                View Full Details
+                More
               </>
             )}
           </Button>
@@ -347,113 +346,122 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
         {/* Expanded Content */}
         {isExpanded && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-            <Separator className="my-4" />
-            <div className="space-y-5">
-              {/* Farmer Info */}
-              <section>
-                <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-bold tracking-wider uppercase">
-                  Extended Farmer Details
-                </h4>
-                <div className="bg-muted/30 grid grid-cols-1 gap-4 rounded-lg p-3 sm:grid-cols-2">
-                  <DetailRow label="Name" value={seedData.farmer.name} />
-                  <DetailRow label="Account" value={seedData.farmer.account} />
-                  <div className="sm:col-span-2">
+            <div className="border-border/50 -mx-3 mt-0 border-t p-3 sm:-mx-4 sm:p-4">
+              <div className="space-y-4">
+                {/* Farmer Info */}
+                <section>
+                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Extended Farmer Details
+                  </h4>
+                  <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2">
+                    <DetailRow label="Name" value={seedData.farmer.name} />
                     <DetailRow
-                      label="Address"
-                      value={seedData.farmer.address}
+                      label="Account"
+                      value={seedData.farmer.account}
                     />
+                    <div className="sm:col-span-2">
+                      <DetailRow
+                        label="Address"
+                        value={seedData.farmer.address}
+                      />
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
 
-              <Separator />
-
-              {/* Seed / Line Items Table */}
-              <section>
-                <h4 className="text-muted-foreground/70 mb-3 text-xs font-bold tracking-wider uppercase">
-                  Itemized Seed Details
-                </h4>
-                <div className="bg-muted/30 border-border/50 overflow-hidden rounded-lg border">
-                  <div className="overflow-x-auto">
-                    <table className="font-custom w-full min-w-[560px] text-sm">
-                      <thead className="bg-muted/50">
-                        <tr className="text-muted-foreground border-b text-left text-[10px] font-bold tracking-wider uppercase">
-                          <th className="px-4 py-3">Bag Size</th>
-                          <th className="px-4 py-3 text-right">Qty</th>
-                          <th className="px-4 py-3 text-right">Rate (₹)</th>
-                          <th className="px-4 py-3 text-right">Acres</th>
-                          <th className="px-4 py-3 text-right">Amount (₹)</th>
-                          <th className="px-4 py-3 text-right">Received (₹)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-border/50 divide-y">
-                        {seedData.bagSizes.map((row, idx) => (
-                          <tr
-                            key={idx}
-                            className="hover:bg-muted/20 transition-colors"
-                          >
-                            <td className="px-4 py-3 font-medium">
-                              {row.name}
+                {/* Seed / Line Items Table */}
+                <section>
+                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Itemized Seed Details
+                  </h4>
+                  <div className="bg-muted/30 border-border/50 overflow-hidden rounded-lg border">
+                    <div className="overflow-x-auto">
+                      <table className="font-custom w-full min-w-[560px] text-xs">
+                        <thead className="bg-muted/50">
+                          <tr className="text-muted-foreground border-b text-left text-[10px] font-semibold tracking-wide uppercase">
+                            <th className="px-3 py-2.5">Bag Size</th>
+                            <th className="px-3 py-2.5 text-right">Qty</th>
+                            <th className="px-3 py-2.5 text-right">Rate (₹)</th>
+                            <th className="px-3 py-2.5 text-right">Acres</th>
+                            <th className="px-3 py-2.5 text-right">
+                              Amount (₹)
+                            </th>
+                            <th className="px-3 py-2.5 text-right">
+                              Received (₹)
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-border/50 divide-y">
+                          {seedData.bagSizes.map((row, idx) => (
+                            <tr
+                              key={idx}
+                              className="hover:bg-muted/20 transition-colors"
+                            >
+                              <td className="px-3 py-2.5 font-medium">
+                                {row.name}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                {row.quantity.toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                {row.rate.toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                {row.acres.toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                {row.amount.toLocaleString('en-IN')}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-medium text-emerald-600">
+                                {row.received === null
+                                  ? FALLBACK_TEXT
+                                  : row.received.toLocaleString('en-IN')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-muted/50 border-border/80 text-foreground border-t-2 font-bold">
+                            <td className="px-3 py-2.5">Total</td>
+                            <td className="px-3 py-2.5 text-right">
+                              {seedData.totals.totalBags.toLocaleString(
+                                'en-IN'
+                              )}
                             </td>
-                            <td className="px-4 py-3 text-right">
-                              {row.quantity.toLocaleString('en-IN')}
+                            <td className="px-3 py-2.5 text-right">—</td>
+                            <td className="px-3 py-2.5 text-right">
+                              {seedData.totals.totalAcres.toLocaleString(
+                                'en-IN'
+                              )}
                             </td>
-                            <td className="px-4 py-3 text-right">
-                              {row.rate.toLocaleString('en-IN')}
+                            <td className="px-3 py-2.5 text-right">
+                              {seedData.totals.totalAmount.toLocaleString(
+                                'en-IN'
+                              )}
                             </td>
-                            <td className="px-4 py-3 text-right">
-                              {row.acres.toLocaleString('en-IN')}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {row.amount.toLocaleString('en-IN')}
-                            </td>
-                            <td className="px-4 py-3 text-right font-medium text-emerald-600">
-                              {row.received === null
-                                ? FALLBACK_TEXT
-                                : row.received.toLocaleString('en-IN')}
+                            <td className="px-3 py-2.5 text-right text-emerald-600">
+                              {seedData.totals.totalReceived.toLocaleString(
+                                'en-IN'
+                              )}
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-muted/50 border-border/80 text-foreground border-t-2 font-bold">
-                          <td className="px-4 py-3">Total</td>
-                          <td className="px-4 py-3 text-right">
-                            {seedData.totals.totalBags.toLocaleString('en-IN')}
-                          </td>
-                          <td className="px-4 py-3 text-right">—</td>
-                          <td className="px-4 py-3 text-right">
-                            {seedData.totals.totalAcres.toLocaleString('en-IN')}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {seedData.totals.totalAmount.toLocaleString(
-                              'en-IN'
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right text-emerald-600">
-                            {seedData.totals.totalReceived.toLocaleString(
-                              'en-IN'
-                            )}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
 
-              {/* Remarks */}
-              <Separator />
-              <section>
-                <h4 className="text-muted-foreground/70 mb-2.5 text-xs font-bold tracking-wider uppercase">
-                  Remarks / Notes
-                </h4>
-                <div className="rounded-lg border border-amber-200/50 bg-amber-50/50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
-                  <p className="text-foreground font-custom text-sm leading-relaxed font-medium">
-                    {seedData.remarks}
-                  </p>
-                </div>
-              </section>
+                {/* Remarks */}
+                <section>
+                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Remarks / Notes
+                  </h4>
+                  <div className="rounded-lg border border-amber-200/50 bg-amber-50/50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+                    <p className="text-foreground font-custom text-xs leading-relaxed font-medium">
+                      {seedData.remarks}
+                    </p>
+                  </div>
+                </section>
+              </div>
             </div>
           </div>
         )}

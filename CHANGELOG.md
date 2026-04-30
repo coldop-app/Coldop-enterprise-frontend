@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.9] - 2026-04-30
+
+### Added
+- New farmer-seed analytics report route at `/store-admin/analytics/reports/farmer-seed/` with a dedicated report table, advanced view-filters sheet modules, and PDF generation/export support.
+- Farmer-seed report data service and typing support for fetching and rendering report entries with farmer/account context.
+- Storage daybook gate-pass modules, including a storage voucher card component and query/mutation service hooks for list, search, create, edit, and edit-history workflows.
+
+### Changed
+- Analytics overview "Total Farmer Seed Bags Given" stat card now includes direct "Get Report" navigation to the farmer-seed report route.
+- Storage daybook tab now renders real API-backed storage gate-pass data with debounced search, pagination-aware loading/error/empty states, and card-based listing UI.
+- Seed daybook voucher card UI was refined for tighter density and clearer mobile readability across header, details, and expanded sections.
+- Generated route tree was refreshed to register and type the new farmer-seed analytics report route.
+- Project version updated to `0.4.9` for this farmer-seed reporting and storage daybook release.
+
 ## [0.4.8] - 2026-04-29
 
 ### Added

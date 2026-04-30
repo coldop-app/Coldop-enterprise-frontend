@@ -59,3 +59,44 @@ export interface GetFarmerSeedAuditApiResponse {
   data: FarmerSeedAuditEntry[];
   pagination?: FarmerSeedEntryPagination;
 }
+
+export interface FarmerSeedReportFarmer {
+  _id: string;
+  name: string;
+  address: string;
+}
+
+export interface FarmerSeedReportFarmerStorageLink {
+  _id: string;
+  farmerId: FarmerSeedReportFarmer | string;
+  coldStorageId: string;
+  accountNumber: number;
+}
+
+export interface FarmerSeedReportBagSize {
+  name: string;
+  quantity: number;
+  rate: number;
+  acres: number;
+}
+
+export interface FarmerSeedReportEntry {
+  _id: string;
+  farmerStorageLinkId: FarmerSeedReportFarmerStorageLink | string;
+  gatePassNo: number | null;
+  invoiceNumber: string | null;
+  date: string;
+  variety: string;
+  generation: string;
+  bagSizes: FarmerSeedReportBagSize[];
+  remarks: string | null;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface GetFarmerSeedReportApiResponse {
+  success: boolean;
+  message?: string;
+  data?: FarmerSeedReportEntry[] | null;
+}

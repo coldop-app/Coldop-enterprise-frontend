@@ -4,7 +4,7 @@ import {
   NotebookText,
   Search,
 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,6 +12,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import {
   Item,
@@ -27,11 +34,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import StorageVoucherCard from '@/components/daybook/storage-gate-pass-card';
+import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
+import { useSearchStorageGatePass } from '@/services/store-admin/storage-gate-pass/useSearchStorageGatePass';
 
 const SORT_ORDER_OPTIONS = ['Latest first', 'Oldest first'] as const;
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;
 const DEFAULT_ITEMS_PER_PAGE = 10;
-const STORAGE_GATE_PASS_COUNT = 94;
+const SEARCH_DEBOUNCE_MS = 500;
 
 type SortOrder = (typeof SORT_ORDER_OPTIONS)[number];
 
@@ -96,18 +106,59 @@ const StorageTab = () => {
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const totalPages = 1;
+  const {
+    data,
+    isLoading: isListLoading,
+    isError: isListError,
+    error: listError,
+  } = useGetStorageGatePasses({
+    page: currentPage,
+    limit: itemsPerPage,
+    sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
+  });
+
+  const isSearching = debouncedSearch.length > 0;
+  const {
+    data: searchData,
+    isLoading: isSearchLoading,
+    isError: isSearchError,
+    error: searchError,
+  } = useSearchStorageGatePass(isSearching ? debouncedSearch : null);
+
+  const storageGatePasses = isSearching
+    ? (searchData ?? [])
+    : (data?.data ?? []);
+  const totalCount = isSearching
+    ? storageGatePasses.length
+    : (data?.pagination?.total ?? storageGatePasses.length);
+  const totalPages = isSearching ? 1 : (data?.pagination?.totalPages ?? 1);
+  const isLoading = isSearching ? isSearchLoading : isListLoading;
+  const isError = isSearching ? isSearchError : isListError;
+  const error = isSearching ? searchError : listError;
   const isOnFirstPage = currentPage <= 1;
   const isOnLastPage = currentPage >= totalPages;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchQuery(e.target.value);
-      setCurrentPage(1);
+      const value = e.target.value;
+      setSearchQuery(value);
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(() => {
+        setDebouncedSearch(value.trim());
+        setCurrentPage(1);
+      }, SEARCH_DEBOUNCE_MS);
     },
     []
   );
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   const handleSortChange = useCallback((value: SortOrder) => {
     setSortOrder(value);
@@ -144,7 +195,7 @@ const StorageTab = () => {
               <NotebookText className="text-primary h-5 w-5" />
             </ItemMedia>
             <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-              {STORAGE_GATE_PASS_COUNT} storage gate passes
+              {totalCount} storage gate passes
             </ItemTitle>
           </div>
         </ItemHeader>
@@ -185,13 +236,40 @@ const StorageTab = () => {
         </ItemFooter>
       </Item>
 
-      <Item
-        variant="outline"
-        size="sm"
-        className="font-custom text-muted-foreground rounded-xl px-4 py-6 text-sm"
-      >
-        <p>Display storage gate pass here..</p>
-      </Item>
+      {storageGatePasses.length > 0 ? (
+        <div className="space-y-4">
+          {storageGatePasses.map((gatePass) => (
+            <StorageVoucherCard key={gatePass._id} gatePass={gatePass} />
+          ))}
+        </div>
+      ) : (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              {isLoading
+                ? 'Loading storage gate passes...'
+                : isError
+                  ? 'Failed to load storage gate passes'
+                  : isSearching
+                    ? 'No matching storage gate pass found'
+                    : 'No storage gate passes found'}
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              {isLoading
+                ? 'Please wait while we fetch the latest storage entries.'
+                : isError
+                  ? (error?.message ??
+                    'Please try again in a moment to fetch storage gate passes.')
+                  : isSearching
+                    ? 'Try a different gate pass number.'
+                    : 'Storage entries will appear here once they are created.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
 
       <Item
         variant="outline"
@@ -210,9 +288,11 @@ const StorageTab = () => {
                 <PaginationPrevious
                   href="#"
                   onClick={handlePrevPage}
-                  aria-disabled={isOnFirstPage}
+                  aria-disabled={isOnFirstPage || isSearching}
                   className={
-                    isOnFirstPage ? 'pointer-events-none opacity-50' : ''
+                    isOnFirstPage || isSearching
+                      ? 'pointer-events-none opacity-50'
+                      : ''
                   }
                 />
               </PaginationItem>
@@ -225,9 +305,11 @@ const StorageTab = () => {
                 <PaginationNext
                   href="#"
                   onClick={handleNextPage}
-                  aria-disabled={isOnLastPage}
+                  aria-disabled={isOnLastPage || isSearching}
                   className={
-                    isOnLastPage ? 'pointer-events-none opacity-50' : ''
+                    isOnLastPage || isSearching
+                      ? 'pointer-events-none opacity-50'
+                      : ''
                   }
                 />
               </PaginationItem>

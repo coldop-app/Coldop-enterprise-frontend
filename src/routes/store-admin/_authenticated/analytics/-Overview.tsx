@@ -321,6 +321,9 @@ const Overview = memo(function Overview() {
         value={formatNumber(normalized.totalSeedBagsGiven)}
         icon={<Sprout className="h-5 w-5" />}
         description="Total seed bags issued to farmers"
+        onGetReportClick={() =>
+          void navigate({ to: '/store-admin/analytics/reports/farmer-seed' })
+        }
       />
       <StatCard
         title="Total Incoming Bags"
