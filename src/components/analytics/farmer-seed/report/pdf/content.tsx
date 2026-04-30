@@ -12,7 +12,22 @@ const C = {
   border: '#E2E8F0',
 };
 
-const WRAP_COLUMN_IDS = new Set(['farmerName', 'remarks']);
+const WRAP_COLUMN_IDS = new Set([
+  'farmerName',
+  'remarks',
+  'bag35to40',
+  'bag40to45',
+  'bag40to50',
+  'bag45to50',
+  'bag50to55',
+]);
+const BAG_COLUMN_IDS = new Set([
+  'bag35to40',
+  'bag40to45',
+  'bag40to50',
+  'bag45to50',
+  'bag50to55',
+]);
 
 const s = StyleSheet.create({
   tableWrap: {
@@ -83,6 +98,11 @@ const s = StyleSheet.create({
   tableBodyTextWrap: {
     fontSize: 10,
     color: C.textStrong,
+  },
+  tableBodySecondaryText: {
+    fontSize: 8,
+    color: C.muted,
+    lineHeight: 1.2,
   },
   tableTotalsText: {
     fontSize: 10,
@@ -200,15 +220,62 @@ export function ReportContentTable({
                   style={[s.tableRow, index % 2 === 0 ? s.rowEven : s.rowOdd]}
                   wrap={false}
                 >
-                  {columnRenderMeta.map((columnMeta) => (
-                    <Text
-                      key={`${section.id}-${row.id}-${columnMeta.id}`}
-                      style={columnMeta.bodyTextStyle}
-                      wrap={columnMeta.shouldWrap}
-                    >
-                      {row.values[columnMeta.id]}
-                    </Text>
-                  ))}
+                  {columnRenderMeta.map((columnMeta) => {
+                    const cellValue = row.values[columnMeta.id];
+                    if (
+                      BAG_COLUMN_IDS.has(columnMeta.id) &&
+                      typeof cellValue === 'string' &&
+                      cellValue.includes('\n')
+                    ) {
+                      const [quantityLine, ...secondaryLines] =
+                        cellValue.split('\n');
+                      return (
+                        <View
+                          key={`${section.id}-${row.id}-${columnMeta.id}`}
+                          style={[
+                            s.tableCellText,
+                            {
+                              width: `${
+                                (Number(
+                                  report.columns.find(
+                                    (c) => c.id === columnMeta.id
+                                  )?.weight || 1
+                                ) /
+                                  totalWeight) *
+                                100
+                              }%`,
+                              alignItems:
+                                columnMeta.align === 'right'
+                                  ? 'flex-end'
+                                  : columnMeta.align === 'center'
+                                    ? 'center'
+                                    : 'flex-start',
+                            },
+                          ]}
+                        >
+                          <Text style={s.tableBodyText}>{quantityLine}</Text>
+                          {secondaryLines.map((line, secondaryIndex) => (
+                            <Text
+                              key={`${section.id}-${row.id}-${columnMeta.id}-secondary-${secondaryIndex}`}
+                              style={s.tableBodySecondaryText}
+                            >
+                              {line}
+                            </Text>
+                          ))}
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <Text
+                        key={`${section.id}-${row.id}-${columnMeta.id}`}
+                        style={columnMeta.bodyTextStyle}
+                        wrap={columnMeta.shouldWrap}
+                      >
+                        {cellValue}
+                      </Text>
+                    );
+                  })}
                 </View>
               ))}
 

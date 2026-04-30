@@ -86,6 +86,81 @@ const columnConfig: Record<string, ColumnConfig> = {
   date: { label: 'Date', value: (row) => row.date },
   variety: { label: 'Variety', value: (row) => row.variety },
   generation: { label: 'Generation', value: (row) => row.generation },
+  bag35to40: {
+    label: '35-40',
+    align: 'right',
+    value: (row) =>
+      formatBagSizePdfValue(
+        row.bag35to40,
+        row.bag35to40Rate,
+        row.bag35to40Acres
+      ),
+    total: (rows) =>
+      formatIndianNumber(
+        sumBy(rows, (r) => r.bag35to40),
+        0
+      ),
+  },
+  bag40to45: {
+    label: '40-45',
+    align: 'right',
+    value: (row) =>
+      formatBagSizePdfValue(
+        row.bag40to45,
+        row.bag40to45Rate,
+        row.bag40to45Acres
+      ),
+    total: (rows) =>
+      formatIndianNumber(
+        sumBy(rows, (r) => r.bag40to45),
+        0
+      ),
+  },
+  bag40to50: {
+    label: '40-50',
+    align: 'right',
+    value: (row) =>
+      formatBagSizePdfValue(
+        row.bag40to50,
+        row.bag40to50Rate,
+        row.bag40to50Acres
+      ),
+    total: (rows) =>
+      formatIndianNumber(
+        sumBy(rows, (r) => r.bag40to50),
+        0
+      ),
+  },
+  bag45to50: {
+    label: '45-50',
+    align: 'right',
+    value: (row) =>
+      formatBagSizePdfValue(
+        row.bag45to50,
+        row.bag45to50Rate,
+        row.bag45to50Acres
+      ),
+    total: (rows) =>
+      formatIndianNumber(
+        sumBy(rows, (r) => r.bag45to50),
+        0
+      ),
+  },
+  bag50to55: {
+    label: '50-55',
+    align: 'right',
+    value: (row) =>
+      formatBagSizePdfValue(
+        row.bag50to55,
+        row.bag50to55Rate,
+        row.bag50to55Acres
+      ),
+    total: (rows) =>
+      formatIndianNumber(
+        sumBy(rows, (r) => r.bag50to55),
+        0
+      ),
+  },
   totalBags: {
     label: 'Bags',
     align: 'right',
@@ -344,4 +419,17 @@ function formatIndianNumber(value: number, precision = 0): string {
     minimumFractionDigits: safePrecision,
     maximumFractionDigits: safePrecision,
   });
+}
+
+function formatBagSizePdfValue(
+  quantity: number,
+  rate: number,
+  acres: number
+): string {
+  if (Number(quantity || 0) === 0) return '-';
+  return [
+    formatIndianNumber(quantity, 0),
+    `Rate - ${formatIndianNumber(rate, 2)}`,
+    `Acres - ${formatIndianNumber(acres, 2)}`,
+  ].join('\n');
 }

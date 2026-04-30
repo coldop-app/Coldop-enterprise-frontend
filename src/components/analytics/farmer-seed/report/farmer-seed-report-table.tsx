@@ -140,6 +140,19 @@ function computeTotals(entry: FarmerSeedReportEntry) {
   };
 }
 
+type BagSizeKey =
+  | 'bag35to40'
+  | 'bag40to45'
+  | 'bag40to50'
+  | 'bag45to50'
+  | 'bag50to55';
+
+type BagSizeMetric = {
+  quantity: number;
+  totalAcres: number;
+  totalRateAmount: number;
+};
+
 function normalizeBagSizeName(name: string): string {
   const normalized = name
     .toLowerCase()
@@ -154,41 +167,75 @@ function normalizeBagSizeName(name: string): string {
   return normalized;
 }
 
-function getBagSizeQuantities(entry: FarmerSeedReportEntry) {
-  const quantities = {
-    bag35to40: 0,
-    bag40to45: 0,
-    bag40to50: 0,
-    bag45to50: 0,
-    bag50to55: 0,
+function createEmptyBagSizeMetric(): BagSizeMetric {
+  return {
+    quantity: 0,
+    totalAcres: 0,
+    totalRateAmount: 0,
+  };
+}
+
+function getBagSizeKey(name: string): BagSizeKey | null {
+  switch (name) {
+    case '35-40':
+      return 'bag35to40';
+    case '40-45':
+      return 'bag40to45';
+    case '40-50':
+      return 'bag40to50';
+    case '45-50':
+      return 'bag45to50';
+    case '50-55':
+      return 'bag50to55';
+    default:
+      return null;
+  }
+}
+
+function getBagSizeMetrics(
+  entry: FarmerSeedReportEntry
+): Record<BagSizeKey, BagSizeMetric> {
+  const metrics: Record<BagSizeKey, BagSizeMetric> = {
+    bag35to40: createEmptyBagSizeMetric(),
+    bag40to45: createEmptyBagSizeMetric(),
+    bag40to50: createEmptyBagSizeMetric(),
+    bag45to50: createEmptyBagSizeMetric(),
+    bag50to55: createEmptyBagSizeMetric(),
   };
 
   for (const bag of entry.bagSizes || []) {
     const normalized = normalizeBagSizeName(String(bag.name || ''));
+    const bagSizeKey = getBagSizeKey(normalized);
+    if (!bagSizeKey) continue;
     const quantity = Number(bag.quantity || 0);
+    const rate = Number(bag.rate || 0);
+    const acres = Number(bag.acres || 0);
 
-    switch (normalized) {
-      case '35-40':
-        quantities.bag35to40 += quantity;
-        break;
-      case '40-45':
-        quantities.bag40to45 += quantity;
-        break;
-      case '40-50':
-        quantities.bag40to50 += quantity;
-        break;
-      case '45-50':
-        quantities.bag45to50 += quantity;
-        break;
-      case '50-55':
-        quantities.bag50to55 += quantity;
-        break;
-      default:
-        break;
-    }
+    metrics[bagSizeKey].quantity += quantity;
+    metrics[bagSizeKey].totalAcres += acres;
+    metrics[bagSizeKey].totalRateAmount += quantity * rate;
   }
 
-  return quantities;
+  return metrics;
+}
+
+function renderBagSizeCell(
+  quantity: number,
+  rate: number,
+  acres: number,
+  precision = 2
+) {
+  if (Number(quantity || 0) === 0) return '';
+
+  return (
+    <div className="w-full text-right tabular-nums">
+      <div>{formatIndianNumber(quantity, 0)}</div>
+      <div className="text-muted-foreground text-[10px] leading-tight font-medium">
+        <div>Rate - {formatIndianNumber(rate, precision)}</div>
+        <div>Acres - {formatIndianNumber(acres, 2)}</div>
+      </div>
+    </div>
+  );
 }
 
 const columnHelper = createColumnHelper<FarmerSeedReportRow>();
@@ -213,7 +260,6 @@ const defaultColumnOrder: string[] = [
   'bag45to50',
   'bag50to55',
   'totalBags',
-  'averageRate',
   'totalAmount',
   'remarks',
 ];
@@ -226,7 +272,6 @@ const numericColumnIds = new Set([
   'bag45to50',
   'bag50to55',
   'totalBags',
-  'averageRate',
   'totalAmount',
 ]);
 
@@ -319,11 +364,12 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-      </div>
-    ),
+    cell: (info) =>
+      renderBagSizeCell(
+        Number(info.getValue() || 0),
+        Number(info.row.original.bag35to40Rate || 0),
+        Number(info.row.original.bag35to40Acres || 0)
+      ),
   }),
   columnHelper.accessor('bag40to45', {
     header: () => <div className="w-full text-right">40-45</div>,
@@ -331,11 +377,12 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-      </div>
-    ),
+    cell: (info) =>
+      renderBagSizeCell(
+        Number(info.getValue() || 0),
+        Number(info.row.original.bag40to45Rate || 0),
+        Number(info.row.original.bag40to45Acres || 0)
+      ),
   }),
   columnHelper.accessor('bag40to50', {
     header: () => <div className="w-full text-right">40-50</div>,
@@ -343,11 +390,12 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-      </div>
-    ),
+    cell: (info) =>
+      renderBagSizeCell(
+        Number(info.getValue() || 0),
+        Number(info.row.original.bag40to50Rate || 0),
+        Number(info.row.original.bag40to50Acres || 0)
+      ),
   }),
   columnHelper.accessor('bag45to50', {
     header: () => <div className="w-full text-right">45-50</div>,
@@ -355,11 +403,12 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-      </div>
-    ),
+    cell: (info) =>
+      renderBagSizeCell(
+        Number(info.getValue() || 0),
+        Number(info.row.original.bag45to50Rate || 0),
+        Number(info.row.original.bag45to50Acres || 0)
+      ),
   }),
   columnHelper.accessor('bag50to55', {
     header: () => <div className="w-full text-right">50-55</div>,
@@ -367,11 +416,12 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-      </div>
-    ),
+    cell: (info) =>
+      renderBagSizeCell(
+        Number(info.getValue() || 0),
+        Number(info.row.original.bag50to55Rate || 0),
+        Number(info.row.original.bag50to55Acres || 0)
+      ),
   }),
   columnHelper.accessor('totalBags', {
     header: () => <div className="w-full text-right">Total Bags</div>,
@@ -385,20 +435,8 @@ const columns = [
       </div>
     ),
   }),
-  columnHelper.accessor('averageRate', {
-    header: () => <div className="w-full text-right">Rate</div>,
-    sortingFn: 'basic',
-    filterFn: multiValueFilterFn,
-    minSize: 100,
-    maxSize: 200,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatIndianNumber(Number(info.getValue() || 0), 2)}
-      </div>
-    ),
-  }),
   columnHelper.accessor('totalAmount', {
-    header: () => <div className="w-full text-right">Total Seed Amount</div>,
+    header: () => <div className="w-full text-right">Total Rate</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
     minSize: 120,
@@ -572,7 +610,12 @@ const FarmerSeedReportTable = () => {
       (data ?? []).map((item) => {
         const farmer = getFarmerData(item);
         const totals = computeTotals(item);
-        const bagSizes = getBagSizeQuantities(item);
+        const bagSizes = getBagSizeMetrics(item);
+
+        const getRateFor = (key: BagSizeKey) =>
+          bagSizes[key].quantity > 0
+            ? bagSizes[key].totalRateAmount / bagSizes[key].quantity
+            : 0;
 
         return {
           id: item._id,
@@ -588,11 +631,21 @@ const FarmerSeedReportTable = () => {
           date: toDisplayDate(item.date),
           variety: item.variety ?? '-',
           generation: item.generation ?? '-',
-          bag35to40: bagSizes.bag35to40,
-          bag40to45: bagSizes.bag40to45,
-          bag40to50: bagSizes.bag40to50,
-          bag45to50: bagSizes.bag45to50,
-          bag50to55: bagSizes.bag50to55,
+          bag35to40: bagSizes.bag35to40.quantity,
+          bag35to40Rate: getRateFor('bag35to40'),
+          bag35to40Acres: bagSizes.bag35to40.totalAcres,
+          bag40to45: bagSizes.bag40to45.quantity,
+          bag40to45Rate: getRateFor('bag40to45'),
+          bag40to45Acres: bagSizes.bag40to45.totalAcres,
+          bag40to50: bagSizes.bag40to50.quantity,
+          bag40to50Rate: getRateFor('bag40to50'),
+          bag40to50Acres: bagSizes.bag40to50.totalAcres,
+          bag45to50: bagSizes.bag45to50.quantity,
+          bag45to50Rate: getRateFor('bag45to50'),
+          bag45to50Acres: bagSizes.bag45to50.totalAcres,
+          bag50to55: bagSizes.bag50to55.quantity,
+          bag50to55Rate: getRateFor('bag50to55'),
+          bag50to55Acres: bagSizes.bag50to55.totalAcres,
           totalBags: totals.totalBags,
           totalAcres: totals.totalAcres,
           averageRate: totals.averageRate,
