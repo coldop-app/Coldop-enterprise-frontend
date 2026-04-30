@@ -4,6 +4,13 @@ import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   useGetContractFarmingReport,
   type ContractFarmingReportData,
@@ -31,6 +38,14 @@ type FlattenedRow = {
   buyBackBags: number | null;
   buyBackNetWeightKg: number | null;
   gradeData: Record<string, { bags: number; netWeightKg: number }>;
+};
+
+type ColumnConfig = {
+  id: string;
+  label: string;
+  width: number;
+  minWidth: number;
+  maxWidth: number;
 };
 
 function formatNumber(value: number | null | undefined, decimals = 2) {
@@ -107,6 +122,7 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
 
 const ContractFarmingReportTable = () => {
   const [search, setSearch] = React.useState('');
+  const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
 
@@ -133,8 +149,245 @@ const ContractFarmingReportTable = () => {
     );
   }, [flattenedRows, search]);
 
-  const totalColumns =
-    11 + (gradeHeaders.length > 0 ? gradeHeaders.length * 2 : 1);
+  const baseColumns = React.useMemo<ColumnConfig[]>(
+    () => [
+      {
+        id: 'farmer',
+        label: 'Farmer',
+        width: 240,
+        minWidth: 180,
+        maxWidth: 550,
+      },
+      {
+        id: 'address',
+        label: 'Address',
+        width: 230,
+        minWidth: 160,
+        maxWidth: 550,
+      },
+      {
+        id: 'variety',
+        label: 'Variety',
+        width: 150,
+        minWidth: 120,
+        maxWidth: 260,
+      },
+      {
+        id: 'generation',
+        label: 'Gen',
+        width: 110,
+        minWidth: 90,
+        maxWidth: 180,
+      },
+      { id: 'size', label: 'Size', width: 120, minWidth: 90, maxWidth: 220 },
+      {
+        id: 'qty',
+        label: 'Qty (bags)',
+        width: 120,
+        minWidth: 100,
+        maxWidth: 220,
+      },
+      { id: 'acres', label: 'Acres', width: 120, minWidth: 100, maxWidth: 220 },
+      {
+        id: 'amount',
+        label: 'Seed amt (₹)',
+        width: 145,
+        minWidth: 120,
+        maxWidth: 260,
+      },
+      { id: 'bbBags', label: 'Bags', width: 120, minWidth: 100, maxWidth: 220 },
+      {
+        id: 'bbNetWeight',
+        label: 'Net wt (kg)',
+        width: 140,
+        minWidth: 120,
+        maxWidth: 260,
+      },
+    ],
+    []
+  );
+
+  const gradeColumns = React.useMemo<ColumnConfig[]>(
+    () =>
+      gradeHeaders.map((grade) => ({
+        id: `grade_bags_${grade}`,
+        label: `${grade} (Bags)`,
+        width: 130,
+        minWidth: 110,
+        maxWidth: 260,
+      })),
+    [gradeHeaders]
+  );
+
+  const allColumns = React.useMemo(
+    () => [...baseColumns, ...gradeColumns],
+    [baseColumns, gradeColumns]
+  );
+
+  const [columnOrderState, setColumnOrderState] = React.useState<string[]>(() =>
+    allColumns.map((column) => column.id)
+  );
+  const [columnVisibilityState, setColumnVisibilityState] = React.useState<
+    Record<string, boolean>
+  >(
+    () =>
+      Object.fromEntries(
+        allColumns.map((column) => [column.id, true])
+      ) as Record<string, boolean>
+  );
+  const [columnWidthsState, setColumnWidthsState] = React.useState<
+    Record<string, number>
+  >(
+    () =>
+      Object.fromEntries(
+        allColumns.map((column) => [column.id, column.width])
+      ) as Record<string, number>
+  );
+  const [resizeState, setResizeState] = React.useState<{
+    columnId: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const columnConfigMap = React.useMemo(
+    () => new Map(allColumns.map((column) => [column.id, column])),
+    [allColumns]
+  );
+
+  const defaultColumnIds = React.useMemo(
+    () => allColumns.map((column) => column.id),
+    [allColumns]
+  );
+
+  const columnOrder = React.useMemo(() => {
+    const preserved = columnOrderState.filter((columnId) =>
+      defaultColumnIds.includes(columnId)
+    );
+    const missing = defaultColumnIds.filter(
+      (columnId) => !preserved.includes(columnId)
+    );
+    return [...preserved, ...missing];
+  }, [columnOrderState, defaultColumnIds]);
+
+  const columnVisibility = React.useMemo(() => {
+    const next = { ...columnVisibilityState };
+    for (const column of allColumns) {
+      if (next[column.id] === undefined) {
+        next[column.id] = true;
+      }
+    }
+    return next;
+  }, [allColumns, columnVisibilityState]);
+
+  const columnWidths = React.useMemo(() => {
+    const next = { ...columnWidthsState };
+    for (const column of allColumns) {
+      if (next[column.id] === undefined) {
+        next[column.id] = column.width;
+      }
+    }
+    return next;
+  }, [allColumns, columnWidthsState]);
+
+  React.useEffect(() => {
+    if (!resizeState) return;
+
+    const handleMove = (event: MouseEvent) => {
+      const config = columnConfigMap.get(resizeState.columnId);
+      if (!config) return;
+
+      const delta = event.clientX - resizeState.startX;
+      const nextWidth = Math.min(
+        config.maxWidth,
+        Math.max(config.minWidth, resizeState.startWidth + delta)
+      );
+      setColumnWidthsState((current) => ({
+        ...current,
+        [resizeState.columnId]: nextWidth,
+      }));
+    };
+
+    const handleUp = () => setResizeState(null);
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [resizeState, columnConfigMap]);
+
+  const orderedVisibleColumns = React.useMemo(
+    () =>
+      columnOrder.filter(
+        (columnId) =>
+          columnVisibility[columnId] && columnConfigMap.has(columnId)
+      ),
+    [columnOrder, columnVisibility, columnConfigMap]
+  );
+
+  const visibleBaseIds = React.useMemo(
+    () =>
+      new Set(
+        orderedVisibleColumns.filter(
+          (columnId) => !columnId.startsWith('grade_bags_')
+        )
+      ),
+    [orderedVisibleColumns]
+  );
+  const visibleGradeIds = React.useMemo(
+    () =>
+      orderedVisibleColumns.filter((columnId) =>
+        columnId.startsWith('grade_bags_')
+      ),
+    [orderedVisibleColumns]
+  );
+  const visibleGradeHeaders = React.useMemo(
+    () =>
+      visibleGradeIds.map((columnId) => ({
+        columnId,
+        grade: columnId.replace('grade_bags_', ''),
+      })),
+    [visibleGradeIds]
+  );
+
+  const totalColumns = Math.max(orderedVisibleColumns.length, 1);
+
+  const getWidth = (columnId: string) => {
+    const config = columnConfigMap.get(columnId);
+    return columnWidths[columnId] ?? config?.width ?? 120;
+  };
+
+  const headerCellClass =
+    'font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase';
+  const bodyCellClass =
+    'font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5';
+
+  const handleResizeStart = (
+    columnId: string,
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    event.preventDefault();
+    setResizeState({
+      columnId,
+      startX: event.clientX,
+      startWidth: getWidth(columnId),
+    });
+  };
+
+  const resetColumns = () => {
+    setColumnOrderState(allColumns.map((column) => column.id));
+    setColumnVisibilityState(
+      Object.fromEntries(
+        allColumns.map((column) => [column.id, true])
+      ) as Record<string, boolean>
+    );
+    setColumnWidthsState(
+      Object.fromEntries(
+        allColumns.map((column) => [column.id, column.width])
+      ) as Record<string, number>
+    );
+  };
 
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -158,6 +411,7 @@ const ContractFarmingReportTable = () => {
               <Button
                 variant="outline"
                 className="border-primary text-primary hover:bg-primary/5 h-8 rounded-lg px-4 text-sm leading-none"
+                onClick={() => setIsViewFiltersOpen(true)}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 View Filters
@@ -225,72 +479,110 @@ const ContractFarmingReportTable = () => {
             <table className="font-custom min-w-full border-collapse text-sm">
               <thead className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
                 <tr>
-                  {[
-                    'Farmer',
-                    'Acc #',
-                    'Address',
-                    'Variety',
-                    'Gen',
-                    'Size',
-                    'Qty (bags)',
-                    'Acres',
-                    'Seed amt (₹)',
-                  ].map((label) => (
+                  {baseColumns
+                    .filter(
+                      (column) =>
+                        !['bbBags', 'bbNetWeight'].includes(column.id) &&
+                        visibleBaseIds.has(column.id)
+                    )
+                    .map((column) => (
+                      <th
+                        key={column.id}
+                        rowSpan={2}
+                        className={`${headerCellClass} relative`}
+                        style={{
+                          width: getWidth(column.id),
+                          minWidth: getWidth(column.id),
+                        }}
+                      >
+                        {column.label}
+                        <div
+                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                          onMouseDown={(event) =>
+                            handleResizeStart(column.id, event)
+                          }
+                        />
+                      </th>
+                    ))}
+                  {visibleBaseIds.has('bbBags') ||
+                  visibleBaseIds.has('bbNetWeight') ? (
                     <th
-                      key={label}
-                      rowSpan={2}
-                      className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase"
+                      colSpan={
+                        Number(visibleBaseIds.has('bbBags')) +
+                        Number(visibleBaseIds.has('bbNetWeight'))
+                      }
+                      className={`${headerCellClass} bg-green-50`}
                     >
-                      {label}
+                      Buy back
                     </th>
-                  ))}
+                  ) : null}
                   <th
-                    colSpan={2}
-                    className="font-custom border-border/50 h-10 border-r bg-green-50 px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase"
-                  >
-                    Buy back
-                  </th>
-                  <th
-                    colSpan={Math.max(gradeHeaders.length * 2, 1)}
-                    className="font-custom border-border/50 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase"
+                    colSpan={Math.max(visibleGradeHeaders.length, 1)}
+                    className={headerCellClass}
                   >
                     Grading
                   </th>
                 </tr>
                 <tr>
-                  <th className="font-custom border-border/50 h-10 border-r bg-green-50 px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase">
-                    Bags
-                  </th>
-                  <th className="font-custom border-border/50 h-10 border-r bg-green-50 px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase">
-                    Net wt (kg)
-                  </th>
-                  {gradeHeaders.length > 0 ? (
-                    gradeHeaders.flatMap((grade) => [
+                  {visibleBaseIds.has('bbBags') ? (
+                    <th
+                      className={`${headerCellClass} relative bg-green-50`}
+                      style={{
+                        width: getWidth('bbBags'),
+                        minWidth: getWidth('bbBags'),
+                      }}
+                    >
+                      Bags
+                      <div
+                        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                        onMouseDown={(event) =>
+                          handleResizeStart('bbBags', event)
+                        }
+                      />
+                    </th>
+                  ) : null}
+                  {visibleBaseIds.has('bbNetWeight') ? (
+                    <th
+                      className={`${headerCellClass} relative bg-green-50`}
+                      style={{
+                        width: getWidth('bbNetWeight'),
+                        minWidth: getWidth('bbNetWeight'),
+                      }}
+                    >
+                      Net wt (kg)
+                      <div
+                        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                        onMouseDown={(event) =>
+                          handleResizeStart('bbNetWeight', event)
+                        }
+                      />
+                    </th>
+                  ) : null}
+                  {visibleGradeHeaders.length > 0 ? (
+                    visibleGradeHeaders.map(({ columnId, grade }) => (
                       <th
-                        key={`bags-${grade}`}
-                        className="font-custom border-border/50 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase"
+                        key={columnId}
+                        className={`${headerCellClass} relative`}
+                        style={{
+                          width: getWidth(columnId),
+                          minWidth: getWidth(columnId),
+                        }}
                       >
                         {grade}
                         <br />
                         <span className="text-muted-foreground text-[10px] font-normal">
                           Bags
                         </span>
-                      </th>,
-                      <th
-                        key={`wt-${grade}`}
-                        className="font-custom border-border/50 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase"
-                      >
-                        {grade}
-                        <br />
-                        <span className="text-muted-foreground text-[10px] font-normal">
-                          Wt (kg)
-                        </span>
-                      </th>,
-                    ])
+                        <div
+                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                          onMouseDown={(event) =>
+                            handleResizeStart(columnId, event)
+                          }
+                        />
+                      </th>
+                    ))
                   ) : (
-                    <th className="font-custom border-border/50 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase">
-                      No grades
-                    </th>
+                    <th className={headerCellClass}>No grades</th>
                   )}
                 </tr>
               </thead>
@@ -314,105 +606,168 @@ const ContractFarmingReportTable = () => {
                       >
                         {row.isFirstFarmerRow && (
                           <>
-                            <td
-                              rowSpan={row.farmerRowSpan}
-                              className="font-custom border-border/40 text-foreground/85 max-w-56 border-r px-3 py-2.5 align-top"
-                            >
-                              <div className="font-medium">
-                                {row.farmerName}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                {row.farmerMobile}
-                              </div>
-                            </td>
-                            <td
-                              rowSpan={row.farmerRowSpan}
-                              className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-top"
-                            >
-                              {row.farmerAccount}
-                            </td>
-                            <td
-                              rowSpan={row.farmerRowSpan}
-                              className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-top"
-                            >
-                              {row.farmerAddress}
-                            </td>
+                            {visibleBaseIds.has('farmer') ? (
+                              <td
+                                rowSpan={row.farmerRowSpan}
+                                className={`${bodyCellClass} max-w-56 align-top`}
+                                style={{
+                                  width: getWidth('farmer'),
+                                  minWidth: getWidth('farmer'),
+                                }}
+                              >
+                                <div className="font-medium">
+                                  {row.farmerName}
+                                  <span className="text-muted-foreground ml-1 text-sm font-normal">
+                                    (#{row.farmerAccount})
+                                  </span>
+                                </div>
+                              </td>
+                            ) : null}
+                            {visibleBaseIds.has('address') ? (
+                              <td
+                                rowSpan={row.farmerRowSpan}
+                                className={`${bodyCellClass} align-top`}
+                                style={{
+                                  width: getWidth('address'),
+                                  minWidth: getWidth('address'),
+                                }}
+                              >
+                                {row.farmerAddress}
+                              </td>
+                            ) : null}
                           </>
                         )}
 
-                        {row.isFirstVarietyRow && (
+                        {row.isFirstVarietyRow &&
+                          visibleBaseIds.has('variety') && (
+                            <td
+                              rowSpan={row.varietyRowSpan}
+                              className={`${bodyCellClass} align-top`}
+                              style={{
+                                width: getWidth('variety'),
+                                minWidth: getWidth('variety'),
+                              }}
+                            >
+                              <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                {row.varietyName}
+                              </span>
+                            </td>
+                          )}
+
+                        {visibleBaseIds.has('generation') ? (
                           <td
-                            rowSpan={row.varietyRowSpan}
-                            className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-top"
+                            className={bodyCellClass}
+                            style={{
+                              width: getWidth('generation'),
+                              minWidth: getWidth('generation'),
+                            }}
                           >
-                            <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              {row.varietyName}
+                            <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                              {row.generation}
                             </span>
                           </td>
-                        )}
-
-                        <td className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5">
-                          <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                            {row.generation}
-                          </span>
-                        </td>
-                        <td className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5">
-                          {row.sizeName}
-                        </td>
-                        <td className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 text-right tabular-nums">
-                          {formatNumber(row.sizeQuantity, 0)}
-                        </td>
-                        <td className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 text-right tabular-nums">
-                          {formatNumber(row.sizeAcres)}
-                        </td>
-                        <td className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 text-right tabular-nums">
-                          {row.sizeAmount > 0
-                            ? `₹${formatNumber(row.sizeAmount)}`
-                            : '-'}
-                        </td>
+                        ) : null}
+                        {visibleBaseIds.has('size') ? (
+                          <td
+                            className={bodyCellClass}
+                            style={{
+                              width: getWidth('size'),
+                              minWidth: getWidth('size'),
+                            }}
+                          >
+                            {row.sizeName}
+                          </td>
+                        ) : null}
+                        {visibleBaseIds.has('qty') ? (
+                          <td
+                            className={`${bodyCellClass} text-right tabular-nums`}
+                            style={{
+                              width: getWidth('qty'),
+                              minWidth: getWidth('qty'),
+                            }}
+                          >
+                            {formatNumber(row.sizeQuantity, 0)}
+                          </td>
+                        ) : null}
+                        {visibleBaseIds.has('acres') ? (
+                          <td
+                            className={`${bodyCellClass} text-right tabular-nums`}
+                            style={{
+                              width: getWidth('acres'),
+                              minWidth: getWidth('acres'),
+                            }}
+                          >
+                            {formatNumber(row.sizeAcres)}
+                          </td>
+                        ) : null}
+                        {visibleBaseIds.has('amount') ? (
+                          <td
+                            className={`${bodyCellClass} text-right tabular-nums`}
+                            style={{
+                              width: getWidth('amount'),
+                              minWidth: getWidth('amount'),
+                            }}
+                          >
+                            {row.sizeAmount > 0
+                              ? `₹${formatNumber(row.sizeAmount)}`
+                              : '-'}
+                          </td>
+                        ) : null}
 
                         {row.isFirstVarietyRow && (
                           <>
-                            <td
-                              rowSpan={row.varietyRowSpan}
-                              className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-                            >
-                              {formatNumber(row.buyBackBags, 0)}
-                            </td>
-                            <td
-                              rowSpan={row.varietyRowSpan}
-                              className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-                            >
-                              {formatNumber(row.buyBackNetWeightKg)}
-                            </td>
-                            {gradeHeaders.length > 0 ? (
-                              gradeHeaders.flatMap((grade) => {
+                            {visibleBaseIds.has('bbBags') ? (
+                              <td
+                                rowSpan={row.varietyRowSpan}
+                                className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
+                                style={{
+                                  width: getWidth('bbBags'),
+                                  minWidth: getWidth('bbBags'),
+                                }}
+                              >
+                                {formatNumber(row.buyBackBags, 0)}
+                              </td>
+                            ) : (
+                              <></>
+                            )}
+                            {visibleBaseIds.has('bbNetWeight') ? (
+                              <td
+                                rowSpan={row.varietyRowSpan}
+                                className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
+                                style={{
+                                  width: getWidth('bbNetWeight'),
+                                  minWidth: getWidth('bbNetWeight'),
+                                }}
+                              >
+                                {formatNumber(row.buyBackNetWeightKg)}
+                              </td>
+                            ) : (
+                              <></>
+                            )}
+                            {visibleGradeHeaders.length > 0 ? (
+                              visibleGradeHeaders.map(({ columnId, grade }) => {
                                 const gradeEntry = row.gradeData[grade];
-                                return [
+                                return (
                                   <td
-                                    key={`${row.rowId}-grade-bags-${grade}`}
+                                    key={`${row.rowId}-${columnId}`}
                                     rowSpan={row.varietyRowSpan}
-                                    className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 text-right align-top tabular-nums"
+                                    className={`${bodyCellClass} text-right align-top tabular-nums`}
+                                    style={{
+                                      width: getWidth(columnId),
+                                      minWidth: getWidth(columnId),
+                                    }}
                                   >
                                     {gradeEntry
                                       ? formatNumber(gradeEntry.bags, 0)
                                       : '-'}
-                                  </td>,
-                                  <td
-                                    key={`${row.rowId}-grade-wt-${grade}`}
-                                    rowSpan={row.varietyRowSpan}
-                                    className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 text-right align-top tabular-nums"
-                                  >
-                                    {gradeEntry
-                                      ? formatNumber(gradeEntry.netWeightKg)
-                                      : '-'}
-                                  </td>,
-                                ];
+                                  </td>
+                                );
                               })
-                            ) : (
+                            ) : visibleBaseIds.has('bbBags') ||
+                              visibleBaseIds.has('bbNetWeight') ? null : (
                               <td
                                 rowSpan={row.varietyRowSpan}
-                                className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 text-center align-top"
+                                className={`${bodyCellClass} text-center align-top`}
                               >
                                 -
                               </td>
@@ -437,6 +792,73 @@ const ContractFarmingReportTable = () => {
           )}
         </div>
       </div>
+      <Sheet open={isViewFiltersOpen} onOpenChange={setIsViewFiltersOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+          <div className="space-y-4">
+            <div>
+              <SheetTitle className="font-custom text-base font-semibold">
+                View Filters
+              </SheetTitle>
+              <SheetDescription>
+                Show, hide and reset report columns.
+              </SheetDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() =>
+                  setColumnVisibilityState(
+                    Object.fromEntries(
+                      allColumns.map((column) => [column.id, true])
+                    ) as Record<string, boolean>
+                  )
+                }
+              >
+                Show all
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={resetColumns}
+              >
+                Reset all
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {columnOrder.map((columnId) => {
+                const config = columnConfigMap.get(columnId);
+                if (!config) return null;
+
+                return (
+                  <div
+                    key={columnId}
+                    className="bg-background flex items-center gap-3 rounded-md border p-2"
+                  >
+                    <Checkbox
+                      checked={Boolean(columnVisibility[columnId])}
+                      onCheckedChange={(checked) =>
+                        setColumnVisibilityState((current) => ({
+                          ...current,
+                          [columnId]: checked === true,
+                        }))
+                      }
+                    />
+                    <div className="flex-1">
+                      <p className="font-custom text-sm font-medium">
+                        {config.label}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Width: {Math.round(getWidth(columnId))}px
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </main>
   );
 };
