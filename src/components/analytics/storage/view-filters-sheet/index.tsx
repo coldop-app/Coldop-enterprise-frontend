@@ -97,9 +97,8 @@ const columnLabels: Record<string, string> = {
   remarks: 'Remarks',
 };
 
-const getInitialValueFilterTouched = (): Record<
-  FilterableColumnId,
-  boolean
+const getInitialValueFilterTouched = (): Partial<
+  Record<FilterableColumnId, boolean>
 > => ({
   gatePassNo: false,
   manualGatePassNumber: false,
@@ -110,7 +109,7 @@ const getInitialValueFilterTouched = (): Record<
 
 type AdvancedTabContentProps = {
   draftLogicFilter: FilterGroupNode;
-  advancedFieldValueOptions: Record<FilterField, string[]>;
+  advancedFieldValueOptions: Partial<Record<FilterField, string[]>>;
   onResetLogicBuilder: () => void;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
   onAddConditionToGroup: (groupId: string) => void;
@@ -255,7 +254,7 @@ export function ViewFiltersSheet({
     Record<FilterableColumnId, string[]>
   >(getEmptyValueFilters());
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
-    Record<FilterableColumnId, boolean>
+    Partial<Record<FilterableColumnId, boolean>>
   >(getInitialValueFilterTouched());
 
   const sensors = useSensors(
@@ -295,13 +294,7 @@ export function ViewFiltersSheet({
   const availableFilterOptions = React.useMemo<
     Record<FilterableColumnId, string[]>
   >(() => {
-    const options = {
-      gatePassNo: [],
-      manualGatePassNumber: [],
-      date: [],
-      variety: [],
-      totalBags: [],
-    } as Record<FilterableColumnId, string[]>;
+    const options = getEmptyValueFilters();
 
     filterableColumns.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);
@@ -310,7 +303,7 @@ export function ViewFiltersSheet({
   }, [getUniqueColumnValues]);
 
   const advancedFieldValueOptions = React.useMemo<
-    Record<FilterField, string[]>
+    Partial<Record<FilterField, string[]>>
   >(() => {
     const options = {
       gatePassNo: [],
@@ -318,7 +311,7 @@ export function ViewFiltersSheet({
       date: [],
       variety: [],
       totalBags: [],
-    } as Record<FilterField, string[]>;
+    } as Partial<Record<FilterField, string[]>>;
 
     advancedFilterFields.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);

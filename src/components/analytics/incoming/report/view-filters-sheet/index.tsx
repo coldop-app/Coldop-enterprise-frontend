@@ -320,9 +320,11 @@ export function ViewFiltersSheet({
   >(() => {
     const options = {
       gatePassNo: [],
+      manualGatePassNumber: [],
       date: [],
       farmerName: [],
       variety: [],
+      totalBags: [],
       bagsReceived: [],
       netWeightKg: [],
       status: [...statusFilterOptions],

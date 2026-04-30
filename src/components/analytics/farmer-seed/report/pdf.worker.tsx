@@ -24,12 +24,16 @@ let runtimePromise: Promise<WorkerRuntime> | null = null;
 function getWorkerRuntime(): Promise<WorkerRuntime> {
   if (!runtimePromise) {
     runtimePromise = (async () => {
-      const runtimeGlobal = globalThis as typeof globalThis & {
-        window?: typeof globalThis;
-        self?: typeof globalThis;
+      const runtimeGlobal = globalThis as {
+        window?: unknown;
+        self?: unknown;
       };
-      if (!runtimeGlobal.window) runtimeGlobal.window = runtimeGlobal;
-      if (!runtimeGlobal.self) runtimeGlobal.self = runtimeGlobal;
+      if (!runtimeGlobal.window) {
+        runtimeGlobal.window = globalThis;
+      }
+      if (!runtimeGlobal.self) {
+        runtimeGlobal.self = globalThis;
+      }
 
       const [React, reactPdf, pdfDocument, pdfPrepare] = await Promise.all([
         import('react'),
@@ -70,7 +74,7 @@ self.onmessage = async (event: MessageEvent<FarmerSeedPdfWorkerRequest>) => {
       coldStorageName,
     });
 
-    const blob = await pdf(document).toBlob();
+    const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
     const response: FarmerSeedPdfWorkerResponse = { status: 'success', blob };
     self.postMessage(response);
   } catch (error) {

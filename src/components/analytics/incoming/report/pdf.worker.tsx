@@ -1,6 +1,4 @@
 import type { IncomingReportRow } from './columns';
-import type { PreparedIncomingReportPdf } from './pdf/pdf-prepare';
-
 export type IncomingPdfWorkerRequest = {
   rows: IncomingReportRow[];
   visibleColumnIds: string[];
@@ -23,12 +21,7 @@ let workerRuntimePromise: Promise<{
   React: typeof import('react');
   pdf: typeof import('@react-pdf/renderer').pdf;
   Font: typeof import('@react-pdf/renderer').Font;
-  InwardLedgerReportDocument: (props: {
-    generatedAt: string;
-    report: PreparedIncomingReportPdf;
-    grouping?: string[];
-    coldStorageName: string;
-  }) => JSX.Element;
+  InwardLedgerReportDocument: typeof import('./pdf/incoming-report-table-pdf').InwardLedgerReportDocument;
   prepareIncomingReportPdf: typeof import('./pdf/pdf-prepare').prepareIncomingReportPdf;
 }> | null = null;
 
@@ -36,12 +29,16 @@ function getWorkerRuntime() {
   if (workerRuntimePromise) return workerRuntimePromise;
 
   workerRuntimePromise = (async () => {
-    const runtimeGlobal = globalThis as typeof globalThis & {
-      window?: typeof globalThis;
-      self?: typeof globalThis;
+    const runtimeGlobal = globalThis as {
+      window?: unknown;
+      self?: unknown;
     };
-    if (!runtimeGlobal.window) runtimeGlobal.window = runtimeGlobal;
-    if (!runtimeGlobal.self) runtimeGlobal.self = runtimeGlobal;
+    if (!runtimeGlobal.window) {
+      runtimeGlobal.window = globalThis;
+    }
+    if (!runtimeGlobal.self) {
+      runtimeGlobal.self = globalThis;
+    }
 
     const [{ Font, pdf }, ReactModule, pdfModule, prepareModule] =
       await Promise.all([
@@ -88,7 +85,7 @@ self.onmessage = async (event: MessageEvent<IncomingPdfWorkerRequest>) => {
       coldStorageName,
     });
 
-    const blob = await pdf(document).toBlob();
+    const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
     const response: IncomingPdfWorkerResponse = {
       status: 'success',
       blob,

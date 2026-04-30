@@ -1,8 +1,10 @@
 export type FilterField =
   | 'gatePassNo'
+  | 'manualGatePassNumber'
   | 'date'
   | 'farmerName'
   | 'variety'
+  | 'totalBags'
   | 'bagsReceived'
   | 'netWeightKg'
   | 'status'
@@ -39,6 +41,7 @@ export type FilterNode = FilterConditionNode | FilterGroupNode;
 
 export const numericFilterFields: FilterField[] = [
   'gatePassNo',
+  'totalBags',
   'bagsReceived',
   'netWeightKg',
 ];
