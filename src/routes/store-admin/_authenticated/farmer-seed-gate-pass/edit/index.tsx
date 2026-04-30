@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -185,6 +185,8 @@ function FarmerSeedEditForm() {
   } = useGetAllFarmers();
   const { mutate: editFarmerSeedEntry, isPending } = useEditFarmerSeedEntry();
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
+  const [isMarkedAsNull, setIsMarkedAsNull] = useState(false);
+  const remarksInputRef = useRef<HTMLInputElement | null>(null);
 
   const initialBagRows = useMemo(
     () => mapInitialBagSizes(search.bagSizesJson),
@@ -271,7 +273,7 @@ function FarmerSeedEditForm() {
 
   const canSubmit =
     Boolean(search.id) &&
-    totalQty > 0 &&
+    (totalQty > 0 || isMarkedAsNull) &&
     Boolean(variety) &&
     Boolean(generation);
 
@@ -311,11 +313,34 @@ function FarmerSeedEditForm() {
       toast.error('Please select variety and generation.');
       return;
     }
-    if (totalQty <= 0) {
+    if (totalQty <= 0 && !isMarkedAsNull) {
       toast.error('Please enter quantity for at least one bag size.');
       return;
     }
     setIsSummarySheetOpen(true);
+  };
+
+  const handleMarkAsNull = () => {
+    setIsMarkedAsNull(true);
+    setBagSizes((prev) =>
+      prev.map((row) => ({
+        ...row,
+        quantity: 0,
+        rate: 0,
+        acres: 0,
+      }))
+    );
+    setExtraBagSizeRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        quantity: 0,
+        rate: 0,
+        acres: 0,
+      }))
+    );
+    window.requestAnimationFrame(() => {
+      remarksInputRef.current?.focus();
+    });
   };
 
   const handleSubmit = () => {
@@ -342,6 +367,7 @@ function FarmerSeedEditForm() {
             acres: Math.max(0, Number(row.acres ?? 0)),
           })),
         remarks: remarks.trim() || undefined,
+        isMarkedAsNull: isMarkedAsNull || undefined,
       },
       {
         onSuccess: (response) => {
@@ -359,6 +385,15 @@ function FarmerSeedEditForm() {
         <h1 className="font-custom text-foreground text-3xl font-bold sm:text-4xl">
           Edit Farmer Seed Entry
         </h1>
+        <Button
+          type="button"
+          variant="destructive"
+          className="font-custom block w-fit"
+          onClick={handleMarkAsNull}
+          disabled={isPending || isMarkedAsNull}
+        >
+          {isMarkedAsNull ? 'Marked as Null' : 'Mark as Null'}
+        </Button>
       </div>
 
       <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
@@ -466,6 +501,7 @@ function FarmerSeedEditForm() {
               Remarks (optional)
             </FieldLabel>
             <Input
+              ref={remarksInputRef}
               type="text"
               placeholder="Enter remarks"
               value={remarks}
@@ -513,6 +549,7 @@ function FarmerSeedEditForm() {
                     }}
                     onWheel={(e) => e.currentTarget.blur()}
                     onKeyDown={preventNumberInputArrowKeys}
+                    disabled={isMarkedAsNull}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <Input
@@ -531,6 +568,7 @@ function FarmerSeedEditForm() {
                     }}
                     onWheel={(e) => e.currentTarget.blur()}
                     onKeyDown={preventNumberInputArrowKeys}
+                    disabled={isMarkedAsNull}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <Input
@@ -549,6 +587,7 @@ function FarmerSeedEditForm() {
                     }}
                     onWheel={(e) => e.currentTarget.blur()}
                     onKeyDown={preventNumberInputArrowKeys}
+                    disabled={isMarkedAsNull}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </div>
@@ -598,6 +637,7 @@ function FarmerSeedEditForm() {
                     }
                     onWheel={(e) => e.currentTarget.blur()}
                     onKeyDown={preventNumberInputArrowKeys}
+                    disabled={isMarkedAsNull}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <Input
@@ -613,6 +653,7 @@ function FarmerSeedEditForm() {
                     }
                     onWheel={(e) => e.currentTarget.blur()}
                     onKeyDown={preventNumberInputArrowKeys}
+                    disabled={isMarkedAsNull}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <Input
@@ -628,6 +669,7 @@ function FarmerSeedEditForm() {
                     }
                     onWheel={(e) => e.currentTarget.blur()}
                     onKeyDown={preventNumberInputArrowKeys}
+                    disabled={isMarkedAsNull}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </div>

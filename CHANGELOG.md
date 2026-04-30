@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-04-30
+
+### Added
+- Storage gate pass module routes for listing, editing, and edit-history workflows under `/store-admin/storage-gate-pass/`.
+- Reusable storage gate pass edit summary sheet for confirmation before update submission.
+
+### Changed
+- Storage daybook cards and tab integration now align with the storage gate pass module APIs and navigation.
+- Storage gate pass create/edit services and related type definitions were expanded to support edit payloads, history records, and route-level data usage.
+- Farmer seed edit flow refinements were applied to keep form behaviors and shared voucher logic consistent with the updated storage workflows.
+- Generated route tree was refreshed to register and type the new storage gate pass route structure.
+- Project version updated to `0.5.0` for this storage gate pass workflow release.
+
 ## [0.4.9] - 2026-04-30
 
 ### Added

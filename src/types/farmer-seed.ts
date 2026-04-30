@@ -40,6 +40,7 @@ export interface EditFarmerSeedInput {
   gatePassNo?: number | string;
   bagSizes?: CreateFarmerSeedBagSizeInput[];
   remarks?: string;
+  isMarkedAsNull?: boolean;
   [key: string]: unknown;
 }
 

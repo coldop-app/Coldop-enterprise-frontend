@@ -4,7 +4,9 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
+import { cn } from '@/lib/utils';
 import {
+  Ban,
   ChevronDown,
   ChevronUp,
   Pencil,
@@ -201,6 +203,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
   const navigate = useNavigate();
 
   const seedData = buildViewModel(entry);
+  const isCancelledGatePass = seedData.totals.totalBags === 0;
 
   const handleEditClick = () => {
     const id = toStringValue(entry._id, '');
@@ -256,11 +259,34 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
   };
 
   return (
-    <Card className="border-border/40 hover:border-primary/30 w-full overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
+    <Card
+      className={cn(
+        'border-border/40 hover:border-primary/30 bg-card relative w-full overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md',
+        isCancelledGatePass &&
+          'border-border/20 bg-muted/30 opacity-55 saturate-0'
+      )}
+    >
+      {isCancelledGatePass ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-1">
+            <div className="border-border/30 bg-background/40 rounded-full border p-3">
+              <Ban className="text-muted-foreground/50 h-7 w-7" />
+            </div>
+            <span className="font-custom text-muted-foreground/60 text-[10px] tracking-[0.18em] uppercase">
+              Null
+            </span>
+          </div>
+        </div>
+      ) : null}
       <div className="px-3 pt-2 pb-3 sm:px-4 sm:pb-4">
         {/* Header Section */}
         <CardHeader className="px-0 pt-0 pb-0">
-          <div className="border-border/50 flex items-start justify-between gap-2.5 border-b pb-3 sm:pb-4">
+          <div
+            className={cn(
+              'border-border/50 flex items-start justify-between gap-2.5 border-b pb-3 sm:pb-4',
+              isCancelledGatePass && 'border-border/30'
+            )}
+          >
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
@@ -269,7 +295,12 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                   {seedData.gatePassNo ? (
                     <>
                       {' '}
-                      <span className="text-primary">
+                      <span
+                        className={cn(
+                          'text-primary',
+                          isCancelledGatePass && 'text-muted-foreground'
+                        )}
+                      >
                         #{seedData.gatePassNo}
                       </span>
                     </>
@@ -290,10 +321,22 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
             <div className="flex shrink-0 items-center gap-1.5">
               <Badge
                 variant="secondary"
-                className="px-2 py-0.5 text-[10px] font-medium tracking-wide"
+                className={cn(
+                  'px-2 py-0.5 text-[10px] font-medium tracking-wide',
+                  isCancelledGatePass &&
+                    'border-border/60 bg-muted/40 text-muted-foreground'
+                )}
               >
                 {seedData.totals.totalBags.toLocaleString('en-IN')} BAGS
               </Badge>
+              {isCancelledGatePass ? (
+                <Badge
+                  variant="secondary"
+                  className="font-custom border-border/60 bg-muted/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium"
+                >
+                  Cancelled Gate Pass
+                </Badge>
+              ) : null}
             </div>
           </div>
         </CardHeader>

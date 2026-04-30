@@ -244,6 +244,7 @@ export interface EditStorageGatePassInput {
   remarks?: string;
   manualGatePassNumber?: number;
   reason?: string;
+  isMarkedAsNull?: boolean;
 }
 
 /** API response for PUT /storage-gate-pass/:id */

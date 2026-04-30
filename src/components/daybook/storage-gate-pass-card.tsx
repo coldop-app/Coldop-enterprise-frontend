@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +15,11 @@ import {
   Phone,
   FileText,
   LayoutGrid,
+  Ban,
   type LucideIcon,
 } from 'lucide-react';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
+import { cn } from '@/lib/utils';
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -58,6 +61,7 @@ interface StorageVoucherCardProps {
 
 export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const totalBags = gatePass.bagSizes.reduce(
     (sum, bag) => sum + bag.currentQuantity,
@@ -67,24 +71,67 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
     (sum, bag) => sum + bag.initialQuantity,
     0
   );
+  const isCancelledGatePass = totalBags === 0;
 
   const farmer = gatePass.farmerStorageLinkId.farmerId;
   const account = gatePass.farmerStorageLinkId.accountNumber;
 
+  const handleEditClick = () => {
+    navigate({
+      to: '/store-admin/storage-gate-pass/edit',
+      state: ((prev: Record<string, unknown>) => ({
+        ...prev,
+        storageGatePass: gatePass,
+      })) as never,
+    });
+  };
+
   return (
-    <Card className="border-border/50 bg-card overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
+    <Card
+      className={cn(
+        'border-border/50 bg-card relative overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md',
+        isCancelledGatePass &&
+          'border-border/20 bg-muted/30 opacity-55 saturate-0'
+      )}
+    >
+      {isCancelledGatePass ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-1">
+            <div className="border-border/30 bg-background/40 rounded-full border p-3">
+              <Ban className="text-muted-foreground/50 h-7 w-7" />
+            </div>
+            <span className="font-custom text-muted-foreground/60 text-[10px] tracking-[0.18em] uppercase">
+              Null
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* --- Card Header --- */}
-      <div className="bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4">
+      <div
+        className={cn(
+          'bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4',
+          isCancelledGatePass && 'bg-muted/30 border-border/30'
+        )}
+      >
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
-            <h3 className="text-foreground text-sm font-bold tracking-tight sm:text-base">
-              SGP <span className="text-primary">#{gatePass.gatePassNo}</span>
+            <h3 className="text-foreground font-custom text-sm font-bold tracking-tight sm:text-base">
+              SGP{' '}
+              <span
+                className={cn(
+                  'text-primary',
+                  isCancelledGatePass && 'text-muted-foreground'
+                )}
+              >
+                #{gatePass.gatePassNo}
+              </span>
             </h3>
             {gatePass.manualGatePassNumber != null && (
               <Badge
                 variant="secondary"
-                className="px-2 py-0.5 text-[10px] font-medium"
+                className="font-custom px-2 py-0.5 text-[10px] font-medium"
               >
                 Manual #{gatePass.manualGatePassNumber}
               </Badge>
@@ -98,10 +145,22 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
         <div className="flex shrink-0 items-center gap-1.5">
           <Badge
             variant="outline"
-            className="bg-background px-2 py-0.5 text-[10px] font-medium"
+            className={cn(
+              'bg-background font-custom px-2 py-0.5 text-[10px] font-medium',
+              isCancelledGatePass &&
+                'border-border/50 bg-muted/40 text-muted-foreground'
+            )}
           >
             {totalBags.toLocaleString('en-IN')} Bags Total
           </Badge>
+          {isCancelledGatePass ? (
+            <Badge
+              variant="secondary"
+              className="font-custom border-border/60 bg-muted/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium"
+            >
+              Cancelled Gate Pass
+            </Badge>
+          ) : null}
         </div>
       </div>
 
@@ -123,7 +182,7 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setIsExpanded((p) => !p)}
+          onClick={() => setIsExpanded((prev: boolean) => !prev)}
           className="text-muted-foreground hover:text-foreground h-8 px-2 text-xs font-medium"
         >
           {isExpanded ? (
@@ -143,6 +202,7 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
             size="sm"
             className="h-8 w-8 p-0"
             aria-label="Edit"
+            onClick={handleEditClick}
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>

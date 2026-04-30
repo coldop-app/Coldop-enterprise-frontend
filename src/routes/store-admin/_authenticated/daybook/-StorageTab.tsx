@@ -5,6 +5,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -102,6 +103,7 @@ const ItemsPerPageDropdown = ({
 );
 
 const StorageTab = () => {
+  const navigate = useNavigate();
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
@@ -228,7 +230,10 @@ const StorageTab = () => {
             >
               Storage History
             </Button>
-            <Button className="font-custom w-full cursor-pointer sm:w-auto">
+            <Button
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={() => navigate({ to: '/store-admin/storage-gate-pass' })}
+            >
               <ArrowUpFromLine className="h-4 w-4" />
               Add Storage
             </Button>
