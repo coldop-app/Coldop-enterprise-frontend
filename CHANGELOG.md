@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-05-02
+
+### Added
+- New authenticated Settings module routes under `/store-admin/settings/` including a Preferences screen with dedicated preferences query and mutation service hooks.
+- Zustand debug route at `/zustand/` now surfaces a live snapshot of key global store values for easier state inspection during development.
+- Added `@redux-devtools/extension` dependency to support store debugging workflows.
+
+### Changed
+- Nikasi daybook tab now uses API-backed search with debounced queries, improved loading/error handling for search vs list mode, and refresh controls for both flows.
+- Store state handling and route registration were updated to wire the new Settings/Preferences feature into the authenticated store-admin experience.
+- Project version updated to `0.5.4` for this settings and daybook search/refresh enhancement release.
+
 ## [0.5.3] - 2026-05-01
 
 ### Added

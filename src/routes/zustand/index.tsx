@@ -1,60 +1,71 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { useBearStore } from '@/stores/useBearStore';
+import { useStore } from '@/stores/store';
 
 export const Route = createFileRoute('/zustand/')({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-6 shadow-md">
-        <h2 className="text-center text-xl font-semibold text-gray-800">
-          Hello "/zustand/"!
-        </h2>
+  const admin = useStore((state) => state.admin);
+  const coldStorage = useStore((state) => state.coldStorage);
+  const token = useStore((state) => state.token);
+  const daybookActiveTab = useStore((state) => state.daybookActiveTab);
+  const isLoading = useStore((state) => state.isLoading);
+  const hasHydrated = useStore((state) => state._hasHydrated);
 
-        <BearCounter />
-        <Controls />
+  return (
+    <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
+      <div className="space-y-4 rounded-xl border bg-white p-4 shadow-sm sm:p-6">
+        <h1 className="font-custom text-2xl font-bold tracking-tight text-[#333]">
+          Zustand Global State
+        </h1>
+        <p className="font-custom text-sm text-[#6f6f6f]">
+          Live snapshot of values from `src/stores/store.ts`.
+        </p>
+
+        <StateBlock
+          title="admin"
+          value={admin}
+          emptyLabel="No admin data in store"
+        />
+        <StateBlock
+          title="coldStorage"
+          value={coldStorage}
+          emptyLabel="No cold storage selected"
+        />
+        <StateBlock title="token" value={token} emptyLabel="No token present" />
+        <StateBlock title="daybookActiveTab" value={daybookActiveTab} />
+        <StateBlock title="isLoading" value={isLoading} />
+        <StateBlock title="_hasHydrated" value={hasHydrated} />
       </div>
-    </div>
+    </main>
   );
 }
 
-// --------------------
-// Components
-// --------------------
-
-function BearCounter() {
-  const bears = useBearStore((state) => state.bears);
-
-  return (
-    <div className="text-center">
-      <h1 className="text-3xl font-bold text-gray-900">{bears}</h1>
-      <p className="text-sm text-gray-500">bears around here...</p>
-    </div>
-  );
-}
-
-function Controls() {
-  const increasePopulation = useBearStore((state) => state.increasePopulation);
-  const removeAllBears = useBearStore((state) => state.removeAllBears);
+function StateBlock({
+  title,
+  value,
+  emptyLabel,
+}: {
+  title: string;
+  value: unknown;
+  emptyLabel?: string;
+}) {
+  const isEmpty = value === null || value === undefined || value === '';
 
   return (
-    <div className="flex gap-3">
-      <button
-        onClick={increasePopulation}
-        className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700"
-      >
-        Add bear
-      </button>
-
-      <button
-        onClick={removeAllBears}
-        className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-      >
-        Remove all
-      </button>
-    </div>
+    <section className="space-y-2 rounded-lg border p-3">
+      <h2 className="font-custom text-sm font-semibold tracking-wide text-[#333] uppercase">
+        {title}
+      </h2>
+      {isEmpty && emptyLabel ? (
+        <p className="font-custom text-sm text-[#6f6f6f]">{emptyLabel}</p>
+      ) : (
+        <pre className="overflow-auto rounded-md bg-gray-50 p-3 text-xs">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      )}
+    </section>
   );
 }
