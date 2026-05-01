@@ -406,12 +406,12 @@ const Overview = memo(function Overview() {
         icon={<Building2 className="h-5 w-5" />}
       />
       <StatCard
-        title="Dispatch"
+        title="Dispatch (Pre Storage)"
         value={formatNumber(normalized.totalBagsDispatched)}
         icon={<Truck className="h-5 w-5" />}
       />
       <StatCard
-        title="Total Outgoing Bags"
+        title="Dispatch (Post Storage)"
         value={formatNumber(normalized.totalOutgoingBags)}
         icon={<ArrowUpRight className="h-5 w-5" />}
       />

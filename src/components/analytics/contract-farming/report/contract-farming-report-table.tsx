@@ -43,6 +43,8 @@ import { ContractFarmingViewFiltersSheet } from './view-filters-sheet/index';
 import {
   buildContractFarmingFilterableColumns,
   FILTER_VARIETY_LEVEL_PREFIX,
+  formatContractFarmingGradeColumnLabel,
+  isContractFarmingCutGrade,
 } from './view-filters-sheet/constants';
 
 const multiValueFilterFn = (
@@ -378,7 +380,7 @@ function buildColumns(
     ? gradeHeaders.map((grade) =>
         columnHelper.accessor((row) => row.gradeData[grade]?.bags ?? null, {
           id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
-          header: `${grade} (Bags)`,
+          header: formatContractFarmingGradeColumnLabel(grade),
           sortingFn: 'basic',
           size: 130,
           minSize: 110,
@@ -624,7 +626,7 @@ const ContractFarmingReportTable = () => {
       if (typeof header === 'string') return header;
       if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
         const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
-        return `${grade} (Bags)`;
+        return formatContractFarmingGradeColumnLabel(grade);
       }
       return columnId;
     },
@@ -1022,6 +1024,17 @@ const ContractFarmingReportTable = () => {
                       VARIETY_LEVEL_COLUMN_PREFIX,
                       ''
                     );
+                    const headerContent = isContractFarmingCutGrade(grade) ? (
+                      <span className="block leading-tight">Cut</span>
+                    ) : (
+                      <span className="block leading-tight">
+                        {grade}
+                        <br />
+                        <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
+                          (MM)
+                        </span>
+                      </span>
+                    );
                     return (
                       <th
                         key={columnId}
@@ -1031,16 +1044,7 @@ const ContractFarmingReportTable = () => {
                           minWidth: column.getSize(),
                         }}
                       >
-                        {renderLeafSortHeader(
-                          columnId,
-                          <span className="block leading-tight">
-                            {grade}
-                            <br />
-                            <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
-                              Bags
-                            </span>
-                          </span>
-                        )}
+                        {renderLeafSortHeader(columnId, headerContent)}
                         {renderLeafResizeHandle(columnId)}
                       </th>
                     );

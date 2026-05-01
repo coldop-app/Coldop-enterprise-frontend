@@ -2,6 +2,16 @@ import type { FilterField } from '@/lib/advanced-filters';
 
 export const FILTER_VARIETY_LEVEL_PREFIX = 'grade_bags_' as const;
 
+/** Grading columns: Cut is shown alone; bag-size ranges include (MM). */
+export function isContractFarmingCutGrade(grade: string): boolean {
+  return grade.trim().toLowerCase() === 'cut';
+}
+
+export function formatContractFarmingGradeColumnLabel(grade: string): string {
+  if (isContractFarmingCutGrade(grade)) return 'Cut';
+  return `${grade} (MM)`;
+}
+
 export const advancedFieldToColumnId: Partial<Record<FilterField, string>> = {
   farmerName: 'farmer',
   farmerMobile: 'farmerMobile',
@@ -49,7 +59,7 @@ export function buildContractFarmingFilterableColumns(gradeHeaders: string[]) {
     ...base,
     ...gradeHeaders.map((grade) => ({
       id: `${FILTER_VARIETY_LEVEL_PREFIX}${grade}`,
-      label: `${grade} (Bags)`,
+      label: formatContractFarmingGradeColumnLabel(grade),
     })),
   ];
 }
