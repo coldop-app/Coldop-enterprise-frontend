@@ -25,7 +25,7 @@ import {
 
 type LogicBuilderProps = {
   group: FilterGroupNode;
-  advancedFieldValueOptions: Record<FilterField, string[]>;
+  advancedFieldValueOptions: Partial<Record<FilterField, string[]>>;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
   onAddConditionToGroup: (groupId: string) => void;
   onAddNestedGroup: (groupId: string) => void;

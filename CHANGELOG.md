@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-05-01
+
+### Added
+- Contract farming analytics report now has dedicated report column definitions, modular filter sheet constants/types, and a typed PDF worker contract setup for cleaner report composition.
+- Storage analytics report PDF composition was split into reusable document sections (header, summary, table variants, and shared content wrappers) to improve export maintainability.
+- Storage analytics advanced view-filters sheet now uses extracted constants, primitives, helper utilities, and logic-builder modules for reusable filter building.
+
+### Changed
+- Contract farming report table wiring was updated to consume the new report module structure and align filtering/report rendering behavior with the refactor.
+- Storage report table and PDF data preparation flow were updated to align with the new modular PDF/filter architecture.
+- Project version updated to `0.5.2` for this analytics report modularization and PDF workflow refinement release.
+
 ## [0.5.1] - 2026-04-30
 
 ### Added

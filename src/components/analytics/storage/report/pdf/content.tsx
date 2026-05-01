@@ -188,7 +188,7 @@ export function ReportContentTable({
 
                   {isGroupedReport ||
                   (!isGroupedReport && section.rows.length > 0) ? (
-                    <View style={s.tableHeaderRow}>
+                    <View style={s.tableHeaderRow} fixed={!isGroupedReport}>
                       {columnRenderMeta.map((columnMeta) => (
                         <Text
                           key={`${section.id}-${columnMeta.id}`}

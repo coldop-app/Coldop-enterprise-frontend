@@ -1,7 +1,7 @@
 import type {
   IncomingPdfWorkerRequest,
   IncomingPdfWorkerResponse,
-} from '../pdf-worker.types';
+} from './pdf-worker.types';
 
 let workerRuntimePromise: Promise<{
   React: typeof import('react');
@@ -26,8 +26,8 @@ function getWorkerRuntime() {
       await Promise.all([
         import('@react-pdf/renderer'),
         import('react'),
-        import('../pdf/storage-report-table-pdf'),
-        import('../pdf/pdf-prepare'),
+        import('./pdf/incoming-report-table-pdf'),
+        import('./pdf/pdf-prepare'),
       ]);
 
     Font.register({
@@ -56,7 +56,7 @@ self.onmessage = async (event: MessageEvent<IncomingPdfWorkerRequest>) => {
       event.data;
 
     const report = (prepareIncomingReportPdf as (options: unknown) => unknown)({
-      rows: rows as unknown as import('../columns').IncomingReportRow[],
+      rows: rows as unknown as import('./columns').IncomingReportRow[],
       visibleColumnIds,
       grouping,
     });

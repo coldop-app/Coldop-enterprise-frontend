@@ -33,7 +33,7 @@ export function InwardLedgerReportDocument({
   coldStorageName,
 }: InwardLedgerReportDocumentProps) {
   return (
-    <Document title="Incoming Report" author="Bhatti Agritech Pvt Ltd">
+    <Document title="Storage Report" author="Bhatti Agritech Pvt Ltd">
       <Page size="A4" orientation="landscape" style={s.page}>
         <ReportRunHeader />
         <ReportPageNumber />

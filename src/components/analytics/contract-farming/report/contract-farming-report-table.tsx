@@ -48,6 +48,13 @@ type ColumnConfig = {
   maxWidth: number;
 };
 
+type SortDirection = 'asc' | 'desc';
+
+type SortState = {
+  columnId: string;
+  direction: SortDirection;
+} | null;
+
 const BAG_SIZE_DISPLAY_ORDER = [
   'Below 25',
   '25–30',
@@ -161,9 +168,83 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
   return rows;
 }
 
+function recomputeRowSpans(
+  rows: FlattenedRow[],
+  options: { groupByFarmer: boolean; groupByVariety: boolean }
+) {
+  const { groupByFarmer, groupByVariety } = options;
+  const nextRows = rows.map((row) => ({
+    ...row,
+    isFirstFarmerRow: false,
+    isFirstVarietyRow: false,
+    isFarmerBlockStart: false,
+    isVarietyBlockStart: false,
+    farmerRowSpan: 1,
+    varietyRowSpan: 1,
+  }));
+
+  if (nextRows.length === 0) return nextRows;
+
+  if (groupByFarmer) {
+    let farmerStart = 0;
+    for (let i = 1; i <= nextRows.length; i += 1) {
+      const isBoundary =
+        i === nextRows.length ||
+        nextRows[i].farmerName !== nextRows[farmerStart].farmerName;
+      if (isBoundary) {
+        const span = i - farmerStart;
+        nextRows[farmerStart].isFirstFarmerRow = true;
+        nextRows[farmerStart].isFarmerBlockStart = true;
+        nextRows[farmerStart].farmerRowSpan = span;
+        farmerStart = i;
+      }
+    }
+  } else {
+    nextRows.forEach((row, index) => {
+      row.isFirstFarmerRow = true;
+      row.isFarmerBlockStart = index === 0;
+      row.farmerRowSpan = 1;
+    });
+  }
+
+  if (groupByVariety) {
+    let varietyStart = 0;
+    for (let i = 1; i <= nextRows.length; i += 1) {
+      const isBoundary =
+        i === nextRows.length ||
+        nextRows[i].farmerName !== nextRows[varietyStart].farmerName ||
+        nextRows[i].varietyName !== nextRows[varietyStart].varietyName;
+      if (isBoundary) {
+        const span = i - varietyStart;
+        nextRows[varietyStart].isFirstVarietyRow = true;
+        nextRows[varietyStart].varietyRowSpan = span;
+        if (!nextRows[varietyStart].isFirstFarmerRow) {
+          nextRows[varietyStart].isVarietyBlockStart = true;
+        }
+        varietyStart = i;
+      }
+    }
+  } else {
+    nextRows.forEach((row) => {
+      row.isFirstVarietyRow = true;
+      row.varietyRowSpan = 1;
+      row.isVarietyBlockStart = false;
+    });
+  }
+
+  return nextRows;
+}
+
 const ContractFarmingReportTable = () => {
   const [search, setSearch] = React.useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
+  const [sortState, setSortState] = React.useState<SortState>(null);
+  const [groupByFarmer, setGroupByFarmer] = React.useState(true);
+  const [groupByVariety, setGroupByVariety] = React.useState(true);
+  const [columnFilterSearch, setColumnFilterSearch] = React.useState('');
+  const [columnFilterValues, setColumnFilterValues] = React.useState<
+    Record<string, string>
+  >({});
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
 
@@ -189,21 +270,122 @@ const ContractFarmingReportTable = () => {
     [report.farmers]
   );
 
-  const filteredRows = React.useMemo<FlattenedRow[]>(() => {
+  const rowsAfterSearchAndFilters = React.useMemo<FlattenedRow[]>(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return flattenedRows;
-
-    return flattenedRows.filter(
-      (row) =>
+    return flattenedRows.filter((row) => {
+      const matchesSearch =
+        !query ||
         row.farmerName.toLowerCase().includes(query) ||
         row.farmerAddress.toLowerCase().includes(query) ||
         row.farmerMobile.toLowerCase().includes(query) ||
         row.varietyName.toLowerCase().includes(query) ||
         row.generation.toLowerCase().includes(query) ||
         row.sizeName.toLowerCase().includes(query) ||
-        String(row.farmerAccount).includes(query)
-    );
-  }, [flattenedRows, search]);
+        String(row.farmerAccount).includes(query);
+
+      if (!matchesSearch) return false;
+
+      return Object.entries(columnFilterValues).every(([columnId, value]) => {
+        const normalizedValue = value.trim().toLowerCase();
+        if (!normalizedValue) return true;
+
+        const columnText = (() => {
+          switch (columnId) {
+            case 'farmer':
+              return row.farmerName;
+            case 'address':
+              return row.farmerAddress;
+            case 'variety':
+              return row.varietyName;
+            case 'generation':
+              return row.generation;
+            case 'size':
+              return row.sizeName;
+            case 'qty':
+              return String(row.sizeQuantity);
+            case 'acres':
+              return String(row.sizeAcres);
+            case 'amount':
+              return String(row.sizeAmount);
+            case 'bbBags':
+              return String(row.buyBackBags ?? '');
+            case 'bbNetWeight':
+              return String(row.buyBackNetWeightKg ?? '');
+            default:
+              if (columnId.startsWith('grade_bags_')) {
+                const grade = columnId.replace('grade_bags_', '');
+                return String(row.gradeData[grade]?.bags ?? '');
+              }
+              return '';
+          }
+        })();
+
+        return columnText.toLowerCase().includes(normalizedValue);
+      });
+    });
+  }, [flattenedRows, search, columnFilterValues]);
+
+  const sortedRows = React.useMemo(() => {
+    if (!sortState) return rowsAfterSearchAndFilters;
+
+    const sorted = [...rowsAfterSearchAndFilters];
+    sorted.sort((a, b) => {
+      const getSortableValue = (row: FlattenedRow) => {
+        switch (sortState.columnId) {
+          case 'farmer':
+            return row.farmerName;
+          case 'address':
+            return row.farmerAddress;
+          case 'variety':
+            return row.varietyName;
+          case 'generation':
+            return row.generation;
+          case 'size':
+            return row.sizeName;
+          case 'qty':
+            return row.sizeQuantity;
+          case 'acres':
+            return row.sizeAcres;
+          case 'amount':
+            return row.sizeAmount;
+          case 'bbBags':
+            return row.buyBackBags ?? -1;
+          case 'bbNetWeight':
+            return row.buyBackNetWeightKg ?? -1;
+          default:
+            if (sortState.columnId.startsWith('grade_bags_')) {
+              const grade = sortState.columnId.replace('grade_bags_', '');
+              return row.gradeData[grade]?.bags ?? -1;
+            }
+            return '';
+        }
+      };
+
+      const aValue = getSortableValue(a);
+      const bValue = getSortableValue(b);
+
+      const compareResult =
+        typeof aValue === 'number' && typeof bValue === 'number'
+          ? aValue - bValue
+          : String(aValue).localeCompare(String(bValue), undefined, {
+              numeric: true,
+              sensitivity: 'base',
+            });
+
+      return sortState.direction === 'asc' ? compareResult : -compareResult;
+    });
+
+    return sorted;
+  }, [rowsAfterSearchAndFilters, sortState]);
+
+  const filteredRows = React.useMemo(
+    () =>
+      recomputeRowSpans(sortedRows, {
+        groupByFarmer,
+        groupByVariety,
+      }),
+    [sortedRows, groupByFarmer, groupByVariety]
+  );
 
   const baseColumns = React.useMemo<ColumnConfig[]>(
     () => [
@@ -443,6 +625,11 @@ const ContractFarmingReportTable = () => {
         allColumns.map((column) => [column.id, column.width])
       ) as Record<string, number>
     );
+    setSortState(null);
+    setColumnFilterSearch('');
+    setColumnFilterValues({});
+    setGroupByFarmer(true);
+    setGroupByVariety(true);
   };
 
   return (
@@ -908,9 +1095,174 @@ const ContractFarmingReportTable = () => {
                         Width: {Math.round(getWidth(columnId))}px
                       </p>
                     </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setColumnOrderState((current) => {
+                            const index = current.indexOf(columnId);
+                            if (index <= 0) return current;
+                            const next = [...current];
+                            [next[index - 1], next[index]] = [
+                              next[index],
+                              next[index - 1],
+                            ];
+                            return next;
+                          })
+                        }
+                      >
+                        Up
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setColumnOrderState((current) => {
+                            const index = current.indexOf(columnId);
+                            if (index < 0 || index >= current.length - 1) {
+                              return current;
+                            }
+                            const next = [...current];
+                            [next[index], next[index + 1]] = [
+                              next[index + 1],
+                              next[index],
+                            ];
+                            return next;
+                          })
+                        }
+                      >
+                        Down
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="font-custom text-sm font-medium">Sorting</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <select
+                  className="border-border rounded-md border px-2 py-1.5 text-sm"
+                  value={sortState?.columnId ?? ''}
+                  onChange={(event) => {
+                    const nextColumnId = event.target.value;
+                    if (!nextColumnId) {
+                      setSortState(null);
+                      return;
+                    }
+                    setSortState((current) => ({
+                      columnId: nextColumnId,
+                      direction: current?.direction ?? 'asc',
+                    }));
+                  }}
+                >
+                  <option value="">No sort</option>
+                  {columnOrder.map((columnId) => {
+                    const config = columnConfigMap.get(columnId);
+                    if (!config) return null;
+                    return (
+                      <option key={columnId} value={columnId}>
+                        {config.label}
+                      </option>
+                    );
+                  })}
+                </select>
+                <select
+                  className="border-border rounded-md border px-2 py-1.5 text-sm"
+                  value={sortState?.direction ?? 'asc'}
+                  disabled={!sortState}
+                  onChange={(event) =>
+                    setSortState((current) =>
+                      current
+                        ? {
+                            ...current,
+                            direction: event.target.value as SortDirection,
+                          }
+                        : null
+                    )
+                  }
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+                <Button
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => setSortState(null)}
+                >
+                  Clear sort
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="font-custom text-sm font-medium">Column Filters</p>
+              <Input
+                value={columnFilterSearch}
+                onChange={(event) => setColumnFilterSearch(event.target.value)}
+                placeholder="Search columns..."
+                className="h-8"
+              />
+              <div className="space-y-2">
+                {columnOrder
+                  .filter((columnId) => {
+                    const config = columnConfigMap.get(columnId);
+                    return (
+                      config &&
+                      config.label
+                        .toLowerCase()
+                        .includes(columnFilterSearch.trim().toLowerCase())
+                    );
+                  })
+                  .map((columnId) => {
+                    const config = columnConfigMap.get(columnId);
+                    if (!config) return null;
+                    return (
+                      <div
+                        key={`filter-${columnId}`}
+                        className="bg-background rounded-md border p-2"
+                      >
+                        <p className="font-custom mb-1 text-xs font-medium">
+                          {config.label}
+                        </p>
+                        <Input
+                          value={columnFilterValues[columnId] ?? ''}
+                          onChange={(event) =>
+                            setColumnFilterValues((current) => ({
+                              ...current,
+                              [columnId]: event.target.value,
+                            }))
+                          }
+                          placeholder={`Filter ${config.label.toLowerCase()}...`}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="font-custom text-sm font-medium">Grouping</p>
+              <div className="bg-background space-y-2 rounded-md border p-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={groupByFarmer}
+                    onCheckedChange={(checked) =>
+                      setGroupByFarmer(checked === true)
+                    }
+                  />
+                  Group Farmer rows
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={groupByVariety}
+                    onCheckedChange={(checked) =>
+                      setGroupByVariety(checked === true)
+                    }
+                  />
+                  Group Variety rows
+                </label>
+              </div>
             </div>
           </div>
         </SheetContent>
