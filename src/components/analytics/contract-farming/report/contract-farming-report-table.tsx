@@ -479,6 +479,11 @@ const ContractFarmingReportTable = () => {
     () => buildContractFarmingFilterableColumns(gradeHeaders),
     [gradeHeaders]
   );
+  const deferredGlobalFilter = React.useDeferredValue(
+    typeof globalFilter === 'string' ? globalFilter : ''
+  );
+  const effectiveGlobalFilter: GlobalFilterValue =
+    typeof globalFilter === 'string' ? deferredGlobalFilter : globalFilter;
 
   React.useEffect(() => {
     setColumnOrder((current) => {
@@ -504,7 +509,7 @@ const ContractFarmingReportTable = () => {
     },
     state: {
       sorting,
-      globalFilter,
+      globalFilter: effectiveGlobalFilter,
       columnFilters,
       columnVisibility,
       columnOrder,
@@ -546,6 +551,10 @@ const ContractFarmingReportTable = () => {
   });
 
   const visibleColumns = table.getVisibleLeafColumns();
+  const visibleColumnById = React.useMemo(
+    () => new Map(visibleColumns.map((column) => [column.id, column])),
+    [visibleColumns]
+  );
   const visibleColumnIds = React.useMemo(
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
@@ -558,6 +567,30 @@ const ContractFarmingReportTable = () => {
           columnId !== 'noGrades'
       ),
     [visibleColumnIds]
+  );
+  const visibleNonBuyBackBaseColumnIds = React.useMemo(
+    () =>
+      visibleBaseColumnIds.filter(
+        (columnId) => !BUY_BACK_COLUMN_IDS.has(columnId)
+      ),
+    [visibleBaseColumnIds]
+  );
+  const visibleBuyBackColumnIds = React.useMemo(
+    () =>
+      visibleBaseColumnIds.filter((columnId) =>
+        BUY_BACK_COLUMN_IDS.has(columnId)
+      ),
+    [visibleBaseColumnIds]
+  );
+  const leafHeaderByColumnId = React.useMemo(
+    () =>
+      new Map(
+        table
+          .getFlatHeaders()
+          .filter((header) => header.subHeaders.length === 0)
+          .map((header) => [header.column.id, header])
+      ),
+    [table]
   );
   const visibleGradeColumnIds = React.useMemo(
     () =>
@@ -635,10 +668,9 @@ const ContractFarmingReportTable = () => {
 
   const renderLeafResizeHandle = React.useCallback(
     (columnId: string) => {
-      const column = table.getColumn(columnId);
-      const header = table
-        .getFlatHeaders()
-        .find((candidate) => candidate.column.id === columnId);
+      const column =
+        visibleColumnById.get(columnId) ?? table.getColumn(columnId);
+      const header = leafHeaderByColumnId.get(columnId);
       if (!column || !header) return null;
       return (
         <div
@@ -667,7 +699,13 @@ const ContractFarmingReportTable = () => {
         />
       );
     },
-    [columnResizeDirection, columnResizeMode, table]
+    [
+      columnResizeDirection,
+      columnResizeMode,
+      leafHeaderByColumnId,
+      table,
+      visibleColumnById,
+    ]
   );
 
   const renderCellContent = (
@@ -949,36 +987,30 @@ const ContractFarmingReportTable = () => {
             <table className="font-custom min-w-full border-collapse text-sm">
               <thead className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
                 <tr>
-                  {visibleBaseColumnIds
-                    .filter((columnId) => !BUY_BACK_COLUMN_IDS.has(columnId))
-                    .map((columnId) => {
-                      const column = table.getColumn(columnId);
-                      if (!column) return null;
-                      return (
-                        <th
-                          key={columnId}
-                          rowSpan={2}
-                          className={`${headerCellClass} relative`}
-                          style={{
-                            width: column.getSize(),
-                            minWidth: column.getSize(),
-                          }}
-                        >
-                          {renderLeafSortHeader(
-                            columnId,
-                            getColumnLabel(columnId)
-                          )}
-                          {renderLeafResizeHandle(columnId)}
-                        </th>
-                      );
-                    })}
+                  {visibleNonBuyBackBaseColumnIds.map((columnId) => {
+                    const column = visibleColumnById.get(columnId);
+                    if (!column) return null;
+                    return (
+                      <th
+                        key={columnId}
+                        rowSpan={2}
+                        className={`${headerCellClass} relative`}
+                        style={{
+                          width: column.getSize(),
+                          minWidth: column.getSize(),
+                        }}
+                      >
+                        {renderLeafSortHeader(
+                          columnId,
+                          getColumnLabel(columnId)
+                        )}
+                        {renderLeafResizeHandle(columnId)}
+                      </th>
+                    );
+                  })}
                   {hasVisibleBuyBack ? (
                     <th
-                      colSpan={
-                        visibleBaseColumnIds.filter((id) =>
-                          BUY_BACK_COLUMN_IDS.has(id)
-                        ).length
-                      }
+                      colSpan={visibleBuyBackColumnIds.length}
                       className={`${headerCellClass} bg-green-50`}
                     >
                       Buy back
@@ -995,30 +1027,28 @@ const ContractFarmingReportTable = () => {
                   </th>
                 </tr>
                 <tr>
-                  {visibleBaseColumnIds
-                    .filter((columnId) => BUY_BACK_COLUMN_IDS.has(columnId))
-                    .map((columnId) => {
-                      const column = table.getColumn(columnId);
-                      if (!column) return null;
-                      return (
-                        <th
-                          key={columnId}
-                          className={`${headerCellClass} relative bg-green-50`}
-                          style={{
-                            width: column.getSize(),
-                            minWidth: column.getSize(),
-                          }}
-                        >
-                          {renderLeafSortHeader(
-                            columnId,
-                            getColumnLabel(columnId)
-                          )}
-                          {renderLeafResizeHandle(columnId)}
-                        </th>
-                      );
-                    })}
+                  {visibleBuyBackColumnIds.map((columnId) => {
+                    const column = visibleColumnById.get(columnId);
+                    if (!column) return null;
+                    return (
+                      <th
+                        key={columnId}
+                        className={`${headerCellClass} relative bg-green-50`}
+                        style={{
+                          width: column.getSize(),
+                          minWidth: column.getSize(),
+                        }}
+                      >
+                        {renderLeafSortHeader(
+                          columnId,
+                          getColumnLabel(columnId)
+                        )}
+                        {renderLeafResizeHandle(columnId)}
+                      </th>
+                    );
+                  })}
                   {visibleGradeColumnIds.map((columnId) => {
-                    const column = table.getColumn(columnId);
+                    const column = visibleColumnById.get(columnId);
                     if (!column) return null;
                     const grade = columnId.replace(
                       VARIETY_LEVEL_COLUMN_PREFIX,
@@ -1056,16 +1086,14 @@ const ContractFarmingReportTable = () => {
               </thead>
               <tbody>
                 {renderedRows.length > 0 ? (
-                  renderedRows.map((row) => {
+                  renderedRows.map((row, rowIndex) => {
                     const rowClass = row.isFarmerBlockStart
                       ? 'border-border/70 border-t-2'
                       : row.isVarietyBlockStart
                         ? 'border-border/60 border-t'
                         : 'border-border/40 border-t border-dashed';
                     const stripingClass =
-                      Number(row.rowId.split('-').pop() ?? 0) % 2 === 0
-                        ? 'bg-background'
-                        : 'bg-muted/25';
+                      rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25';
 
                     return (
                       <tr
@@ -1073,7 +1101,7 @@ const ContractFarmingReportTable = () => {
                         className={`hover:bg-accent/40 ${rowClass} ${stripingClass}`}
                       >
                         {visibleColumnIds.map((columnId) => {
-                          const column = table.getColumn(columnId);
+                          const column = visibleColumnById.get(columnId);
                           if (!column) return null;
                           return (
                             <React.Fragment key={`${row.rowId}-${columnId}`}>
