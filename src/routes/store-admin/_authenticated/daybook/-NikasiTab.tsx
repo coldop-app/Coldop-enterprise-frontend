@@ -203,8 +203,11 @@ const NikasiTab = () => {
             <Button
               variant="secondary"
               className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={() =>
+                navigate({ to: '/store-admin/nikasi-gate-pass/history' })
+              }
             >
-              Dispatch History
+              Edit History
             </Button>
             <Button
               className="font-custom w-full cursor-pointer sm:w-auto"
