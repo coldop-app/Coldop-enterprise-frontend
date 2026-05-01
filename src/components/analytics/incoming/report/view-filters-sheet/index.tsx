@@ -330,6 +330,16 @@ export function ViewFiltersSheet({
       status: [...statusFilterOptions],
       location: [],
       truckNumber: [],
+      generation: [],
+      farmerMobile: [],
+      farmerAddress: [],
+      varietyName: [],
+      sizeName: [],
+      sizeQuantity: [],
+      sizeAcres: [],
+      sizeAmount: [],
+      buyBackBags: [],
+      buyBackNetWeightKg: [],
     } as Record<FilterField, string[]>;
 
     advancedFilterFields.forEach(({ id }) => {

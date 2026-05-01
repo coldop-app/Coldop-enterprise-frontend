@@ -512,7 +512,7 @@ const ContractFarmingReportTable = () => {
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange: setColumnOrder,
-    enableColumnSizing: true,
+    enableColumnResizing: true,
     columnResizeMode,
     columnResizeDirection,
     getRowId: (row) => row.rowId,
@@ -634,7 +634,10 @@ const ContractFarmingReportTable = () => {
   const renderLeafResizeHandle = React.useCallback(
     (columnId: string) => {
       const column = table.getColumn(columnId);
-      if (!column) return null;
+      const header = table
+        .getFlatHeaders()
+        .find((candidate) => candidate.column.id === columnId);
+      if (!column || !header) return null;
       return (
         <div
           onDoubleClick={(e) => {
@@ -642,10 +645,10 @@ const ContractFarmingReportTable = () => {
             column.resetSize();
           }}
           onMouseDown={(e) => {
-            column.getResizeHandler()(e);
+            header.getResizeHandler()(e);
           }}
           onTouchStart={(e) => {
-            column.getResizeHandler()(e);
+            header.getResizeHandler()(e);
           }}
           role="presentation"
           onClick={(event) => event.stopPropagation()}
