@@ -1,5 +1,26 @@
 import * as React from 'react';
-import { FileText, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import {
+  type ColumnDef,
+  type ColumnFiltersState,
+  type ColumnResizeMode,
+  type GroupingState,
+  type SortingState,
+  type VisibilityState,
+  createColumnHelper,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  FileText,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,12 +40,6 @@ import {
 
 type FlattenedRow = {
   rowId: string;
-  isFirstFarmerRow: boolean;
-  isFirstVarietyRow: boolean;
-  isFarmerBlockStart: boolean;
-  isVarietyBlockStart: boolean;
-  farmerRowSpan: number;
-  varietyRowSpan: number;
   farmerName: string;
   farmerMobile: string;
   farmerAccount: number;
@@ -40,20 +55,19 @@ type FlattenedRow = {
   gradeData: Record<string, { bags: number; netWeightKg: number }>;
 };
 
-type ColumnConfig = {
-  id: string;
-  label: string;
-  width: number;
-  minWidth: number;
-  maxWidth: number;
+type RenderRow = FlattenedRow & {
+  isFirstFarmerRow: boolean;
+  isFirstVarietyRow: boolean;
+  isFarmerBlockStart: boolean;
+  isVarietyBlockStart: boolean;
+  farmerRowSpan: number;
+  varietyRowSpan: number;
 };
 
-type SortDirection = 'asc' | 'desc';
-
-type SortState = {
-  columnId: string;
-  direction: SortDirection;
-} | null;
+type GroupingOptions = {
+  groupByFarmer: boolean;
+  groupByVariety: boolean;
+};
 
 const BAG_SIZE_DISPLAY_ORDER = [
   'Below 25',
@@ -81,6 +95,21 @@ const BAG_SIZE_ORDER_INDEX = new Map<string, number>(
   ])
 );
 
+const columnHelper = createColumnHelper<FlattenedRow>();
+const VARIETY_LEVEL_COLUMN_PREFIX = 'grade_bags_';
+const VARIETY_LEVEL_COLUMN_IDS = new Set(['variety', 'bbBags', 'bbNetWeight']);
+const BUY_BACK_COLUMN_IDS = new Set(['bbBags', 'bbNetWeight']);
+
+function isNumericSortColumnId(columnId: string) {
+  return (
+    columnId === 'qty' ||
+    columnId === 'acres' ||
+    columnId === 'amount' ||
+    BUY_BACK_COLUMN_IDS.has(columnId) ||
+    columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)
+  );
+}
+
 function formatNumber(value: number | null | undefined, decimals = 2) {
   if (value === null || value === undefined || Number.isNaN(value)) return '-';
   return Number(value).toLocaleString('en-IN', {
@@ -103,14 +132,6 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
 
   farmers.forEach((farmer, farmerIndex) => {
     const farmerVarieties = farmer.varieties ?? [];
-    const varietyRowCounts = farmerVarieties.map((variety) => {
-      const sizes = variety.seed?.sizes ?? [];
-      return Math.max(sizes.length, 1);
-    });
-    const farmerTotalRows = varietyRowCounts.reduce(
-      (acc, count) => acc + count,
-      0
-    );
 
     farmerVarieties.forEach((variety, varietyIndex) => {
       const sizes = variety.seed?.sizes ?? [];
@@ -127,26 +148,15 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
               if (aOrder !== undefined && bOrder !== undefined) {
                 return aOrder - bOrder;
               }
-
               if (aOrder !== undefined) return -1;
               if (bOrder !== undefined) return 1;
               return a.name.localeCompare(b.name);
             })
           : [{ name: '-', quantity: 0, acres: 0, amountPayable: 0 }];
-      const varietyRowSpan = normalizedSizes.length;
 
       normalizedSizes.forEach((size, sizeIndex) => {
-        const isFirstFarmerRow = varietyIndex === 0 && sizeIndex === 0;
-        const isFirstVarietyRow = sizeIndex === 0;
-
         rows.push({
           rowId: `${farmer.id}-${variety.name}-${sizeIndex}-${farmerIndex}-${varietyIndex}`,
-          isFirstFarmerRow,
-          isFirstVarietyRow,
-          isFarmerBlockStart: isFirstFarmerRow,
-          isVarietyBlockStart: !isFirstFarmerRow && isFirstVarietyRow,
-          farmerRowSpan: farmerTotalRows,
-          varietyRowSpan,
           farmerName: farmer.name,
           farmerMobile: farmer.mobileNumber,
           farmerAccount: farmer.accountNumber,
@@ -168,12 +178,9 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
   return rows;
 }
 
-function recomputeRowSpans(
-  rows: FlattenedRow[],
-  options: { groupByFarmer: boolean; groupByVariety: boolean }
-) {
+function recomputeRowSpans(rows: FlattenedRow[], options: GroupingOptions) {
   const { groupByFarmer, groupByVariety } = options;
-  const nextRows = rows.map((row) => ({
+  const nextRows: RenderRow[] = rows.map((row) => ({
     ...row,
     isFirstFarmerRow: false,
     isFirstVarietyRow: false,
@@ -235,16 +242,158 @@ function recomputeRowSpans(
   return nextRows;
 }
 
+function buildColumns(
+  gradeHeaders: string[]
+): ColumnDef<FlattenedRow, unknown>[] {
+  const baseColumns = [
+    columnHelper.accessor('farmerName', {
+      id: 'farmer',
+      header: 'Farmer',
+      sortingFn: 'text',
+      size: 240,
+      minSize: 180,
+      maxSize: 550,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('farmerAddress', {
+      id: 'address',
+      header: 'Address',
+      sortingFn: 'text',
+      size: 230,
+      minSize: 160,
+      maxSize: 550,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('varietyName', {
+      id: 'variety',
+      header: 'Variety',
+      sortingFn: 'text',
+      size: 150,
+      minSize: 120,
+      maxSize: 260,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('generation', {
+      id: 'generation',
+      header: 'Gen',
+      sortingFn: 'text',
+      size: 110,
+      minSize: 90,
+      maxSize: 180,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('sizeName', {
+      id: 'size',
+      header: 'Size',
+      sortingFn: 'text',
+      size: 120,
+      minSize: 90,
+      maxSize: 220,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('sizeQuantity', {
+      id: 'qty',
+      header: 'Qty (bags)',
+      sortingFn: 'basic',
+      size: 120,
+      minSize: 100,
+      maxSize: 220,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('sizeAcres', {
+      id: 'acres',
+      header: 'Acres',
+      sortingFn: 'basic',
+      size: 120,
+      minSize: 100,
+      maxSize: 220,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('sizeAmount', {
+      id: 'amount',
+      header: 'Seed amt (₹)',
+      sortingFn: 'basic',
+      size: 145,
+      minSize: 120,
+      maxSize: 260,
+      filterFn: 'includesString',
+    }),
+    columnHelper.group({
+      id: 'buyBackGroup',
+      header: 'Buy back',
+      columns: [
+        columnHelper.accessor('buyBackBags', {
+          id: 'bbBags',
+          header: 'Bags',
+          sortingFn: 'basic',
+          size: 120,
+          minSize: 100,
+          maxSize: 220,
+          filterFn: 'includesString',
+        }),
+        columnHelper.accessor('buyBackNetWeightKg', {
+          id: 'bbNetWeight',
+          header: 'Net wt (kg)',
+          sortingFn: 'basic',
+          size: 140,
+          minSize: 120,
+          maxSize: 260,
+          filterFn: 'includesString',
+        }),
+      ],
+    }),
+  ];
+
+  const gradingColumns = gradeHeaders.length
+    ? gradeHeaders.map((grade) =>
+        columnHelper.accessor((row) => row.gradeData[grade]?.bags ?? null, {
+          id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
+          header: `${grade} (Bags)`,
+          sortingFn: 'basic',
+          size: 130,
+          minSize: 110,
+          maxSize: 260,
+          filterFn: 'includesString',
+        })
+      )
+    : [
+        columnHelper.display({
+          id: 'noGrades',
+          header: 'No grades',
+          enableSorting: false,
+          size: 130,
+          minSize: 110,
+          maxSize: 260,
+        }),
+      ];
+
+  return [
+    ...baseColumns,
+    columnHelper.group({
+      id: 'gradingGroup',
+      header: 'Grading',
+      columns: gradingColumns,
+    }),
+  ] as ColumnDef<FlattenedRow, unknown>[];
+}
+
 const ContractFarmingReportTable = () => {
   const [search, setSearch] = React.useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
-  const [sortState, setSortState] = React.useState<SortState>(null);
-  const [groupByFarmer, setGroupByFarmer] = React.useState(true);
-  const [groupByVariety, setGroupByVariety] = React.useState(true);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
+  // rowspan grouping is UI-only — keep it out of TanStack `grouping` so leaf columns stay sortable
+  const [rowSpanGrouping, setRowSpanGrouping] = React.useState<GroupingState>([
+    'farmer',
+    'variety',
+  ]);
+  const [columnResizeMode] = React.useState<ColumnResizeMode>('onChange');
   const [columnFilterSearch, setColumnFilterSearch] = React.useState('');
-  const [columnFilterValues, setColumnFilterValues] = React.useState<
-    Record<string, string>
-  >({});
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
 
@@ -258,7 +407,6 @@ const ContractFarmingReportTable = () => {
         if (aOrder !== undefined && bOrder !== undefined) {
           return aOrder - bOrder;
         }
-
         if (aOrder !== undefined) return -1;
         if (bOrder !== undefined) return 1;
         return a.localeCompare(b);
@@ -269,367 +417,366 @@ const ContractFarmingReportTable = () => {
     () => flattenRows(report.farmers),
     [report.farmers]
   );
-
-  const rowsAfterSearchAndFilters = React.useMemo<FlattenedRow[]>(() => {
-    const query = search.trim().toLowerCase();
-    return flattenedRows.filter((row) => {
-      const matchesSearch =
-        !query ||
-        row.farmerName.toLowerCase().includes(query) ||
-        row.farmerAddress.toLowerCase().includes(query) ||
-        row.farmerMobile.toLowerCase().includes(query) ||
-        row.varietyName.toLowerCase().includes(query) ||
-        row.generation.toLowerCase().includes(query) ||
-        row.sizeName.toLowerCase().includes(query) ||
-        String(row.farmerAccount).includes(query);
-
-      if (!matchesSearch) return false;
-
-      return Object.entries(columnFilterValues).every(([columnId, value]) => {
-        const normalizedValue = value.trim().toLowerCase();
-        if (!normalizedValue) return true;
-
-        const columnText = (() => {
-          switch (columnId) {
-            case 'farmer':
-              return row.farmerName;
-            case 'address':
-              return row.farmerAddress;
-            case 'variety':
-              return row.varietyName;
-            case 'generation':
-              return row.generation;
-            case 'size':
-              return row.sizeName;
-            case 'qty':
-              return String(row.sizeQuantity);
-            case 'acres':
-              return String(row.sizeAcres);
-            case 'amount':
-              return String(row.sizeAmount);
-            case 'bbBags':
-              return String(row.buyBackBags ?? '');
-            case 'bbNetWeight':
-              return String(row.buyBackNetWeightKg ?? '');
-            default:
-              if (columnId.startsWith('grade_bags_')) {
-                const grade = columnId.replace('grade_bags_', '');
-                return String(row.gradeData[grade]?.bags ?? '');
-              }
-              return '';
-          }
-        })();
-
-        return columnText.toLowerCase().includes(normalizedValue);
-      });
-    });
-  }, [flattenedRows, search, columnFilterValues]);
-
-  const sortedRows = React.useMemo(() => {
-    if (!sortState) return rowsAfterSearchAndFilters;
-
-    const sorted = [...rowsAfterSearchAndFilters];
-    sorted.sort((a, b) => {
-      const getSortableValue = (row: FlattenedRow) => {
-        switch (sortState.columnId) {
-          case 'farmer':
-            return row.farmerName;
-          case 'address':
-            return row.farmerAddress;
-          case 'variety':
-            return row.varietyName;
-          case 'generation':
-            return row.generation;
-          case 'size':
-            return row.sizeName;
-          case 'qty':
-            return row.sizeQuantity;
-          case 'acres':
-            return row.sizeAcres;
-          case 'amount':
-            return row.sizeAmount;
-          case 'bbBags':
-            return row.buyBackBags ?? -1;
-          case 'bbNetWeight':
-            return row.buyBackNetWeightKg ?? -1;
-          default:
-            if (sortState.columnId.startsWith('grade_bags_')) {
-              const grade = sortState.columnId.replace('grade_bags_', '');
-              return row.gradeData[grade]?.bags ?? -1;
-            }
-            return '';
-        }
-      };
-
-      const aValue = getSortableValue(a);
-      const bValue = getSortableValue(b);
-
-      const compareResult =
-        typeof aValue === 'number' && typeof bValue === 'number'
-          ? aValue - bValue
-          : String(aValue).localeCompare(String(bValue), undefined, {
-              numeric: true,
-              sensitivity: 'base',
-            });
-
-      return sortState.direction === 'asc' ? compareResult : -compareResult;
-    });
-
-    return sorted;
-  }, [rowsAfterSearchAndFilters, sortState]);
-
-  const filteredRows = React.useMemo(
-    () =>
-      recomputeRowSpans(sortedRows, {
-        groupByFarmer,
-        groupByVariety,
-      }),
-    [sortedRows, groupByFarmer, groupByVariety]
+  const columns = React.useMemo(
+    () => buildColumns(gradeHeaders),
+    [gradeHeaders]
   );
-
-  const baseColumns = React.useMemo<ColumnConfig[]>(
+  const defaultColumnOrder = React.useMemo(
     () => [
-      {
-        id: 'farmer',
-        label: 'Farmer',
-        width: 240,
-        minWidth: 180,
-        maxWidth: 550,
-      },
-      {
-        id: 'address',
-        label: 'Address',
-        width: 230,
-        minWidth: 160,
-        maxWidth: 550,
-      },
-      {
-        id: 'variety',
-        label: 'Variety',
-        width: 150,
-        minWidth: 120,
-        maxWidth: 260,
-      },
-      {
-        id: 'generation',
-        label: 'Gen',
-        width: 110,
-        minWidth: 90,
-        maxWidth: 180,
-      },
-      { id: 'size', label: 'Size', width: 120, minWidth: 90, maxWidth: 220 },
-      {
-        id: 'qty',
-        label: 'Qty (bags)',
-        width: 120,
-        minWidth: 100,
-        maxWidth: 220,
-      },
-      { id: 'acres', label: 'Acres', width: 120, minWidth: 100, maxWidth: 220 },
-      {
-        id: 'amount',
-        label: 'Seed amt (₹)',
-        width: 145,
-        minWidth: 120,
-        maxWidth: 260,
-      },
-      { id: 'bbBags', label: 'Bags', width: 120, minWidth: 100, maxWidth: 220 },
-      {
-        id: 'bbNetWeight',
-        label: 'Net wt (kg)',
-        width: 140,
-        minWidth: 120,
-        maxWidth: 260,
-      },
+      'farmer',
+      'address',
+      'variety',
+      'generation',
+      'size',
+      'qty',
+      'acres',
+      'amount',
+      'bbBags',
+      'bbNetWeight',
+      ...gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
     ],
-    []
-  );
-
-  const gradeColumns = React.useMemo<ColumnConfig[]>(
-    () =>
-      gradeHeaders.map((grade) => ({
-        id: `grade_bags_${grade}`,
-        label: `${grade} (Bags)`,
-        width: 130,
-        minWidth: 110,
-        maxWidth: 260,
-      })),
     [gradeHeaders]
   );
 
-  const allColumns = React.useMemo(
-    () => [...baseColumns, ...gradeColumns],
-    [baseColumns, gradeColumns]
-  );
-
-  const [columnOrderState, setColumnOrderState] = React.useState<string[]>(() =>
-    allColumns.map((column) => column.id)
-  );
-  const [columnVisibilityState, setColumnVisibilityState] = React.useState<
-    Record<string, boolean>
-  >(
-    () =>
-      Object.fromEntries(
-        allColumns.map((column) => [column.id, true])
-      ) as Record<string, boolean>
-  );
-  const [columnWidthsState, setColumnWidthsState] = React.useState<
-    Record<string, number>
-  >(
-    () =>
-      Object.fromEntries(
-        allColumns.map((column) => [column.id, column.width])
-      ) as Record<string, number>
-  );
-  const [resizeState, setResizeState] = React.useState<{
-    columnId: string;
-    startX: number;
-    startWidth: number;
-  } | null>(null);
-
-  const columnConfigMap = React.useMemo(
-    () => new Map(allColumns.map((column) => [column.id, column])),
-    [allColumns]
-  );
-
-  const defaultColumnIds = React.useMemo(
-    () => allColumns.map((column) => column.id),
-    [allColumns]
-  );
-
-  const columnOrder = React.useMemo(() => {
-    const preserved = columnOrderState.filter((columnId) =>
-      defaultColumnIds.includes(columnId)
-    );
-    const missing = defaultColumnIds.filter(
-      (columnId) => !preserved.includes(columnId)
-    );
-    return [...preserved, ...missing];
-  }, [columnOrderState, defaultColumnIds]);
-
-  const columnVisibility = React.useMemo(() => {
-    const next = { ...columnVisibilityState };
-    for (const column of allColumns) {
-      if (next[column.id] === undefined) {
-        next[column.id] = true;
-      }
-    }
-    return next;
-  }, [allColumns, columnVisibilityState]);
-
-  const columnWidths = React.useMemo(() => {
-    const next = { ...columnWidthsState };
-    for (const column of allColumns) {
-      if (next[column.id] === undefined) {
-        next[column.id] = column.width;
-      }
-    }
-    return next;
-  }, [allColumns, columnWidthsState]);
-
   React.useEffect(() => {
-    if (!resizeState) return;
-
-    const handleMove = (event: MouseEvent) => {
-      const config = columnConfigMap.get(resizeState.columnId);
-      if (!config) return;
-
-      const delta = event.clientX - resizeState.startX;
-      const nextWidth = Math.min(
-        config.maxWidth,
-        Math.max(config.minWidth, resizeState.startWidth + delta)
+    setColumnOrder((current) => {
+      if (current.length === 0) return defaultColumnOrder;
+      const preserved = current.filter((id) => defaultColumnOrder.includes(id));
+      const missing = defaultColumnOrder.filter(
+        (id) => !preserved.includes(id)
       );
-      setColumnWidthsState((current) => ({
-        ...current,
-        [resizeState.columnId]: nextWidth,
-      }));
-    };
+      return [...preserved, ...missing];
+    });
+  }, [defaultColumnOrder]);
 
-    const handleUp = () => setResizeState(null);
+  const table = useReactTable({
+    data: flattenedRows,
+    columns,
+    defaultColumn: {
+      size: 130,
+      minSize: 90,
+      maxSize: 550,
+    },
+    state: {
+      sorting,
+      globalFilter: search,
+      columnFilters,
+      columnVisibility,
+      columnOrder,
+    },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setSearch,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
+    columnResizeMode,
+    getRowId: (row) => row.rowId,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const query = String(filterValue ?? '')
+        .trim()
+        .toLowerCase();
+      if (!query) return true;
 
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-  }, [resizeState, columnConfigMap]);
+      const values = [
+        row.original.farmerName,
+        row.original.farmerAddress,
+        row.original.farmerMobile,
+        row.original.varietyName,
+        row.original.generation,
+        row.original.sizeName,
+        String(row.original.farmerAccount),
+      ];
+      return values.some((value) => value.toLowerCase().includes(query));
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
-  const orderedVisibleColumns = React.useMemo(
+  const visibleColumns = table.getVisibleLeafColumns();
+  const visibleColumnIds = React.useMemo(
+    () => visibleColumns.map((column) => column.id),
+    [visibleColumns]
+  );
+  const visibleBaseColumnIds = React.useMemo(
     () =>
-      columnOrder.filter(
+      visibleColumnIds.filter(
         (columnId) =>
-          columnVisibility[columnId] && columnConfigMap.has(columnId)
+          !columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) &&
+          columnId !== 'noGrades'
       ),
-    [columnOrder, columnVisibility, columnConfigMap]
+    [visibleColumnIds]
   );
-
-  const visibleBaseIds = React.useMemo(
+  const visibleGradeColumnIds = React.useMemo(
     () =>
-      new Set(
-        orderedVisibleColumns.filter(
-          (columnId) => !columnId.startsWith('grade_bags_')
-        )
+      visibleColumnIds.filter((columnId) =>
+        columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)
       ),
-    [orderedVisibleColumns]
+    [visibleColumnIds]
   );
-  const visibleGradeIds = React.useMemo(
-    () =>
-      orderedVisibleColumns.filter((columnId) =>
-        columnId.startsWith('grade_bags_')
-      ),
-    [orderedVisibleColumns]
+  const hasNoGradesPlaceholder = visibleColumnIds.includes('noGrades');
+  const hasVisibleBuyBack = visibleBaseColumnIds.some((id) =>
+    BUY_BACK_COLUMN_IDS.has(id)
   );
-  const visibleGradeHeaders = React.useMemo(
-    () =>
-      visibleGradeIds.map((columnId) => ({
-        columnId,
-        grade: columnId.replace('grade_bags_', ''),
-      })),
-    [visibleGradeIds]
-  );
+  // Do not memoize against `table` alone — `useReactTable` keeps a stable instance while
+  // row model updates; a single memo([table]) would stick to the initial empty snapshot.
+  const dataRows = table.getSortedRowModel().rows.map((row) => row.original);
+  const renderedRows = recomputeRowSpans(dataRows, {
+    groupByFarmer: rowSpanGrouping.includes('farmer'),
+    groupByVariety: rowSpanGrouping.includes('variety'),
+  });
+  const totalColumns = Math.max(visibleColumnIds.length, 1);
 
-  const totalColumns = Math.max(orderedVisibleColumns.length, 1);
+  const renderLeafSortHeader = React.useCallback(
+    (columnId: string, label: React.ReactNode) => {
+      const column = table.getColumn(columnId);
+      if (!column || !column.getCanSort()) {
+        return label;
+      }
 
-  const getWidth = (columnId: string) => {
-    const config = columnConfigMap.get(columnId);
-    return columnWidths[columnId] ?? config?.width ?? 120;
-  };
+      const alignRight = isNumericSortColumnId(columnId);
+      return (
+        <div
+          className={`group focus-visible:ring-primary flex min-h-10 w-full min-w-0 cursor-pointer items-center gap-1 transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+            alignRight ? 'justify-end' : 'justify-between'
+          }`}
+          onClick={column.getToggleSortingHandler()}
+        >
+          <span
+            className={
+              alignRight ? 'text-right leading-tight' : 'min-w-0 truncate'
+            }
+          >
+            {label}
+          </span>
+          <span className={alignRight ? 'ml-2 shrink-0' : 'shrink-0'}>
+            {{
+              asc: <ArrowUp className="ml-1 h-3.5 w-3.5" />,
+              desc: <ArrowDown className="ml-1 h-3.5 w-3.5" />,
+            }[column.getIsSorted() as string] ?? (
+              <ArrowUpDown className="text-muted-foreground ml-1 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+            )}
+          </span>
+        </div>
+      );
+    },
+    [table]
+  );
 
   const headerCellClass =
     'font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase';
   const bodyCellClass =
     'font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5';
 
-  const handleResizeStart = (
+  const getColumnLabel = React.useCallback(
+    (columnId: string) => {
+      const header = table.getColumn(columnId)?.columnDef.header;
+      if (typeof header === 'string') return header;
+      if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
+        const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
+        return `${grade} (Bags)`;
+      }
+      return columnId;
+    },
+    [table]
+  );
+
+  const resetColumns = () => {
+    setColumnOrder(defaultColumnOrder);
+    setColumnVisibility({});
+    setColumnFilters([]);
+    setSorting([]);
+    setRowSpanGrouping(['farmer', 'variety']);
+    setColumnFilterSearch('');
+    setSearch('');
+    table.resetColumnSizing();
+  };
+
+  const setColumnOrderByDirection = (
     columnId: string,
-    event: React.MouseEvent<HTMLDivElement>
+    direction: 'up' | 'down'
   ) => {
-    event.preventDefault();
-    setResizeState({
-      columnId,
-      startX: event.clientX,
-      startWidth: getWidth(columnId),
+    setColumnOrder((current) => {
+      const index = current.indexOf(columnId);
+      if (index < 0) return current;
+      if (direction === 'up' && index === 0) return current;
+      if (direction === 'down' && index === current.length - 1) return current;
+
+      const next = [...current];
+      const swapIndex = direction === 'up' ? index - 1 : index + 1;
+      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+      return next;
     });
   };
 
-  const resetColumns = () => {
-    setColumnOrderState(allColumns.map((column) => column.id));
-    setColumnVisibilityState(
-      Object.fromEntries(
-        allColumns.map((column) => [column.id, true])
-      ) as Record<string, boolean>
-    );
-    setColumnWidthsState(
-      Object.fromEntries(
-        allColumns.map((column) => [column.id, column.width])
-      ) as Record<string, number>
-    );
-    setSortState(null);
-    setColumnFilterSearch('');
-    setColumnFilterValues({});
-    setGroupByFarmer(true);
-    setGroupByVariety(true);
+  const renderCellContent = (
+    row: RenderRow,
+    columnId: string,
+    columnWidth: number
+  ) => {
+    if (columnId === 'farmer') {
+      if (!row.isFirstFarmerRow) return null;
+      return (
+        <td
+          rowSpan={row.farmerRowSpan}
+          className={`${bodyCellClass} max-w-56 align-top`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          <div className="font-medium">
+            {row.farmerName}
+            <span className="text-muted-foreground ml-1 text-sm font-normal">
+              (#{row.farmerAccount})
+            </span>
+          </div>
+        </td>
+      );
+    }
+
+    if (columnId === 'address') {
+      if (!row.isFirstFarmerRow) return null;
+      return (
+        <td
+          rowSpan={row.farmerRowSpan}
+          className={`${bodyCellClass} align-top`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {row.farmerAddress}
+        </td>
+      );
+    }
+
+    if (columnId === 'variety') {
+      if (!row.isFirstVarietyRow) return null;
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${bodyCellClass} align-top`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+            {row.varietyName}
+          </span>
+        </td>
+      );
+    }
+
+    if (columnId === 'generation') {
+      return (
+        <td
+          className={bodyCellClass}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+            {row.generation}
+          </span>
+        </td>
+      );
+    }
+
+    if (columnId === 'size') {
+      return (
+        <td
+          className={bodyCellClass}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {row.sizeName}
+        </td>
+      );
+    }
+
+    if (columnId === 'qty') {
+      return (
+        <td
+          className={`${bodyCellClass} text-right tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {formatNumber(row.sizeQuantity, 0)}
+        </td>
+      );
+    }
+
+    if (columnId === 'acres') {
+      return (
+        <td
+          className={`${bodyCellClass} text-right tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {formatNumber(row.sizeAcres)}
+        </td>
+      );
+    }
+
+    if (columnId === 'amount') {
+      return (
+        <td
+          className={`${bodyCellClass} text-right tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {row.sizeAmount > 0 ? `₹${formatNumber(row.sizeAmount)}` : '-'}
+        </td>
+      );
+    }
+
+    const isVarietyLevelColumn =
+      VARIETY_LEVEL_COLUMN_IDS.has(columnId) ||
+      columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
+      columnId === 'noGrades';
+
+    if (isVarietyLevelColumn && !row.isFirstVarietyRow) {
+      return null;
+    }
+
+    if (columnId === 'bbBags') {
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {formatNumber(row.buyBackBags, 0)}
+        </td>
+      );
+    }
+
+    if (columnId === 'bbNetWeight') {
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {formatNumber(row.buyBackNetWeightKg)}
+        </td>
+      );
+    }
+
+    if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
+      const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
+      const gradeEntry = row.gradeData[grade];
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${bodyCellClass} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {gradeEntry ? formatNumber(gradeEntry.bags, 0) : '-'}
+        </td>
+      );
+    }
+
+    if (columnId === 'noGrades') {
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${bodyCellClass} text-center align-top`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          -
+        </td>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -722,37 +869,39 @@ const ContractFarmingReportTable = () => {
             <table className="font-custom min-w-full border-collapse text-sm">
               <thead className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
                 <tr>
-                  {baseColumns
-                    .filter(
-                      (column) =>
-                        !['bbBags', 'bbNetWeight'].includes(column.id) &&
-                        visibleBaseIds.has(column.id)
-                    )
-                    .map((column) => (
-                      <th
-                        key={column.id}
-                        rowSpan={2}
-                        className={`${headerCellClass} relative`}
-                        style={{
-                          width: getWidth(column.id),
-                          minWidth: getWidth(column.id),
-                        }}
-                      >
-                        {column.label}
-                        <div
-                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                          onMouseDown={(event) =>
-                            handleResizeStart(column.id, event)
-                          }
-                        />
-                      </th>
-                    ))}
-                  {visibleBaseIds.has('bbBags') ||
-                  visibleBaseIds.has('bbNetWeight') ? (
+                  {visibleBaseColumnIds
+                    .filter((columnId) => !BUY_BACK_COLUMN_IDS.has(columnId))
+                    .map((columnId) => {
+                      const column = table.getColumn(columnId);
+                      if (!column) return null;
+                      return (
+                        <th
+                          key={columnId}
+                          rowSpan={2}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(
+                            columnId,
+                            getColumnLabel(columnId)
+                          )}
+                          <div
+                            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                            role="presentation"
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        </th>
+                      );
+                    })}
+                  {hasVisibleBuyBack ? (
                     <th
                       colSpan={
-                        Number(visibleBaseIds.has('bbBags')) +
-                        Number(visibleBaseIds.has('bbNetWeight'))
+                        visibleBaseColumnIds.filter((id) =>
+                          BUY_BACK_COLUMN_IDS.has(id)
+                        ).length
                       }
                       className={`${headerCellClass} bg-green-50`}
                     >
@@ -760,78 +909,84 @@ const ContractFarmingReportTable = () => {
                     </th>
                   ) : null}
                   <th
-                    colSpan={Math.max(visibleGradeHeaders.length, 1)}
+                    colSpan={
+                      visibleGradeColumnIds.length +
+                      (hasNoGradesPlaceholder ? 1 : 0)
+                    }
                     className={headerCellClass}
                   >
                     Grading
                   </th>
                 </tr>
                 <tr>
-                  {visibleBaseIds.has('bbBags') ? (
-                    <th
-                      className={`${headerCellClass} relative bg-green-50`}
-                      style={{
-                        width: getWidth('bbBags'),
-                        minWidth: getWidth('bbBags'),
-                      }}
-                    >
-                      Bags
-                      <div
-                        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                        onMouseDown={(event) =>
-                          handleResizeStart('bbBags', event)
-                        }
-                      />
-                    </th>
-                  ) : null}
-                  {visibleBaseIds.has('bbNetWeight') ? (
-                    <th
-                      className={`${headerCellClass} relative bg-green-50`}
-                      style={{
-                        width: getWidth('bbNetWeight'),
-                        minWidth: getWidth('bbNetWeight'),
-                      }}
-                    >
-                      Net wt (kg)
-                      <div
-                        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                        onMouseDown={(event) =>
-                          handleResizeStart('bbNetWeight', event)
-                        }
-                      />
-                    </th>
-                  ) : null}
-                  {visibleGradeHeaders.length > 0 ? (
-                    visibleGradeHeaders.map(({ columnId, grade }) => (
+                  {visibleBaseColumnIds
+                    .filter((columnId) => BUY_BACK_COLUMN_IDS.has(columnId))
+                    .map((columnId) => {
+                      const column = table.getColumn(columnId);
+                      if (!column) return null;
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative bg-green-50`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(
+                            columnId,
+                            getColumnLabel(columnId)
+                          )}
+                          <div
+                            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
+                            role="presentation"
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        </th>
+                      );
+                    })}
+                  {visibleGradeColumnIds.map((columnId) => {
+                    const column = table.getColumn(columnId);
+                    if (!column) return null;
+                    const grade = columnId.replace(
+                      VARIETY_LEVEL_COLUMN_PREFIX,
+                      ''
+                    );
+                    return (
                       <th
                         key={columnId}
                         className={`${headerCellClass} relative`}
                         style={{
-                          width: getWidth(columnId),
-                          minWidth: getWidth(columnId),
+                          width: column.getSize(),
+                          minWidth: column.getSize(),
                         }}
                       >
-                        {grade}
-                        <br />
-                        <span className="text-muted-foreground text-[10px] font-normal">
-                          Bags
-                        </span>
+                        {renderLeafSortHeader(
+                          columnId,
+                          <span className="block leading-tight">
+                            {grade}
+                            <br />
+                            <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
+                              Bags
+                            </span>
+                          </span>
+                        )}
                         <div
                           className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                          onMouseDown={(event) =>
-                            handleResizeStart(columnId, event)
-                          }
+                          role="presentation"
+                          onClick={(event) => event.stopPropagation()}
                         />
                       </th>
-                    ))
-                  ) : (
+                    );
+                  })}
+                  {hasNoGradesPlaceholder ? (
                     <th className={headerCellClass}>No grades</th>
-                  )}
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.length > 0 ? (
-                  filteredRows.map((row) => {
+                {renderedRows.length > 0 ? (
+                  renderedRows.map((row) => {
                     const rowClass = row.isFarmerBlockStart
                       ? 'border-border/70 border-t-2'
                       : row.isVarietyBlockStart
@@ -847,176 +1002,19 @@ const ContractFarmingReportTable = () => {
                         key={row.rowId}
                         className={`hover:bg-accent/40 ${rowClass} ${stripingClass}`}
                       >
-                        {row.isFirstFarmerRow && (
-                          <>
-                            {visibleBaseIds.has('farmer') ? (
-                              <td
-                                rowSpan={row.farmerRowSpan}
-                                className={`${bodyCellClass} max-w-56 align-top`}
-                                style={{
-                                  width: getWidth('farmer'),
-                                  minWidth: getWidth('farmer'),
-                                }}
-                              >
-                                <div className="font-medium">
-                                  {row.farmerName}
-                                  <span className="text-muted-foreground ml-1 text-sm font-normal">
-                                    (#{row.farmerAccount})
-                                  </span>
-                                </div>
-                              </td>
-                            ) : null}
-                            {visibleBaseIds.has('address') ? (
-                              <td
-                                rowSpan={row.farmerRowSpan}
-                                className={`${bodyCellClass} align-top`}
-                                style={{
-                                  width: getWidth('address'),
-                                  minWidth: getWidth('address'),
-                                }}
-                              >
-                                {row.farmerAddress}
-                              </td>
-                            ) : null}
-                          </>
-                        )}
-
-                        {row.isFirstVarietyRow &&
-                          visibleBaseIds.has('variety') && (
-                            <td
-                              rowSpan={row.varietyRowSpan}
-                              className={`${bodyCellClass} align-top`}
-                              style={{
-                                width: getWidth('variety'),
-                                minWidth: getWidth('variety'),
-                              }}
-                            >
-                              <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                {row.varietyName}
-                              </span>
-                            </td>
-                          )}
-
-                        {visibleBaseIds.has('generation') ? (
-                          <td
-                            className={bodyCellClass}
-                            style={{
-                              width: getWidth('generation'),
-                              minWidth: getWidth('generation'),
-                            }}
-                          >
-                            <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                              {row.generation}
-                            </span>
-                          </td>
-                        ) : null}
-                        {visibleBaseIds.has('size') ? (
-                          <td
-                            className={bodyCellClass}
-                            style={{
-                              width: getWidth('size'),
-                              minWidth: getWidth('size'),
-                            }}
-                          >
-                            {row.sizeName}
-                          </td>
-                        ) : null}
-                        {visibleBaseIds.has('qty') ? (
-                          <td
-                            className={`${bodyCellClass} text-right tabular-nums`}
-                            style={{
-                              width: getWidth('qty'),
-                              minWidth: getWidth('qty'),
-                            }}
-                          >
-                            {formatNumber(row.sizeQuantity, 0)}
-                          </td>
-                        ) : null}
-                        {visibleBaseIds.has('acres') ? (
-                          <td
-                            className={`${bodyCellClass} text-right tabular-nums`}
-                            style={{
-                              width: getWidth('acres'),
-                              minWidth: getWidth('acres'),
-                            }}
-                          >
-                            {formatNumber(row.sizeAcres)}
-                          </td>
-                        ) : null}
-                        {visibleBaseIds.has('amount') ? (
-                          <td
-                            className={`${bodyCellClass} text-right tabular-nums`}
-                            style={{
-                              width: getWidth('amount'),
-                              minWidth: getWidth('amount'),
-                            }}
-                          >
-                            {row.sizeAmount > 0
-                              ? `₹${formatNumber(row.sizeAmount)}`
-                              : '-'}
-                          </td>
-                        ) : null}
-
-                        {row.isFirstVarietyRow && (
-                          <>
-                            {visibleBaseIds.has('bbBags') ? (
-                              <td
-                                rowSpan={row.varietyRowSpan}
-                                className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-                                style={{
-                                  width: getWidth('bbBags'),
-                                  minWidth: getWidth('bbBags'),
-                                }}
-                              >
-                                {formatNumber(row.buyBackBags, 0)}
-                              </td>
-                            ) : (
-                              <></>
-                            )}
-                            {visibleBaseIds.has('bbNetWeight') ? (
-                              <td
-                                rowSpan={row.varietyRowSpan}
-                                className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-                                style={{
-                                  width: getWidth('bbNetWeight'),
-                                  minWidth: getWidth('bbNetWeight'),
-                                }}
-                              >
-                                {formatNumber(row.buyBackNetWeightKg)}
-                              </td>
-                            ) : (
-                              <></>
-                            )}
-                            {visibleGradeHeaders.length > 0 ? (
-                              visibleGradeHeaders.map(({ columnId, grade }) => {
-                                const gradeEntry = row.gradeData[grade];
-                                return (
-                                  <td
-                                    key={`${row.rowId}-${columnId}`}
-                                    rowSpan={row.varietyRowSpan}
-                                    className={`${bodyCellClass} text-right align-top tabular-nums`}
-                                    style={{
-                                      width: getWidth(columnId),
-                                      minWidth: getWidth(columnId),
-                                    }}
-                                  >
-                                    {gradeEntry
-                                      ? formatNumber(gradeEntry.bags, 0)
-                                      : '-'}
-                                  </td>
-                                );
-                              })
-                            ) : visibleBaseIds.has('bbBags') ||
-                              visibleBaseIds.has('bbNetWeight') ? null : (
-                              <td
-                                rowSpan={row.varietyRowSpan}
-                                className={`${bodyCellClass} text-center align-top`}
-                              >
-                                -
-                              </td>
-                            )}
-                          </>
-                        )}
+                        {visibleColumnIds.map((columnId) => {
+                          const column = table.getColumn(columnId);
+                          if (!column) return null;
+                          return (
+                            <React.Fragment key={`${row.rowId}-${columnId}`}>
+                              {renderCellContent(
+                                row,
+                                columnId,
+                                column.getSize()
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
                       </tr>
                     );
                   })
@@ -1035,6 +1033,7 @@ const ContractFarmingReportTable = () => {
           )}
         </div>
       </div>
+
       <Sheet open={isViewFiltersOpen} onOpenChange={setIsViewFiltersOpen}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <div className="space-y-4">
@@ -1046,17 +1045,12 @@ const ContractFarmingReportTable = () => {
                 Show, hide and reset report columns.
               </SheetDescription>
             </div>
+
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 className="h-8 text-xs"
-                onClick={() =>
-                  setColumnVisibilityState(
-                    Object.fromEntries(
-                      allColumns.map((column) => [column.id, true])
-                    ) as Record<string, boolean>
-                  )
-                }
+                onClick={() => table.toggleAllColumnsVisible(true)}
               >
                 Show all
               </Button>
@@ -1068,10 +1062,11 @@ const ContractFarmingReportTable = () => {
                 Reset all
               </Button>
             </div>
+
             <div className="space-y-2">
               {columnOrder.map((columnId) => {
-                const config = columnConfigMap.get(columnId);
-                if (!config) return null;
+                const column = table.getColumn(columnId);
+                if (!column) return null;
 
                 return (
                   <div
@@ -1079,20 +1074,17 @@ const ContractFarmingReportTable = () => {
                     className="bg-background flex items-center gap-3 rounded-md border p-2"
                   >
                     <Checkbox
-                      checked={Boolean(columnVisibility[columnId])}
+                      checked={column.getIsVisible()}
                       onCheckedChange={(checked) =>
-                        setColumnVisibilityState((current) => ({
-                          ...current,
-                          [columnId]: checked === true,
-                        }))
+                        column.toggleVisibility(!!checked)
                       }
                     />
                     <div className="flex-1">
                       <p className="font-custom text-sm font-medium">
-                        {config.label}
+                        {getColumnLabel(columnId)}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        Width: {Math.round(getWidth(columnId))}px
+                        Width: {Math.round(column.getSize())}px
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1100,16 +1092,7 @@ const ContractFarmingReportTable = () => {
                         variant="ghost"
                         className="h-7 px-2 text-xs"
                         onClick={() =>
-                          setColumnOrderState((current) => {
-                            const index = current.indexOf(columnId);
-                            if (index <= 0) return current;
-                            const next = [...current];
-                            [next[index - 1], next[index]] = [
-                              next[index],
-                              next[index - 1],
-                            ];
-                            return next;
-                          })
+                          setColumnOrderByDirection(columnId, 'up')
                         }
                       >
                         Up
@@ -1118,18 +1101,7 @@ const ContractFarmingReportTable = () => {
                         variant="ghost"
                         className="h-7 px-2 text-xs"
                         onClick={() =>
-                          setColumnOrderState((current) => {
-                            const index = current.indexOf(columnId);
-                            if (index < 0 || index >= current.length - 1) {
-                              return current;
-                            }
-                            const next = [...current];
-                            [next[index], next[index + 1]] = [
-                              next[index + 1],
-                              next[index],
-                            ];
-                            return next;
-                          })
+                          setColumnOrderByDirection(columnId, 'down')
                         }
                       >
                         Down
@@ -1139,49 +1111,43 @@ const ContractFarmingReportTable = () => {
                 );
               })}
             </div>
+
             <div className="space-y-2 pt-2">
               <p className="font-custom text-sm font-medium">Sorting</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <select
                   className="border-border rounded-md border px-2 py-1.5 text-sm"
-                  value={sortState?.columnId ?? ''}
+                  value={sorting[0]?.id ?? ''}
                   onChange={(event) => {
                     const nextColumnId = event.target.value;
                     if (!nextColumnId) {
-                      setSortState(null);
+                      setSorting([]);
                       return;
                     }
-                    setSortState((current) => ({
-                      columnId: nextColumnId,
-                      direction: current?.direction ?? 'asc',
-                    }));
+                    const prevDirection = sorting[0]?.desc ?? false;
+                    setSorting([{ id: nextColumnId, desc: prevDirection }]);
                   }}
                 >
                   <option value="">No sort</option>
-                  {columnOrder.map((columnId) => {
-                    const config = columnConfigMap.get(columnId);
-                    if (!config) return null;
-                    return (
-                      <option key={columnId} value={columnId}>
-                        {config.label}
-                      </option>
-                    );
-                  })}
+                  {columnOrder.map((columnId) => (
+                    <option key={columnId} value={columnId}>
+                      {getColumnLabel(columnId)}
+                    </option>
+                  ))}
                 </select>
                 <select
                   className="border-border rounded-md border px-2 py-1.5 text-sm"
-                  value={sortState?.direction ?? 'asc'}
-                  disabled={!sortState}
-                  onChange={(event) =>
-                    setSortState((current) =>
-                      current
-                        ? {
-                            ...current,
-                            direction: event.target.value as SortDirection,
-                          }
-                        : null
-                    )
-                  }
+                  value={sorting[0]?.desc ? 'desc' : 'asc'}
+                  disabled={sorting.length === 0}
+                  onChange={(event) => {
+                    if (!sorting[0]) return;
+                    setSorting([
+                      {
+                        id: sorting[0].id,
+                        desc: event.target.value === 'desc',
+                      },
+                    ]);
+                  }}
                 >
                   <option value="asc">Ascending</option>
                   <option value="desc">Descending</option>
@@ -1189,12 +1155,13 @@ const ContractFarmingReportTable = () => {
                 <Button
                   variant="outline"
                   className="h-8 text-xs"
-                  onClick={() => setSortState(null)}
+                  onClick={() => setSorting([])}
                 >
                   Clear sort
                 </Button>
               </div>
             </div>
+
             <div className="space-y-2 pt-2">
               <p className="font-custom text-sm font-medium">Column Filters</p>
               <Input
@@ -1205,35 +1172,28 @@ const ContractFarmingReportTable = () => {
               />
               <div className="space-y-2">
                 {columnOrder
-                  .filter((columnId) => {
-                    const config = columnConfigMap.get(columnId);
-                    return (
-                      config &&
-                      config.label
-                        .toLowerCase()
-                        .includes(columnFilterSearch.trim().toLowerCase())
-                    );
-                  })
+                  .filter((columnId) =>
+                    getColumnLabel(columnId)
+                      .toLowerCase()
+                      .includes(columnFilterSearch.trim().toLowerCase())
+                  )
                   .map((columnId) => {
-                    const config = columnConfigMap.get(columnId);
-                    if (!config) return null;
+                    const column = table.getColumn(columnId);
+                    if (!column) return null;
                     return (
                       <div
                         key={`filter-${columnId}`}
                         className="bg-background rounded-md border p-2"
                       >
                         <p className="font-custom mb-1 text-xs font-medium">
-                          {config.label}
+                          {getColumnLabel(columnId)}
                         </p>
                         <Input
-                          value={columnFilterValues[columnId] ?? ''}
+                          value={String(column.getFilterValue() ?? '')}
                           onChange={(event) =>
-                            setColumnFilterValues((current) => ({
-                              ...current,
-                              [columnId]: event.target.value,
-                            }))
+                            column.setFilterValue(event.target.value)
                           }
-                          placeholder={`Filter ${config.label.toLowerCase()}...`}
+                          placeholder={`Filter ${getColumnLabel(columnId).toLowerCase()}...`}
                           className="h-8 text-sm"
                         />
                       </div>
@@ -1241,23 +1201,38 @@ const ContractFarmingReportTable = () => {
                   })}
               </div>
             </div>
+
             <div className="space-y-2 pt-2">
               <p className="font-custom text-sm font-medium">Grouping</p>
               <div className="bg-background space-y-2 rounded-md border p-2">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
-                    checked={groupByFarmer}
+                    checked={rowSpanGrouping.includes('farmer')}
                     onCheckedChange={(checked) =>
-                      setGroupByFarmer(checked === true)
+                      setRowSpanGrouping((current) => {
+                        if (checked) {
+                          return current.includes('farmer')
+                            ? current
+                            : [...current, 'farmer'];
+                        }
+                        return current.filter((item) => item !== 'farmer');
+                      })
                     }
                   />
                   Group Farmer rows
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
-                    checked={groupByVariety}
+                    checked={rowSpanGrouping.includes('variety')}
                     onCheckedChange={(checked) =>
-                      setGroupByVariety(checked === true)
+                      setRowSpanGrouping((current) => {
+                        if (checked) {
+                          return current.includes('variety')
+                            ? current
+                            : [...current, 'variety'];
+                        }
+                        return current.filter((item) => item !== 'variety');
+                      })
                     }
                   />
                   Group Variety rows
