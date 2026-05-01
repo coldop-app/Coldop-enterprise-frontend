@@ -66,7 +66,6 @@ const numberInputClassName =
 const formSchema = z.object({
   manualGatePassNumber: z.union([z.number().nonnegative(), z.undefined()]),
   farmerStorageLinkId: z.string().min(1, 'Please select a farmer account'),
-  from: z.string().trim().min(1, 'From is required'),
   dispatchLedgerId: z.string().trim().min(1, 'Please select a dispatch ledger'),
   toField: z.string().trim().optional().default(''),
   date: z.string().trim().min(1, 'Date is required'),
@@ -138,7 +137,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
       })),
     [dispatchLedgers]
   );
-
   const form = useForm({
     defaultValues: (() => {
       const sizeQuantities = { ...defaultSizeQuantities };
@@ -174,9 +172,8 @@ const NikasiEditForm = memo(function NikasiEditForm({
             ? manualParsed
             : undefined,
         farmerStorageLinkId: editData.farmerLinkId ?? '',
-        from: editData.from ?? '',
-        dispatchLedgerId: '',
-        toField: editData.toField ?? '',
+        dispatchLedgerId: editData.dispatchLedgerId ?? '',
+        toField: editData.dispatchLedgerName || editData.toField || '',
         date: editData.date ?? '',
         sizeQuantities,
         sizeBagTypes,
@@ -219,6 +216,10 @@ const NikasiEditForm = memo(function NikasiEditForm({
         toast.error('Please enter at least one quantity.');
         return;
       }
+      if (!selectedFarmerName) {
+        toast.error('Selected farmer is invalid. Please re-select farmer.');
+        return;
+      }
 
       if (!openSheetRef) {
         setOpenSheetRef(true);
@@ -233,7 +234,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
           manualGatePassNumber: value.manualGatePassNumber,
           isInternalTransfer: value.isInternalTransfer,
           date: parseDisplayDateToIso(value.date),
-          from: value.from.trim(),
+          from: selectedFarmerName,
           dispatchLedgerId: value.dispatchLedgerId.trim(),
           bagSizes,
           remarks: value.remarks.trim() || undefined,
@@ -250,6 +251,12 @@ const NikasiEditForm = memo(function NikasiEditForm({
       );
     },
   });
+  const selectedFarmerName =
+    farmerLinks
+      ?.find((link) => link._id === form.state.values.farmerStorageLinkId)
+      ?.farmerId?.name?.trim() ||
+    editData.from ||
+    '';
 
   const totalQty = useMemo(() => {
     const fixed = Object.values(form.state.values.sizeQuantities ?? {}).reduce(
@@ -287,7 +294,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
       passes: [
         {
           date: values.date,
-          from: values.from,
+          from: selectedFarmerName,
           toField: values.toField,
           remarks: values.remarks,
           isInternalTransfer: values.isInternalTransfer,
@@ -306,7 +313,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         },
       ],
     };
-  }, [form.state.values]);
+  }, [form.state.values, selectedFarmerName]);
 
   const handleDispatchLedgerAdded = useCallback(() => {
     refetchDispatchLedgers();
@@ -386,22 +393,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
                   emptyMessage="No farmers found"
                   className="w-full"
                   buttonClassName="w-full justify-between"
-                />
-              </Field>
-            )}
-          />
-
-          <form.Field
-            name="from"
-            children={(field) => (
-              <Field>
-                <FieldLabel className="font-custom mb-2 block text-base font-semibold">
-                  From
-                </FieldLabel>
-                <Input
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  className="font-custom"
                 />
               </Field>
             )}

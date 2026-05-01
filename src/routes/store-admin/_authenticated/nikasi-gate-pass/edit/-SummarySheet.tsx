@@ -72,6 +72,9 @@ export interface NikasiSummarySheetProps {
   isLoadingVoucher: boolean;
   gatePassNo: number;
   onSubmit: () => void;
+  submitLabel?: string;
+  submitLoadingLabel?: string;
+  description?: string;
 }
 
 const SummaryMetaRow = memo(function SummaryMetaRow({
@@ -109,6 +112,9 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
   isLoadingVoucher,
   gatePassNo,
   onSubmit,
+  submitLabel = 'Update Nikasi Gate Pass',
+  submitLoadingLabel = 'Updating...',
+  description = 'Review before updating nikasi gate pass',
 }: NikasiSummarySheetProps) {
   const passList = formValues.passes ?? [];
   const totalBags = passList.reduce(
@@ -138,7 +144,7 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
               Nikasi Gate Pass Summary
             </SheetTitle>
             <SheetDescription className="text-muted-foreground font-custom text-sm">
-              Review before updating nikasi gate pass
+              {description}
             </SheetDescription>
           </SheetHeader>
 
@@ -309,10 +315,10 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                 {isPending ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    Updating...
+                    {submitLoadingLabel}
                   </span>
                 ) : (
-                  'Update Nikasi Gate Pass'
+                  submitLabel
                 )}
               </Button>
             </div>

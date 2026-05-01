@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   Printer,
-  User,
   Package,
   Pencil,
   Hash,
@@ -65,6 +64,8 @@ export interface NikasiGatePassEditState {
   farmerName: string;
   farmerAccountNumber: string;
   farmerLinkId: string;
+  dispatchLedgerId: string;
+  dispatchLedgerName: string;
   bagSize: Array<{
     size: string;
     variety: string;
@@ -135,6 +136,13 @@ export function NikasiVoucherCard({
   const dispatchLedger = isDispatchLedgerObject(dispatchLedgerValue)
     ? dispatchLedgerValue
     : null;
+  const dispatchLedgerIdForEdit = isDispatchLedgerObject(dispatchLedgerValue)
+    ? dispatchLedgerValue._id
+    : typeof dispatchLedgerValue === 'string'
+      ? dispatchLedgerValue
+      : '';
+  const dispatchLedgerNameForEdit =
+    dispatchLedger?.name ?? gatePass.toField ?? '';
   const bagDetails = gatePass.bagSize ?? [];
   const totalIssued = bagDetails.reduce(
     (sum, row) => sum + row.quantityIssued,
@@ -155,6 +163,8 @@ export function NikasiVoucherCard({
       farmerName: farmer?.name ?? '',
       farmerAccountNumber: String(farmerStorageLink?.accountNumber ?? ''),
       farmerLinkId: farmerStorageLink?._id ?? '',
+      dispatchLedgerId: dispatchLedgerIdForEdit,
+      dispatchLedgerName: dispatchLedgerNameForEdit,
       bagSize: bagDetails.map((row) => ({
         size: row.size,
         variety: row.variety,
@@ -252,7 +262,6 @@ export function NikasiVoucherCard({
 
       <div className="px-3 py-3 sm:px-4 sm:py-4">
         <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-          <InfoBlock label="Farmer" value={farmer?.name ?? '--'} icon={User} />
           <InfoBlock
             label="Variety"
             value={bagDetails[0]?.variety ?? '--'}
