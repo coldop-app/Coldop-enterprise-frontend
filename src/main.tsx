@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { useStore } from '@/stores/store';
+import type { DispatchLedger } from '@/types/dispatch-ledger';
 import './index.css';
 
 // Import the generated route tree
@@ -21,6 +22,10 @@ const router = createRouter({
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
+  }
+
+  interface HistoryState {
+    dispatchLedger?: DispatchLedger;
   }
 }
 

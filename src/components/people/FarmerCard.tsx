@@ -107,7 +107,10 @@ export const FarmerCard: React.FC<FarmerCardProps> = ({
               }
               state={
                 navigationType === 'dispatch-ledger' && farmer.dispatchLedger
-                  ? { dispatchLedger: farmer.dispatchLedger }
+                  ? (prev) => ({
+                      ...prev,
+                      dispatchLedger: farmer.dispatchLedger,
+                    })
                   : undefined
               }
               preload="intent"

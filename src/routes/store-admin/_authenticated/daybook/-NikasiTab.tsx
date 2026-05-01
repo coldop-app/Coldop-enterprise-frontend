@@ -5,6 +5,13 @@ import {
   Search,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -27,12 +34,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { NikasiVoucherCard } from '@/components/daybook/nikasi-gate-pass-card';
+import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
 
 const SORT_ORDER_OPTIONS = ['Latest first', 'Oldest first'] as const;
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;
 const DEFAULT_ITEMS_PER_PAGE = 10;
-const NIKASI_GATE_PASS_COUNT = 76;
-
 type SortOrder = (typeof SORT_ORDER_OPTIONS)[number];
 
 interface SortDropdownProps {
@@ -97,9 +104,29 @@ const NikasiTab = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const totalPages = 1;
+  const {
+    data: nikasiResponse,
+    isLoading,
+    isError,
+    error,
+  } = useGetNikasiGatePasses({
+    page: currentPage,
+    limit: itemsPerPage,
+    sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
+  });
+
+  const nikasiGatePasses = nikasiResponse?.data ?? [];
+  const filteredNikasiGatePasses = nikasiGatePasses.filter((item) =>
+    searchQuery.trim()
+      ? String(item.gatePassNo).includes(searchQuery.trim())
+      : true
+  );
+
+  const totalPages = nikasiResponse?.pagination?.totalPages ?? 1;
+  const totalCount = nikasiResponse?.pagination?.total ?? 0;
   const isOnFirstPage = currentPage <= 1;
-  const isOnLastPage = currentPage >= totalPages;
+  const isOnLastPage =
+    currentPage >= totalPages || filteredNikasiGatePasses.length === 0;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,7 +171,7 @@ const NikasiTab = () => {
               <NotebookText className="text-primary h-5 w-5" />
             </ItemMedia>
             <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-              {NIKASI_GATE_PASS_COUNT} nikasi gate passes
+              {totalCount} nikasi gate passes
             </ItemTitle>
           </div>
         </ItemHeader>
@@ -185,13 +212,56 @@ const NikasiTab = () => {
         </ItemFooter>
       </Item>
 
-      <Item
-        variant="outline"
-        size="sm"
-        className="font-custom text-muted-foreground rounded-xl px-4 py-6 text-sm"
-      >
-        <p>Display nikasi gate pass here..</p>
-      </Item>
+      {isLoading ? (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Loading nikasi gate passes...
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              Please wait while we fetch the latest entries.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : isError ? (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Failed to load nikasi gate passes
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              {error?.message ??
+                'Please refresh and try again to fetch nikasi gate passes.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : filteredNikasiGatePasses.length > 0 ? (
+        <div className="space-y-4">
+          {filteredNikasiGatePasses.map((gatePass) => (
+            <NikasiVoucherCard key={gatePass._id} gatePass={gatePass} />
+          ))}
+        </div>
+      ) : (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              No matching nikasi gate pass found
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              Try a different gate pass number to search nikasi entries.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
 
       <Item
         variant="outline"

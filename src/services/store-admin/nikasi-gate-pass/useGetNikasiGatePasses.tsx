@@ -46,6 +46,12 @@ export interface NikasiGatePassCreatedBy {
   name: string;
 }
 
+export interface NikasiGatePassDispatchLedger {
+  _id: string;
+  name: string;
+  address?: string;
+}
+
 export interface NikasiGatePassBagSize {
   size: string;
   variety: string;
@@ -54,13 +60,15 @@ export interface NikasiGatePassBagSize {
 
 export interface NikasiGatePassItem {
   _id: string;
-  farmerStorageLinkId?: NikasiGatePassFarmerStorageLink | string;
+  farmerStorageLinkId: NikasiGatePassFarmerStorageLink | string;
+  dispatchLedgerId: NikasiGatePassDispatchLedger | string;
   createdBy?: NikasiGatePassCreatedBy | string;
   gatePassNo: number;
   manualGatePassNumber?: number;
-  isInternalTransfer?: boolean;
+  isInternalTransfer: boolean;
   date: string;
   from: string;
+  /** @deprecated Legacy field kept for backward compatibility in UI */
   toField?: string;
   bagSize?: NikasiGatePassBagSize[];
   remarks?: string;

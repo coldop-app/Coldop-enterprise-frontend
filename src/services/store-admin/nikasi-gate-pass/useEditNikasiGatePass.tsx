@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
@@ -49,6 +50,7 @@ const nikasiGatePassKeys = {
 };
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to update nikasi gate pass';
+const DAYBOOK_ROUTE = '/store-admin/daybook';
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
   400: 'Invalid nikasi gate pass payload',
@@ -119,6 +121,8 @@ function normalizeEditNikasiGatePassPayload(
 
 /** Hook to edit a nikasi gate pass. PATCH /nikasi-gate-pass/:nikasiGatePassId */
 export function useEditNikasiGatePass() {
+  const navigate = useNavigate();
+
   return useMutation<
     EditNikasiGatePassApiResponse,
     AxiosError<NikasiGatePassApiError>,
@@ -143,6 +147,7 @@ export function useEditNikasiGatePass() {
         await queryClient.invalidateQueries({
           queryKey: nikasiGatePassKeys.all,
         });
+        await navigate({ to: DAYBOOK_ROUTE });
       } else {
         toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
       }
