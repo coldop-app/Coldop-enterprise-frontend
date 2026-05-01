@@ -83,8 +83,8 @@ const columnLabels: Record<string, string> = {
   variety: 'Variety',
   generation: 'Generation',
   totalBags: 'Bags',
-  totalAcres: 'Acres',
-  averageRate: 'Avg Rate',
+  totalAcres: 'Acres Planted',
+  averageRate: 'Rate per Bag',
   totalAmount: 'Amount',
   remarks: 'Remarks',
 };

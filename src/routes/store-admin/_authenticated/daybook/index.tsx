@@ -71,7 +71,7 @@ function RouteComponent() {
           <TabsTrigger className="flex-1" value="dispatch-pre-outgoing">
             <ArrowRightLeft aria-hidden="true" className="size-4 sm:hidden" />
             <span className="sr-only sm:not-sr-only">
-              Dispatch (Pre outgoing)
+              Dispatch (Pre Storage)
             </span>
           </TabsTrigger>
           <TabsTrigger className="flex-1" value="dispatch-outgoing">
@@ -79,7 +79,9 @@ function RouteComponent() {
               aria-hidden="true"
               className="size-4 sm:hidden"
             />
-            <span className="sr-only sm:not-sr-only">Dispatch (Outgoing)</span>
+            <span className="sr-only sm:not-sr-only">
+              Dispatch (Post Storage)
+            </span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="seed">

@@ -85,16 +85,11 @@ const columnConfig: Record<string, ColumnConfig> = {
   invoiceNumber: { label: 'Invoice Number', value: (row) => row.invoiceNumber },
   date: { label: 'Date', value: (row) => row.date },
   variety: { label: 'Variety', value: (row) => row.variety },
-  generation: { label: 'Generation', value: (row) => row.generation },
+  generation: { label: 'Stage', value: (row) => row.generation },
   bag35to40: {
     label: '35-40 (mm)',
     align: 'right',
-    value: (row) =>
-      formatBagSizePdfValue(
-        row.bag35to40,
-        row.bag35to40Rate,
-        row.bag35to40Acres
-      ),
+    value: (row) => formatBagQuantityPdf(row.bag35to40),
     total: (rows) =>
       formatIndianNumber(
         sumBy(rows, (r) => r.bag35to40),
@@ -104,12 +99,7 @@ const columnConfig: Record<string, ColumnConfig> = {
   bag40to45: {
     label: '40-45 (mm)',
     align: 'right',
-    value: (row) =>
-      formatBagSizePdfValue(
-        row.bag40to45,
-        row.bag40to45Rate,
-        row.bag40to45Acres
-      ),
+    value: (row) => formatBagQuantityPdf(row.bag40to45),
     total: (rows) =>
       formatIndianNumber(
         sumBy(rows, (r) => r.bag40to45),
@@ -119,12 +109,7 @@ const columnConfig: Record<string, ColumnConfig> = {
   bag40to50: {
     label: '40-50 (mm)',
     align: 'right',
-    value: (row) =>
-      formatBagSizePdfValue(
-        row.bag40to50,
-        row.bag40to50Rate,
-        row.bag40to50Acres
-      ),
+    value: (row) => formatBagQuantityPdf(row.bag40to50),
     total: (rows) =>
       formatIndianNumber(
         sumBy(rows, (r) => r.bag40to50),
@@ -134,12 +119,7 @@ const columnConfig: Record<string, ColumnConfig> = {
   bag45to50: {
     label: '45-50 (mm)',
     align: 'right',
-    value: (row) =>
-      formatBagSizePdfValue(
-        row.bag45to50,
-        row.bag45to50Rate,
-        row.bag45to50Acres
-      ),
+    value: (row) => formatBagQuantityPdf(row.bag45to50),
     total: (rows) =>
       formatIndianNumber(
         sumBy(rows, (r) => r.bag45to50),
@@ -149,12 +129,7 @@ const columnConfig: Record<string, ColumnConfig> = {
   bag50to55: {
     label: '50-55 (mm)',
     align: 'right',
-    value: (row) =>
-      formatBagSizePdfValue(
-        row.bag50to55,
-        row.bag50to55Rate,
-        row.bag50to55Acres
-      ),
+    value: (row) => formatBagQuantityPdf(row.bag50to55),
     total: (rows) =>
       formatIndianNumber(
         sumBy(rows, (r) => r.bag50to55),
@@ -172,7 +147,7 @@ const columnConfig: Record<string, ColumnConfig> = {
       ),
   },
   totalAcres: {
-    label: 'Acres',
+    label: 'Acres Planted',
     align: 'right',
     value: (row) => formatIndianNumber(row.totalAcres, 2),
     total: (rows) =>
@@ -182,9 +157,14 @@ const columnConfig: Record<string, ColumnConfig> = {
       ),
   },
   averageRate: {
-    label: 'Avg Rate',
+    label: 'Rate per Bag',
     align: 'right',
     value: (row) => formatIndianNumber(row.averageRate, 2),
+    total: (rows) => {
+      const bags = sumBy(rows, (r) => r.totalBags);
+      const amount = sumBy(rows, (r) => r.totalAmount);
+      return bags > 0 ? formatIndianNumber(amount / bags, 2) : '';
+    },
   },
   totalAmount: {
     label: 'Amount',
@@ -421,15 +401,7 @@ function formatIndianNumber(value: number, precision = 0): string {
   });
 }
 
-function formatBagSizePdfValue(
-  quantity: number,
-  rate: number,
-  acres: number
-): string {
+function formatBagQuantityPdf(quantity: number): string {
   if (Number(quantity || 0) === 0) return '-';
-  return [
-    formatIndianNumber(quantity, 0),
-    `Rate - ${formatIndianNumber(rate, 2)}`,
-    `Acres - ${formatIndianNumber(acres, 2)}`,
-  ].join('\n');
+  return formatIndianNumber(quantity, 0);
 }

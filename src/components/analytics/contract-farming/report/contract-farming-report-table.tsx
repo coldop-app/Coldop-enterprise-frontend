@@ -2,12 +2,15 @@ import * as React from 'react';
 import {
   type ColumnDef,
   type ColumnFiltersState,
+  type ColumnResizeDirection,
   type ColumnResizeMode,
   type GroupingState,
   type SortingState,
   type VisibilityState,
   createColumnHelper,
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
@@ -25,34 +28,38 @@ import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import {
   useGetContractFarmingReport,
   type ContractFarmingReportData,
   type ContractFarmingReportFarmer,
 } from '@/services/store-admin/general/useGetContractFarmingReport';
+import {
+  evaluateFilterGroup,
+  isAdvancedFilterGroup,
+  type FilterGroupNode,
+} from '@/lib/advanced-filters';
+import type { FlattenedRow } from './types';
+import { ContractFarmingViewFiltersSheet } from './view-filters-sheet/index';
+import {
+  buildContractFarmingFilterableColumns,
+  FILTER_VARIETY_LEVEL_PREFIX,
+} from './view-filters-sheet/constants';
 
-type FlattenedRow = {
-  rowId: string;
-  farmerName: string;
-  farmerMobile: string;
-  farmerAccount: number;
-  farmerAddress: string;
-  varietyName: string;
-  generation: string;
-  sizeName: string;
-  sizeQuantity: number;
-  sizeAcres: number;
-  sizeAmount: number;
-  buyBackBags: number | null;
-  buyBackNetWeightKg: number | null;
-  gradeData: Record<string, { bags: number; netWeightKg: number }>;
+const multiValueFilterFn = (
+  row: { getValue: (columnId: string) => unknown },
+  columnId: string,
+  filterValue: string[] | string
+) => {
+  const raw = row.getValue(columnId);
+  const cellValue = raw === null || raw === undefined ? '' : String(raw);
+  if (typeof filterValue === 'string') {
+    const normalized = filterValue.trim().toLowerCase();
+    if (!normalized) return true;
+    return cellValue.toLowerCase().includes(normalized);
+  }
+  if (!Array.isArray(filterValue)) return true;
+  if (filterValue.length === 0) return true;
+  return filterValue.includes(cellValue);
 };
 
 type RenderRow = FlattenedRow & {
@@ -96,7 +103,10 @@ const BAG_SIZE_ORDER_INDEX = new Map<string, number>(
 );
 
 const columnHelper = createColumnHelper<FlattenedRow>();
-const VARIETY_LEVEL_COLUMN_PREFIX = 'grade_bags_';
+
+const VARIETY_LEVEL_COLUMN_PREFIX = FILTER_VARIETY_LEVEL_PREFIX;
+
+type GlobalFilterValue = string | FilterGroupNode;
 const VARIETY_LEVEL_COLUMN_IDS = new Set(['variety', 'bbBags', 'bbNetWeight']);
 const BUY_BACK_COLUMN_IDS = new Set(['bbBags', 'bbNetWeight']);
 
@@ -253,7 +263,18 @@ function buildColumns(
       size: 240,
       minSize: 180,
       maxSize: 550,
-      filterFn: 'includesString',
+      enableGrouping: true,
+      filterFn: multiValueFilterFn,
+    }),
+    columnHelper.accessor('farmerMobile', {
+      id: 'farmerMobile',
+      header: 'Mobile',
+      sortingFn: 'text',
+      size: 150,
+      minSize: 120,
+      maxSize: 320,
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('farmerAddress', {
       id: 'address',
@@ -262,7 +283,8 @@ function buildColumns(
       size: 230,
       minSize: 160,
       maxSize: 550,
-      filterFn: 'includesString',
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('varietyName', {
       id: 'variety',
@@ -271,16 +293,18 @@ function buildColumns(
       size: 150,
       minSize: 120,
       maxSize: 260,
-      filterFn: 'includesString',
+      enableGrouping: true,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('generation', {
       id: 'generation',
-      header: 'Gen',
+      header: 'Stage',
       sortingFn: 'text',
       size: 110,
       minSize: 90,
       maxSize: 180,
-      filterFn: 'includesString',
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('sizeName', {
       id: 'size',
@@ -289,7 +313,8 @@ function buildColumns(
       size: 120,
       minSize: 90,
       maxSize: 220,
-      filterFn: 'includesString',
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('sizeQuantity', {
       id: 'qty',
@@ -298,7 +323,8 @@ function buildColumns(
       size: 120,
       minSize: 100,
       maxSize: 220,
-      filterFn: 'includesString',
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('sizeAcres', {
       id: 'acres',
@@ -307,7 +333,8 @@ function buildColumns(
       size: 120,
       minSize: 100,
       maxSize: 220,
-      filterFn: 'includesString',
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('sizeAmount', {
       id: 'amount',
@@ -316,7 +343,8 @@ function buildColumns(
       size: 145,
       minSize: 120,
       maxSize: 260,
-      filterFn: 'includesString',
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
     }),
     columnHelper.group({
       id: 'buyBackGroup',
@@ -329,7 +357,8 @@ function buildColumns(
           size: 120,
           minSize: 100,
           maxSize: 220,
-          filterFn: 'includesString',
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
         }),
         columnHelper.accessor('buyBackNetWeightKg', {
           id: 'bbNetWeight',
@@ -338,7 +367,8 @@ function buildColumns(
           size: 140,
           minSize: 120,
           maxSize: 260,
-          filterFn: 'includesString',
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
         }),
       ],
     }),
@@ -353,7 +383,8 @@ function buildColumns(
           size: 130,
           minSize: 110,
           maxSize: 260,
-          filterFn: 'includesString',
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
         })
       )
     : [
@@ -361,6 +392,7 @@ function buildColumns(
           id: 'noGrades',
           header: 'No grades',
           enableSorting: false,
+          enableGrouping: false,
           size: 130,
           minSize: 110,
           maxSize: 260,
@@ -378,22 +410,24 @@ function buildColumns(
 }
 
 const ContractFarmingReportTable = () => {
-  const [search, setSearch] = React.useState('');
+  const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>({ farmerMobile: false });
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   // rowspan grouping is UI-only — keep it out of TanStack `grouping` so leaf columns stay sortable
   const [rowSpanGrouping, setRowSpanGrouping] = React.useState<GroupingState>([
     'farmer',
     'variety',
   ]);
-  const [columnResizeMode] = React.useState<ColumnResizeMode>('onChange');
-  const [columnFilterSearch, setColumnFilterSearch] = React.useState('');
+  const [columnResizeMode, setColumnResizeMode] =
+    React.useState<ColumnResizeMode>('onChange');
+  const [columnResizeDirection, setColumnResizeDirection] =
+    React.useState<ColumnResizeDirection>('ltr');
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
 
@@ -424,6 +458,7 @@ const ContractFarmingReportTable = () => {
   const defaultColumnOrder = React.useMemo(
     () => [
       'farmer',
+      'farmerMobile',
       'address',
       'variety',
       'generation',
@@ -435,6 +470,11 @@ const ContractFarmingReportTable = () => {
       'bbNetWeight',
       ...gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
     ],
+    [gradeHeaders]
+  );
+
+  const filterableColumns = React.useMemo(
+    () => buildContractFarmingFilterableColumns(gradeHeaders),
     [gradeHeaders]
   );
 
@@ -452,6 +492,9 @@ const ContractFarmingReportTable = () => {
   const table = useReactTable({
     data: flattenedRows,
     columns,
+    initialState: {
+      columnVisibility: { farmerMobile: false },
+    },
     defaultColumn: {
       size: 130,
       minSize: 90,
@@ -459,19 +502,24 @@ const ContractFarmingReportTable = () => {
     },
     state: {
       sorting,
-      globalFilter: search,
+      globalFilter,
       columnFilters,
       columnVisibility,
       columnOrder,
     },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setSearch,
+    onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange: setColumnOrder,
+    enableColumnSizing: true,
     columnResizeMode,
+    columnResizeDirection,
     getRowId: (row) => row.rowId,
-    globalFilterFn: (row, _columnId, filterValue) => {
+    globalFilterFn: (row, _columnId, filterValue: GlobalFilterValue) => {
+      if (isAdvancedFilterGroup(filterValue)) {
+        return evaluateFilterGroup(row.original, filterValue);
+      }
       const query = String(filterValue ?? '')
         .trim()
         .toLowerCase();
@@ -490,6 +538,8 @@ const ContractFarmingReportTable = () => {
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
     getSortedRowModel: getSortedRowModel(),
   });
 
@@ -581,33 +631,39 @@ const ContractFarmingReportTable = () => {
     [table]
   );
 
-  const resetColumns = () => {
-    setColumnOrder(defaultColumnOrder);
-    setColumnVisibility({});
-    setColumnFilters([]);
-    setSorting([]);
-    setRowSpanGrouping(['farmer', 'variety']);
-    setColumnFilterSearch('');
-    setSearch('');
-    table.resetColumnSizing();
-  };
-
-  const setColumnOrderByDirection = (
-    columnId: string,
-    direction: 'up' | 'down'
-  ) => {
-    setColumnOrder((current) => {
-      const index = current.indexOf(columnId);
-      if (index < 0) return current;
-      if (direction === 'up' && index === 0) return current;
-      if (direction === 'down' && index === current.length - 1) return current;
-
-      const next = [...current];
-      const swapIndex = direction === 'up' ? index - 1 : index + 1;
-      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
-      return next;
-    });
-  };
+  const renderLeafResizeHandle = React.useCallback(
+    (columnId: string) => {
+      const column = table.getColumn(columnId);
+      if (!column) return null;
+      return (
+        <div
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            column.resetSize();
+          }}
+          onMouseDown={(e) => {
+            column.getResizeHandler()(e);
+          }}
+          onTouchStart={(e) => {
+            column.getResizeHandler()(e);
+          }}
+          role="presentation"
+          onClick={(event) => event.stopPropagation()}
+          className="hover:bg-primary/25 absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none bg-transparent transition-colors select-none"
+          style={{
+            transform:
+              columnResizeMode === 'onEnd' && column.getIsResizing()
+                ? `translateX(${
+                    (columnResizeDirection === 'rtl' ? -1 : 1) *
+                    (table.getState().columnSizingInfo.deltaOffset ?? 0)
+                  }px)`
+                : '',
+          }}
+        />
+      );
+    },
+    [columnResizeDirection, columnResizeMode, table]
+  );
 
   const renderCellContent = (
     row: RenderRow,
@@ -628,6 +684,19 @@ const ContractFarmingReportTable = () => {
               (#{row.farmerAccount})
             </span>
           </div>
+        </td>
+      );
+    }
+
+    if (columnId === 'farmerMobile') {
+      if (!row.isFirstFarmerRow) return null;
+      return (
+        <td
+          rowSpan={row.farmerRowSpan}
+          className={`${bodyCellClass} align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {row.farmerMobile}
         </td>
       );
     }
@@ -792,8 +861,8 @@ const ContractFarmingReportTable = () => {
               <div className="relative min-w-[160px] lg:w-[220px]">
                 <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
                 <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  value={typeof globalFilter === 'string' ? globalFilter : ''}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
                   placeholder="Search table..."
                   className="h-8 pl-8 text-sm"
                 />
@@ -838,7 +907,13 @@ const ContractFarmingReportTable = () => {
           </p>
         )}
 
-        <div className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1">
+        <div
+          className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1"
+          style={{
+            direction: columnResizeDirection,
+            position: 'relative',
+          }}
+        >
           {isLoading ? (
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-8 gap-2">
@@ -888,11 +963,7 @@ const ContractFarmingReportTable = () => {
                             columnId,
                             getColumnLabel(columnId)
                           )}
-                          <div
-                            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                            role="presentation"
-                            onClick={(event) => event.stopPropagation()}
-                          />
+                          {renderLeafResizeHandle(columnId)}
                         </th>
                       );
                     })}
@@ -937,11 +1008,7 @@ const ContractFarmingReportTable = () => {
                             columnId,
                             getColumnLabel(columnId)
                           )}
-                          <div
-                            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                            role="presentation"
-                            onClick={(event) => event.stopPropagation()}
-                          />
+                          {renderLeafResizeHandle(columnId)}
                         </th>
                       );
                     })}
@@ -971,11 +1038,7 @@ const ContractFarmingReportTable = () => {
                             </span>
                           </span>
                         )}
-                        <div
-                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize"
-                          role="presentation"
-                          onClick={(event) => event.stopPropagation()}
-                        />
+                        {renderLeafResizeHandle(columnId)}
                       </th>
                     );
                   })}
@@ -1034,214 +1097,19 @@ const ContractFarmingReportTable = () => {
         </div>
       </div>
 
-      <Sheet open={isViewFiltersOpen} onOpenChange={setIsViewFiltersOpen}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-          <div className="space-y-4">
-            <div>
-              <SheetTitle className="font-custom text-base font-semibold">
-                View Filters
-              </SheetTitle>
-              <SheetDescription>
-                Show, hide and reset report columns.
-              </SheetDescription>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => table.toggleAllColumnsVisible(true)}
-              >
-                Show all
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={resetColumns}
-              >
-                Reset all
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              {columnOrder.map((columnId) => {
-                const column = table.getColumn(columnId);
-                if (!column) return null;
-
-                return (
-                  <div
-                    key={columnId}
-                    className="bg-background flex items-center gap-3 rounded-md border p-2"
-                  >
-                    <Checkbox
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(checked) =>
-                        column.toggleVisibility(!!checked)
-                      }
-                    />
-                    <div className="flex-1">
-                      <p className="font-custom text-sm font-medium">
-                        {getColumnLabel(columnId)}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        Width: {Math.round(column.getSize())}px
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        className="h-7 px-2 text-xs"
-                        onClick={() =>
-                          setColumnOrderByDirection(columnId, 'up')
-                        }
-                      >
-                        Up
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="h-7 px-2 text-xs"
-                        onClick={() =>
-                          setColumnOrderByDirection(columnId, 'down')
-                        }
-                      >
-                        Down
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <p className="font-custom text-sm font-medium">Sorting</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <select
-                  className="border-border rounded-md border px-2 py-1.5 text-sm"
-                  value={sorting[0]?.id ?? ''}
-                  onChange={(event) => {
-                    const nextColumnId = event.target.value;
-                    if (!nextColumnId) {
-                      setSorting([]);
-                      return;
-                    }
-                    const prevDirection = sorting[0]?.desc ?? false;
-                    setSorting([{ id: nextColumnId, desc: prevDirection }]);
-                  }}
-                >
-                  <option value="">No sort</option>
-                  {columnOrder.map((columnId) => (
-                    <option key={columnId} value={columnId}>
-                      {getColumnLabel(columnId)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="border-border rounded-md border px-2 py-1.5 text-sm"
-                  value={sorting[0]?.desc ? 'desc' : 'asc'}
-                  disabled={sorting.length === 0}
-                  onChange={(event) => {
-                    if (!sorting[0]) return;
-                    setSorting([
-                      {
-                        id: sorting[0].id,
-                        desc: event.target.value === 'desc',
-                      },
-                    ]);
-                  }}
-                >
-                  <option value="asc">Ascending</option>
-                  <option value="desc">Descending</option>
-                </select>
-                <Button
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={() => setSorting([])}
-                >
-                  Clear sort
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <p className="font-custom text-sm font-medium">Column Filters</p>
-              <Input
-                value={columnFilterSearch}
-                onChange={(event) => setColumnFilterSearch(event.target.value)}
-                placeholder="Search columns..."
-                className="h-8"
-              />
-              <div className="space-y-2">
-                {columnOrder
-                  .filter((columnId) =>
-                    getColumnLabel(columnId)
-                      .toLowerCase()
-                      .includes(columnFilterSearch.trim().toLowerCase())
-                  )
-                  .map((columnId) => {
-                    const column = table.getColumn(columnId);
-                    if (!column) return null;
-                    return (
-                      <div
-                        key={`filter-${columnId}`}
-                        className="bg-background rounded-md border p-2"
-                      >
-                        <p className="font-custom mb-1 text-xs font-medium">
-                          {getColumnLabel(columnId)}
-                        </p>
-                        <Input
-                          value={String(column.getFilterValue() ?? '')}
-                          onChange={(event) =>
-                            column.setFilterValue(event.target.value)
-                          }
-                          placeholder={`Filter ${getColumnLabel(columnId).toLowerCase()}...`}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <p className="font-custom text-sm font-medium">Grouping</p>
-              <div className="bg-background space-y-2 rounded-md border p-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={rowSpanGrouping.includes('farmer')}
-                    onCheckedChange={(checked) =>
-                      setRowSpanGrouping((current) => {
-                        if (checked) {
-                          return current.includes('farmer')
-                            ? current
-                            : [...current, 'farmer'];
-                        }
-                        return current.filter((item) => item !== 'farmer');
-                      })
-                    }
-                  />
-                  Group Farmer rows
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={rowSpanGrouping.includes('variety')}
-                    onCheckedChange={(checked) =>
-                      setRowSpanGrouping((current) => {
-                        if (checked) {
-                          return current.includes('variety')
-                            ? current
-                            : [...current, 'variety'];
-                        }
-                        return current.filter((item) => item !== 'variety');
-                      })
-                    }
-                  />
-                  Group Variety rows
-                </label>
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <ContractFarmingViewFiltersSheet
+        open={isViewFiltersOpen}
+        onOpenChange={setIsViewFiltersOpen}
+        table={table}
+        defaultColumnOrder={defaultColumnOrder}
+        filterableColumns={filterableColumns}
+        columnResizeMode={columnResizeMode}
+        columnResizeDirection={columnResizeDirection}
+        onColumnResizeModeChange={setColumnResizeMode}
+        onColumnResizeDirectionChange={setColumnResizeDirection}
+        rowSpanGrouping={rowSpanGrouping}
+        onRowSpanGroupingChange={setRowSpanGrouping}
+      />
     </main>
   );
 };

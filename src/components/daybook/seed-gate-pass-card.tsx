@@ -347,7 +347,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
           <DetailRow label="Account" value={`#${seedData.farmer.account}`} />
           <DetailRow label="Variety" value={seedData.variety} icon={Sprout} />
           <DetailRow
-            label="Generation"
+            label="Stage"
             value={seedData.generation}
             icon={ReceiptText}
           />

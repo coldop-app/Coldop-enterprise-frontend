@@ -9,7 +9,17 @@ export type FilterField =
   | 'netWeightKg'
   | 'status'
   | 'location'
-  | 'truckNumber';
+  | 'truckNumber'
+  | 'farmerMobile'
+  | 'farmerAddress'
+  | 'varietyName'
+  | 'generation'
+  | 'sizeName'
+  | 'sizeQuantity'
+  | 'sizeAcres'
+  | 'sizeAmount'
+  | 'buyBackBags'
+  | 'buyBackNetWeightKg';
 
 export type FilterOperator =
   | 'contains'
@@ -44,6 +54,11 @@ export const numericFilterFields: FilterField[] = [
   'totalBags',
   'bagsReceived',
   'netWeightKg',
+  'sizeQuantity',
+  'sizeAcres',
+  'sizeAmount',
+  'buyBackBags',
+  'buyBackNetWeightKg',
 ];
 
 const generateId = () =>

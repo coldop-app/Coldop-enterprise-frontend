@@ -219,21 +219,11 @@ function getBagSizeMetrics(
   return metrics;
 }
 
-function renderBagSizeCell(
-  quantity: number,
-  rate: number,
-  acres: number,
-  precision = 2
-) {
+function renderBagQuantityCell(quantity: number) {
   if (Number(quantity || 0) === 0) return '';
-
   return (
     <div className="w-full text-right tabular-nums">
-      <div>{formatIndianNumber(quantity, 0)}</div>
-      <div className="text-muted-foreground text-[10px] leading-tight font-medium">
-        <div>Rate - {formatIndianNumber(rate, precision)}</div>
-        <div>Acres - {formatIndianNumber(acres, 2)}</div>
-      </div>
+      {formatIndianNumber(quantity, 0)}
     </div>
   );
 }
@@ -249,6 +239,7 @@ const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 
 const defaultColumnOrder: string[] = [
   'farmerName',
+  'totalAcres',
   'gatePassNo',
   'invoiceNumber',
   'date',
@@ -260,6 +251,7 @@ const defaultColumnOrder: string[] = [
   'bag45to50',
   'bag50to55',
   'totalBags',
+  'averageRate',
   'totalAmount',
   'remarks',
 ];
@@ -272,6 +264,8 @@ const numericColumnIds = new Set([
   'bag45to50',
   'bag50to55',
   'totalBags',
+  'totalAcres',
+  'averageRate',
   'totalAmount',
 ]);
 
@@ -326,6 +320,18 @@ const columns = [
     size: 500,
     maxSize: 550,
   }),
+  columnHelper.accessor('totalAcres', {
+    header: () => <div className="w-full text-right">Acres Planted</div>,
+    sortingFn: 'basic',
+    filterFn: multiValueFilterFn,
+    minSize: 100,
+    maxSize: 160,
+    cell: (info) => (
+      <div className="w-full text-right tabular-nums">
+        {formatIndianNumber(Number(info.getValue() || 0), 2)}
+      </div>
+    ),
+  }),
   columnHelper.accessor('gatePassNo', {
     header: () => <div className="w-full text-right">Gate Pass No</div>,
     sortingFn: 'alphanumeric',
@@ -354,7 +360,7 @@ const columns = [
     filterFn: multiValueFilterFn,
   }),
   columnHelper.accessor('generation', {
-    header: 'Generation',
+    header: 'Stage',
     sortingFn: 'text',
     filterFn: multiValueFilterFn,
   }),
@@ -364,12 +370,7 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) =>
-      renderBagSizeCell(
-        Number(info.getValue() || 0),
-        Number(info.row.original.bag35to40Rate || 0),
-        Number(info.row.original.bag35to40Acres || 0)
-      ),
+    cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag40to45', {
     header: () => <div className="w-full text-right">40-45 (mm)</div>,
@@ -377,12 +378,7 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) =>
-      renderBagSizeCell(
-        Number(info.getValue() || 0),
-        Number(info.row.original.bag40to45Rate || 0),
-        Number(info.row.original.bag40to45Acres || 0)
-      ),
+    cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag40to50', {
     header: () => <div className="w-full text-right">40-50 (mm)</div>,
@@ -390,12 +386,7 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) =>
-      renderBagSizeCell(
-        Number(info.getValue() || 0),
-        Number(info.row.original.bag40to50Rate || 0),
-        Number(info.row.original.bag40to50Acres || 0)
-      ),
+    cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag45to50', {
     header: () => <div className="w-full text-right">45-50 (mm)</div>,
@@ -403,12 +394,7 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) =>
-      renderBagSizeCell(
-        Number(info.getValue() || 0),
-        Number(info.row.original.bag45to50Rate || 0),
-        Number(info.row.original.bag45to50Acres || 0)
-      ),
+    cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag50to55', {
     header: () => <div className="w-full text-right">50-55 (mm)</div>,
@@ -416,12 +402,7 @@ const columns = [
     filterFn: multiValueFilterFn,
     minSize: 90,
     maxSize: 180,
-    cell: (info) =>
-      renderBagSizeCell(
-        Number(info.getValue() || 0),
-        Number(info.row.original.bag50to55Rate || 0),
-        Number(info.row.original.bag50to55Acres || 0)
-      ),
+    cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('totalBags', {
     header: () => <div className="w-full text-right">Total Bags</div>,
@@ -432,6 +413,18 @@ const columns = [
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
         {formatIndianNumber(Number(info.getValue() || 0), 0)}
+      </div>
+    ),
+  }),
+  columnHelper.accessor('averageRate', {
+    header: () => <div className="w-full text-right">Rate per Bag</div>,
+    sortingFn: 'basic',
+    filterFn: multiValueFilterFn,
+    minSize: 100,
+    maxSize: 160,
+    cell: (info) => (
+      <div className="w-full text-right tabular-nums">
+        {formatIndianNumber(Number(info.getValue() || 0), 2)}
       </div>
     ),
   }),
@@ -710,6 +703,7 @@ const FarmerSeedReportTable = () => {
         acc.bag45to50 += Number(row.original.bag45to50 ?? 0);
         acc.bag50to55 += Number(row.original.bag50to55 ?? 0);
         acc.totalBags += Number(row.original.totalBags ?? 0);
+        acc.totalAcres += Number(row.original.totalAcres ?? 0);
         acc.totalAmount += Number(row.original.totalAmount ?? 0);
         return acc;
       },
@@ -720,6 +714,7 @@ const FarmerSeedReportTable = () => {
         bag45to50: 0,
         bag50to55: 0,
         totalBags: 0,
+        totalAcres: 0,
         totalAmount: 0,
       }
     );
@@ -1104,40 +1099,69 @@ const FarmerSeedReportTable = () => {
                         className="hover:bg-transparent"
                       >
                         {visibleColumnIds.map((columnId, columnIndex) => {
-                          const cellValue =
-                            columnId === 'bag35to40'
-                              ? formatNumberOrEmpty(totalsByColumn.bag35to40, 0)
-                              : columnId === 'bag40to45'
-                                ? formatNumberOrEmpty(
-                                    totalsByColumn.bag40to45,
-                                    0
-                                  )
-                                : columnId === 'bag40to50'
-                                  ? formatNumberOrEmpty(
-                                      totalsByColumn.bag40to50,
-                                      0
+                          let cellValue = '';
+                          switch (columnId) {
+                            case 'bag35to40':
+                              cellValue = formatNumberOrEmpty(
+                                totalsByColumn.bag35to40,
+                                0
+                              );
+                              break;
+                            case 'bag40to45':
+                              cellValue = formatNumberOrEmpty(
+                                totalsByColumn.bag40to45,
+                                0
+                              );
+                              break;
+                            case 'bag40to50':
+                              cellValue = formatNumberOrEmpty(
+                                totalsByColumn.bag40to50,
+                                0
+                              );
+                              break;
+                            case 'bag45to50':
+                              cellValue = formatNumberOrEmpty(
+                                totalsByColumn.bag45to50,
+                                0
+                              );
+                              break;
+                            case 'bag50to55':
+                              cellValue = formatNumberOrEmpty(
+                                totalsByColumn.bag50to55,
+                                0
+                              );
+                              break;
+                            case 'totalBags':
+                              cellValue = formatIndianNumber(
+                                totalsByColumn.totalBags,
+                                0
+                              );
+                              break;
+                            case 'totalAcres':
+                              cellValue = formatIndianNumber(
+                                totalsByColumn.totalAcres,
+                                2
+                              );
+                              break;
+                            case 'averageRate':
+                              cellValue =
+                                totalsByColumn.totalBags > 0
+                                  ? formatIndianNumber(
+                                      totalsByColumn.totalAmount /
+                                        totalsByColumn.totalBags,
+                                      2
                                     )
-                                  : columnId === 'bag45to50'
-                                    ? formatNumberOrEmpty(
-                                        totalsByColumn.bag45to50,
-                                        0
-                                      )
-                                    : columnId === 'bag50to55'
-                                      ? formatNumberOrEmpty(
-                                          totalsByColumn.bag50to55,
-                                          0
-                                        )
-                                      : columnId === 'totalBags'
-                                        ? formatIndianNumber(
-                                            totalsByColumn.totalBags,
-                                            0
-                                          )
-                                        : columnId === 'totalAmount'
-                                          ? formatIndianNumber(
-                                              totalsByColumn.totalAmount,
-                                              2
-                                            )
-                                          : '';
+                                  : '';
+                              break;
+                            case 'totalAmount':
+                              cellValue = formatIndianNumber(
+                                totalsByColumn.totalAmount,
+                                2
+                              );
+                              break;
+                            default:
+                              break;
+                          }
                           const isRightAligned = numericColumnIds.has(columnId);
                           const isRemarksColumn = columnId === 'remarks';
                           return (
