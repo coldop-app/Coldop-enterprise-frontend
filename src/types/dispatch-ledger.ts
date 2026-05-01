@@ -1,5 +1,6 @@
 export interface DispatchLedger {
   _id: string;
+  coldStorageId?: string;
   name: string;
   address: string;
   mobileNumber: string;
@@ -13,7 +14,7 @@ export interface DispatchLedger {
 export interface CreateDispatchLedgerInput {
   name: string;
   address: string;
-  mobileNumber: string;
+  mobileNumber?: string;
 }
 
 /** API response for POST /dispatch-ledger */

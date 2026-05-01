@@ -43,13 +43,13 @@ const METRICS: Array<{
   { key: 'totalBagsStored', label: 'Storage', Icon: Warehouse, color: 'info' },
   {
     key: 'totalBagsNikasi',
-    label: 'Dispatch (Preoutgoing)',
+    label: 'Dispatch (PreStorage)',
     Icon: Truck,
     color: 'default',
   },
   {
     key: 'totalBagsOutgoing',
-    label: 'Dispatch (Outgoing)',
+    label: 'Dispatch (PostStorage)',
     Icon: ArrowDownToLine,
     color: 'success',
   },

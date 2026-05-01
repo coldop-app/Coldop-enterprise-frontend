@@ -47,10 +47,13 @@ export function useCreateDispatchLedger() {
   >({
     mutationKey: [...dispatchLedgerKeys.all, 'create'],
     mutationFn: async (payload) => {
+      const normalizedMobileNumber = payload.mobileNumber?.trim();
       const normalizedPayload: CreateDispatchLedgerInput = {
         name: payload.name.trim(),
         address: payload.address.trim(),
-        mobileNumber: payload.mobileNumber.trim(),
+        ...(normalizedMobileNumber
+          ? { mobileNumber: normalizedMobileNumber }
+          : {}),
       };
 
       const { data } =

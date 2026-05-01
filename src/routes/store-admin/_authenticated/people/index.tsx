@@ -1,31 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
-import { useDebounceValue } from 'usehooks-ts';
-
-import { User, RefreshCw, Plus } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { FilterBar } from '@/components/filter-bar';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
-import { Button } from '@/components/ui/button';
-import {
-  Item,
-  ItemActions,
-  ItemHeader,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item';
-import { FarmerCard } from '@/components/people/FarmerCard';
-import {
-  prefetchAllFarmers,
-  useGetAllFarmers,
-} from '@/services/store-admin/people/useGetAllFarmers';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { prefetchAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
+import DispatchLedgerTab from './-DispatchLedgerTab';
+import FarmerTab from './-FarmerTab';
 
 export const Route = createFileRoute('/store-admin/_authenticated/people/')({
   loader: () => prefetchAllFarmers(),
@@ -33,162 +11,21 @@ export const Route = createFileRoute('/store-admin/_authenticated/people/')({
 });
 
 function RouteComponent() {
-  const [search, setSearch] = useDebounceValue('', 500);
-  const [sortBy, setSortBy] = useState('name-asc');
-  const {
-    data: farmers = [],
-    isFetching,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useGetAllFarmers();
-  const trimmedSearch = search.trim().toLowerCase();
-  const sortedFarmers = useMemo(() => {
-    const filteredFarmers = farmers.filter((farmer) => {
-      if (!trimmedSearch) {
-        return true;
-      }
-
-      const searchableText = [
-        farmer.farmerId.name,
-        farmer.farmerId.address,
-        farmer.farmerId.mobileNumber,
-        String(farmer.accountNumber),
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return searchableText.includes(trimmedSearch);
-    });
-
-    return [...filteredFarmers].sort((a, b) => {
-      if (sortBy === 'account-number-asc') {
-        return a.accountNumber - b.accountNumber;
-      }
-
-      if (sortBy === 'account-number-desc') {
-        return b.accountNumber - a.accountNumber;
-      }
-
-      if (sortBy === 'name-desc') {
-        return b.farmerId.name.localeCompare(a.farmerId.name);
-      }
-
-      return a.farmerId.name.localeCompare(b.farmerId.name);
-    });
-  }, [farmers, sortBy, trimmedSearch]);
-
-  const shouldShowSkeleton = isLoading && sortedFarmers.length === 0;
-
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
-      <div className="space-y-6">
-        <Item
-          variant="outline"
-          size="sm"
-          className="cursor-pointer rounded-xl shadow-sm"
-        >
-          <ItemHeader className="h-full">
-            <div className="flex items-center gap-3">
-              <ItemMedia variant="icon" className="rounded-lg">
-                <User className="text-primary h-5 w-5" />
-              </ItemMedia>
-              <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-                {sortedFarmers.length} farmers
-              </ItemTitle>
-            </div>
-            <ItemActions>
-              <Button
-                variant="outline"
-                size="sm"
-                className="font-custom gap-2"
-                onClick={() => void refetch()}
-                disabled={isFetching}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
-                />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
-            </ItemActions>
-          </ItemHeader>
-        </Item>
-
-        <FilterBar
-          searchPlaceholder="Search farmers..."
-          searchValue=""
-          onSearchChange={setSearch}
-          debounceDelay={0}
-          selectedSort={sortBy}
-          onSortChange={setSortBy}
-          sortOptions={[
-            { label: 'Name (A-Z)', value: 'name-asc' },
-            { label: 'Name (Z-A)', value: 'name-desc' },
-            { label: 'Account Number (Low-High)', value: 'account-number-asc' },
-            {
-              label: 'Account Number (High-Low)',
-              value: 'account-number-desc',
-            },
-          ]}
-        >
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button className="font-custom w-full sm:w-auto">
-              <Plus className="h-4 w-4" />
-              Add Farmer
-            </Button>
-          </div>
-        </FilterBar>
-
-        {shouldShowSkeleton ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border p-4">
-              <div className="flex items-start gap-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-4 w-64" />
-                  <Skeleton className="h-4 w-40" />
-                </div>
-              </div>
-            </div>
-            <div className="rounded-xl border p-4">
-              <div className="flex items-start gap-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-44" />
-                  <Skeleton className="h-4 w-60" />
-                  <Skeleton className="h-4 w-36" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : sortedFarmers.length > 0 ? (
-          <FarmerCard data={sortedFarmers} />
-        ) : (
-          <Empty className="bg-muted/10 rounded-xl border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <User />
-              </EmptyMedia>
-              <EmptyTitle className="font-custom">
-                {isLoading
-                  ? 'Loading farmers...'
-                  : isError
-                    ? 'Failed to load farmers'
-                    : 'No farmers found'}
-              </EmptyTitle>
-              <EmptyDescription className="font-custom">
-                {isLoading
-                  ? 'Please wait while we fetch farmers.'
-                  : isError
-                    ? (error?.message ??
-                      'Please refresh and try loading farmers again.')
-                    : 'Try a different search term.'}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
+      <div>
+        <Tabs defaultValue="farmers" className="w-full">
+          <TabsList>
+            <TabsTrigger value="farmers">Farmers</TabsTrigger>
+            <TabsTrigger value="dispatch-ledgers">Dispatch Ledgers</TabsTrigger>
+          </TabsList>
+          <TabsContent value="farmers">
+            <FarmerTab />
+          </TabsContent>
+          <TabsContent value="dispatch-ledgers">
+            <DispatchLedgerTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );

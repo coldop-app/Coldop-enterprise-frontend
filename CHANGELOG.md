@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-05-01
+
+### Added
+- Dispatch ledger management in People now includes dedicated listing/create/edit UI flows with a new detail route under `/store-admin/people/dispatch-ledger/$id/`.
+- Reusable dispatch-ledger form modals and people-tab modules were introduced to separate farmer and dispatch-ledger workflows.
+
+### Changed
+- People page UX was reorganized into tabbed farmer and dispatch-ledger views, with farmer card/profile surfaces updated to support dispatch-ledger navigation and metrics context.
+- Dispatch ledger create payload handling and shared type definitions were refined to support optional mobile numbers and broader API response compatibility.
+- Project version updated to `0.5.3` for this People module dispatch-ledger workflow release.
+
 ## [0.5.2] - 2026-05-01
 
 ### Added

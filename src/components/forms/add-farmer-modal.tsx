@@ -1,7 +1,7 @@
 import { memo, useState, useMemo, useEffect } from 'react';
 import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
-import { Plus } from 'lucide-react';
+import { Info, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,12 +16,16 @@ import {
 } from '@/components/ui/dialog';
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useQuickAddFarmer } from '@/services/store-admin/people/useQuickAddFarmer';
 import { useStore } from '@/stores/store';
 import type { FarmerStorageLink } from '@/types/incoming-gate-pass';
@@ -184,7 +188,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="font-custom sm:max-w-[480px]">
+      <DialogContent className="font-custom sm:max-w-[425px]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -195,20 +199,11 @@ export const AddFarmerModal = memo(function AddFarmerModal({
           <DialogHeader>
             <DialogTitle>Add New Farmer</DialogTitle>
             <DialogDescription>
-              Create a farmer profile and link it to your storage account.
+              Enter the farmer details to register them quickly
             </DialogDescription>
           </DialogHeader>
 
-          <FieldGroup className="mt-6 gap-5">
-            <div className="bg-muted/40 rounded-lg border p-3">
-              <p className="text-foreground text-sm font-medium">
-                Suggested account number: {nextAccountNumber}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                This is auto-calculated from existing farmer accounts.
-              </p>
-            </div>
-
+          <FieldGroup className="mt-6 grid gap-4">
             <form.Field
               name="accountNumber"
               children={(field) => {
@@ -217,10 +212,38 @@ export const AddFarmerModal = memo(function AddFarmerModal({
 
                 return (
                   <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Account Number</FieldLabel>
+                    <div className="flex items-center justify-between">
+                      <FieldLabel htmlFor={field.name}>
+                        Account Number
+                      </FieldLabel>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0"
+                          >
+                            <Info className="text-muted-foreground h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+
+                        <TooltipContent className="max-w-xs">
+                          {usedAccountNumbers.length > 0 ? (
+                            <span>
+                              Used account numbers:{' '}
+                              {usedAccountNumbers.join(', ')}
+                            </span>
+                          ) : (
+                            'No account numbers in use'
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
 
                     <div className="flex flex-col gap-2">
-                      <div className="flex flex-col gap-2 sm:flex-row">
+                      <div className="flex gap-2">
                         <Input
                           id={field.name}
                           name={field.name}
@@ -244,15 +267,15 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                               nextAccountNumber.toString()
                             )
                           }
-                          className="sm:w-auto"
                         >
-                          Use suggested
+                          Use suggested ({nextAccountNumber})
                         </Button>
                       </div>
 
-                      <FieldDescription>
-                        Enter a positive number that is not already assigned.
-                      </FieldDescription>
+                      <p className="text-muted-foreground text-xs">
+                        Enter any positive number. Duplicate values are not
+                        allowed.
+                      </p>
                     </div>
 
                     {isInvalid && (
@@ -297,9 +320,6 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       aria-invalid={isInvalid}
                       autoComplete="tel"
                     />
-                    <FieldDescription>
-                      Must be a unique 10-digit phone number.
-                    </FieldDescription>
 
                     {isInvalid && (
                       <FieldError
@@ -337,9 +357,6 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       aria-invalid={isInvalid}
                       autoComplete="name"
                     />
-                    <FieldDescription>
-                      Use the farmer&apos;s full name.
-                    </FieldDescription>
 
                     {isInvalid && (
                       <FieldError
@@ -377,9 +394,6 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       aria-invalid={isInvalid}
                       autoComplete="street-address"
                     />
-                    <FieldDescription>
-                      Village, town, or full postal address.
-                    </FieldDescription>
 
                     {isInvalid && (
                       <FieldError
