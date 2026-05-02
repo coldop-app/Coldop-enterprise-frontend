@@ -29,16 +29,14 @@ function RouteComponent() {
   const location = useLocation();
   const setDaybookTab = useStore((s) => s.setDaybookActiveTab);
 
-  const passFromState = (
-    location.state as GradingGatePassEditRouterState | undefined
-  )?.gradingGatePass;
+  const passFromState = isGradingGatePassEditRouterState(location.state)
+    ? location.state.gradingGatePass
+    : undefined;
   const idTrimmed = id?.trim() ?? '';
 
   /** Voucher hydrated from pencil navigation (TanStack Router `location.state`). */
   const hasHydratedPassFromNavigation =
-    Boolean(passFromState) &&
-    idTrimmed !== '' &&
-    passFromState._id === idTrimmed;
+    idTrimmed !== '' && passFromState?._id === idTrimmed;
 
   /** Fetch only when router state did not supply a matching voucher (e.g. refresh or deep link). */
   const fetchEnabled = idTrimmed !== '' && !hasHydratedPassFromNavigation;
@@ -188,4 +186,19 @@ function RouteComponent() {
   }
 
   return <GradingEditForm key={resolvedPass._id} pass={resolvedPass} />;
+}
+
+function isGradingGatePassEditRouterState(
+  state: unknown
+): state is GradingGatePassEditRouterState {
+  if (!state || typeof state !== 'object') return false;
+  if (!('gradingGatePass' in state)) return false;
+
+  const maybePass = (state as { gradingGatePass?: { _id?: unknown } })
+    .gradingGatePass;
+  return Boolean(
+    maybePass &&
+    typeof maybePass === 'object' &&
+    typeof maybePass._id === 'string'
+  );
 }

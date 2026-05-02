@@ -96,7 +96,7 @@ function GradingVoucherCardComponent({
     navigate({
       to: '/store-admin/grading-gate-pass/edit',
       search: { id: gradingGatePass._id },
-      state: routerState,
+      state: (prev) => ({ ...prev, ...routerState }),
     });
   };
 
