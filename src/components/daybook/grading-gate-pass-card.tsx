@@ -4,7 +4,10 @@ import { usePreferencesStore } from '@/stores/store';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { GradingGatePass } from '@/types/grading-gate-pass';
+import type {
+  GradingGatePass,
+  GradingGatePassEditRouterState,
+} from '@/types/grading-gate-pass';
 import {
   ChevronDown,
   ChevronUp,
@@ -87,9 +90,13 @@ function GradingVoucherCardComponent({
   const navigate = useNavigate();
 
   const handleEditClick = () => {
+    const routerState = {
+      gradingGatePass,
+    } satisfies GradingGatePassEditRouterState;
     navigate({
       to: '/store-admin/grading-gate-pass/edit',
       search: { id: gradingGatePass._id },
+      state: routerState,
     });
   };
 
@@ -124,7 +131,7 @@ function GradingVoucherCardComponent({
 
   return (
     <>
-      <Card className="border-border/40 bg-card relative overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md">
+      <Card className="border-border/40 bg-card hover:border-primary/40 relative overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md">
         <div className="bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">

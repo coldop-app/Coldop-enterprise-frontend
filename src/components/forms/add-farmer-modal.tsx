@@ -26,6 +26,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  preventArrowUpDownOnNumericInput,
+} from '@/lib/business-number-input';
+import { cn } from '@/lib/utils';
 import { useQuickAddFarmer } from '@/services/store-admin/people/useQuickAddFarmer';
 import { useStore } from '@/stores/store';
 import type { FarmerStorageLink } from '@/types/incoming-gate-pass';
@@ -253,8 +259,13 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                           onChange={(e) => field.handleChange(e.target.value)}
                           placeholder={`Suggested: ${nextAccountNumber}`}
                           aria-invalid={isInvalid}
-                          className="flex-1"
+                          className={cn(
+                            'flex-1',
+                            businessNumberSpinnerClassName
+                          )}
                           min={1}
+                          onWheel={blurTargetOnNumberWheel}
+                          onKeyDown={preventArrowUpDownOnNumericInput}
                         />
 
                         <Button

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { memo, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,13 @@ import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
 import { useCreateNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useCreateNikasiGatePass';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/general/useGetVoucherNumber';
+import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  preventArrowUpDownOnNumericInput,
+} from '@/lib/business-number-input';
 import { formatDateToISO } from '@/lib/helpers';
+import { cn } from '@/lib/utils';
 import { BAG_TYPES, GRADING_SIZES, POTATO_VARIETIES } from '@/lib/constants';
 import {
   NikasiSummarySheet,
@@ -49,10 +55,6 @@ const defaultSizeBagTypes = Object.fromEntries(
 const defaultSizeVarieties = Object.fromEntries(
   GRADING_SIZES.map((size) => [size, ''])
 ) as Record<string, string>;
-
-function preventArrowKeys(e: KeyboardEvent<HTMLInputElement>) {
-  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
-}
 
 const NikasiCreateForm = memo(function NikasiCreateForm() {
   const navigate = useNavigate();
@@ -291,9 +293,9 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                 const val = Number.parseInt(raw, 10);
                 setManualGatePassNumber(Number.isNaN(val) ? undefined : val);
               }}
-              onWheel={(e) => e.currentTarget.blur()}
-              onKeyDown={preventArrowKeys}
-              className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              onWheel={blurTargetOnNumberWheel}
+              onKeyDown={preventArrowUpDownOnNumericInput}
+              className={cn('font-custom', businessNumberSpinnerClassName)}
             />
           </Field>
 
@@ -404,9 +406,12 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                           ),
                         }))
                       }
-                      onWheel={(e) => e.currentTarget.blur()}
-                      onKeyDown={preventArrowKeys}
-                      className="font-custom w-full [appearance:textfield] sm:w-24 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      onWheel={blurTargetOnNumberWheel}
+                      onKeyDown={preventArrowUpDownOnNumericInput}
+                      className={cn(
+                        'font-custom w-full sm:w-24',
+                        businessNumberSpinnerClassName
+                      )}
                     />
                     <select
                       value={sizeBagTypes[size] ?? 'JUTE'}
@@ -483,7 +488,12 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                           )
                         )
                       }
-                      className="font-custom w-full [appearance:textfield] sm:w-24 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      onWheel={blurTargetOnNumberWheel}
+                      onKeyDown={preventArrowUpDownOnNumericInput}
+                      className={cn(
+                        'font-custom w-full sm:w-24',
+                        businessNumberSpinnerClassName
+                      )}
                     />
                     <select
                       value={row.bagType}
@@ -583,7 +593,9 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                       : undefined
                   )
                 }
-                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                onWheel={blurTargetOnNumberWheel}
+                onKeyDown={preventArrowUpDownOnNumericInput}
+                className={cn('font-custom', businessNumberSpinnerClassName)}
               />
             </Field>
             <Field>
@@ -602,7 +614,9 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                       : undefined
                   )
                 }
-                className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                onWheel={blurTargetOnNumberWheel}
+                onKeyDown={preventArrowUpDownOnNumericInput}
+                className={cn('font-custom', businessNumberSpinnerClassName)}
               />
             </Field>
           </div>

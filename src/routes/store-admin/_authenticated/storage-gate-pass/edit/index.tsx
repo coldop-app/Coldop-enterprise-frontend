@@ -28,8 +28,14 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  preventArrowUpDownOnNumericInput,
+} from '@/lib/business-number-input';
 import { BAG_TYPES, GRADING_SIZES, POTATO_VARIETIES } from '@/lib/constants';
 import { formatDate } from '@/lib/helpers';
+import { cn } from '@/lib/utils';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/general/useGetVoucherNumber';
 import { useEditStorageGatePass } from '@/services/store-admin/storage-gate-pass/useEditStorageGatePass';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
@@ -569,7 +575,12 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                         );
                       }}
                       placeholder="e.g. 101"
-                      className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      onWheel={blurTargetOnNumberWheel}
+                      onKeyDown={preventArrowUpDownOnNumericInput}
+                      className={cn(
+                        'font-custom',
+                        businessNumberSpinnerClassName
+                      )}
                     />
                   </Field>
                 )}
@@ -797,8 +808,14 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                           [size]: num,
                                         });
                                       }}
-                                      onWheel={(e) => e.currentTarget.blur()}
-                                      className="w-full [appearance:textfield] sm:w-24 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                      onWheel={blurTargetOnNumberWheel}
+                                      onKeyDown={
+                                        preventArrowUpDownOnNumericInput
+                                      }
+                                      className={cn(
+                                        'font-custom w-full sm:w-24',
+                                        businessNumberSpinnerClassName
+                                      )}
                                     />
                                     <select
                                       aria-label={`Bag type for ${size}`}
@@ -897,8 +914,12 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                         : Math.max(0, parseInt(raw, 10) || 0);
                                     updateExtraRow(row.id, { quantity: num });
                                   }}
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                  className="w-full [appearance:textfield] sm:w-24 sm:text-right [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  onWheel={blurTargetOnNumberWheel}
+                                  onKeyDown={preventArrowUpDownOnNumericInput}
+                                  className={cn(
+                                    'font-custom w-full sm:w-24 sm:text-right',
+                                    businessNumberSpinnerClassName
+                                  )}
                                 />
                               </div>
                             ))}

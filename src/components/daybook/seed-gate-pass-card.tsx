@@ -269,7 +269,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
   return (
     <Card
       className={cn(
-        'border-border/40 bg-card relative w-full overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md',
+        'border-border/40 bg-card hover:border-primary/40 relative w-full overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md',
         isCancelledGatePass &&
           'border-border/20 bg-muted/30 opacity-55 saturate-0'
       )}

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-05-02
+
+### Added
+- New grading gate pass edit form module with reusable business-number input handling and dedicated gate-pass-by-id data fetching service.
+- Expanded grading gate pass type coverage to support edit payload shaping and richer edit-screen bindings.
+
+### Changed
+- Grading edit flow now uses enhanced summary-sheet handling and refined mutation wiring for safer update submission behavior.
+- Daybook and gate-pass cards (grading, incoming, seed, storage) plus storage/nikasi route screens were refined for consistent number input/search interactions and improved edit navigation behavior.
+- Project version updated to `0.5.6` for this grading edit and daybook form consistency release.
+
 ## [0.5.5] - 2026-05-02
 
 ### Added

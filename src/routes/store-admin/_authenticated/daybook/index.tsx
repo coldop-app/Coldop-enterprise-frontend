@@ -101,7 +101,7 @@ function RouteComponent() {
         </TabsContent>
         <TabsContent value="storage">
           <Suspense fallback={<DaybookTabSkeleton />}>
-            <StorageTab />
+            <StorageTab isActive={activeTab === 'storage'} />
           </Suspense>
         </TabsContent>
         <TabsContent value="dispatch-pre-outgoing">

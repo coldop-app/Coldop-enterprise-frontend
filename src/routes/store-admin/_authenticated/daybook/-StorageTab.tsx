@@ -2,9 +2,10 @@ import {
   ArrowUpFromLine,
   ChevronDown,
   NotebookText,
+  RefreshCw,
   Search,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import {
   Item,
+  ItemActions,
   ItemFooter,
   ItemHeader,
   ItemMedia,
@@ -102,7 +104,11 @@ const ItemsPerPageDropdown = ({
   </DropdownMenu>
 );
 
-const StorageTab = () => {
+interface StorageTabProps {
+  isActive?: boolean;
+}
+
+const StorageTab = ({ isActive = true }: StorageTabProps) => {
   const navigate = useNavigate();
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
@@ -111,24 +117,37 @@ const StorageTab = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const isSearching = debouncedSearch.length > 0;
+
+  const listQueryParams = useMemo(
+    () =>
+      ({
+        page: currentPage,
+        limit: itemsPerPage,
+        sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
+      }) as const,
+    [currentPage, itemsPerPage, sortOrder]
+  );
+
   const {
     data,
     isLoading: isListLoading,
     isError: isListError,
     error: listError,
-  } = useGetStorageGatePasses({
-    page: currentPage,
-    limit: itemsPerPage,
-    sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
-  });
+    refetch: refetchList,
+    isFetching: isListFetching,
+  } = useGetStorageGatePasses(listQueryParams, { enabled: isActive });
 
-  const isSearching = debouncedSearch.length > 0;
   const {
     data: searchData,
     isLoading: isSearchLoading,
     isError: isSearchError,
     error: searchError,
-  } = useSearchStorageGatePass(isSearching ? debouncedSearch : null);
+    refetch: refetchSearch,
+    isFetching: isSearchFetching,
+  } = useSearchStorageGatePass(isSearching ? debouncedSearch : null, {
+    enabled: isActive,
+  });
 
   const storageGatePasses = isSearching
     ? (searchData ?? [])
@@ -140,6 +159,7 @@ const StorageTab = () => {
   const isLoading = isSearching ? isSearchLoading : isListLoading;
   const isError = isSearching ? isSearchError : isListError;
   const error = isSearching ? searchError : listError;
+  const isFetching = isSearching ? isSearchFetching : isListFetching;
   const isOnFirstPage = currentPage <= 1;
   const isOnLastPage = currentPage >= totalPages;
 
@@ -172,6 +192,14 @@ const StorageTab = () => {
     setCurrentPage(1);
   }, []);
 
+  const handleRefresh = useCallback(() => {
+    if (isSearching) {
+      void refetchSearch();
+    } else {
+      void refetchList();
+    }
+  }, [isSearching, refetchSearch, refetchList]);
+
   const handlePrevPage = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -200,6 +228,20 @@ const StorageTab = () => {
               {totalCount} storage gate passes
             </ItemTitle>
           </div>
+          <ItemActions>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom gap-2"
+              onClick={handleRefresh}
+              disabled={isFetching}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+              />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </ItemActions>
         </ItemHeader>
       </Item>
 

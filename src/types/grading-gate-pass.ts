@@ -75,6 +75,7 @@ export interface GradingGatePassIncomingRef {
     tareWeightKg?: number;
   };
   status?: string;
+  remarks?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -179,4 +180,34 @@ export interface CreateGradingGatePassApiResponse {
   success: boolean;
   data: CreatedGradingGatePass | null;
   message?: string;
+}
+
+/** GET /grading-gate-pass/:id */
+export interface GetGradingGatePassByIdApiResponse {
+  success: boolean;
+  data: GradingGatePass | null;
+  message?: string;
+}
+
+/** PATCH /grading-gate-pass/:gradingGatePassId */
+export interface EditGradingGatePassInput {
+  manualGatePassNumber?: number;
+  date?: string;
+  variety?: string;
+  orderDetails?: CreateGradingGatePassOrderDetail[];
+  allocationStatus?: string;
+  grader?: string;
+  remarks?: string;
+}
+
+export interface EditGradingGatePassApiResponse {
+  success?: boolean;
+  status?: string;
+  message?: string;
+  data?: GradingGatePass | null;
+}
+
+/** `location.state` when opening grading gate pass edit from the daybook card */
+export interface GradingGatePassEditRouterState {
+  gradingGatePass: GradingGatePass;
 }

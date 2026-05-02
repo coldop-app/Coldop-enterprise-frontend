@@ -17,6 +17,7 @@ export const gradingGatePassKeys = {
   lists: () => [...gradingGatePassKeys.all, 'list'] as const,
   list: (params: GetGradingGatePassesQueryKeyParts) =>
     [...gradingGatePassKeys.lists(), params] as const,
+  detail: (id: string) => [...gradingGatePassKeys.all, 'detail', id] as const,
 };
 
 /** Params for GET /grading-gate-pass (date range in YYYY-MM-DD) */

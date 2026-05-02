@@ -1,11 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import {
-  memo,
-  useCallback,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-} from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
   createFileRoute,
   useLocation,
@@ -35,7 +29,13 @@ import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
 import { useEditNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useEditNikasiGatePass';
 import type { NikasiGatePassEditState } from '@/components/daybook/nikasi-gate-pass-card';
+import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  preventArrowUpDownOnNumericInput,
+} from '@/lib/business-number-input';
 import { formatDateToISO } from '@/lib/helpers';
+import { cn } from '@/lib/utils';
 import { BAG_TYPES, GRADING_SIZES, POTATO_VARIETIES } from '@/lib/constants';
 import {
   NikasiSummarySheet,
@@ -60,9 +60,6 @@ const defaultSizeVarieties = Object.fromEntries(
   GRADING_SIZES.map((size) => [size, ''])
 ) as Record<string, string>;
 
-const numberInputClassName =
-  'font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
-
 const formSchema = z.object({
   manualGatePassNumber: z.union([z.number().nonnegative(), z.undefined()]),
   farmerStorageLinkId: z.string().min(1, 'Please select a farmer account'),
@@ -86,10 +83,6 @@ const formSchema = z.object({
   remarks: z.string().max(500).default(''),
   isInternalTransfer: z.boolean().default(false),
 });
-
-function preventArrowKeys(e: KeyboardEvent<HTMLInputElement>) {
-  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
-}
 
 function parseDisplayDateToIso(value: string): string {
   return formatDateToISO(value);
@@ -366,9 +359,9 @@ const NikasiEditForm = memo(function NikasiEditForm({
                       Number.isNaN(parsed) ? undefined : parsed
                     );
                   }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  onKeyDown={preventArrowKeys}
-                  className={numberInputClassName}
+                  onWheel={blurTargetOnNumberWheel}
+                  onKeyDown={preventArrowUpDownOnNumericInput}
+                  className={cn('font-custom', businessNumberSpinnerClassName)}
                 />
               </Field>
             )}
@@ -535,9 +528,12 @@ const NikasiEditForm = memo(function NikasiEditForm({
                                   [size]: num,
                                 });
                               }}
-                              onWheel={(e) => e.currentTarget.blur()}
-                              onKeyDown={preventArrowKeys}
-                              className={`w-full sm:w-24 ${numberInputClassName}`}
+                              onWheel={blurTargetOnNumberWheel}
+                              onKeyDown={preventArrowUpDownOnNumericInput}
+                              className={cn(
+                                'font-custom w-full sm:w-24',
+                                businessNumberSpinnerClassName
+                              )}
                             />
                             <select
                               value={bagType}
@@ -619,9 +615,12 @@ const NikasiEditForm = memo(function NikasiEditForm({
                                 )
                               );
                             }}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            onKeyDown={preventArrowKeys}
-                            className={`w-full sm:w-24 ${numberInputClassName}`}
+                            onWheel={blurTargetOnNumberWheel}
+                            onKeyDown={preventArrowUpDownOnNumericInput}
+                            className={cn(
+                              'font-custom w-full sm:w-24',
+                              businessNumberSpinnerClassName
+                            )}
                           />
                           <select
                             value={row.bagType}
@@ -738,9 +737,12 @@ const NikasiEditForm = memo(function NikasiEditForm({
                         Number.isNaN(parsed) ? undefined : parsed
                       );
                     }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventArrowKeys}
-                    className={numberInputClassName}
+                    onWheel={blurTargetOnNumberWheel}
+                    onKeyDown={preventArrowUpDownOnNumericInput}
+                    className={cn(
+                      'font-custom',
+                      businessNumberSpinnerClassName
+                    )}
                   />
                 </Field>
               )}
@@ -765,9 +767,12 @@ const NikasiEditForm = memo(function NikasiEditForm({
                         Number.isNaN(parsed) ? undefined : parsed
                       );
                     }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventArrowKeys}
-                    className={numberInputClassName}
+                    onWheel={blurTargetOnNumberWheel}
+                    onKeyDown={preventArrowUpDownOnNumericInput}
+                    className={cn(
+                      'font-custom',
+                      businessNumberSpinnerClassName
+                    )}
                   />
                 </Field>
               )}
