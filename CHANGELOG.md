@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-05-02
+
+### Added
+- Grading gate pass authenticated routes under `/store-admin/grading-gate-pass/` for voucher edit (with reusable summary sheet) and edit-history listing.
+- Grading gate pass API typings plus list and debounced search query hooks wired for the grading daybook experience.
+- Daybook grading calculation helpers and a calculations dialog for reviewing derived figures alongside vouchers.
+- Persisted preferences slice (`usePreferencesStore`) synced with cold-storage context for offline-friendly draft preference state until server baseline applies.
+
+### Changed
+- Daybook grading tab now loads real grading gate pass data with list vs search flows, refreshed cards (including grading gate pass and seed voucher card refinements), and navigation into edit/history where applicable.
+- Settings preferences screen updated to cooperate with the new preferences persistence layer.
+- Store-admin global store and Zustand debug route snapshot extended to expose relevant preference-related state during development.
+- Generated route tree updated to register the new grading gate pass routes.
+- Project version updated to `0.5.5` for this grading daybook module and preferences persistence release.
+
 ## [0.5.4] - 2026-05-02
 
 ### Added

@@ -96,7 +96,7 @@ function RouteComponent() {
         </TabsContent>
         <TabsContent value="grading">
           <Suspense fallback={<DaybookTabSkeleton />}>
-            <GradingTab />
+            <GradingTab isActive={activeTab === 'grading'} />
           </Suspense>
         </TabsContent>
         <TabsContent value="storage">

@@ -1,6 +1,6 @@
-import { memo, useState, type ComponentType } from 'react';
+import { memo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
@@ -9,33 +9,41 @@ import {
   Ban,
   ChevronDown,
   ChevronUp,
+  FileText,
   Pencil,
+  Printer,
   ReceiptText,
   Sprout,
   User,
+  type LucideIcon,
 } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
 /* Inline Sub-components                                                     */
 /* -------------------------------------------------------------------------- */
 
-interface DetailRowProps {
+interface InfoBlockProps {
   label: string;
-  value: string;
-  icon?: ComponentType<{ className?: string }>;
+  value: string | number;
+  icon?: LucideIcon;
+  valueClassName?: string;
 }
 
-const DetailRow = memo(({ label, value, icon: Icon }: DetailRowProps) => (
-  <div className="flex flex-col gap-1">
-    <span className="text-muted-foreground flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
-      {Icon && <Icon className="h-3 w-3" />}
-      {label}
-    </span>
-    <span className="text-foreground font-custom truncate text-xs font-semibold sm:text-sm">
-      {value}
-    </span>
-  </div>
-));
+const InfoBlock = memo(
+  ({ label, value, icon: Icon, valueClassName }: InfoBlockProps) => (
+    <div className="flex flex-col gap-1">
+      <span className="text-muted-foreground font-custom flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
+        {Icon && <Icon className="h-3 w-3" />}
+        {label}
+      </span>
+      <span
+        className={`text-foreground font-custom truncate text-xs font-semibold sm:text-sm ${valueClassName ?? ''}`}
+      >
+        {value}
+      </span>
+    </div>
+  )
+);
 
 interface SeedBagSizeRow {
   name: string;
@@ -261,7 +269,7 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
   return (
     <Card
       className={cn(
-        'border-border/40 hover:border-primary/30 bg-card relative w-full overflow-hidden pt-0 shadow-sm transition-all duration-200 hover:shadow-md',
+        'border-border/40 bg-card relative w-full overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 hover:shadow-md',
         isCancelledGatePass &&
           'border-border/20 bg-muted/30 opacity-55 saturate-0'
       )}
@@ -278,237 +286,234 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
           </div>
         </div>
       ) : null}
-      <div className="px-3 pt-2 pb-3 sm:px-4 sm:pb-4">
-        {/* Header Section */}
-        <CardHeader className="px-0 pt-0 pb-0">
-          <div
-            className={cn(
-              'border-border/50 flex items-start justify-between gap-2.5 border-b pb-3 sm:pb-4',
-              isCancelledGatePass && 'border-border/30'
-            )}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
-                <h3 className="text-foreground font-custom text-sm font-bold tracking-tight sm:text-base">
-                  FSP
-                  {seedData.gatePassNo ? (
-                    <>
-                      {' '}
-                      <span
-                        className={cn(
-                          'text-primary',
-                          isCancelledGatePass && 'text-muted-foreground'
-                        )}
-                      >
-                        #{seedData.gatePassNo}
-                      </span>
-                    </>
-                  ) : null}
-                  {seedData.invoiceNumber ? (
-                    <span className="text-muted-foreground text-xs font-normal sm:text-sm">
-                      {' '}
-                      · Inv #{seedData.invoiceNumber}
-                    </span>
-                  ) : null}
-                </h3>
-              </div>
-              <p className="text-muted-foreground mt-1 text-[11px] sm:text-xs">
-                {seedData.date}
-              </p>
-            </div>
 
-            <div className="flex shrink-0 items-center gap-1.5">
-              <Badge
-                variant="secondary"
+      {/* --- Card Header --- */}
+      <div
+        className={cn(
+          'bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4',
+          isCancelledGatePass && 'bg-muted/30 border-border/30'
+        )}
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
+            <h3 className="text-foreground font-custom text-sm font-bold tracking-tight sm:text-base">
+              FSP{' '}
+              <span
                 className={cn(
-                  'px-2 py-0.5 text-[10px] font-medium tracking-wide',
-                  isCancelledGatePass &&
-                    'border-border/60 bg-muted/40 text-muted-foreground'
+                  'text-primary',
+                  isCancelledGatePass && 'text-muted-foreground'
                 )}
               >
-                {seedData.totals.totalBags.toLocaleString('en-IN')} BAGS
+                #{seedData.gatePassNo || '—'}
+              </span>
+            </h3>
+            {seedData.invoiceNumber ? (
+              <Badge
+                variant="secondary"
+                className="font-custom px-2 py-0.5 text-[10px] font-medium"
+              >
+                Inv #{seedData.invoiceNumber}
               </Badge>
-              {isCancelledGatePass ? (
-                <Badge
-                  variant="secondary"
-                  className="font-custom border-border/60 bg-muted/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium"
-                >
-                  Cancelled Gate Pass
-                </Badge>
-              ) : null}
-            </div>
+            ) : null}
           </div>
-        </CardHeader>
+          <p className="text-muted-foreground font-custom mt-1 text-[11px] sm:text-xs">
+            {seedData.date}
+          </p>
+        </div>
 
-        {/* Quick Details Grid */}
-        <div className="mt-3 mb-3 grid grid-cols-2 gap-x-3 gap-y-3 lg:grid-cols-4">
-          <DetailRow label="Farmer" value={seedData.farmer.name} icon={User} />
-          <DetailRow label="Account" value={`#${seedData.farmer.account}`} />
-          <DetailRow label="Variety" value={seedData.variety} icon={Sprout} />
-          <DetailRow
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn(
+              'bg-background font-custom px-2 py-0.5 text-[10px] font-medium',
+              isCancelledGatePass &&
+                'border-border/50 bg-muted/40 text-muted-foreground'
+            )}
+          >
+            {seedData.totals.totalBags.toLocaleString('en-IN')} Bags
+          </Badge>
+          {isCancelledGatePass ? (
+            <Badge
+              variant="secondary"
+              className="font-custom border-border/60 bg-muted/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium"
+            >
+              Cancelled Gate Pass
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      {/* --- Primary Info Grid --- */}
+      <div className="px-3 py-3 sm:px-4 sm:py-4">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+          <InfoBlock label="Farmer" value={seedData.farmer.name} icon={User} />
+          <InfoBlock label="Account" value={seedData.farmer.account} />
+          <InfoBlock label="Variety" value={seedData.variety} icon={Sprout} />
+          <InfoBlock
             label="Stage"
             value={seedData.generation}
             icon={ReceiptText}
           />
         </div>
+      </div>
 
-        {/* Action Bar */}
-        <div className="bg-muted/10 border-border/50 -mx-3 flex items-center justify-between border-t px-3 py-2.5 sm:-mx-4 sm:px-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded((p) => !p)}
-            className="hover:bg-accent h-8 px-2 text-xs font-medium"
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
-                Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
-                More
-              </>
-            )}
-          </Button>
+      {/* --- Action Bar --- */}
+      <div className="bg-muted/10 border-border/50 flex items-center justify-between border-t px-3 py-2.5 sm:px-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded((p) => !p)}
+          className="text-muted-foreground font-custom hover:text-foreground h-8 px-2 text-xs font-medium"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="mr-1.5 h-3.5 w-3.5" /> Less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="mr-1.5 h-3.5 w-3.5" /> More
+            </>
+          )}
+        </Button>
 
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="focus-visible:ring-primary h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="font-custom focus-visible:ring-primary h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
             aria-label="Edit seed voucher"
             onClick={handleEditClick}
           >
-            <Pencil className="text-muted-foreground h-3.5 w-3.5" />
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-custom h-8 w-8 p-0"
+            aria-label={`Print farmer seed voucher ${seedData.gatePassNo || ''}`}
+          >
+            <Printer className="h-3.5 w-3.5" />
           </Button>
         </div>
+      </div>
 
-        {/* Expanded Content */}
-        {isExpanded && (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="border-border/50 -mx-3 mt-0 border-t p-3 sm:-mx-4 sm:p-4">
-              <div className="space-y-4">
-                {/* Farmer Info */}
-                <section>
-                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wide uppercase">
-                    Extended Farmer Details
-                  </h4>
-                  <div className="bg-muted/30 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2">
-                    <DetailRow label="Name" value={seedData.farmer.name} />
-                    <DetailRow
-                      label="Account"
-                      value={seedData.farmer.account}
+      {/* --- Expanded Details --- */}
+      {isExpanded && (
+        <div className="border-border/50 animate-in slide-in-from-top-2 fade-in border-t p-3 duration-200 sm:p-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <section>
+                <h4 className="text-foreground font-custom flex items-center gap-2 text-xs font-semibold">
+                  <User className="text-primary h-4 w-4" />
+                  Farmer Information
+                </h4>
+                <div className="bg-muted/30 mt-2.5 grid grid-cols-1 gap-3 rounded-lg p-3 sm:grid-cols-2">
+                  <InfoBlock label="Name" value={seedData.farmer.name} />
+                  <InfoBlock label="Account" value={seedData.farmer.account} />
+                  <div className="col-span-full sm:col-span-2">
+                    <InfoBlock
+                      label="Address"
+                      value={seedData.farmer.address}
                     />
-                    <div className="sm:col-span-2">
-                      <DetailRow
-                        label="Address"
-                        value={seedData.farmer.address}
-                      />
-                    </div>
                   </div>
-                </section>
+                </div>
+              </section>
 
-                {/* Seed / Line Items Table */}
-                <section>
-                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wide uppercase">
-                    Itemized Seed Details
-                  </h4>
-                  <div className="bg-muted/30 border-border/50 overflow-hidden rounded-lg border">
-                    <div className="overflow-x-auto">
-                      <table className="font-custom w-full min-w-[560px] text-xs">
-                        <thead className="bg-muted/50">
-                          <tr className="text-muted-foreground border-b text-left text-[10px] font-semibold tracking-wide uppercase">
-                            <th className="px-3 py-2.5">Bag Size</th>
-                            <th className="px-3 py-2.5 text-right">Qty</th>
-                            <th className="px-3 py-2.5 text-right">Rate (₹)</th>
-                            <th className="px-3 py-2.5 text-right">Acres</th>
-                            <th className="px-3 py-2.5 text-right">
-                              Amount (₹)
-                            </th>
-                            <th className="px-3 py-2.5 text-right">
-                              Received (₹)
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-border/50 divide-y">
-                          {seedData.bagSizes.map((row, idx) => (
-                            <tr
-                              key={idx}
-                              className="hover:bg-muted/20 transition-colors"
-                            >
-                              <td className="px-3 py-2.5 font-medium">
-                                {row.name}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                {row.quantity.toLocaleString('en-IN')}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                {row.rate.toLocaleString('en-IN')}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                {row.acres.toLocaleString('en-IN')}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                {row.amount.toLocaleString('en-IN')}
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-medium text-emerald-600">
-                                {row.received === null
-                                  ? FALLBACK_TEXT
-                                  : row.received.toLocaleString('en-IN')}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-muted/50 border-border/80 text-foreground border-t-2 font-bold">
-                            <td className="px-3 py-2.5">Total</td>
-                            <td className="px-3 py-2.5 text-right">
-                              {seedData.totals.totalBags.toLocaleString(
-                                'en-IN'
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-right">—</td>
-                            <td className="px-3 py-2.5 text-right">
-                              {seedData.totals.totalAcres.toLocaleString(
-                                'en-IN'
-                              )}
+              <section>
+                <h4 className="text-foreground font-custom flex items-center gap-2 text-xs font-semibold">
+                  <FileText className="text-primary h-4 w-4" />
+                  Remarks
+                </h4>
+                <div className="bg-muted/30 mt-2.5 rounded-lg p-3">
+                  <p className="text-muted-foreground font-custom text-xs leading-relaxed">
+                    {seedData.remarks}
+                  </p>
+                </div>
+              </section>
+            </div>
+
+            <div className="space-y-4">
+              <section>
+                <h4 className="text-foreground font-custom flex items-center gap-2 text-xs font-semibold">
+                  <Sprout className="text-primary h-4 w-4" />
+                  Itemized seed details
+                </h4>
+                <div className="bg-muted/30 border-border/50 mt-2.5 overflow-hidden rounded-lg border">
+                  <div className="overflow-x-auto">
+                    <table className="font-custom w-full min-w-[560px] text-xs">
+                      <thead className="bg-muted/50">
+                        <tr className="text-muted-foreground border-b text-left text-[10px] font-semibold tracking-wide uppercase">
+                          <th className="px-3 py-2.5">Bag Size</th>
+                          <th className="px-3 py-2.5 text-right">Qty</th>
+                          <th className="px-3 py-2.5 text-right">Rate (₹)</th>
+                          <th className="px-3 py-2.5 text-right">Acres</th>
+                          <th className="px-3 py-2.5 text-right">Amount (₹)</th>
+                          <th className="px-3 py-2.5 text-right">
+                            Received (₹)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-border/50 divide-y">
+                        {seedData.bagSizes.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            className="hover:bg-muted/20 transition-colors duration-200"
+                          >
+                            <td className="px-3 py-2.5 font-medium">
+                              {row.name}
                             </td>
                             <td className="px-3 py-2.5 text-right">
-                              {seedData.totals.totalAmount.toLocaleString(
-                                'en-IN'
-                              )}
+                              {row.quantity.toLocaleString('en-IN')}
                             </td>
-                            <td className="px-3 py-2.5 text-right text-emerald-600">
-                              {seedData.totals.totalReceived.toLocaleString(
-                                'en-IN'
-                              )}
+                            <td className="px-3 py-2.5 text-right">
+                              {row.rate.toLocaleString('en-IN')}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {row.acres.toLocaleString('en-IN')}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {row.amount.toLocaleString('en-IN')}
+                            </td>
+                            <td className="text-primary px-3 py-2.5 text-right font-semibold">
+                              {row.received === null
+                                ? FALLBACK_TEXT
+                                : row.received.toLocaleString('en-IN')}
                             </td>
                           </tr>
-                        </tfoot>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-muted/50 border-border/80 text-foreground border-t-2 font-bold">
+                          <td className="px-3 py-2.5">Total</td>
+                          <td className="px-3 py-2.5 text-right">
+                            {seedData.totals.totalBags.toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-3 py-2.5 text-right">—</td>
+                          <td className="px-3 py-2.5 text-right">
+                            {seedData.totals.totalAcres.toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            {seedData.totals.totalAmount.toLocaleString(
+                              'en-IN'
+                            )}
+                          </td>
+                          <td className="text-primary px-3 py-2.5 text-right">
+                            {seedData.totals.totalReceived.toLocaleString(
+                              'en-IN'
+                            )}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
-                </section>
-
-                {/* Remarks */}
-                <section>
-                  <h4 className="text-muted-foreground/70 mb-2 text-xs font-semibold tracking-wide uppercase">
-                    Remarks / Notes
-                  </h4>
-                  <div className="rounded-lg border border-amber-200/50 bg-amber-50/50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
-                    <p className="text-foreground font-custom text-xs leading-relaxed font-medium">
-                      {seedData.remarks}
-                    </p>
-                  </div>
-                </section>
-              </div>
+                </div>
+              </section>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   );
 });

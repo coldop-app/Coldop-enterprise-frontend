@@ -133,3 +133,9 @@ export const useStore = create(
     }
   )
 );
+
+/** Cold storage prefs (`localStorage`, no TTL) — see `./usePreferencesStore` */
+export {
+  usePreferencesStore,
+  usePreferencesStoreHydrated,
+} from './usePreferencesStore';

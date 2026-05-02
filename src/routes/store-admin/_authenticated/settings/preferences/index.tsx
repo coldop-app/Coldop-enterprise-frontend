@@ -1,7 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { useGetPreferences } from '@/services/store-admin/preferences/useGetPreferences';
-import { useState } from 'react';
+import {
+  useGetPreferences,
+  type PreferencesData,
+  type PreferenceOption,
+  type BuyBackCost,
+} from '@/services/store-admin/preferences/useGetPreferences';
+import { useUpdatePreferences } from '@/services/store-admin/preferences/useUpdatePreferences';
+import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -46,44 +52,16 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  usePreferencesStore,
+  usePreferencesStoreHydrated,
+} from '@/stores/usePreferencesStore';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/settings/preferences/'
 )({
   component: RouteComponent,
 });
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface LabelValue {
-  label: string;
-  value: string;
-}
-interface BuyBackEntry {
-  variety: string;
-  sizeRates: Record<string, number>;
-}
-interface BagConfig {
-  juteBagWeight: number;
-  lenoBagWeight: number;
-  bagTypes: string[];
-}
-
-interface PreferencesData {
-  _id: string;
-  coldStorageId: string;
-  bagSizes: string[];
-  reportFormat: string;
-  custom: {
-    potatoVarieties: LabelValue[];
-    farmerSeedGenerations: LabelValue[];
-    graderOptions: string[];
-    bagConfig: BagConfig;
-    standardBagsPerAcre: Record<string, number>;
-    buyBackCost: BuyBackEntry[];
-  };
-  updatedAt: string;
-}
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
@@ -215,9 +193,9 @@ function LabelValueList({
   onRemove,
   onAdd,
 }: {
-  items: LabelValue[];
+  items: PreferenceOption[];
   onRemove: (value: string) => void;
-  onAdd: (item: LabelValue) => void;
+  onAdd: (item: PreferenceOption) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -297,7 +275,7 @@ function BuyBackTable({
   bagSizes,
   onChange,
 }: {
-  entry: BuyBackEntry;
+  entry: BuyBackCost;
   bagSizes: string[];
   onChange: (variety: string, size: string, rate: number) => void;
 }) {
@@ -357,23 +335,31 @@ function BuyBackTable({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
-  const [data, setData] = useState<PreferencesData>(initial);
+function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
+  const data = usePreferencesStore((s) => s.preferences);
+  const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
+  const resetToServer = usePreferencesStore((s) => s.resetToServer);
+  const { mutateAsync, isPending } = useUpdatePreferences();
   const [dirty, setDirty] = useState(false);
+
+  if (!data) return null;
 
   // Bag sizes
   const removeBagSize = (size: string) => {
-    setData((p) => ({ ...p, bagSizes: p.bagSizes.filter((s) => s !== size) }));
+    updatePreferences((p) => ({
+      ...p,
+      bagSizes: p.bagSizes.filter((s) => s !== size),
+    }));
     setDirty(true);
   };
   const addBagSize = (size: string) => {
-    setData((p) => ({ ...p, bagSizes: [...p.bagSizes, size] }));
+    updatePreferences((p) => ({ ...p, bagSizes: [...p.bagSizes, size] }));
     setDirty(true);
   };
 
   // Varieties
   const removeVariety = (val: string) => {
-    setData((p) => {
+    updatePreferences((p) => {
       const { [val]: _removed, ...restBags } = p.custom.standardBagsPerAcre;
       return {
         ...p,
@@ -389,8 +375,8 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
     });
     setDirty(true);
   };
-  const addVariety = (item: LabelValue) => {
-    setData((p) => ({
+  const addVariety = (item: PreferenceOption) => {
+    updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
@@ -409,7 +395,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
   // Seed generations
   const removeGeneration = (val: string) => {
-    setData((p) => ({
+    updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
@@ -420,8 +406,8 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
     }));
     setDirty(true);
   };
-  const addGeneration = (item: LabelValue) => {
-    setData((p) => ({
+  const addGeneration = (item: PreferenceOption) => {
+    updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
@@ -433,7 +419,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
   // Graders
   const removeGrader = (g: string) => {
-    setData((p) => ({
+    updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
@@ -443,7 +429,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
     setDirty(true);
   };
   const addGrader = (g: string) => {
-    setData((p) => ({
+    updatePreferences((p) => ({
       ...p,
       custom: { ...p.custom, graderOptions: [...p.custom.graderOptions, g] },
     }));
@@ -452,7 +438,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
   // Buy-back rates
   const updateRate = (variety: string, size: string, rate: number) => {
-    setData((p) => {
+    updatePreferences((p) => {
       const idx = p.custom.buyBackCost.findIndex((e) => e.variety === variety);
       const nextBuyBack =
         idx >= 0
@@ -475,16 +461,19 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
     key: 'juteBagWeight' | 'lenoBagWeight',
     val: number
   ) => {
-    setData((p) => ({
+    updatePreferences((p) => ({
       ...p,
-      custom: { ...p.custom, bagConfig: { ...p.custom.bagConfig, [key]: val } },
+      custom: {
+        ...p.custom,
+        bagConfig: { ...p.custom.bagConfig, [key]: val },
+      },
     }));
     setDirty(true);
   };
 
   // Standard bags per acre
   const updateBagsPerAcre = (variety: string, val: number) => {
-    setData((p) => ({
+    updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
@@ -497,19 +486,31 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
     setDirty(true);
   };
 
-  const handleSave = () => {
-    // TODO: wire to your mutation hook
-    console.log('Saving preferences:', data);
-    setDirty(false);
+  const handleSave = async () => {
+    try {
+      const res = await mutateAsync({
+        coldStorageId: data.coldStorageId,
+        bagSizes: data.bagSizes,
+        reportFormat: data.reportFormat,
+        custom: data.custom as unknown as Record<string, unknown>,
+      });
+      if (!res.success) return;
+      if (res.data) resetToServer(res.data);
+      setDirty(false);
+    } catch {
+      // Toast + messaging handled by useUpdatePreferences.onError
+    }
   };
 
   const handleReset = () => {
-    setData(initial);
+    resetToServer(baseline);
     setDirty(false);
   };
 
   return (
-    <TooltipProvider>
+    <TooltipProvider
+      key={`${data._id}-${data.updatedAt}-${data.coldStorageId}`}
+    >
       <main className="font-custom mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -534,6 +535,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                 variant="ghost"
                 size="sm"
                 onClick={handleReset}
+                disabled={isPending}
                 className="text-muted-foreground hover:text-foreground gap-1.5 transition-colors duration-200"
               >
                 <RotateCcw size={14} /> Reset
@@ -542,8 +544,8 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
             <Button
               size="sm"
               variant={dirty ? 'default' : 'secondary'}
-              onClick={handleSave}
-              disabled={!dirty}
+              onClick={() => void handleSave()}
+              disabled={!dirty || isPending}
               className="gap-1.5 transition-all duration-200"
             >
               <Save size={14} /> Save changes
@@ -612,9 +614,9 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
               </CardHeader>
               <CardContent>
                 <Select
-                  defaultValue={data.reportFormat}
+                  value={data.reportFormat}
                   onValueChange={(v) => {
-                    setData((p) => ({ ...p, reportFormat: v }));
+                    updatePreferences((p) => ({ ...p, reportFormat: v }));
                     setDirty(true);
                   }}
                 >
@@ -743,7 +745,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                   const entry =
                     data.custom.buyBackCost.find(
                       (e) => e.variety === v.value
-                    ) ?? ({ variety: v.value, sizeRates: {} } as BuyBackEntry);
+                    ) ?? ({ variety: v.value, sizeRates: {} } as BuyBackCost);
                   return (
                     <BuyBackTable
                       key={v.value}
@@ -806,11 +808,11 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                       <div key={type} className="flex items-center gap-2.5">
                         <Switch
                           id={type}
-                          defaultChecked={data.custom.bagConfig.bagTypes.includes(
+                          checked={data.custom.bagConfig.bagTypes.includes(
                             type
                           )}
                           onCheckedChange={(checked) => {
-                            setData((p) => ({
+                            updatePreferences((p) => ({
                               ...p,
                               custom: {
                                 ...p.custom,
@@ -860,7 +862,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                         onChange={(e) => {
                           const updated = [...data.custom.graderOptions];
                           updated[i] = e.target.value;
-                          setData((p) => ({
+                          updatePreferences((p) => ({
                             ...p,
                             custom: { ...p.custom, graderOptions: updated },
                           }));
@@ -898,6 +900,17 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
 function RouteComponent() {
   const { data } = useGetPreferences();
+  const hydrated = usePreferencesStoreHydrated();
+  const prefs = usePreferencesStore((s) => s.preferences);
+  const syncFromServerIfNeeded = usePreferencesStore(
+    (s) => s.syncFromServerIfNeeded
+  );
+
+  useEffect(() => {
+    if (!data || !hydrated) return;
+    syncFromServerIfNeeded(data);
+  }, [data, hydrated, syncFromServerIfNeeded]);
+
   if (!data)
     return (
       <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -908,5 +921,17 @@ function RouteComponent() {
         </div>
       </main>
     );
-  return <PreferencesEditor data={data} />;
+
+  if (!hydrated || !prefs)
+    return (
+      <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="bg-muted h-8 w-48 rounded-md" />
+          <div className="bg-muted h-4 w-72 rounded-md" />
+          <div className="bg-muted h-64 rounded-2xl" />
+        </div>
+      </main>
+    );
+
+  return <PreferencesEditor baseline={data} />;
 }
