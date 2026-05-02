@@ -86,12 +86,13 @@ const columnLabels: Record<string, string> = {
   manualGatePassNumber: 'Manual Gate Pass No',
   date: 'Date',
   farmerName: 'Farmer',
+  farmerAddress: 'Farmer address',
   variety: 'Variety',
   bagsReceived: 'Bags',
-  netWeightKg: 'Net Weight (kg)',
+  netWeightKg: 'Net (kg)',
   status: 'Status',
   location: 'Location',
-  truckNumber: 'Truck No.',
+  truckNumber: 'Truck number',
   remarks: 'Remarks',
 };
 
@@ -99,14 +100,16 @@ const getInitialValueFilterTouched = (): Record<
   FilterableColumnId,
   boolean
 > => ({
-  gatePassNo: false,
-  date: false,
   farmerName: false,
+  farmerAddress: false,
+  gatePassNo: false,
+  manualGatePassNumber: false,
+  date: false,
   variety: false,
+  truckNumber: false,
   bagsReceived: false,
   netWeightKg: false,
-  location: false,
-  truckNumber: false,
+  remarks: false,
 });
 
 type AdvancedTabContentProps = {
@@ -210,6 +213,7 @@ export function ViewFiltersSheet({
   onOpenChange,
   table,
   defaultColumnOrder,
+  defaultColumnVisibility,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
 }: ViewFiltersSheetProps) {
@@ -299,14 +303,16 @@ export function ViewFiltersSheet({
     Record<FilterableColumnId, string[]>
   >(() => {
     const options = {
-      gatePassNo: [],
-      date: [],
       farmerName: [],
+      farmerAddress: [],
+      gatePassNo: [],
+      manualGatePassNumber: [],
+      date: [],
       variety: [],
+      truckNumber: [],
       bagsReceived: [],
       netWeightKg: [],
-      location: [],
-      truckNumber: [],
+      remarks: [],
     } as Record<FilterableColumnId, string[]>;
 
     filterableColumns.forEach(({ id }) => {
@@ -329,6 +335,7 @@ export function ViewFiltersSheet({
       netWeightKg: [],
       status: [...statusFilterOptions],
       location: [],
+      remarks: [],
       truckNumber: [],
       generation: [],
       farmerMobile: [],
@@ -465,23 +472,47 @@ export function ViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility(table.initialState.columnVisibility ?? {});
+    table.setColumnVisibility(defaultColumnVisibility);
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
     table.setGrouping([]);
     table.setGlobalFilter('');
+    table.setSorting([]);
     table.resetColumnSizing();
     onColumnResizeModeChange('onChange');
     onColumnResizeDirectionChange('ltr');
-    syncDraftFromTable();
+
+    const visibility: Record<string, boolean> = {};
+    hidableColumns.forEach((column) => {
+      visibility[column.id] = defaultColumnVisibility[column.id] !== false;
+    });
+    const validOrder = defaultColumnOrder.filter((id) =>
+      hidableColumnIds.includes(id)
+    );
+    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+
+    setDraftColumnVisibility(visibility);
+    setDraftColumnOrder([...validOrder, ...missing]);
+    setDraftGrouping([]);
+    setDraftStatusFilters([...statusFilterOptions]);
+    const nextValueFilters = getEmptyValueFilters();
+    filterableColumns.forEach(({ id }) => {
+      nextValueFilters[id] = [...availableFilterOptions[id]];
+    });
+    setDraftValueFilters(nextValueFilters);
+    setDraftLogicFilter(createDefaultFilterGroup());
     setSearchQueries(getInitialSearchQueries());
     setExpandedFilters(getInitialExpandedFilters());
     setValueFilterTouched(getInitialValueFilterTouched());
+    setActiveTab('filters');
   }, [
+    availableFilterOptions,
     defaultColumnOrder,
+    defaultColumnVisibility,
+    hidableColumnIds,
+    hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
-    syncDraftFromTable,
     table,
   ]);
 

@@ -208,6 +208,8 @@ export function ViewFiltersSheet({
   onOpenChange,
   table,
   defaultColumnOrder,
+  defaultColumnVisibility,
+  emptyBagSizeColumnIds,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
 }: ViewFiltersSheetProps) {
@@ -256,6 +258,9 @@ export function ViewFiltersSheet({
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
     Partial<Record<FilterableColumnId, boolean>>
   >(getInitialValueFilterTouched());
+  const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
+    number | null
+  >(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor),
@@ -285,6 +290,24 @@ export function ViewFiltersSheet({
       }
 
       return values
+        .map((value) => String(value))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    },
+    [table, coreRowCount]
+  );
+
+  /** Unfiltered facets for reset — avoids stale facet state before the next React commit. */
+  const collectDistinctColumnStringsFromCore = React.useCallback(
+    (columnId: string): string[] => {
+      void coreRowCount;
+      const uniqueValues = new Set<string>();
+      table.getCoreRowModel().rows.forEach((row) => {
+        const rawValue = row.getValue(columnId);
+        if (rawValue === undefined || rawValue === null) return;
+        const normalized = String(rawValue).trim();
+        if (normalized.length > 0) uniqueValues.add(normalized);
+      });
+      return Array.from(uniqueValues)
         .map((value) => String(value))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     },
@@ -422,23 +445,53 @@ export function ViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility(table.initialState.columnVisibility ?? {});
+    table.setColumnVisibility(defaultColumnVisibility);
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
     table.setGrouping([]);
     table.setGlobalFilter('');
+    table.setSorting([]);
     table.resetColumnSizing();
     onColumnResizeModeChange('onChange');
     onColumnResizeDirectionChange('ltr');
-    syncDraftFromTable();
+
+    const visibility: Record<string, boolean> = {};
+    hidableColumns.forEach((column) => {
+      const id = column.id;
+      if (emptyBagSizeColumnIds.has(id)) {
+        visibility[id] = false;
+      } else {
+        visibility[id] = defaultColumnVisibility[id] !== false;
+      }
+    });
+    const validOrder = defaultColumnOrder.filter((id) =>
+      hidableColumnIds.includes(id)
+    );
+    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+
+    setDraftColumnVisibility(visibility);
+    setDraftColumnOrder([...validOrder, ...missing]);
+    setDraftGrouping([]);
+    setActiveGroupingDropIndex(null);
+    const nextValueFilters = getEmptyValueFilters();
+    filterableColumns.forEach(({ id }) => {
+      nextValueFilters[id] = collectDistinctColumnStringsFromCore(id);
+    });
+    setDraftValueFilters(nextValueFilters);
+    setDraftLogicFilter(createDefaultFilterGroup());
     setSearchQueries(getInitialSearchQueries());
     setExpandedFilters(getInitialExpandedFilters());
     setValueFilterTouched(getInitialValueFilterTouched());
+    setActiveTab('filters');
   }, [
+    collectDistinctColumnStringsFromCore,
     defaultColumnOrder,
+    defaultColumnVisibility,
+    emptyBagSizeColumnIds,
+    hidableColumnIds,
+    hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
-    syncDraftFromTable,
     table,
   ]);
 
@@ -494,9 +547,6 @@ export function ViewFiltersSheet({
     });
   };
 
-  const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
-    number | null
-  >(null);
   const handleGroupingDragMove = (event: {
     over: { id: string | number } | null;
   }) => {

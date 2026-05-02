@@ -74,31 +74,46 @@ import {
 import { LogicBuilder } from './logic-builder';
 
 const columnLabels: Record<string, string> = {
-  gatePassNo: 'Gate Pass No',
-  invoiceNumber: 'Invoice Number',
-  date: 'Date',
   farmerName: 'Farmer',
+  totalAcres: 'Acres planted',
+  gatePassNo: 'Gate pass no.',
+  invoiceNumber: 'Invoice number',
+  date: 'Date',
+  variety: 'Variety',
+  generation: 'Stage',
+  bag35to40: '35-40 (mm)',
+  bag40to45: '40-45 (mm)',
+  bag40to50: '40-50 (mm)',
+  bag45to50: '45-50 (mm)',
+  bag50to55: '50-55 (mm)',
+  totalBags: 'Total bags',
+  averageRate: 'Rate per bag',
+  totalAmount: 'Total rate',
+  remarks: 'Remarks',
   farmerAddress: 'Address',
   accountNumber: 'Account #',
-  variety: 'Variety',
-  generation: 'Generation',
-  totalBags: 'Bags',
-  totalAcres: 'Acres Planted',
-  averageRate: 'Rate per Bag',
-  totalAmount: 'Amount',
-  remarks: 'Remarks',
 };
 
 const getInitialValueFilterTouched = (): Record<
   FilterableColumnId,
   boolean
 > => ({
-  gatePassNo: false,
-  date: false,
   farmerName: false,
+  totalAcres: false,
+  gatePassNo: false,
+  invoiceNumber: false,
+  date: false,
   variety: false,
-  bagsReceived: false,
-  netWeightKg: false,
+  generation: false,
+  bag35to40: false,
+  bag40to45: false,
+  bag40to50: false,
+  bag45to50: false,
+  bag50to55: false,
+  totalBags: false,
+  averageRate: false,
+  totalAmount: false,
+  remarks: false,
 });
 
 export function ViewFiltersSheet({
@@ -106,6 +121,7 @@ export function ViewFiltersSheet({
   onOpenChange,
   table,
   defaultColumnOrder,
+  defaultColumnVisibility,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
 }: ViewFiltersSheetProps) {
@@ -154,6 +170,9 @@ export function ViewFiltersSheet({
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
     Record<FilterableColumnId, boolean>
   >(getInitialValueFilterTouched());
+  const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
+    number | null
+  >(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor),
@@ -188,26 +207,48 @@ export function ViewFiltersSheet({
     [table, coreRowCount]
   );
 
+  /** Unfiltered facets for reset — avoids stale facet state before the next React commit. */
+  const collectDistinctColumnStringsFromCore = React.useCallback(
+    (columnId: string): string[] => {
+      void coreRowCount;
+      const uniqueValues = new Set<string>();
+      table.getCoreRowModel().rows.forEach((row) => {
+        const rawValue = row.getValue(columnId);
+        if (rawValue === undefined || rawValue === null) return;
+        const normalized = String(rawValue).trim();
+        if (normalized.length > 0) uniqueValues.add(normalized);
+      });
+      return Array.from(uniqueValues)
+        .map((value) => String(value))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    },
+    [table, coreRowCount]
+  );
+
   const availableFilterOptions = React.useMemo<
     Record<FilterableColumnId, string[]>
   >(() => {
     const options = {
-      gatePassNo: [],
-      date: [],
       farmerName: [],
+      totalAcres: [],
+      gatePassNo: [],
+      invoiceNumber: [],
+      date: [],
       variety: [],
-      bagsReceived: [],
-      netWeightKg: [],
+      generation: [],
+      bag35to40: [],
+      bag40to45: [],
+      bag40to50: [],
+      bag45to50: [],
+      bag50to55: [],
+      totalBags: [],
+      averageRate: [],
+      totalAmount: [],
+      remarks: [],
     } as Record<FilterableColumnId, string[]>;
 
     filterableColumns.forEach(({ id }) => {
-      const mappedColumnId =
-        id === 'bagsReceived'
-          ? 'totalBags'
-          : id === 'netWeightKg'
-            ? 'totalAcres'
-            : id;
-      options[id] = getUniqueColumnValues(mappedColumnId);
+      options[id] = getUniqueColumnValues(id);
     });
     return options;
   }, [getUniqueColumnValues]);
@@ -226,6 +267,7 @@ export function ViewFiltersSheet({
       netWeightKg: [],
       status: [],
       location: [],
+      remarks: [],
       truckNumber: [],
       generation: [],
       farmerMobile: [],
@@ -237,16 +279,19 @@ export function ViewFiltersSheet({
       sizeAmount: [],
       buyBackBags: [],
       buyBackNetWeightKg: [],
+      invoiceNumber: [],
+      totalAcres: [],
+      averageRate: [],
+      totalAmount: [],
+      bag35to40: [],
+      bag40to45: [],
+      bag40to50: [],
+      bag45to50: [],
+      bag50to55: [],
     } as Record<FilterField, string[]>;
 
     advancedFilterFields.forEach(({ id }) => {
-      const mappedColumnId =
-        id === 'bagsReceived'
-          ? 'totalBags'
-          : id === 'netWeightKg'
-            ? 'totalAcres'
-            : id;
-      options[id] = getUniqueColumnValues(mappedColumnId);
+      options[id] = getUniqueColumnValues(id);
     });
     return options;
   }, [getUniqueColumnValues]);
@@ -265,13 +310,7 @@ export function ViewFiltersSheet({
     const nextValueFilters = getEmptyValueFilters();
 
     filterableColumns.forEach(({ id }) => {
-      const mappedColumnId =
-        id === 'bagsReceived'
-          ? 'totalBags'
-          : id === 'netWeightKg'
-            ? 'totalAcres'
-            : id;
-      const rawFilter = table.getColumn(mappedColumnId)?.getFilterValue();
+      const rawFilter = table.getColumn(id)?.getFilterValue();
       nextValueFilters[id] = Array.isArray(rawFilter)
         ? rawFilter.map((value) => String(value))
         : [...availableFilterOptions[id]];
@@ -307,23 +346,47 @@ export function ViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility(table.initialState.columnVisibility ?? {});
+    table.setColumnVisibility(defaultColumnVisibility);
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
     table.setGrouping([]);
     table.setGlobalFilter('');
+    table.setSorting([]);
     table.resetColumnSizing();
     onColumnResizeModeChange('onChange');
     onColumnResizeDirectionChange('ltr');
-    syncDraftFromTable();
+
+    const visibility: Record<string, boolean> = {};
+    hidableColumns.forEach((column) => {
+      visibility[column.id] = defaultColumnVisibility[column.id] !== false;
+    });
+    const validOrder = defaultColumnOrder.filter((id) =>
+      hidableColumnIds.includes(id)
+    );
+    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+
+    setDraftColumnVisibility(visibility);
+    setDraftColumnOrder([...validOrder, ...missing]);
+    setDraftGrouping([]);
+    setActiveGroupingDropIndex(null);
+    const nextValueFilters = getEmptyValueFilters();
+    filterableColumns.forEach(({ id }) => {
+      nextValueFilters[id] = collectDistinctColumnStringsFromCore(id);
+    });
+    setDraftValueFilters(nextValueFilters);
+    setDraftLogicFilter(createDefaultFilterGroup());
     setSearchQueries(getInitialSearchQueries());
     setExpandedFilters(getInitialExpandedFilters());
     setValueFilterTouched(getInitialValueFilterTouched());
+    setActiveTab('filters');
   }, [
+    collectDistinctColumnStringsFromCore,
     defaultColumnOrder,
+    defaultColumnVisibility,
+    hidableColumnIds,
+    hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
-    syncDraftFromTable,
     table,
   ]);
 
@@ -344,14 +407,8 @@ export function ViewFiltersSheet({
     filterableColumns.forEach(({ id }) => {
       const allValues = availableFilterOptions[id];
       const selected = getEffectiveDraftValues(id);
-      const mappedColumnId =
-        id === 'bagsReceived'
-          ? 'totalBags'
-          : id === 'netWeightKg'
-            ? 'totalAcres'
-            : id;
       table
-        .getColumn(mappedColumnId)
+        .getColumn(id)
         ?.setFilterValue(
           selected.length === allValues.length ? undefined : selected
         );
@@ -385,9 +442,6 @@ export function ViewFiltersSheet({
     });
   };
 
-  const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
-    number | null
-  >(null);
   const handleGroupingDragMove = (event: {
     over: { id: string | number } | null;
   }) => {

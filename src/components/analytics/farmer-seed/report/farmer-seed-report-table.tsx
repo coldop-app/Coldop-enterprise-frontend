@@ -46,7 +46,6 @@ import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
   type FilterGroupNode,
-  type FilterField,
 } from '@/lib/advanced-filters';
 import { useStore } from '@/stores/store';
 import { useGetFarmerSeedReport } from '@/services/store-admin/farmer-seed/analytics/useGetFarmerSeedReport';
@@ -256,6 +255,12 @@ const defaultColumnOrder: string[] = [
   'remarks',
 ];
 
+/** Matches initial `columnVisibility` — used by View Filters "Reset all". */
+const defaultFarmerSeedColumnVisibility: VisibilityState = {
+  generation: true,
+  remarks: true,
+};
+
 const numericColumnIds = new Set([
   'gatePassNo',
   'bag35to40',
@@ -292,18 +297,10 @@ const globalFilterFn: FilterFn<FarmerSeedReportRow> = (
   filterValue: GlobalFilterValue
 ) => {
   if (isAdvancedFilterGroup(filterValue)) {
-    const advancedRow = {
-      gatePassNo: row.original.gatePassNo,
-      date: row.original.date,
-      farmerName: row.original.farmerName,
-      variety: row.original.variety,
-      bagsReceived: row.original.totalBags,
-      netWeightKg: row.original.totalAcres,
-      status: '',
-      location: '',
-      truckNumber: '',
-    } as Record<FilterField, string | number>;
-    return evaluateFilterGroup(advancedRow, filterValue);
+    return evaluateFilterGroup(
+      row.original as Record<string, unknown>,
+      filterValue
+    );
   }
   const normalized = String(filterValue).trim().toLowerCase();
   if (!normalized) return true;
@@ -568,10 +565,7 @@ const FarmerSeedReportTable = () => {
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({
-      generation: true,
-      remarks: true,
-    });
+    React.useState<VisibilityState>(defaultFarmerSeedColumnVisibility);
   const [columnOrder, setColumnOrder] =
     React.useState<string[]>(defaultColumnOrder);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -1198,6 +1192,7 @@ const FarmerSeedReportTable = () => {
         onOpenChange={setIsViewFiltersOpen}
         table={table}
         defaultColumnOrder={defaultColumnOrder}
+        defaultColumnVisibility={defaultFarmerSeedColumnVisibility}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}

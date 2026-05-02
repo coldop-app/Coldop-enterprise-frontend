@@ -238,6 +238,13 @@ const defaultColumnOrder: string[] = [
   'totalBags',
   'remarks',
 ];
+
+/** Matches initial `columnVisibility` — used by View Filters "Reset all". */
+const defaultStorageReportColumnVisibility: VisibilityState = {
+  farmerMobileNumber: false,
+  gatePassNo: false,
+  accountNumber: false,
+};
 const numericColumnIds = new Set([
   'accountNumber',
   ...BAG_SIZE_COLUMN_IDS,
@@ -554,11 +561,7 @@ const StorageReportTable = (_props: IncomingReportTableProps) => {
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({
-      farmerMobileNumber: false,
-      gatePassNo: false,
-      accountNumber: false,
-    });
+    React.useState<VisibilityState>(defaultStorageReportColumnVisibility);
   const [columnOrder, setColumnOrder] =
     React.useState<string[]>(defaultColumnOrder);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -1152,6 +1155,8 @@ const StorageReportTable = (_props: IncomingReportTableProps) => {
         onOpenChange={setIsViewFiltersOpen}
         table={table}
         defaultColumnOrder={defaultColumnOrder}
+        defaultColumnVisibility={defaultStorageReportColumnVisibility}
+        emptyBagSizeColumnIds={emptyBagSizeColumnIds}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}

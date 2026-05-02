@@ -230,6 +230,16 @@ const defaultColumnOrder: string[] = [
   'status',
   'remarks',
 ];
+
+/** Matches initial `columnVisibility` state — used by View Filters "Reset all". */
+const defaultIncomingReportColumnVisibility: VisibilityState = {
+  farmerMobileNumber: false,
+  createdByName: false,
+  location: false,
+  gatePassNo: false,
+  grossWeightKg: false,
+  tareWeightKg: false,
+};
 const numericColumnIds = new Set([
   'bagsReceived',
   'grossWeightKg',
@@ -295,11 +305,14 @@ const columns = [
     filterFn: multiValueFilterFn,
     size: 550,
     maxSize: 550,
+    minSize: 500,
   }),
   columnHelper.accessor('farmerAddress', {
     header: 'Address',
     sortingFn: 'text',
     filterFn: multiValueFilterFn,
+    minSize: 200,
+    maxSize: 300,
   }),
   columnHelper.accessor('farmerMobileNumber', {
     header: 'Mobile Number',
@@ -655,14 +668,7 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({
-      farmerMobileNumber: false,
-      createdByName: false,
-      location: false,
-      gatePassNo: false,
-      grossWeightKg: false,
-      tareWeightKg: false,
-    });
+    React.useState<VisibilityState>(defaultIncomingReportColumnVisibility);
   const [columnOrder, setColumnOrder] =
     React.useState<string[]>(defaultColumnOrder);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -1259,6 +1265,7 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
         onOpenChange={setIsViewFiltersOpen}
         table={table}
         defaultColumnOrder={defaultColumnOrder}
+        defaultColumnVisibility={defaultIncomingReportColumnVisibility}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}

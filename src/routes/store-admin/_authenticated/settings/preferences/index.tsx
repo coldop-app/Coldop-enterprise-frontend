@@ -95,10 +95,13 @@ function formatDate(iso: string) {
   });
 }
 
+/** Subtle variety accents; unknown names use theme-muted fallback */
 const VARIETY_COLORS: Record<string, string> = {
-  Himalini: 'bg-blue-50 text-blue-700 border-blue-200',
-  Jyoti: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  B101: 'bg-orange-50 text-orange-700 border-orange-200',
+  Himalini:
+    'bg-primary/10 text-primary border-primary/25 dark:border-primary/35',
+  Jyoti:
+    'bg-emerald-500/10 text-emerald-800 border-emerald-500/25 dark:text-emerald-300 dark:border-emerald-500/30',
+  B101: 'bg-orange-500/10 text-orange-800 border-orange-500/25 dark:text-orange-300 dark:border-orange-500/30',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -113,14 +116,14 @@ function SectionHeader({
   description?: string;
 }) {
   return (
-    <div className="mb-6 flex items-start gap-3">
-      <div className="mt-0.5 rounded-lg bg-stone-100 p-2 text-stone-600">
-        <Icon size={16} />
+    <div className="font-custom mb-6 flex items-start gap-3">
+      <div className="bg-primary/10 text-primary mt-0.5 rounded-lg p-2">
+        <Icon size={16} aria-hidden />
       </div>
       <div>
-        <h3 className="text-sm font-semibold text-stone-800">{title}</h3>
+        <h3 className="text-foreground text-sm font-semibold">{title}</h3>
         {description && (
-          <p className="mt-0.5 text-xs text-stone-500">{description}</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>
         )}
       </div>
     </div>
@@ -156,16 +159,19 @@ function TagList({
         <Badge
           key={item}
           variant="secondary"
-          className="gap-1.5 rounded-full border border-stone-200 bg-stone-100 py-1.5 pr-2 pl-3 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-200"
+          className="font-custom border-border bg-muted/80 text-foreground hover:bg-muted gap-1.5 rounded-full border py-1.5 pr-2 pl-3 text-xs font-medium transition-colors duration-200"
         >
           {item}
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => onRemove(item)}
-            className="rounded-full transition-colors hover:text-red-500"
+            className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
             aria-label={`Remove ${item}`}
           >
             <X size={12} />
-          </button>
+          </Button>
         </Badge>
       ))}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -173,12 +179,12 @@ function TagList({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 rounded-full border-dashed px-3 text-xs text-stone-500 hover:text-stone-800"
+            className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
           >
             <Plus size={12} className="mr-1" /> Add
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="font-custom sm:max-w-xs">
           <DialogHeader>
             <DialogTitle className="text-sm">Add New Item</DialogTitle>
           </DialogHeader>
@@ -232,18 +238,22 @@ function LabelValueList({
           key={item.value}
           variant="secondary"
           className={cn(
-            'gap-1.5 rounded-full border py-1.5 pr-2 pl-3 text-xs font-medium transition-colors',
+            'font-custom gap-1.5 rounded-full border py-1.5 pr-2 pl-3 text-xs font-medium transition-colors duration-200',
             VARIETY_COLORS[item.label] ??
-              'border-stone-200 bg-stone-100 text-stone-700'
+              'border-border bg-muted text-foreground'
           )}
         >
           {item.label}
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => onRemove(item.value)}
-            className="rounded-full transition-colors hover:text-red-500"
+            className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
+            aria-label={`Remove ${item.label}`}
           >
             <X size={12} />
-          </button>
+          </Button>
         </Badge>
       ))}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -251,12 +261,12 @@ function LabelValueList({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 rounded-full border-dashed px-3 text-xs text-stone-500"
+            className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
           >
             <Plus size={12} className="mr-1" /> Add
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="font-custom sm:max-w-xs">
           <DialogHeader>
             <DialogTitle className="text-sm">Add Option</DialogTitle>
           </DialogHeader>
@@ -292,22 +302,22 @@ function BuyBackTable({
   onChange: (variety: string, size: string, rate: number) => void;
 }) {
   const colorClass =
-    VARIETY_COLORS[entry.variety] ??
-    'bg-stone-50 text-stone-700 border-stone-200';
+    VARIETY_COLORS[entry.variety] ?? 'bg-muted text-foreground border-border';
 
   return (
-    <Card className="border border-stone-200 shadow-none">
+    <Card className="border-border/60 bg-card font-custom border shadow-none">
       <CardHeader className="px-5 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <Badge
+            variant="outline"
             className={cn(
-              'rounded-full border px-3 py-1 text-xs font-semibold',
+              'font-custom rounded-full border px-3 py-1 text-xs font-semibold',
               colorClass
             )}
           >
             {entry.variety}
           </Badge>
-          <span className="text-xs text-stone-400">₹ per kg</span>
+          <span className="text-muted-foreground text-xs">₹ per kg</span>
         </div>
       </CardHeader>
       <CardContent className="px-5 pb-4">
@@ -319,11 +329,11 @@ function BuyBackTable({
               '';
             return (
               <div key={size} className="group">
-                <Label className="mb-1.5 block font-mono text-xs text-stone-400">
+                <Label className="text-muted-foreground mb-1.5 block font-mono text-xs">
                   {size}
                 </Label>
                 <div className="relative">
-                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs text-stone-400">
+                  <span className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">
                     ₹
                   </span>
                   <Input
@@ -333,7 +343,7 @@ function BuyBackTable({
                     onChange={(e) =>
                       onChange(entry.variety, size, parseFloat(e.target.value))
                     }
-                    className="h-8 border-stone-200 bg-stone-50 pl-6 font-mono text-sm focus:bg-white"
+                    className="bg-background focus-visible:bg-background h-8 pl-6 font-mono text-sm transition-colors duration-200"
                   />
                 </div>
               </div>
@@ -363,15 +373,20 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
   // Varieties
   const removeVariety = (val: string) => {
-    setData((p) => ({
-      ...p,
-      custom: {
-        ...p.custom,
-        potatoVarieties: p.custom.potatoVarieties.filter(
-          (v) => v.value !== val
-        ),
-      },
-    }));
+    setData((p) => {
+      const { [val]: _removed, ...restBags } = p.custom.standardBagsPerAcre;
+      return {
+        ...p,
+        custom: {
+          ...p.custom,
+          potatoVarieties: p.custom.potatoVarieties.filter(
+            (v) => v.value !== val
+          ),
+          standardBagsPerAcre: restBags,
+          buyBackCost: p.custom.buyBackCost.filter((e) => e.variety !== val),
+        },
+      };
+    });
     setDirty(true);
   };
   const addVariety = (item: LabelValue) => {
@@ -380,6 +395,13 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
       custom: {
         ...p.custom,
         potatoVarieties: [...p.custom.potatoVarieties, item],
+        standardBagsPerAcre: {
+          ...p.custom.standardBagsPerAcre,
+          [item.value]: p.custom.standardBagsPerAcre[item.value] ?? 0,
+        },
+        buyBackCost: p.custom.buyBackCost.some((e) => e.variety === item.value)
+          ? p.custom.buyBackCost
+          : [...p.custom.buyBackCost, { variety: item.value, sizeRates: {} }],
       },
     }));
     setDirty(true);
@@ -430,17 +452,21 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
   // Buy-back rates
   const updateRate = (variety: string, size: string, rate: number) => {
-    setData((p) => ({
-      ...p,
-      custom: {
-        ...p.custom,
-        buyBackCost: p.custom.buyBackCost.map((e) =>
-          e.variety === variety
-            ? { ...e, sizeRates: { ...e.sizeRates, [size]: rate } }
-            : e
-        ),
-      },
-    }));
+    setData((p) => {
+      const idx = p.custom.buyBackCost.findIndex((e) => e.variety === variety);
+      const nextBuyBack =
+        idx >= 0
+          ? p.custom.buyBackCost.map((e) =>
+              e.variety === variety
+                ? { ...e, sizeRates: { ...e.sizeRates, [size]: rate } }
+                : e
+            )
+          : [...p.custom.buyBackCost, { variety, sizeRates: { [size]: rate } }];
+      return {
+        ...p,
+        custom: { ...p.custom, buyBackCost: nextBuyBack },
+      };
+    });
     setDirty(true);
   };
 
@@ -484,45 +510,41 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
   return (
     <TooltipProvider>
-      <main className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
+      <main className="font-custom mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 font-mono text-xs text-stone-400">
+            <div className="text-muted-foreground mb-2 flex items-center gap-2 font-mono text-xs">
               <span>Settings</span>
-              <ChevronRight size={12} />
-              <span className="text-stone-600">Preferences</span>
+              <ChevronRight size={12} aria-hidden />
+              <span className="text-foreground">Preferences</span>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
+            <h1 className="text-foreground text-2xl font-semibold tracking-tight">
               Cold Storage Preferences
             </h1>
-            <p className="mt-1 text-sm text-stone-500">
+            <p className="text-muted-foreground mt-1 text-sm">
               Last updated {formatDate(data.updatedAt)} · ID:{' '}
               <span className="font-mono">{data._id.slice(-8)}</span>
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {dirty && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleReset}
-                className="gap-1.5 text-stone-500"
+                className="text-muted-foreground hover:text-foreground gap-1.5 transition-colors duration-200"
               >
                 <RotateCcw size={14} /> Reset
               </Button>
             )}
             <Button
               size="sm"
+              variant={dirty ? 'default' : 'secondary'}
               onClick={handleSave}
               disabled={!dirty}
-              className={cn(
-                'gap-1.5 transition-all',
-                dirty
-                  ? 'bg-stone-900 text-white hover:bg-stone-700'
-                  : 'bg-stone-100 text-stone-400'
-              )}
+              className="gap-1.5 transition-all duration-200"
             >
               <Save size={14} /> Save changes
             </Button>
@@ -530,28 +552,28 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="h-auto gap-1 rounded-lg bg-stone-100 p-1">
+          <TabsList className="h-auto w-full flex-wrap gap-1 p-1 sm:w-fit">
             <TabsTrigger
               value="general"
-              className="gap-1.5 rounded-md text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
             >
               <Settings2 size={13} /> General
             </TabsTrigger>
             <TabsTrigger
               value="varieties"
-              className="gap-1.5 rounded-md text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
             >
               <Wheat size={13} /> Varieties & Rates
             </TabsTrigger>
             <TabsTrigger
               value="bags"
-              className="gap-1.5 rounded-md text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
             >
               <Package size={13} /> Bag Config
             </TabsTrigger>
             <TabsTrigger
               value="graders"
-              className="gap-1.5 rounded-md text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
             >
               <Users size={13} /> Graders
             </TabsTrigger>
@@ -559,7 +581,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
           {/* ── General Tab ── */}
           <TabsContent value="general" className="mt-0 space-y-5">
-            <Card className="border-stone-200 shadow-none">
+            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
               <CardHeader className="pb-2">
                 <SectionHeader
                   icon={Package}
@@ -574,13 +596,13 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                   onAdd={addBagSize}
                   addPlaceholder="e.g. 55-60"
                 />
-                <p className="mt-3 font-mono text-xs text-stone-400">
+                <p className="text-muted-foreground mt-3 font-mono text-xs">
                   {data.bagSizes.length} sizes configured
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-stone-200 shadow-none">
+            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
               <CardHeader className="pb-2">
                 <SectionHeader
                   icon={Settings2}
@@ -596,7 +618,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                     setDirty(true);
                   }}
                 >
-                  <SelectTrigger className="w-48 bg-stone-50">
+                  <SelectTrigger className="bg-background w-48">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -612,7 +634,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
           {/* ── Varieties & Rates Tab ── */}
           <TabsContent value="varieties" className="mt-0 space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
-              <Card className="border-stone-200 shadow-none">
+              <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
                 <CardHeader className="pb-2">
                   <SectionHeader
                     icon={Wheat}
@@ -629,7 +651,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                 </CardContent>
               </Card>
 
-              <Card className="border-stone-200 shadow-none">
+              <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
                 <CardHeader className="pb-2">
                   <SectionHeader icon={Scale} title="Seed Generations" />
                 </CardHeader>
@@ -644,7 +666,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
             </div>
 
             {/* Standard Bags Per Acre */}
-            <Card className="border-stone-200 shadow-none">
+            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
               <CardHeader className="pb-2">
                 <SectionHeader
                   icon={Scale}
@@ -654,16 +676,19 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-6">
-                  {Object.entries(data.custom.standardBagsPerAcre).map(
-                    ([variety, count]) => (
-                      <div key={variety}>
+                  {data.custom.potatoVarieties.map((v) => {
+                    const count = data.custom.standardBagsPerAcre[v.value] ?? 0;
+                    const display = v.label;
+                    return (
+                      <div key={v.value}>
                         <Label
                           className={cn(
                             'mb-2 block w-fit rounded border px-2 py-0.5 text-xs font-semibold',
-                            VARIETY_COLORS[variety] ?? 'bg-stone-100'
+                            VARIETY_COLORS[display] ??
+                              'border-border bg-muted text-foreground'
                           )}
                         >
-                          {variety}
+                          {display}
                         </Label>
                         <div className="flex items-center gap-2">
                           <Input
@@ -671,19 +696,19 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                             defaultValue={count}
                             onChange={(e) =>
                               updateBagsPerAcre(
-                                variety,
-                                parseInt(e.target.value)
+                                v.value,
+                                parseInt(e.target.value, 10)
                               )
                             }
-                            className="h-9 w-24 bg-stone-50 font-mono text-sm"
+                            className="bg-background h-9 w-24 font-mono text-sm"
                           />
-                          <span className="text-xs text-stone-400">
+                          <span className="text-muted-foreground text-xs">
                             bags/acre
                           </span>
                         </div>
                       </div>
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -691,12 +716,20 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
             {/* Buy-Back Cost Tables */}
             <div>
               <div className="mb-4 flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-stone-700">
+                <h3 className="text-foreground text-sm font-semibold">
                   Buy-back Rates
                 </h3>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Info size={13} className="text-stone-400" />
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="About buy-back rates"
+                    >
+                      <Info size={13} aria-hidden />
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs">
@@ -706,21 +739,27 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                 </Tooltip>
               </div>
               <div className="space-y-4">
-                {data.custom.buyBackCost.map((entry) => (
-                  <BuyBackTable
-                    key={entry.variety}
-                    entry={entry}
-                    bagSizes={data.bagSizes}
-                    onChange={updateRate}
-                  />
-                ))}
+                {data.custom.potatoVarieties.map((v) => {
+                  const entry =
+                    data.custom.buyBackCost.find(
+                      (e) => e.variety === v.value
+                    ) ?? ({ variety: v.value, sizeRates: {} } as BuyBackEntry);
+                  return (
+                    <BuyBackTable
+                      key={v.value}
+                      entry={entry}
+                      bagSizes={data.bagSizes}
+                      onChange={updateRate}
+                    />
+                  );
+                })}
               </div>
             </div>
           </TabsContent>
 
           {/* ── Bag Config Tab ── */}
           <TabsContent value="bags" className="mt-0 space-y-5">
-            <Card className="border-stone-200 shadow-none">
+            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
               <CardHeader className="pb-2">
                 <SectionHeader
                   icon={Package}
@@ -735,7 +774,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                     { key: 'lenoBagWeight' as const, label: 'Leno Bag Weight' },
                   ].map(({ key, label }) => (
                     <div key={key}>
-                      <Label className="mb-2 block font-mono text-xs text-stone-500">
+                      <Label className="text-muted-foreground mb-2 block font-mono text-xs">
                         {label}
                       </Label>
                       <div className="flex items-center gap-2">
@@ -746,9 +785,11 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                           onChange={(e) =>
                             updateBagWeight(key, parseFloat(e.target.value))
                           }
-                          className="h-9 w-28 bg-stone-50 font-mono text-sm"
+                          className="bg-background h-9 w-28 font-mono text-sm"
                         />
-                        <span className="text-xs text-stone-400">kg</span>
+                        <span className="text-muted-foreground text-xs">
+                          kg
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -757,7 +798,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                 <Separator className="my-6" />
 
                 <div>
-                  <Label className="mb-3 block font-mono text-xs text-stone-500">
+                  <Label className="text-muted-foreground mb-3 block font-mono text-xs">
                     Enabled Bag Types
                   </Label>
                   <div className="flex gap-4">
@@ -788,7 +829,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                         />
                         <Label
                           htmlFor={type}
-                          className="cursor-pointer text-sm font-medium text-stone-700"
+                          className="text-foreground cursor-pointer text-sm font-medium"
                         >
                           {type}
                         </Label>
@@ -802,7 +843,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
 
           {/* ── Graders Tab ── */}
           <TabsContent value="graders" className="mt-0">
-            <Card className="border-stone-200 shadow-none">
+            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
               <CardHeader className="pb-2">
                 <SectionHeader
                   icon={Users}
@@ -825,12 +866,12 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                           }));
                           setDirty(true);
                         }}
-                        className="h-9 max-w-xs border-stone-200 bg-stone-50 text-sm"
+                        className="bg-background h-9 max-w-xs text-sm"
                       />
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-stone-400 opacity-0 group-hover:opacity-100 hover:text-red-500"
+                        className="text-muted-foreground hover:text-destructive h-8 w-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                         onClick={() => removeGrader(grader)}
                       >
                         <X size={14} />
@@ -840,7 +881,7 @@ function PreferencesEditor({ data: initial }: { data: PreferencesData }) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-2 gap-1.5 border-dashed text-xs text-stone-500 hover:text-stone-800"
+                    className="text-muted-foreground hover:text-foreground mt-2 gap-1.5 border-dashed text-xs transition-colors duration-200"
                     onClick={() => addGrader('New Grader')}
                   >
                     <Plus size={12} /> Add Grader
@@ -859,11 +900,11 @@ function RouteComponent() {
   const { data } = useGetPreferences();
   if (!data)
     return (
-      <main className="mx-auto max-w-5xl p-6">
+      <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 rounded bg-stone-100" />
-          <div className="h-4 w-72 rounded bg-stone-100" />
-          <div className="h-64 rounded-xl bg-stone-100" />
+          <div className="bg-muted h-8 w-48 rounded-md" />
+          <div className="bg-muted h-4 w-72 rounded-md" />
+          <div className="bg-muted h-64 rounded-2xl" />
         </div>
       </main>
     );
