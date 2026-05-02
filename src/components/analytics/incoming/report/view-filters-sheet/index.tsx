@@ -324,7 +324,7 @@ export function ViewFiltersSheet({
   const advancedFieldValueOptions = React.useMemo<
     Record<FilterField, string[]>
   >(() => {
-    const options = {
+    const options: Record<FilterField, string[]> = {
       gatePassNo: [],
       manualGatePassNumber: [],
       date: [],
@@ -347,7 +347,16 @@ export function ViewFiltersSheet({
       sizeAmount: [],
       buyBackBags: [],
       buyBackNetWeightKg: [],
-    } as Record<FilterField, string[]>;
+      invoiceNumber: [],
+      totalAcres: [],
+      averageRate: [],
+      totalAmount: [],
+      bag35to40: [],
+      bag40to45: [],
+      bag40to50: [],
+      bag45to50: [],
+      bag50to55: [],
+    };
 
     advancedFilterFields.forEach(({ id }) => {
       options[id] =
