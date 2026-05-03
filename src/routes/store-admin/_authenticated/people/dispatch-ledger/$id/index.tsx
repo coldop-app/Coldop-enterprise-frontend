@@ -74,6 +74,7 @@ function RouteComponent() {
               />
               <FarmerProfileMetricsGrid
                 aggregates={{
+                  totalBagsSeed: 0,
                   totalBagsIncoming: 1200,
                   totalBagsUngraded: 0,
                   totalBagsGraded: 1000,

@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Hash, Edit, Sprout, FileText, BookOpen } from 'lucide-react';
+import { Hash, Edit, FileText, BookOpen } from 'lucide-react';
 
 interface FarmerProfileHeaderCardProps {
   name?: string;
@@ -101,17 +101,6 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
           >
             <BookOpen className="h-3.5 w-3.5" />
             Accounting report
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {}}
-          >
-            <Sprout className="h-3.5 w-3.5" />
-            Add seed
           </Button>
         </div>
       </div>

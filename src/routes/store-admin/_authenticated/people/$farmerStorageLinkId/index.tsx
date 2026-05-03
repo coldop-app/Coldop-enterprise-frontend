@@ -1,23 +1,34 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { Search, ChevronDown } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Item, ItemFooter } from '@/components/ui/item';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Inbox, Scale, Sprout } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { FarmerProfileHeaderCard } from '@/components/people/FarmerProfileHeaderCard';
 import { FarmerProfileMetricsGrid } from '@/components/people/FarmerProfileMetricsCard';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { GatePassesTotals } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import {
   prefetchAllGatePassesOfFarmer,
   useGetAllGatePassesOfFarmer,
 } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import { buildFarmerProfileAggregates } from './-calculations';
+import ProfileGradingTab from './-ProfileGradingTab';
+import ProfileIncomingTab from './-ProfileIncomingTab';
+import ProfileSeedTab from './-ProfileSeedTab';
+
+const EMPTY_TOTALS: GatePassesTotals = {
+  incoming: 0,
+  grading: 0,
+  dispatch: 0,
+  storage: 0,
+  outgoing: 0,
+  totalUngraded: 0,
+  totalSeedBags: 0,
+};
+
+const PROFILE_TABS = ['seed', 'incoming', 'grading'] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -31,6 +42,45 @@ function RouteComponent() {
   const { farmerStorageLinkId } = Route.useParams();
   const gatePassesResponse = useGetAllGatePassesOfFarmer(farmerStorageLinkId);
   const isLoading = gatePassesResponse.incoming.isLoading;
+  const isError = gatePassesResponse.incoming.isError;
+  const queryError = gatePassesResponse.incoming.error;
+  const isRefetching = gatePassesResponse.isFetching && !isLoading;
+
+  const handleRefreshGatePasses = () => {
+    void gatePassesResponse.refetch();
+  };
+
+  const [activeTab, setActiveTab] = useState<ProfileTab>('seed');
+  const handleValueChange = (value: string) => {
+    if ((PROFILE_TABS as readonly string[]).includes(value)) {
+      setActiveTab(value as ProfileTab);
+    }
+  };
+
+  const aggregates = useMemo(() => {
+    if (isLoading || isError) {
+      return buildFarmerProfileAggregates(undefined);
+    }
+    return buildFarmerProfileAggregates({
+      incoming: gatePassesResponse.incoming.data,
+      grading: gatePassesResponse.grading.data,
+      dispatch: gatePassesResponse.nikasi.data,
+      storage: gatePassesResponse.storage.data,
+      outgoing: gatePassesResponse.outgoing.data,
+      farmerSeeds: gatePassesResponse.farmerSeeds.data,
+      totals: gatePassesResponse.totals ?? EMPTY_TOTALS,
+    });
+  }, [
+    gatePassesResponse.farmerSeeds.data,
+    gatePassesResponse.grading.data,
+    gatePassesResponse.incoming.data,
+    gatePassesResponse.nikasi.data,
+    gatePassesResponse.outgoing.data,
+    gatePassesResponse.storage.data,
+    gatePassesResponse.totals,
+    isError,
+    isLoading,
+  ]);
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -55,84 +105,63 @@ function RouteComponent() {
             ) : (
               <div className="space-y-6">
                 <FarmerProfileHeaderCard />
-                <FarmerProfileMetricsGrid
-                  aggregates={{
-                    totalBagsIncoming: 1200,
-                    totalBagsUngraded: 0,
-                    totalBagsGraded: 1000,
-                    totalBagsStored: 600,
-                    totalBagsNikasi: 400,
-                    totalBagsOutgoing: 0,
-                  }}
-                />
+                <FarmerProfileMetricsGrid aggregates={aggregates} />
               </div>
             )}
           </CardContent>
         </Card>
 
-        <div className="font-custom space-y-4">
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            <span> chart1</span>
-            <span> chart2</span>
-          </div>
-          <Card className="overflow-hidden rounded-xl shadow-sm">
-            <CardContent className="p-4 sm:p-5">
-              {isLoading ? (
-                <div className="space-y-2 rounded-lg border p-3">
-                  <Skeleton className="h-4 w-5/6" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-4/6" />
-                  <Skeleton className="h-4 w-3/6" />
-                </div>
-              ) : (
-                <pre className="font-custom bg-muted/20 max-h-112 overflow-auto rounded-lg p-3 text-xs sm:text-sm">
-                  {JSON.stringify(gatePassesResponse, null, 2)}
-                </pre>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <Item
-          variant="outline"
-          size="sm"
-          className="flex-col items-stretch gap-4 rounded-xl"
+        <Tabs
+          value={activeTab}
+          onValueChange={handleValueChange}
+          className="font-custom w-full space-y-4"
         >
-          {/* Search Input */}
-          <div className="relative w-full">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-            <Input
-              placeholder="Search by name, mobile, account number, or address..."
-              className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
+          <TabsList className="w-full">
+            <TabsTrigger className="flex-1" value="seed">
+              <Sprout aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Seed</span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="incoming">
+              <Inbox aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Incoming</span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="grading">
+              <Scale aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Grading</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="seed" className="mt-0">
+            <ProfileSeedTab
+              entries={gatePassesResponse.farmerSeeds.data}
+              isLoading={isLoading}
+              isError={isError}
+              error={queryError}
+              onRefresh={handleRefreshGatePasses}
+              isRefetching={isRefetching}
             />
-          </div>
-
-          {/* Footer */}
-          <ItemFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Sort Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="font-custom focus-visible:ring-primary w-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto"
-                >
-                  Sort by: Name
-                  <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>Name</DropdownMenuItem>
-                <DropdownMenuItem>Account Number</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Action Button */}
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end sm:gap-2">
-              {/* <AddFarmerModal /> */}
-              <Button variant="default">Add farmer (placeholder)</Button>
-            </div>
-          </ItemFooter>
-        </Item>
+          </TabsContent>
+          <TabsContent value="incoming" className="mt-0">
+            <ProfileIncomingTab
+              gatePasses={gatePassesResponse.incoming.data}
+              isLoading={isLoading}
+              isError={isError}
+              error={queryError}
+              onRefresh={handleRefreshGatePasses}
+              isRefetching={isRefetching}
+            />
+          </TabsContent>
+          <TabsContent value="grading" className="mt-0">
+            <ProfileGradingTab
+              gradingPasses={gatePassesResponse.grading.data}
+              isLoading={isLoading}
+              isError={isError}
+              error={queryError}
+              onRefresh={handleRefreshGatePasses}
+              isRefetching={isRefetching}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );

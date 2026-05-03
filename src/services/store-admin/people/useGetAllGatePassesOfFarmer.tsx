@@ -1,25 +1,15 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
+import type { GradingGatePass } from '@/types/grading-gate-pass';
 
-export interface GradingGatePass {
-  _id: string;
-  farmerStorageLinkId: string;
-  gatePassNo: number;
-  date: string;
-  orderDetails?: Array<{ initialQuantity?: number }>;
-  incomingGatePassIds?: Array<{
-    _id: string;
-    gatePassNo: number;
-    bagsReceived: number;
-    date: string;
-    variety: string;
-    truckNumber: string;
-    weightSlip: string;
-  }>;
-}
+export type { GradingGatePass };
 
 export interface StorageGatePassWithLink {
   _id: string;
@@ -72,6 +62,8 @@ export interface GatePassesTotals {
   storage: number;
   outgoing: number;
   totalUngraded: number;
+  /** Total seed bags (from API aggregate) */
+  totalSeedBags: number;
 }
 
 /** Payload of the get-all-gate-passes-of-farmer API (data key) */
@@ -130,6 +122,8 @@ export interface AllGatePassesOfFarmer {
     error: unknown;
   };
   totals: GatePassesTotals | null;
+  refetch: UseQueryResult<GetAllGatePassesOfFarmerData, Error>['refetch'];
+  isFetching: boolean;
 }
 
 export const allGatePassesOfFarmerKeys = {
@@ -152,9 +146,20 @@ function getFetchErrorMessage(data?: GetError): string {
   );
 }
 
+const EMPTY_GATE_PASSES_TOTALS: GatePassesTotals = {
+  incoming: 0,
+  grading: 0,
+  dispatch: 0,
+  storage: 0,
+  outgoing: 0,
+  totalUngraded: 0,
+  totalSeedBags: 0,
+};
+
 function normalizeGatePassesData(
   data: GetAllGatePassesOfFarmerData
 ): GetAllGatePassesOfFarmerData {
+  const totals = data.totals;
   return {
     incoming: Array.isArray(data.incoming) ? data.incoming : [],
     grading: Array.isArray(data.grading) ? data.grading : [],
@@ -162,7 +167,11 @@ function normalizeGatePassesData(
     storage: Array.isArray(data.storage) ? data.storage : [],
     outgoing: Array.isArray(data.outgoing) ? data.outgoing : [],
     farmerSeeds: Array.isArray(data.farmerSeeds) ? data.farmerSeeds : [],
-    totals: data.totals,
+    totals: {
+      ...EMPTY_GATE_PASSES_TOTALS,
+      ...totals,
+      totalSeedBags: totals?.totalSeedBags ?? 0,
+    },
   };
 }
 
@@ -224,6 +233,8 @@ export function useGetAllGatePassesOfFarmer(
   const data = query.data;
 
   return {
+    refetch: query.refetch,
+    isFetching: query.isFetching,
     incoming: {
       data: data?.incoming ?? [],
       isLoading: query.isLoading,

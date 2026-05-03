@@ -1,7 +1,14 @@
 import { memo } from 'react';
-import { ArrowUpFromLine, Clock, Layers } from 'lucide-react';
+import {
+  ArrowUpFromLine,
+  Clock,
+  Layers,
+  Sprout,
+  type LucideIcon,
+} from 'lucide-react';
 
 export interface FarmerProfileAggregates {
+  totalBagsSeed: number;
   totalBagsIncoming: number;
   totalBagsUngraded: number;
   totalBagsGraded: number;
@@ -17,9 +24,15 @@ export interface FarmerProfileMetricsGridProps {
 const METRICS: Array<{
   key: keyof FarmerProfileAggregates;
   label: string;
-  Icon: typeof ArrowUpFromLine;
+  Icon: LucideIcon;
   color: 'info' | 'warning' | 'default' | 'success';
 }> = [
+  {
+    key: 'totalBagsSeed',
+    label: 'Seed',
+    Icon: Sprout,
+    color: 'success',
+  },
   {
     key: 'totalBagsIncoming',
     label: 'Incoming',
@@ -46,7 +59,7 @@ export const FarmerProfileMetricsGrid = memo(function FarmerProfileMetricsGrid({
   aggregates,
 }: FarmerProfileMetricsGridProps) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {METRICS.map(({ key, label, Icon, color }) => (
         <div
           key={key}
