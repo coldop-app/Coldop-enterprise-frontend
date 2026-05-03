@@ -73,9 +73,19 @@ function sizeKeyForDetail(rawSize: string): string {
   return resolveCanonicalSizeLabel(rawSize) ?? normalizeSizeToken(rawSize);
 }
 
+/** Exported for downstream reports (summary) — same resolution as grading table buckets. */
+export function gradingOrderDetailSizeKey(rawSize: string): string {
+  return sizeKeyForDetail(rawSize);
+}
+
 function normalizeBagTypeKey(raw: string): string {
   const t = raw.trim().toUpperCase();
   return t !== '' ? t : 'UNKNOWN';
+}
+
+/** Same normalization as grading buckets; exported for summary grouping. */
+export function gradingOrderDetailBagTypeKey(raw: string): string {
+  return normalizeBagTypeKey(raw);
 }
 
 function compareBagTypeKeys(a: string, b: string): number {

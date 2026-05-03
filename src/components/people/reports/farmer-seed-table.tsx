@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -8,23 +8,17 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import type { FarmerSeedRow } from '@/components/people/reports/helpers/seed-prepare';
 import {
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
 
-export type AccountingFarmerSeedRow = {
-  id: string;
-  dateOfSeedDispatch: string;
-  seedSizeGiven: string;
-  totalBagsGiven: number;
-  bagsGivenPerAcre: number;
-  seedRatePerBag: number;
-  totalSeedAmount: number;
-};
+const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 
 function formatIndianNumber(value: number, precision = 0): string {
   return value.toLocaleString('en-IN', {
@@ -33,68 +27,23 @@ function formatIndianNumber(value: number, precision = 0): string {
   });
 }
 
-function formatInr(value: number): string {
-  return value.toLocaleString('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-const MOCK_ROWS: AccountingFarmerSeedRow[] = [
-  {
-    id: '1',
-    dateOfSeedDispatch: '08/02/2026',
-    seedSizeGiven: '30-40',
-    totalBagsGiven: 48,
-    bagsGivenPerAcre: 2.4,
-    seedRatePerBag: 1250,
-    totalSeedAmount: 48 * 1250,
-  },
-  {
-    id: '2',
-    dateOfSeedDispatch: '22/02/2026',
-    seedSizeGiven: '35-40',
-    totalBagsGiven: 64,
-    bagsGivenPerAcre: 3.2,
-    seedRatePerBag: 1325.5,
-    totalSeedAmount: Math.round(64 * 1325.5 * 100) / 100,
-  },
-  {
-    id: '3',
-    dateOfSeedDispatch: '14/03/2026',
-    seedSizeGiven: 'Below 30',
-    totalBagsGiven: 36,
-    bagsGivenPerAcre: 1.8,
-    seedRatePerBag: 1180,
-    totalSeedAmount: 36 * 1180,
-  },
-];
-
-const numericColumnIds = new Set([
-  'totalBagsGiven',
-  'bagsGivenPerAcre',
-  'seedRatePerBag',
-  'totalSeedAmount',
-]);
-
-const columnHelper = createColumnHelper<AccountingFarmerSeedRow>();
+const columnHelper = createColumnHelper<FarmerSeedRow>();
 
 const columns = [
-  columnHelper.accessor('dateOfSeedDispatch', {
-    header: 'Date of Seed Dispatch',
+  columnHelper.accessor('date', {
+    header: 'Date',
     sortingFn: 'alphanumeric',
     cell: (info) => (
       <span className="font-custom font-medium">{info.getValue()}</span>
     ),
   }),
-  columnHelper.accessor('seedSizeGiven', {
-    header: 'Seed Size Given',
+  columnHelper.accessor('seedSize', {
+    header: 'Seed Size',
     sortingFn: 'text',
   }),
   columnHelper.accessor('totalBagsGiven', {
-    header: () => <div className="w-full text-right">Total Bags Given</div>,
+    id: 'totalBagsGiven',
+    header: () => <div className="w-full text-right">Total Bags given</div>,
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
@@ -102,8 +51,8 @@ const columns = [
       </div>
     ),
   }),
-  columnHelper.accessor('bagsGivenPerAcre', {
-    header: () => <div className="w-full text-right">Bags Given Per Acre</div>,
+  columnHelper.accessor('bagsPerAcre', {
+    header: () => <div className="w-full text-right">Bags/Acre</div>,
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
@@ -112,32 +61,57 @@ const columns = [
     ),
   }),
   columnHelper.accessor('seedRatePerBag', {
-    header: () => <div className="w-full text-right">Seed Rate Per Bag</div>,
+    header: () => <div className="w-full text-right">Seed Rate/Bag (Rs)</div>,
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
-        {formatInr(Number(info.getValue()))}
+        {formatIndianNumber(Number(info.getValue()), 2)}
       </div>
     ),
   }),
   columnHelper.accessor('totalSeedAmount', {
-    header: () => <div className="w-full text-right">Total Seed Amount</div>,
+    header: () => (
+      <div className="w-full text-right">Total Seed Amount (Rs)</div>
+    ),
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right font-medium tabular-nums">
-        {formatInr(Number(info.getValue()))}
+        {formatIndianNumber(Number(info.getValue()), 2)}
       </div>
     ),
   }),
 ];
 
-const FarmerSeedTable = () => {
+const numericColumnIds = new Set([
+  'totalBagsGiven',
+  'bagsPerAcre',
+  'seedRatePerBag',
+  'totalSeedAmount',
+]);
+
+export interface FarmerSeedTableProps {
+  rows?: FarmerSeedRow[];
+}
+
+const FarmerSeedTable = ({ rows = [] }: FarmerSeedTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const data = useMemo(() => MOCK_ROWS, []);
+  const totalSeedAmount = useMemo(() => {
+    return rows.reduce(
+      (sum, row) => sum + (Number(row.totalSeedAmount) || 0),
+      0
+    );
+  }, [rows]);
+
+  const totalBagsGiven = useMemo(() => {
+    return rows.reduce(
+      (sum, row) => sum + (Number(row.totalBagsGiven) || 0),
+      0
+    );
+  }, [rows]);
 
   const table = useReactTable({
-    data,
+    data: rows,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -196,28 +170,81 @@ const FarmerSeedTable = () => {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row, index) => (
-              <TableRow
-                key={row.id}
-                className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
-                  index % 2 === 0 ? 'bg-background' : 'bg-muted/25'
-                }`}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+            {table.getRowModel().rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="font-custom text-muted-foreground px-3 py-8 text-center"
+                >
+                  No farmer seed rows to show.
+                </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              table.getRowModel().rows.map((row, index) => (
+                <TableRow
+                  key={row.id}
+                  className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
+                    index % 2 === 0 ? 'bg-background' : 'bg-muted/25'
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
           </TableBody>
+          {rows.length > 0 ? (
+            <TableFooter
+              className="bg-secondary border-border/70 text-secondary-foreground sticky bottom-0 border-t backdrop-blur-sm [&>tr]:border-b-0"
+              style={{
+                paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                zIndex: 9,
+              }}
+            >
+              <TableRow className="hover:bg-transparent">
+                {table.getVisibleLeafColumns().map((column, index) => {
+                  const isNumeric = numericColumnIds.has(column.id);
+                  let content = '';
+                  if (index === 0) {
+                    content = 'Total';
+                  } else if (column.id === 'totalBagsGiven') {
+                    content =
+                      totalBagsGiven === 0
+                        ? ''
+                        : formatIndianNumber(totalBagsGiven, 0);
+                  } else if (column.id === 'totalSeedAmount') {
+                    content = formatIndianNumber(totalSeedAmount, 2);
+                  }
+
+                  return (
+                    <TableCell
+                      key={`footer-${column.id}`}
+                      className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 align-middle text-sm font-semibold whitespace-nowrap last:border-r-0 ${
+                        isNumeric && index !== 0
+                          ? 'text-right tabular-nums'
+                          : ''
+                      }`}
+                    >
+                      {content}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableFooter>
+          ) : null}
         </table>
       </div>
     </div>
   );
 };
 
-export default FarmerSeedTable;
+export default memo(FarmerSeedTable);
