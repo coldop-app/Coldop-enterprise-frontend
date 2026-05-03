@@ -26,6 +26,12 @@ declare module '@tanstack/react-router' {
 
   interface HistoryState {
     dispatchLedger?: DispatchLedger;
+    /** Set when opening a farmer profile from the people list (FarmerCard). */
+    farmerFromList?: {
+      name: string;
+      accountNumber: number;
+      address: string;
+    };
   }
 }
 

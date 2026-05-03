@@ -106,12 +106,24 @@ export const FarmerCard: React.FC<FarmerCardProps> = ({
                   : { farmerStorageLinkId: farmer._id }
               }
               state={
-                navigationType === 'dispatch-ledger' && farmer.dispatchLedger
-                  ? (prev) => ({
+                navigationType === 'dispatch-ledger' && !farmer.dispatchLedger
+                  ? undefined
+                  : (prev) => ({
                       ...prev,
-                      dispatchLedger: farmer.dispatchLedger,
+                      ...(navigationType === 'farmer'
+                        ? {
+                            farmerFromList: {
+                              name: farmer.farmerId.name,
+                              accountNumber: farmer.accountNumber,
+                              address: farmer.farmerId.address,
+                            },
+                          }
+                        : {}),
+                      ...(navigationType === 'dispatch-ledger' &&
+                      farmer.dispatchLedger
+                        ? { dispatchLedger: farmer.dispatchLedger }
+                        : {}),
                     })
-                  : undefined
               }
               preload="intent"
               preloadDelay={100}

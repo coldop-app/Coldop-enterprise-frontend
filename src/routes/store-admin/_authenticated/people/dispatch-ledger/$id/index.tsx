@@ -13,8 +13,7 @@ import { Item, ItemFooter } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { FarmerProfileHeaderCard } from '@/components/people/FarmerProfileHeaderCard';
-import { FarmerProfileMetricsGrid } from '@/components/people/FarmerProfileMetricsCard';
+import { FarmerProfileOverview } from '@/components/people/FarmerProfileOverview';
 import type { DispatchLedger } from '@/types/dispatch-ledger';
 
 export const Route = createFileRoute(
@@ -65,25 +64,21 @@ function RouteComponent() {
 
         <Card className="overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-4 sm:p-5">
-            <div className="space-y-6">
-              <FarmerProfileHeaderCard
-                name={dispatchLedgerFromState?.name ?? 'Dispatch Ledger'}
-                accountNumber={dispatchLedgerFromState?._id ?? id}
-                onEdit={() => setIsEditModalOpen(true)}
-                editAriaLabel="Edit dispatch ledger"
-              />
-              <FarmerProfileMetricsGrid
-                aggregates={{
-                  totalBagsSeed: 0,
-                  totalBagsIncoming: 1200,
-                  totalBagsUngraded: 0,
-                  totalBagsGraded: 1000,
-                  totalBagsStored: 600,
-                  totalBagsNikasi: 400,
-                  totalBagsOutgoing: 0,
-                }}
-              />
-            </div>
+            <FarmerProfileOverview
+              name={dispatchLedgerFromState?.name ?? 'Dispatch Ledger'}
+              accountNumber={dispatchLedgerFromState?._id ?? id}
+              onEdit={() => setIsEditModalOpen(true)}
+              editAriaLabel="Edit dispatch ledger"
+              aggregates={{
+                totalBagsSeed: 0,
+                totalBagsIncoming: 1200,
+                totalBagsUngraded: 0,
+                totalBagsGraded: 1000,
+                totalBagsStored: 600,
+                totalBagsNikasi: 400,
+                totalBagsOutgoing: 0,
+              }}
+            />
           </CardContent>
         </Card>
 

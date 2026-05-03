@@ -2,8 +2,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Inbox, Scale, Sprout } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { FarmerProfileHeaderCard } from '@/components/people/FarmerProfileHeaderCard';
-import { FarmerProfileMetricsGrid } from '@/components/people/FarmerProfileMetricsCard';
+import { FarmerProfileOverview } from '@/components/people/FarmerProfileOverview';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -103,12 +102,10 @@ function RouteComponent() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                <FarmerProfileHeaderCard
-                  farmerStorageLinkId={farmerStorageLinkId}
-                />
-                <FarmerProfileMetricsGrid aggregates={aggregates} />
-              </div>
+              <FarmerProfileOverview
+                farmerStorageLinkId={farmerStorageLinkId}
+                aggregates={aggregates}
+              />
             )}
           </CardContent>
         </Card>

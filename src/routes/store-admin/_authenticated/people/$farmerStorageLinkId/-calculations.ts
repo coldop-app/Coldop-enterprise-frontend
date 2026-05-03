@@ -1,4 +1,4 @@
-import type { FarmerProfileAggregates } from '@/components/people/FarmerProfileMetricsCard';
+import type { FarmerProfileAggregates } from '@/components/people/FarmerProfileOverview';
 import type { GetAllGatePassesOfFarmerData } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
 
