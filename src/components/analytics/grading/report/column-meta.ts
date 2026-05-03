@@ -22,6 +22,17 @@ export function getGradingBagSizeColumnId(sizeLabel: CanonBagSize): string {
   return `bagSize__${sizeLabel.replace(/[^a-zA-Z0-9]+/g, '_')}`;
 }
 
+/** Resolve `bagSize__*` TanStack column id → canonical size label (O(1)). */
+export const GRADING_BAG_SIZE_COLUMN_ID_TO_CANON: ReadonlyMap<
+  string,
+  CanonBagSize
+> = new Map(
+  GRADING_BAG_SIZE_COLUMN_ORDER.map((label) => [
+    getGradingBagSizeColumnId(label),
+    label,
+  ])
+);
+
 export const defaultGradingColumnOrder = [
   'incomingGatePassIds',
   'incomingSystemGatePassNo',

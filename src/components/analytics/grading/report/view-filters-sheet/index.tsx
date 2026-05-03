@@ -54,7 +54,6 @@ import {
 import { defaultGradingColumnOrder } from '../column-meta';
 import type { GradingFilterableColumnId, ViewFiltersSheetProps } from './types';
 import {
-  advancedFilterFields,
   filterableColumns,
   getEmptyValueFilters,
   getInitialExpandedFilters,
@@ -63,6 +62,7 @@ import {
   gradingColumnLabels,
 } from './constants';
 import {
+  buildGradingSheetUniqueValuesByColumn,
   mutateGradingFilterNodeById,
   parseGroupingColumnId,
   parseGroupingSlotIndex,
@@ -76,6 +76,11 @@ import {
   SortableColumnRow,
   SortableGroupingRow,
 } from './primitives';
+
+/** Stable empty options when the sheet is closed — skip expensive faceting work. */
+const EMPTY_GRADING_FILTER_OPTIONS = Object.fromEntries(
+  defaultGradingColumnOrder.map((id) => [id, [] as string[]])
+) as Record<GradingFilterableColumnId, string[]>;
 
 type AdvancedTabContentProps = {
   draftLogicFilter: GradingFilterGroupNode;
@@ -172,12 +177,6 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
   );
 });
 
-const emptyAdvancedOptions = (): Record<GradingFilterField, string[]> =>
-  Object.fromEntries(defaultGradingColumnOrder.map((id) => [id, []])) as Record<
-    GradingFilterField,
-    string[]
-  >;
-
 export function ViewFiltersSheet({
   open,
   onOpenChange,
@@ -238,53 +237,21 @@ export function ViewFiltersSheet({
     useSensor(TouchSensor),
     useSensor(KeyboardSensor)
   );
-  const coreRowCount = table.getCoreRowModel().rows.length;
-
-  const getUniqueColumnValues = React.useCallback(
-    (columnId: string): string[] => {
-      void coreRowCount;
-      const facetedValues = table.getColumn(columnId)?.getFacetedUniqueValues();
-      let values = facetedValues ? Array.from(facetedValues.keys()) : [];
-
-      if (values.length === 0) {
-        const uniqueValues = new Set<string>();
-        table.getCoreRowModel().rows.forEach((row) => {
-          const rawValue = row.getValue(columnId);
-          if (rawValue === undefined || rawValue === null) return;
-          const normalized = String(rawValue).trim();
-          if (normalized.length > 0) {
-            uniqueValues.add(normalized);
-          }
-        });
-        values = Array.from(uniqueValues);
-      }
-
-      return values
-        .map((value) => String(value))
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    },
-    [table, coreRowCount]
-  );
 
   const availableFilterOptions = React.useMemo<
     Record<GradingFilterableColumnId, string[]>
   >(() => {
+    if (!open) return EMPTY_GRADING_FILTER_OPTIONS;
+    const byId = buildGradingSheetUniqueValuesByColumn(
+      table,
+      defaultGradingColumnOrder
+    );
     const options = {} as Record<GradingFilterableColumnId, string[]>;
-    filterableColumns.forEach(({ id }) => {
-      options[id] = getUniqueColumnValues(id);
-    });
+    for (const id of defaultGradingColumnOrder) {
+      options[id as GradingFilterableColumnId] = byId.get(id) ?? [];
+    }
     return options;
-  }, [getUniqueColumnValues]);
-
-  const advancedFieldValueOptions = React.useMemo<
-    Record<GradingFilterField, string[]>
-  >(() => {
-    const options = emptyAdvancedOptions();
-    advancedFilterFields.forEach(({ id }) => {
-      options[id] = getUniqueColumnValues(id);
-    });
-    return options;
-  }, [getUniqueColumnValues]);
+  }, [open, table]);
 
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
@@ -380,13 +347,19 @@ export function ViewFiltersSheet({
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
       onOpenChange(nextOpen);
-      if (!nextOpen) return;
+    },
+    [onOpenChange]
+  );
+
+  const wasOpenRef = React.useRef(false);
+  React.useLayoutEffect(() => {
+    if (open && !wasOpenRef.current) {
       syncDraftFromTable();
       setValueFilterTouched(getInitialValueFilterTouched());
       setActiveTab('filters');
-    },
-    [onOpenChange, syncDraftFromTable]
-  );
+    }
+    wasOpenRef.current = open;
+  }, [open, syncDraftFromTable]);
 
   const handleResetAll = React.useCallback(() => {
     table.setColumnVisibility(defaultColumnVisibility);
@@ -1047,7 +1020,7 @@ export function ViewFiltersSheet({
 
               <AdvancedTabContent
                 draftLogicFilter={draftLogicFilter}
-                advancedFieldValueOptions={advancedFieldValueOptions}
+                advancedFieldValueOptions={availableFilterOptions}
                 onResetLogicBuilder={handleResetLogicBuilder}
                 onSetGroupOperator={setGroupOperator}
                 onAddConditionToGroup={addConditionToGroup}

@@ -60,18 +60,37 @@ import type {
   GradingGatePassOrderDetail,
 } from '@/types/grading-gate-pass';
 import {
+  GRADING_BAG_SIZE_COLUMN_ID_TO_CANON,
   GRADING_BAG_SIZE_COLUMN_ORDER,
   defaultGradingColumnOrder,
   getGradingBagSizeColumnId,
   type CanonBagSize,
 } from './column-meta';
-import type { GradingReportTableRow } from './columns';
+import type {
+  GradingBagSizeAggregateCell,
+  GradingReportTableRow,
+} from './columns';
 import {
   evaluateGradingFilterGroup,
   isGradingAdvancedFilterGroup,
   type GradingFilterGroupNode,
 } from './view-filters-sheet/advanced-filters';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
+
+/** Stable row-model factories — TanStack Table compares these by reference. */
+const gradingReportGetCoreRowModel = getCoreRowModel<GradingReportTableRow>();
+const gradingReportGetFilteredRowModel =
+  getFilteredRowModel<GradingReportTableRow>();
+const gradingReportGetFacetedRowModel =
+  getFacetedRowModel<GradingReportTableRow>();
+const gradingReportGetFacetedUniqueValues =
+  getFacetedUniqueValues<GradingReportTableRow>();
+const gradingReportGetSortedRowModel =
+  getSortedRowModel<GradingReportTableRow>();
+const gradingReportGetGroupedRowModel =
+  getGroupedRowModel<GradingReportTableRow>();
+const gradingReportGetExpandedRowModel =
+  getExpandedRowModel<GradingReportTableRow>();
 
 function gradingBagSizeColumnHeaderText(sizeLabel: CanonBagSize): string {
   if (sizeLabel === 'Cut') return sizeLabel;
@@ -177,18 +196,13 @@ interface BagSizeBreakdownLine {
   initialQuantity: number;
 }
 
-interface AggregatedBagSizeCell {
-  totalQuantity: number;
-  lines: BagSizeBreakdownLine[];
-}
-
 function bagSizeBreakdownLineKey(bagType: string, weightPerBagKg: number) {
   return `${normalizeBagSizeKey(bagType)}|${weightPerBagKg}`;
 }
 
 function aggregateOrderDetailsByCanonicalSize(
   orderDetails: GradingGatePassOrderDetail[] | undefined
-): Map<CanonBagSize, AggregatedBagSizeCell> {
+): Map<CanonBagSize, GradingBagSizeAggregateCell> {
   const outer = new Map<CanonBagSize, Map<string, BagSizeBreakdownLine>>();
   if (!orderDetails?.length) return new Map();
 
@@ -218,7 +232,7 @@ function aggregateOrderDetailsByCanonicalSize(
     }
   }
 
-  const result = new Map<CanonBagSize, AggregatedBagSizeCell>();
+  const result = new Map<CanonBagSize, GradingBagSizeAggregateCell>();
   for (const [canon, inner] of outer) {
     const lines = [...inner.values()].sort((a, b) =>
       formatBagTypeLabel(a.bagType).localeCompare(formatBagTypeLabel(b.bagType))
@@ -238,10 +252,10 @@ function sumInitialBags(
   return orderDetails.reduce((s, d) => s + (Number(d.initialQuantity) || 0), 0);
 }
 
-function GradedBagSizeCell({
+const GradedBagSizeCell = React.memo(function GradedBagSizeCell({
   cell,
 }: {
-  cell: AggregatedBagSizeCell | undefined;
+  cell: GradingBagSizeAggregateCell | undefined;
 }) {
   if (!cell || cell.totalQuantity <= 0 || cell.lines.length === 0) {
     return null;
@@ -284,7 +298,7 @@ function GradedBagSizeCell({
       </div>
     </div>
   );
-}
+});
 
 function toDisplayDate(value?: string): string {
   if (!value) return '-';
@@ -435,6 +449,9 @@ function expandGradingReportRows(
 ): GradingReportTableRow[] {
   const out: GradingReportTableRow[] = [];
   gradingPasses.forEach((gp, parentRowIndex) => {
+    const bagSizeAggregate = aggregateOrderDetailsByCanonicalSize(
+      gp.orderDetails
+    );
     const refs = gp.incomingGatePassIds ?? [];
     if (refs.length >= 2) {
       refs.forEach((ref, incomingSubIndex) => {
@@ -446,6 +463,7 @@ function expandGradingReportRows(
           isFirstOfMergedBlock: incomingSubIndex === 0,
           incomingSubIndex,
           parentRowIndex,
+          bagSizeAggregate,
         });
       });
       return;
@@ -462,6 +480,7 @@ function expandGradingReportRows(
       isFirstOfMergedBlock: true,
       incomingSubIndex: 0,
       parentRowIndex,
+      bagSizeAggregate,
     });
   });
   return out;
@@ -474,13 +493,9 @@ function getGradingColumnFilterValue(
   const gp = row.gradingGatePass;
   const ref = row.incomingRef;
   if (columnId.startsWith('bagSize__')) {
-    const bySize = aggregateOrderDetailsByCanonicalSize(gp.orderDetails);
-    for (const size of GRADING_BAG_SIZE_COLUMN_ORDER) {
-      if (getGradingBagSizeColumnId(size) === columnId) {
-        return bySize.get(size)?.totalQuantity ?? 0;
-      }
-    }
-    return 0;
+    const canon = GRADING_BAG_SIZE_COLUMN_ID_TO_CANON.get(columnId);
+    if (!canon) return 0;
+    return row.bagSizeAggregate.get(canon)?.totalQuantity ?? 0;
   }
   switch (columnId) {
     case 'incomingGatePassIds':
@@ -623,26 +638,27 @@ const columnHelper = createColumnHelper<GradingReportTableRow>();
 
 const bagSizeColumns = GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => {
   const id = getGradingBagSizeColumnId(sizeLabel);
-  return columnHelper.accessor((r) => getGradingColumnFilterValue(r, id), {
-    id,
-    meta: { gradingReportRowSpan: 'merge' },
-    header: () => (
-      <div className="font-custom w-full text-right">
-        {gradingBagSizeColumnHeaderText(sizeLabel)}
-      </div>
-    ),
-    minSize: 90,
-    maxSize: 180,
-    enableSorting: false,
-    filterFn: multiValueFilterFn,
-    cell: ({ row }) => {
-      const bySize = aggregateOrderDetailsByCanonicalSize(
-        row.original.gradingGatePass.orderDetails
-      );
-      const cellData = bySize.get(sizeLabel);
-      return <GradedBagSizeCell cell={cellData} />;
-    },
-  });
+  return columnHelper.accessor(
+    (r) => r.bagSizeAggregate.get(sizeLabel)?.totalQuantity ?? 0,
+    {
+      id,
+      meta: { gradingReportRowSpan: 'merge' },
+      header: () => (
+        <div className="font-custom w-full text-right">
+          {gradingBagSizeColumnHeaderText(sizeLabel)}
+        </div>
+      ),
+      minSize: 90,
+      maxSize: 180,
+      enableSorting: false,
+      filterFn: multiValueFilterFn,
+      cell: ({ row }) => (
+        <GradedBagSizeCell
+          cell={row.original.bagSizeAggregate.get(sizeLabel)}
+        />
+      ),
+    }
+  );
 });
 
 const columns = [
@@ -1165,13 +1181,13 @@ const GradingReportTable = () => {
     columnResizeMode,
     columnResizeDirection,
     globalFilterFn: globalGradingFilterFn,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getSortedRowModel: getSortedRowModel(),
-    getGroupedRowModel: getGroupedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
+    getCoreRowModel: gradingReportGetCoreRowModel,
+    getFilteredRowModel: gradingReportGetFilteredRowModel,
+    getFacetedRowModel: gradingReportGetFacetedRowModel,
+    getFacetedUniqueValues: gradingReportGetFacetedUniqueValues,
+    getSortedRowModel: gradingReportGetSortedRowModel,
+    getGroupedRowModel: gradingReportGetGroupedRowModel,
+    getExpandedRowModel: gradingReportGetExpandedRowModel,
     getRowId: (row) => `${row.gradingGatePass._id}_${row.incomingSubIndex}`,
   });
 
