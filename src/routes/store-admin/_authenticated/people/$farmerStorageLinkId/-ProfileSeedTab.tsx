@@ -19,7 +19,7 @@ import {
   normalizeClientSearchQuery,
   sortByIsoDate,
   type ProfileSortOrder,
-} from './farmer-report/helpers/-calculations';
+} from './helpers/-calculations';
 import {
   ProfileGatePassesSummaryBar,
   ProfileSortOrderDropdown,

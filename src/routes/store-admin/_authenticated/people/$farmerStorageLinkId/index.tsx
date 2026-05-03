@@ -11,7 +11,7 @@ import {
   prefetchAllGatePassesOfFarmer,
   useGetAllGatePassesOfFarmer,
 } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
-import { buildFarmerProfileAggregates } from './farmer-report/helpers/-calculations';
+import { buildFarmerProfileAggregates } from './helpers/-calculations';
 import ProfileGradingTab from './-ProfileGradingTab';
 import ProfileIncomingTab from './-ProfileIncomingTab';
 import ProfileSeedTab from './-ProfileSeedTab';
@@ -103,6 +103,9 @@ function RouteComponent() {
               </div>
             ) : (
               <FarmerProfileOverview
+                name={gatePassesResponse.farmerStorageLink?.name}
+                accountNumber={gatePassesResponse.farmerStorageLink?.accountNumber?.toString()}
+                address={gatePassesResponse.farmerStorageLink?.address}
                 farmerStorageLinkId={farmerStorageLinkId}
                 aggregates={aggregates}
               />

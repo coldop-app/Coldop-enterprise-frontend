@@ -20,7 +20,7 @@ import {
   sortByIsoDate,
   type ProfileIncomingStatusFilter,
   type ProfileSortOrder,
-} from './farmer-report/helpers/-calculations';
+} from './helpers/-calculations';
 import {
   ProfileGatePassesSummaryBar,
   ProfileIncomingStatusDropdown,

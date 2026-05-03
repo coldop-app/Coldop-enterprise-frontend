@@ -1,8 +1,14 @@
-import { memo } from 'react';
-import FarmerSeedTable from '@/components/people/reports/farmer-seed-table';
-import GradingTable from '@/components/people/reports/grading-table';
+import { memo, useMemo } from 'react';
+// import FarmerSeedTable from '@/components/people/reports/farmer-seed-table';
+// import GradingTable from '@/components/people/reports/grading-table';
 import IncomingTable from '@/components/people/reports/incoming-table';
-import SummaryTable from '@/components/people/reports/summary-table';
+// import SummaryTable from '@/components/people/reports/summary-table';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import {
   Card,
   CardContent,
@@ -10,8 +16,34 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import { prepareDataForIncomingTable } from '../helpers/incoming-prepare';
 
-const AccountingReportTable = () => {
+export interface AccountingReportTableProps {
+  farmerStorageLinkId: string;
+}
+
+function incomingErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Something went wrong';
+}
+
+const AccountingReportTable = ({
+  farmerStorageLinkId,
+}: AccountingReportTableProps) => {
+  const gatePassesResponse = useGetAllGatePassesOfFarmer(farmerStorageLinkId);
+  const {
+    data: incomingList,
+    isLoading,
+    isError,
+    error,
+  } = gatePassesResponse.incoming;
+
+  const incomingTableData = useMemo(
+    () => prepareDataForIncomingTable(incomingList),
+    [incomingList]
+  );
+
   return (
     <div className="space-y-4">
       <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
@@ -25,13 +57,28 @@ const AccountingReportTable = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0 pt-0 pb-0">
-          <div className="p-3 sm:p-4 lg:p-6">
-            <IncomingTable />
+          <div key={farmerStorageLinkId} className="p-3 sm:p-4 lg:p-6">
+            {isLoading ? (
+              <Skeleton className="font-custom text-muted-foreground h-[280px] w-full rounded-2xl" />
+            ) : isError ? (
+              <Empty className="border-border/50 rounded-xl border py-12">
+                <EmptyHeader>
+                  <EmptyTitle className="font-custom">
+                    Could not load incoming gate passes
+                  </EmptyTitle>
+                  <EmptyDescription className="font-custom">
+                    {incomingErrorMessage(error)}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <IncomingTable rows={incomingTableData} />
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
+      {/* <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
         <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-5 py-4 sm:px-6 sm:py-5">
           <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
             Grading
@@ -46,9 +93,9 @@ const AccountingReportTable = () => {
             <GradingTable />
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
-      <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
+      {/* <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
         <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-5 py-4 sm:px-6 sm:py-5">
           <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
             Summary
@@ -64,9 +111,9 @@ const AccountingReportTable = () => {
             <SummaryTable />
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
-      <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
+      {/* <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
         <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-5 py-4 sm:px-6 sm:py-5">
           <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
             Farmer seed
@@ -81,7 +128,7 @@ const AccountingReportTable = () => {
             <FarmerSeedTable />
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 };

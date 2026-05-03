@@ -17,6 +17,7 @@ export interface FarmerStorageLinkInPassesPayload {
   accountNumber: number;
   name: string;
   mobileNumber: string;
+  address: string;
 }
 
 export interface StorageGatePassWithLink {

@@ -20,7 +20,7 @@ import {
   PROFILE_SORT_ORDER_OPTIONS,
   type ProfileIncomingStatusFilter,
   type ProfileSortOrder,
-} from './farmer-report/helpers/-calculations';
+} from './helpers/-calculations';
 
 export interface ProfileGatePassesSummaryBarProps {
   count: number;
