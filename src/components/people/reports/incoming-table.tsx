@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -11,10 +11,14 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+/** Reserve space for native scrollbar over sticky footer (matches analytics incoming report). */
+const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 
 export type AccountingIncomingRow = {
   id: string;
@@ -36,6 +40,21 @@ function formatIndianNumber(value: number, precision = 0): string {
   return value.toLocaleString('en-IN', {
     minimumFractionDigits: precision,
     maximumFractionDigits: precision,
+  });
+}
+
+/** Same 2dp rounding as `roundMax2`; whole numbers omit decimals, else up to 2 fractional digits. */
+function formatIndianWeightKg(value: number): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return formatIndianNumber(0, 0);
+  }
+  const scaled = Math.round((n + Number.EPSILON) * 100);
+  const rounded = scaled / 100;
+  const hasFraction = scaled % 100 !== 0;
+  return rounded.toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
   });
 }
 
@@ -96,6 +115,26 @@ const numericColumnIds = new Set([
   'actualKg',
 ]);
 
+/** Weight columns summed in footer (analytics-style totals row). */
+const TOTALS_WEIGHT_COLUMN_IDS = new Set([
+  'grossKg',
+  'tareKg',
+  'netKg',
+  'bardanaWeight',
+  'actualKg',
+]);
+
+function sumRoundedKg(
+  rows: AccountingIncomingRow[],
+  key: keyof AccountingIncomingRow
+) {
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number(row[key]) || 0;
+  }
+  return Math.round((sum + Number.EPSILON) * 100) / 100;
+}
+
 const columnHelper = createColumnHelper<AccountingIncomingRow>();
 
 const columns = [
@@ -141,7 +180,7 @@ const columns = [
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
-        {formatIndianNumber(Number(info.getValue()), 2)}
+        {formatIndianWeightKg(Number(info.getValue()))}
       </div>
     ),
   }),
@@ -150,7 +189,7 @@ const columns = [
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
-        {formatIndianNumber(Number(info.getValue()), 2)}
+        {formatIndianWeightKg(Number(info.getValue()))}
       </div>
     ),
   }),
@@ -159,16 +198,16 @@ const columns = [
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right font-medium tabular-nums">
-        {formatIndianNumber(Number(info.getValue()), 2)}
+        {formatIndianWeightKg(Number(info.getValue()))}
       </div>
     ),
   }),
   columnHelper.accessor('bardanaWeight', {
-    header: () => <div className="w-full text-right">Bardana Weight</div>,
+    header: () => <div className="w-full text-right">Bardana Weight (Kg)</div>,
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
-        {formatIndianNumber(Number(info.getValue()), 2)}
+        {formatIndianWeightKg(Number(info.getValue()))}
       </div>
     ),
   }),
@@ -177,7 +216,7 @@ const columns = [
     sortingFn: 'basic',
     cell: (info) => (
       <div className="w-full text-right font-medium tabular-nums">
-        {formatIndianNumber(Number(info.getValue()), 2)}
+        {formatIndianWeightKg(Number(info.getValue()))}
       </div>
     ),
   }),
@@ -192,6 +231,16 @@ const IncomingTable = ({ rows }: IncomingTableProps = {}) => {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const data = useMemo(() => rows ?? MOCK_ROWS, [rows]);
+
+  const totalsByColumn = useMemo(() => {
+    return {
+      grossKg: sumRoundedKg(data, 'grossKg'),
+      tareKg: sumRoundedKg(data, 'tareKg'),
+      netKg: sumRoundedKg(data, 'netKg'),
+      bardanaWeight: sumRoundedKg(data, 'bardanaWeight'),
+      actualKg: sumRoundedKg(data, 'actualKg'),
+    };
+  }, [data]);
 
   const table = useReactTable({
     data,
@@ -271,6 +320,63 @@ const IncomingTable = ({ rows }: IncomingTableProps = {}) => {
               </TableRow>
             ))}
           </TableBody>
+          {data.length > 0 ? (
+            <TableFooter
+              className="bg-secondary border-border/70 text-secondary-foreground sticky bottom-0 border-t backdrop-blur-sm [&>tr]:border-b-0"
+              style={{
+                paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                zIndex: 9,
+              }}
+            >
+              <TableRow className="hover:bg-transparent">
+                {table.getVisibleLeafColumns().map((column, columnIndex) => {
+                  const columnId = column.id;
+                  const isNumeric = numericColumnIds.has(columnId);
+                  const totalsText =
+                    columnId === 'grossKg'
+                      ? formatIndianWeightKg(totalsByColumn.grossKg)
+                      : columnId === 'tareKg'
+                        ? formatIndianWeightKg(totalsByColumn.tareKg)
+                        : columnId === 'netKg'
+                          ? formatIndianWeightKg(totalsByColumn.netKg)
+                          : columnId === 'bardanaWeight'
+                            ? formatIndianWeightKg(totalsByColumn.bardanaWeight)
+                            : columnId === 'actualKg'
+                              ? formatIndianWeightKg(totalsByColumn.actualKg)
+                              : '';
+
+                  let content: ReactNode;
+                  if (columnIndex === 0) {
+                    content = 'Total';
+                  } else if (
+                    totalsText &&
+                    TOTALS_WEIGHT_COLUMN_IDS.has(columnId)
+                  ) {
+                    content = (
+                      <div className="w-full text-right tabular-nums">
+                        {totalsText}
+                      </div>
+                    );
+                  } else {
+                    content = '';
+                  }
+
+                  return (
+                    <TableCell
+                      key={`footer-${column.id}`}
+                      className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 align-middle text-sm font-semibold whitespace-nowrap last:border-r-0 ${
+                        isNumeric && columnIndex !== 0
+                          ? 'text-right tabular-nums'
+                          : ''
+                      }`}
+                    >
+                      {content}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableFooter>
+          ) : null}
         </table>
       </div>
     </div>

@@ -16,7 +16,10 @@ function formatIncomingDate(isoDate: string): string {
   });
 }
 
-/** Maps farmer incoming gate passes to accounting incoming table rows; net/bardana/actual match daybook grading rules. */
+/**
+ * Maps farmer incoming gate passes to accounting incoming table rows; net/bardana/actual match daybook grading rules.
+ * Kg fields are stored with `roundMax2`; the accounting incoming table shows decimals only when needed (whole numbers omit `.00`).
+ */
 export function prepareDataForIncomingTable(
   incomingGatePasses:
     | IncomingGatePassByFarmerStorageLinkItem[]
