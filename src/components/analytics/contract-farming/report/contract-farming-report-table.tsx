@@ -162,6 +162,64 @@ function getGradeBagCount(
   return row.gradeData[gradeHeader]?.bags ?? null;
 }
 
+function getGradeNetWeightKg(
+  row: FlattenedRow,
+  gradeHeader: string
+): number | null {
+  if (gradeHeader === BELOW_40_GROUP_GRADE) {
+    const total = Object.entries(row.gradeData).reduce(
+      (sum, [grade, value]) => {
+        if (!BELOW_40_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
+        return sum + (value?.netWeightKg ?? 0);
+      },
+      0
+    );
+    return total;
+  }
+
+  if (gradeHeader === ABOVE_50_GROUP_GRADE) {
+    const total = Object.entries(row.gradeData).reduce(
+      (sum, [grade, value]) => {
+        if (!ABOVE_50_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
+        return sum + (value?.netWeightKg ?? 0);
+      },
+      0
+    );
+    return total;
+  }
+
+  return row.gradeData[gradeHeader]?.netWeightKg ?? null;
+}
+
+function getGradeWeightPercent(
+  row: FlattenedRow,
+  gradeHeader: string
+): number | null {
+  const totalWeight = Object.values(row.gradeData).reduce(
+    (sum, value) => sum + (value?.netWeightKg ?? 0),
+    0
+  );
+  if (totalWeight <= 0) return null;
+  const gradeWeight = getGradeNetWeightKg(row, gradeHeader) ?? 0;
+  return (gradeWeight / totalWeight) * 100;
+}
+
+function getTotalGradeBags(row: FlattenedRow): number | null {
+  const total = Object.values(row.gradeData).reduce(
+    (sum, value) => sum + (value?.bags ?? 0),
+    0
+  );
+  return total > 0 ? total : null;
+}
+
+function getTotalGradeNetWeightKg(row: FlattenedRow): number | null {
+  const total = Object.values(row.gradeData).reduce(
+    (sum, value) => sum + (value?.netWeightKg ?? 0),
+    0
+  );
+  return total > 0 ? total : null;
+}
+
 function getGroupedGradeOrderIndex(grade: string): number | undefined {
   const orderGrade =
     grade === BELOW_40_GROUP_GRADE
@@ -175,6 +233,9 @@ function getGroupedGradeOrderIndex(grade: string): number | undefined {
 const columnHelper = createColumnHelper<FlattenedRow>();
 
 const VARIETY_LEVEL_COLUMN_PREFIX = FILTER_VARIETY_LEVEL_PREFIX;
+const VARIETY_LEVEL_PERCENT_COLUMN_PREFIX = 'grade_weight_pct_';
+const TOTAL_GRADED_BAGS_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__totalAfterGrading`;
+const TOTAL_GRADED_NET_WEIGHT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__netWeightAfterGrading`;
 
 type GlobalFilterValue = string | FilterGroupNode;
 const VARIETY_LEVEL_COLUMN_IDS = new Set(['variety', 'bbBags', 'bbNetWeight']);
@@ -186,7 +247,8 @@ function isNumericSortColumnId(columnId: string) {
     columnId === 'acres' ||
     columnId === 'amount' ||
     BUY_BACK_COLUMN_IDS.has(columnId) ||
-    columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)
+    columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
+    columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
   );
 }
 
@@ -445,18 +507,52 @@ function buildColumns(
   ];
 
   const gradingColumns = gradeHeaders.length
-    ? gradeHeaders.map((grade) =>
-        columnHelper.accessor((row) => getGradeBagCount(row, grade), {
-          id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
-          header: formatContractFarmingGradeColumnLabel(grade),
+    ? [
+        ...gradeHeaders.map((grade) =>
+          columnHelper.accessor((row) => getGradeBagCount(row, grade), {
+            id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
+            header: formatContractFarmingGradeColumnLabel(grade),
+            sortingFn: 'basic',
+            size: 130,
+            minSize: 110,
+            maxSize: 260,
+            enableGrouping: false,
+            filterFn: multiValueFilterFn,
+          })
+        ),
+        columnHelper.accessor((row) => getTotalGradeBags(row), {
+          id: TOTAL_GRADED_BAGS_COLUMN_ID,
+          header: 'Total Bags After Grading',
           sortingFn: 'basic',
-          size: 130,
-          minSize: 110,
-          maxSize: 260,
+          size: 170,
+          minSize: 130,
+          maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
-        })
-      )
+        }),
+        columnHelper.accessor((row) => getTotalGradeNetWeightKg(row), {
+          id: TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
+          header: 'Net Weight After Grading',
+          sortingFn: 'basic',
+          size: 170,
+          minSize: 130,
+          maxSize: 280,
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
+        }),
+        ...gradeHeaders.map((grade) =>
+          columnHelper.accessor((row) => getGradeWeightPercent(row, grade), {
+            id: `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`,
+            header: `${formatContractFarmingGradeColumnLabel(grade)} %`,
+            sortingFn: 'basic',
+            size: 130,
+            minSize: 110,
+            maxSize: 260,
+            enableGrouping: false,
+            filterFn: multiValueFilterFn,
+          })
+        ),
+      ]
     : [
         columnHelper.display({
           id: 'noGrades',
@@ -555,6 +651,11 @@ const ContractFarmingReportTable = () => {
       'bbBags',
       'bbNetWeight',
       ...gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
+      TOTAL_GRADED_BAGS_COLUMN_ID,
+      TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
+      ...gradeHeaders.map(
+        (grade) => `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`
+      ),
     ],
     [gradeHeaders]
   );
@@ -648,6 +749,7 @@ const ContractFarmingReportTable = () => {
       visibleColumnIds.filter(
         (columnId) =>
           !columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) &&
+          !columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX) &&
           columnId !== 'noGrades'
       ),
     [visibleColumnIds]
@@ -678,8 +780,10 @@ const ContractFarmingReportTable = () => {
   );
   const visibleGradeColumnIds = React.useMemo(
     () =>
-      visibleColumnIds.filter((columnId) =>
-        columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)
+      visibleColumnIds.filter(
+        (columnId) =>
+          columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
+          columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
       ),
     [visibleColumnIds]
   );
@@ -742,8 +846,18 @@ const ContractFarmingReportTable = () => {
       const header = table.getColumn(columnId)?.columnDef.header;
       if (typeof header === 'string') return header;
       if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
+        if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
+          return 'Total Bags After Grading';
+        }
+        if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
+          return 'Net Weight After Grading';
+        }
         const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
         return formatContractFarmingGradeColumnLabel(grade);
+      }
+      if (columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) {
+        const grade = columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '');
+        return `${formatContractFarmingGradeColumnLabel(grade)} %`;
       }
       return columnId;
     },
@@ -916,6 +1030,7 @@ const ContractFarmingReportTable = () => {
     const isVarietyLevelColumn =
       VARIETY_LEVEL_COLUMN_IDS.has(columnId) ||
       columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
+      columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX) ||
       columnId === 'noGrades';
 
     if (isVarietyLevelColumn && !row.isFirstVarietyRow) {
@@ -947,6 +1062,30 @@ const ContractFarmingReportTable = () => {
     }
 
     if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
+      if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
+        const totalBags = getTotalGradeBags(row);
+        return (
+          <td
+            rowSpan={row.varietyRowSpan}
+            className={`${bodyCellClass} text-right align-top tabular-nums`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            {totalBags !== null ? formatNumber(totalBags, 0) : '-'}
+          </td>
+        );
+      }
+      if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
+        const totalNetWeightKg = getTotalGradeNetWeightKg(row);
+        return (
+          <td
+            rowSpan={row.varietyRowSpan}
+            className={`${bodyCellClass} text-right align-top tabular-nums`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            {totalNetWeightKg !== null ? formatNumber(totalNetWeightKg) : '-'}
+          </td>
+        );
+      }
       const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
       const bags = getGradeBagCount(row, grade);
       return (
@@ -956,6 +1095,20 @@ const ContractFarmingReportTable = () => {
           style={{ width: columnWidth, minWidth: columnWidth }}
         >
           {bags !== null ? formatNumber(bags, 0) : '-'}
+        </td>
+      );
+    }
+
+    if (columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) {
+      const grade = columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '');
+      const weightPercent = getGradeWeightPercent(row, grade);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${bodyCellClass} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {weightPercent !== null ? `${formatNumber(weightPercent, 2)}%` : '-'}
         </td>
       );
     }
@@ -1134,10 +1287,51 @@ const ContractFarmingReportTable = () => {
                   {visibleGradeColumnIds.map((columnId) => {
                     const column = visibleColumnById.get(columnId);
                     if (!column) return null;
-                    const grade = columnId.replace(
-                      VARIETY_LEVEL_COLUMN_PREFIX,
-                      ''
+                    if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(
+                            columnId,
+                            'Total Bags After Grading'
+                          )}
+                          {renderLeafResizeHandle(columnId)}
+                        </th>
+                      );
+                    }
+                    if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(
+                            columnId,
+                            'Net Weight After Grading'
+                          )}
+                          {renderLeafResizeHandle(columnId)}
+                        </th>
+                      );
+                    }
+                    const isPercentColumn = columnId.startsWith(
+                      VARIETY_LEVEL_PERCENT_COLUMN_PREFIX
                     );
+                    const grade = isPercentColumn
+                      ? columnId.replace(
+                          VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
+                          ''
+                        )
+                      : columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
                     const headerContent = isContractFarmingCutGrade(grade) ? (
                       <span className="block leading-tight">Cut</span>
                     ) : (
@@ -1145,7 +1339,7 @@ const ContractFarmingReportTable = () => {
                         {grade}
                         <br />
                         <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
-                          (MM)
+                          {isPercentColumn ? '(%)' : '(MM)'}
                         </span>
                       </span>
                     );
