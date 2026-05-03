@@ -18,12 +18,12 @@ export interface GradingGatePassFarmerStorageLink {
   _id: string;
   farmerId: Farmer;
   coldStorageId: string;
-  linkedById: GradingGatePassLinkedBy;
+  linkedById?: GradingGatePassLinkedBy;
   accountNumber: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
   notes?: string;
 }
 

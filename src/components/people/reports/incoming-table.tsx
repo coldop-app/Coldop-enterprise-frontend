@@ -183,10 +183,15 @@ const columns = [
   }),
 ];
 
-const IncomingTable = () => {
+export interface IncomingTableProps {
+  /** When omitted, demo rows are shown (e.g. accounting report placeholder). */
+  rows?: AccountingIncomingRow[];
+}
+
+const IncomingTable = ({ rows }: IncomingTableProps = {}) => {
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const data = useMemo(() => MOCK_ROWS, []);
+  const data = useMemo(() => rows ?? MOCK_ROWS, [rows]);
 
   const table = useReactTable({
     data,

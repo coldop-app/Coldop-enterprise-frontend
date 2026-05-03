@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Link, useLocation } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import {
   ArrowUpFromLine,
   BookOpen,
@@ -78,10 +78,13 @@ const getInitials = (name: string) =>
 const reportLinkClassName =
   'font-custom focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-md';
 
+const PLACEHOLDER_NAME = 'Ramesh Kumar';
+const PLACEHOLDER_ACCOUNT = 'AC-10284';
+const PLACEHOLDER_ADDRESS = '42, Sample Village Road, Punjab';
+
 export interface FarmerProfileOverviewProps {
   name?: string;
   accountNumber?: string;
-  /** Shown when set, or from router `state.farmerFromList` when navigating from the people list. */
   address?: string;
   /** When set, Farmer report / Accounting report navigate to the corresponding routes. */
   farmerStorageLinkId?: string;
@@ -99,18 +102,9 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   editAriaLabel = 'Edit farmer',
   aggregates,
 }: FarmerProfileOverviewProps) {
-  const farmerFromList = useLocation({
-    select: (loc) => loc.state?.farmerFromList,
-  });
-
-  const name = nameProp ?? farmerFromList?.name ?? 'Ramesh Kumar';
-  const accountNumber =
-    accountNumberProp ??
-    (farmerFromList?.accountNumber != null
-      ? String(farmerFromList.accountNumber)
-      : undefined) ??
-    'AC-10284';
-  const address = addressProp ?? farmerFromList?.address;
+  const name = nameProp ?? PLACEHOLDER_NAME;
+  const accountNumber = accountNumberProp ?? PLACEHOLDER_ACCOUNT;
+  const address = addressProp ?? PLACEHOLDER_ADDRESS;
 
   return (
     <div className="space-y-6">
@@ -135,15 +129,13 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
                   <Hash className="h-3 w-3 opacity-60" />
                   {accountNumber}
                 </Badge>
-                {address ? (
-                  <p className="font-custom text-muted-foreground flex items-start gap-1.5 text-sm leading-snug">
-                    <MapPin
-                      className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60"
-                      aria-hidden
-                    />
-                    <span className="min-w-0 wrap-break-word">{address}</span>
-                  </p>
-                ) : null}
+                <p className="font-custom text-muted-foreground flex items-start gap-1.5 text-sm leading-snug">
+                  <MapPin
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 wrap-break-word">{address}</span>
+                </p>
               </div>
             </div>
 

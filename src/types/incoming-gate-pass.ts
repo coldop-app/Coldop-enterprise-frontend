@@ -18,16 +18,17 @@ export interface LinkedBy {
   name: string;
 }
 
+/** Farmer–cold-storage link; list APIs often omit bookkeeping fields. */
 export interface FarmerStorageLink {
   _id: string;
   farmerId: Farmer;
   coldStorageId: string;
-  linkedById: LinkedBy;
+  linkedById?: LinkedBy;
   accountNumber: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
 }
 
 export interface WeightSlip {

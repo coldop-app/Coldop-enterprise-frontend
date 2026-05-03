@@ -11,6 +11,14 @@ import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 export type { GradingGatePass };
 
+/** Farmer storage link summary included in GET .../passes `data` */
+export interface FarmerStorageLinkInPassesPayload {
+  _id: string;
+  accountNumber: number;
+  name: string;
+  mobileNumber: string;
+}
+
 export interface StorageGatePassWithLink {
   _id: string;
   farmerStorageLinkId: string;
@@ -68,6 +76,7 @@ export interface GatePassesTotals {
 
 /** Payload of the get-all-gate-passes-of-farmer API (data key) */
 export interface GetAllGatePassesOfFarmerData {
+  farmerStorageLink: FarmerStorageLinkInPassesPayload | null;
   incoming: IncomingGatePassByFarmerStorageLinkItem[];
   grading: GradingGatePass[];
   dispatch: NikasiGatePass[];
@@ -121,6 +130,7 @@ export interface AllGatePassesOfFarmer {
     isError: boolean;
     error: unknown;
   };
+  farmerStorageLink: FarmerStorageLinkInPassesPayload | null;
   totals: GatePassesTotals | null;
   refetch: UseQueryResult<GetAllGatePassesOfFarmerData, Error>['refetch'];
   isFetching: boolean;
@@ -161,6 +171,12 @@ function normalizeGatePassesData(
 ): GetAllGatePassesOfFarmerData {
   const totals = data.totals;
   return {
+    farmerStorageLink:
+      data.farmerStorageLink != null &&
+      typeof data.farmerStorageLink === 'object' &&
+      '_id' in data.farmerStorageLink
+        ? data.farmerStorageLink
+        : null,
     incoming: Array.isArray(data.incoming) ? data.incoming : [],
     grading: Array.isArray(data.grading) ? data.grading : [],
     dispatch: Array.isArray(data.dispatch) ? data.dispatch : [],
@@ -271,6 +287,7 @@ export function useGetAllGatePassesOfFarmer(
       isError: query.isError,
       error: query.error,
     },
+    farmerStorageLink: data?.farmerStorageLink ?? null,
     totals: data?.totals ?? null,
   };
 }

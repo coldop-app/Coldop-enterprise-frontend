@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createFileRoute, useLocation } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import { EditDispatchLedgerModal } from '@/components/forms/edit-dispatch-ledger-modal';
@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FarmerProfileOverview } from '@/components/people/FarmerProfileOverview';
-import type { DispatchLedger } from '@/types/dispatch-ledger';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/dispatch-ledger/$id/'
@@ -25,11 +24,6 @@ export const Route = createFileRoute(
 function RouteComponent() {
   const { id } = Route.useParams();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const location = useLocation();
-  const state = location.state as
-    | { dispatchLedger?: DispatchLedger }
-    | undefined;
-  const dispatchLedgerFromState = state?.dispatchLedger;
 
   // Static mock data for UI visualization purposes
   const staticGatePassesResponse = {
@@ -54,9 +48,9 @@ function RouteComponent() {
         <EditDispatchLedgerModal
           dispatchLedgerId={id}
           initialValues={{
-            name: dispatchLedgerFromState?.name ?? '',
-            address: dispatchLedgerFromState?.address ?? '',
-            mobileNumber: dispatchLedgerFromState?.mobileNumber ?? '',
+            name: '',
+            address: '',
+            mobileNumber: '',
           }}
           isOpen={isEditModalOpen}
           onOpenChange={setIsEditModalOpen}
@@ -65,8 +59,8 @@ function RouteComponent() {
         <Card className="overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-4 sm:p-5">
             <FarmerProfileOverview
-              name={dispatchLedgerFromState?.name ?? 'Dispatch Ledger'}
-              accountNumber={dispatchLedgerFromState?._id ?? id}
+              name="Dispatch Ledger"
+              accountNumber={id}
               onEdit={() => setIsEditModalOpen(true)}
               editAriaLabel="Edit dispatch ledger"
               aggregates={{
@@ -98,10 +92,10 @@ function RouteComponent() {
             <CardContent className="p-4 sm:p-5">
               <pre className="font-custom bg-muted/20 max-h-112 overflow-auto rounded-lg p-3 text-xs sm:text-sm">
                 {JSON.stringify(
-                  dispatchLedgerFromState ?? {
+                  {
                     _id: id,
                     message:
-                      'Dispatch ledger details not found in router state',
+                      'Dispatch ledger placeholder — fetch by id when wiring API',
                   },
                   null,
                   2

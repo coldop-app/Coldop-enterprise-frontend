@@ -83,7 +83,7 @@ function sumSeedBagsFromEntries(
 }
 
 export function buildFarmerProfileAggregates(
-  data: GetAllGatePassesOfFarmerData | undefined
+  data: Omit<GetAllGatePassesOfFarmerData, 'farmerStorageLink'> | undefined
 ): FarmerProfileAggregates {
   const incoming = data?.incoming ?? [];
   const grading = data?.grading ?? [];

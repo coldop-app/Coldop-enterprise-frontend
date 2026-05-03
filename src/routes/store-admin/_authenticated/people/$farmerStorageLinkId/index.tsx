@@ -11,7 +11,7 @@ import {
   prefetchAllGatePassesOfFarmer,
   useGetAllGatePassesOfFarmer,
 } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
-import { buildFarmerProfileAggregates } from './-calculations';
+import { buildFarmerProfileAggregates } from './farmer-report/helpers/-calculations';
 import ProfileGradingTab from './-ProfileGradingTab';
 import ProfileIncomingTab from './-ProfileIncomingTab';
 import ProfileSeedTab from './-ProfileSeedTab';
