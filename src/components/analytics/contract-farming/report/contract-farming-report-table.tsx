@@ -85,11 +85,15 @@ const BAG_SIZE_DISPLAY_ORDER = [
   '30–35',
   '30–40',
   '35–40',
+  'Below 40',
   '40–45',
+  '40-50',
   '45–50',
   '50–55',
   'Above 50',
   'Above 55',
+  'Below 40 (mm)',
+  'Above 50 (mm)',
   'Cut',
 ] as const;
 
@@ -103,6 +107,70 @@ const BAG_SIZE_ORDER_INDEX = new Map<string, number>(
     index,
   ])
 );
+
+const BELOW_40_GRADE_VALUES = new Set([
+  normalizeRangeLabel('Below 25'),
+  normalizeRangeLabel('25–30'),
+  normalizeRangeLabel('Below 30'),
+  normalizeRangeLabel('30–35'),
+  normalizeRangeLabel('30–40'),
+  normalizeRangeLabel('35–40'),
+]);
+
+const ABOVE_50_GRADE_VALUES = new Set([
+  normalizeRangeLabel('50–55'),
+  normalizeRangeLabel('Above 50'),
+  normalizeRangeLabel('Above 55'),
+]);
+
+const BELOW_40_GROUP_GRADE = 'Below 40';
+const ABOVE_50_GROUP_GRADE = 'Above 50';
+
+function toGroupedGrade(grade: string): string {
+  const normalized = normalizeRangeLabel(grade);
+  if (BELOW_40_GRADE_VALUES.has(normalized)) return BELOW_40_GROUP_GRADE;
+  if (ABOVE_50_GRADE_VALUES.has(normalized)) return ABOVE_50_GROUP_GRADE;
+  return grade;
+}
+
+function getGradeBagCount(
+  row: FlattenedRow,
+  gradeHeader: string
+): number | null {
+  if (gradeHeader === BELOW_40_GROUP_GRADE) {
+    const total = Object.entries(row.gradeData).reduce(
+      (sum, [grade, value]) => {
+        if (!BELOW_40_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
+        return sum + (value?.bags ?? 0);
+      },
+      0
+    );
+    return total;
+  }
+
+  if (gradeHeader === ABOVE_50_GROUP_GRADE) {
+    const total = Object.entries(row.gradeData).reduce(
+      (sum, [grade, value]) => {
+        if (!ABOVE_50_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
+        return sum + (value?.bags ?? 0);
+      },
+      0
+    );
+    return total;
+  }
+
+  return row.gradeData[gradeHeader]?.bags ?? null;
+}
+
+function getGroupedGradeOrderIndex(grade: string): number | undefined {
+  const orderGrade =
+    grade === BELOW_40_GROUP_GRADE
+      ? 'Below 40'
+      : grade === ABOVE_50_GROUP_GRADE
+        ? 'Above 50'
+        : grade;
+  return BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(orderGrade));
+}
 
 const columnHelper = createColumnHelper<FlattenedRow>();
 
@@ -378,7 +446,7 @@ function buildColumns(
 
   const gradingColumns = gradeHeaders.length
     ? gradeHeaders.map((grade) =>
-        columnHelper.accessor((row) => row.gradeData[grade]?.bags ?? null, {
+        columnHelper.accessor((row) => getGradeBagCount(row, grade), {
           id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
           header: formatContractFarmingGradeColumnLabel(grade),
           sortingFn: 'basic',
@@ -436,9 +504,25 @@ const ContractFarmingReportTable = () => {
   const report = React.useMemo(() => normalizeReportData(data), [data]);
   const gradeHeaders = React.useMemo(
     () =>
-      [...report.meta.allGrades].sort((a, b) => {
-        const aOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(a));
-        const bOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(b));
+      [
+        ...new Set(
+          [...report.meta.allGrades]
+            .sort((a, b) => {
+              const aOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(a));
+              const bOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(b));
+
+              if (aOrder !== undefined && bOrder !== undefined) {
+                return aOrder - bOrder;
+              }
+              if (aOrder !== undefined) return -1;
+              if (bOrder !== undefined) return 1;
+              return a.localeCompare(b);
+            })
+            .map((grade) => toGroupedGrade(grade))
+        ),
+      ].sort((a, b) => {
+        const aOrder = getGroupedGradeOrderIndex(a);
+        const bOrder = getGroupedGradeOrderIndex(b);
 
         if (aOrder !== undefined && bOrder !== undefined) {
           return aOrder - bOrder;
@@ -864,14 +948,14 @@ const ContractFarmingReportTable = () => {
 
     if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
       const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
-      const gradeEntry = row.gradeData[grade];
+      const bags = getGradeBagCount(row, grade);
       return (
         <td
           rowSpan={row.varietyRowSpan}
           className={`${bodyCellClass} text-right align-top tabular-nums`}
           style={{ width: columnWidth, minWidth: columnWidth }}
         >
-          {gradeEntry ? formatNumber(gradeEntry.bags, 0) : '-'}
+          {bags !== null ? formatNumber(bags, 0) : '-'}
         </td>
       );
     }
