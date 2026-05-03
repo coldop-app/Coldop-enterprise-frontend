@@ -35,6 +35,8 @@ import { Route as StoreAdminAuthenticatedGradingGatePassEditIndexRouteImport } f
 import { Route as StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/history/index'
 import { Route as StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/edit/index'
 import { Route as StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRouteImport } from './routes/store-admin/_authenticated/people/dispatch-ledger/$id/index'
+import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/index'
+import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/ungraded/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/storage/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/incoming/index'
@@ -194,6 +196,22 @@ const StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute =
     path: '/people/dispatch-ledger/$id/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute =
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRouteImport.update(
+    {
+      id: '/people/$farmerStorageLinkId/farmer-report/',
+      path: '/people/$farmerStorageLinkId/farmer-report/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
+const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute =
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRouteImport.update(
+    {
+      id: '/people/$farmerStorageLinkId/accounting-report/',
+      path: '/people/$farmerStorageLinkId/accounting-report/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
 const StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport.update({
     id: '/analytics/reports/ungraded/',
@@ -265,6 +283,8 @@ export interface FileRoutesByFullPath {
   '/store-admin/analytics/reports/incoming/': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   '/store-admin/analytics/reports/storage/': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   '/store-admin/analytics/reports/ungraded/': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/accounting-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/farmer-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   '/store-admin/people/dispatch-ledger/$id/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -299,6 +319,8 @@ export interface FileRoutesByTo {
   '/store-admin/analytics/reports/incoming': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   '/store-admin/analytics/reports/storage': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   '/store-admin/analytics/reports/ungraded': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/accounting-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/farmer-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   '/store-admin/people/dispatch-ledger/$id': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
 }
 export interface FileRoutesById {
@@ -334,6 +356,8 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/analytics/reports/incoming/': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   '/store-admin/_authenticated/analytics/reports/storage/': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   '/store-admin/_authenticated/analytics/reports/ungraded/': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   '/store-admin/_authenticated/people/dispatch-ledger/$id/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -370,6 +394,8 @@ export interface FileRouteTypes {
     | '/store-admin/analytics/reports/incoming/'
     | '/store-admin/analytics/reports/storage/'
     | '/store-admin/analytics/reports/ungraded/'
+    | '/store-admin/people/$farmerStorageLinkId/accounting-report/'
+    | '/store-admin/people/$farmerStorageLinkId/farmer-report/'
     | '/store-admin/people/dispatch-ledger/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -404,6 +430,8 @@ export interface FileRouteTypes {
     | '/store-admin/analytics/reports/incoming'
     | '/store-admin/analytics/reports/storage'
     | '/store-admin/analytics/reports/ungraded'
+    | '/store-admin/people/$farmerStorageLinkId/accounting-report'
+    | '/store-admin/people/$farmerStorageLinkId/farmer-report'
     | '/store-admin/people/dispatch-ledger/$id'
   id:
     | '__root__'
@@ -438,6 +466,8 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/analytics/reports/incoming/'
     | '/store-admin/_authenticated/analytics/reports/storage/'
     | '/store-admin/_authenticated/analytics/reports/ungraded/'
+    | '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/'
+    | '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/'
     | '/store-admin/_authenticated/people/dispatch-ledger/$id/'
   fileRoutesById: FileRoutesById
 }
@@ -632,6 +662,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/': {
+      id: '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/'
+      path: '/people/$farmerStorageLinkId/farmer-report'
+      fullPath: '/store-admin/people/$farmerStorageLinkId/farmer-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/': {
+      id: '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/'
+      path: '/people/$farmerStorageLinkId/accounting-report'
+      fullPath: '/store-admin/people/$farmerStorageLinkId/accounting-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/analytics/reports/ungraded/': {
       id: '/store-admin/_authenticated/analytics/reports/ungraded/'
       path: '/analytics/reports/ungraded'
@@ -705,6 +749,8 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
 }
 
@@ -764,6 +810,10 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute,
     StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute:
       StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute,
+    StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute:
+      StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute,
+    StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute:
+      StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute,
     StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute:
       StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute,
   }

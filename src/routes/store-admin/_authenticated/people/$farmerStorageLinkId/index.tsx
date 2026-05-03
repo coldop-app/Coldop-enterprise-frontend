@@ -104,7 +104,9 @@ function RouteComponent() {
               </div>
             ) : (
               <div className="space-y-6">
-                <FarmerProfileHeaderCard />
+                <FarmerProfileHeaderCard
+                  farmerStorageLinkId={farmerStorageLinkId}
+                />
                 <FarmerProfileMetricsGrid aggregates={aggregates} />
               </div>
             )}

@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,8 @@ import { Hash, Edit, FileText, BookOpen } from 'lucide-react';
 interface FarmerProfileHeaderCardProps {
   name?: string;
   accountNumber?: string;
+  /** When set, Farmer report / Accounting report navigate to the corresponding routes. */
+  farmerStorageLinkId?: string;
   onEdit?: () => void;
   editAriaLabel?: string;
 }
@@ -26,9 +29,13 @@ const getInitials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 
+const reportLinkClassName =
+  'font-custom focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-md';
+
 export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
   name = 'Ramesh Kumar',
   accountNumber = 'AC-10284',
+  farmerStorageLinkId,
   onEdit,
   editAriaLabel = 'Edit farmer',
 }: FarmerProfileHeaderCardProps) {
@@ -82,26 +89,55 @@ export const FarmerProfileHeaderCard = memo(function FarmerProfileHeaderCard({
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {}}
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Farmer report
-          </Button>
+          {farmerStorageLinkId ? (
+            <Button type="button" size="sm" className="gap-1.5" asChild>
+              <Link
+                to="/store-admin/people/$farmerStorageLinkId/farmer-report"
+                params={{ farmerStorageLinkId }}
+                preload="intent"
+                className={reportLinkClassName}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Farmer report
+              </Link>
+            </Button>
+          ) : (
+            <Button type="button" size="sm" className="gap-1.5" disabled>
+              <FileText className="h-3.5 w-3.5" />
+              Farmer report
+            </Button>
+          )}
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {}}
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            Accounting report
-          </Button>
+          {farmerStorageLinkId ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              asChild
+            >
+              <Link
+                to="/store-admin/people/$farmerStorageLinkId/accounting-report"
+                params={{ farmerStorageLinkId }}
+                preload="intent"
+                className={reportLinkClassName}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                Accounting report
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Accounting report
+            </Button>
+          )}
         </div>
       </div>
     </TooltipProvider>
