@@ -36,6 +36,7 @@ export function prepareDataForFarmerSeedTable(
 
   for (const entry of seedEntries) {
     const bagSizes = entry.bagSizes ?? [];
+    const dateLabel = formatDate(entry.date);
     for (let index = 0; index < bagSizes.length; index += 1) {
       const bag = bagSizes[index];
       const quantity = Number(bag.quantity) || 0;
@@ -44,7 +45,7 @@ export function prepareDataForFarmerSeedTable(
 
       rows.push({
         id: `${entry._id}__${index}`,
-        date: formatDate(entry.date),
+        date: dateLabel,
         seedSize: bag.name ?? '',
         totalBagsGiven: quantity,
         bagsPerAcre: acres > 0 ? roundMax2(quantity / acres) : 0,

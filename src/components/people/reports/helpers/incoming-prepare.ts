@@ -1,5 +1,5 @@
 import {
-  calculateIncomingMetrics,
+  DEFAULT_BAG_WEIGHTS,
   getBagWeightsFromStore,
   roundMax2,
 } from '@/components/daybook/grading-calculations';
@@ -31,22 +31,35 @@ export function prepareDataForIncomingTable(
   if (passes.length === 0) return [];
 
   const weights = bagWeights ?? getBagWeightsFromStore();
-  const { rows } = calculateIncomingMetrics(passes, weights);
+  const juteWt = weights.JUTE ?? DEFAULT_BAG_WEIGHTS.JUTE;
 
-  return rows.map((row) => ({
-    id: row._id,
-    manualIncomingGatePassNumber:
-      row.manualGatePassNumber != null ? String(row.manualGatePassNumber) : '',
-    incomingDate: formatIncomingDate(row.date),
-    store: row.location ?? '',
-    truckNumber: row.truckNumber ?? '',
-    variety: row.variety ?? '',
-    bags: row.bagsReceived ?? 0,
-    weightSlipNumber: row.weightSlip?.slipNumber ?? '',
-    grossKg: roundMax2(row.weightSlip?.grossWeightKg ?? 0),
-    tareKg: roundMax2(row.weightSlip?.tareWeightKg ?? 0),
-    netKg: roundMax2(row.baseNetKg),
-    bardanaWeight: roundMax2(row.bardanaKg),
-    actualKg: roundMax2(row.netProductKg),
-  }));
+  const out: AccountingIncomingRow[] = [];
+  for (const row of passes) {
+    const bags = row.bagsReceived ?? 0;
+    const gross = row.weightSlip?.grossWeightKg ?? 0;
+    const tare = row.weightSlip?.tareWeightKg ?? 0;
+    const baseNetKg = gross - tare;
+    const bardanaKg = bags * juteWt;
+    const netProductKg = baseNetKg - bardanaKg;
+
+    out.push({
+      id: row._id,
+      manualIncomingGatePassNumber:
+        row.manualGatePassNumber != null
+          ? String(row.manualGatePassNumber)
+          : '',
+      incomingDate: formatIncomingDate(row.date),
+      store: row.location ?? '',
+      truckNumber: row.truckNumber ?? '',
+      variety: row.variety ?? '',
+      bags,
+      weightSlipNumber: row.weightSlip?.slipNumber ?? '',
+      grossKg: roundMax2(gross),
+      tareKg: roundMax2(tare),
+      netKg: roundMax2(baseNetKg),
+      bardanaWeight: roundMax2(bardanaKg),
+      actualKg: roundMax2(netProductKg),
+    });
+  }
+  return out;
 }

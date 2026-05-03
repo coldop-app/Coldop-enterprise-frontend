@@ -49,23 +49,34 @@ function normalizeSizeToken(raw: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/** O(1) resolution of API size strings to canonical column labels (replacing nested scans). */
+const RESOLVE_SIZE_EXACT = new Map<string, string>();
+const RESOLVE_SIZE_LOWER = new Map<string, string>();
+const RESOLVE_SIZE_COMPACT = new Map<string, string>();
+for (const label of GRADING_BAG_SIZE_COLUMN_ORDER) {
+  const norm = normalizeSizeToken(label);
+  if (!RESOLVE_SIZE_EXACT.has(norm)) {
+    RESOLVE_SIZE_EXACT.set(norm, label);
+  }
+  const low = norm.toLowerCase();
+  if (!RESOLVE_SIZE_LOWER.has(low)) {
+    RESOLVE_SIZE_LOWER.set(low, label);
+  }
+  const compact = norm.replace(/\s+/g, '').toLowerCase();
+  if (!RESOLVE_SIZE_COMPACT.has(compact)) {
+    RESOLVE_SIZE_COMPACT.set(compact, label);
+  }
+}
+
 function resolveCanonicalSizeLabel(raw: string): string | null {
   const n = normalizeSizeToken(raw);
   if (!n) return null;
-
-  for (const label of GRADING_BAG_SIZE_COLUMN_ORDER) {
-    if (label === n) return label;
-    if (label.toLowerCase() === n.toLowerCase()) return label;
-  }
-
-  const compact = n.replace(/\s+/g, '').toLowerCase();
-  for (const label of GRADING_BAG_SIZE_COLUMN_ORDER) {
-    if (label.replace(/\s+/g, '').toLowerCase() === compact) {
-      return label;
-    }
-  }
-
-  return null;
+  return (
+    RESOLVE_SIZE_EXACT.get(n) ??
+    RESOLVE_SIZE_LOWER.get(n.toLowerCase()) ??
+    RESOLVE_SIZE_COMPACT.get(n.replace(/\s+/g, '').toLowerCase()) ??
+    null
+  );
 }
 
 /** Maps API `orderDetails[].size` to canonical key or a stable display key for unknown labels. */
@@ -117,11 +128,14 @@ function emptySizeBucket(): GradingSizeCell {
 }
 
 function incomingManualGatePassNumbers(gp: GradingGatePass): string {
-  const nums = (gp.incomingGatePassIds ?? [])
-    .map((i) => i.manualGatePassNumber)
-    .filter((n): n is number => n != null)
-    .map(String);
-  return [...new Set(nums)].join(', ');
+  const incoming = gp.incomingGatePassIds ?? [];
+  if (incoming.length === 0) return '';
+  const seen = new Set<string>();
+  for (const i of incoming) {
+    const n = i.manualGatePassNumber;
+    if (n != null) seen.add(String(n));
+  }
+  return [...seen].join(', ');
 }
 
 function gradingManualDisplay(gp: GradingGatePass): string {
@@ -165,6 +179,17 @@ function linesSortedForSize(
       bagType: bagTypeKey !== 'UNKNOWN' ? bagTypeKey : '',
     }))
     .sort((a, b) => compareBagTypeKeys(a.bagType, b.bagType));
+}
+
+/** Sort each size bucket once per gate pass; reused for stripe depth, totals, and every stripe row. */
+function computeSortedLinesBySize(
+  buckets: SizeBagBuckets
+): Map<string, GradingSizeCell[]> {
+  const sorted = new Map<string, GradingSizeCell[]>();
+  for (const [sizeKey, byBag] of buckets) {
+    sorted.set(sizeKey, linesSortedForSize(byBag));
+  }
+  return sorted;
 }
 
 /** Aggregated bags and weight per size column plus grand total kg (for accounting grading footer). */
@@ -230,12 +255,13 @@ export function totalBagsForAccountingGradingRow(
 
 function buildStripeSizes(
   stripeIndex: number,
-  buckets: SizeBagBuckets
+  buckets: SizeBagBuckets,
+  sortedBySize: Map<string, GradingSizeCell[]>
 ): AccountingGradingRowSizes {
   const out: AccountingGradingRowSizes = {};
 
-  for (const [sizeKey, byBag] of buckets) {
-    const lines = linesSortedForSize(byBag);
+  for (const sizeKey of buckets.keys()) {
+    const lines = sortedBySize.get(sizeKey)!;
     const line = lines[stripeIndex];
     if (line) {
       out[sizeKey] = line;
@@ -261,19 +287,21 @@ function buildStripeSizes(
   return out;
 }
 
-function maxStripeDepth(buckets: SizeBagBuckets): number {
-  if (buckets.size === 0) return 1;
+function maxStripeDepth(sortedBySize: Map<string, GradingSizeCell[]>): number {
+  if (sortedBySize.size === 0) return 1;
   let max = 1;
-  for (const byBag of buckets.values()) {
-    max = Math.max(max, Math.max(linesSortedForSize(byBag).length, 1));
+  for (const lines of sortedBySize.values()) {
+    max = Math.max(max, Math.max(lines.length, 1));
   }
   return Math.max(max, 1);
 }
 
-function totalRoundedFromBuckets(buckets: SizeBagBuckets): number {
+function totalRoundedFromSorted(
+  sortedBySize: Map<string, GradingSizeCell[]>
+): number {
   let sum = 0;
-  for (const byBag of buckets.values()) {
-    for (const line of linesSortedForSize(byBag)) {
+  for (const lines of sortedBySize.values()) {
+    for (const line of lines) {
       sum += line.weightKg;
     }
   }
@@ -313,16 +341,17 @@ export function prepareDataForGradingTable(
       upsertBucket(buckets, sizeKey, bagKey, bags, lineGrossKg);
     }
 
-    const depth = maxStripeDepth(buckets);
+    const sortedBySize = computeSortedLinesBySize(buckets);
+    const depth = maxStripeDepth(sortedBySize);
     const gradingDate = formatGradingDate(rawDate);
     const incoming = incomingManualGatePassNumbers(gp);
     const gradingMan = gradingManualDisplay(gp);
     const varietyStr = gp.variety ?? '';
     const passTotalKg =
-      buckets.size === 0 ? 0 : totalRoundedFromBuckets(buckets);
+      buckets.size === 0 ? 0 : totalRoundedFromSorted(sortedBySize);
 
     for (let stripe = 0; stripe < depth; stripe++) {
-      const sizes = buildStripeSizes(stripe, buckets);
+      const sizes = buildStripeSizes(stripe, buckets, sortedBySize);
       const isContinuation = stripe > 0;
 
       outRows.push({

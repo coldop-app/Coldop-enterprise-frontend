@@ -19,6 +19,11 @@ export const SUMMARY_GRADING_BAG_SIZE_ORDER: readonly string[] =
 
 const CANON_ORDER_SET = new Set<string>(SUMMARY_GRADING_BAG_SIZE_ORDER);
 
+/** Avoid repeated `indexOf` on canonical order during composite-key sorts. */
+const SUMMARY_SIZE_ORDER_INDEX = new Map<string, number>(
+  SUMMARY_GRADING_BAG_SIZE_ORDER.map((label, i) => [label, i])
+);
+
 /** Row order for TYPE when present (aligned with grading striping). */
 const BAG_TYPE_ROW_ORDER = ['JUTE', 'LENO'] as const;
 
@@ -137,17 +142,6 @@ function compositeGroupingKey(
   return `${typeSeg}|${sizeSeg}|${w}|${varietySeg}`;
 }
 
-function parseCompositeKey(key: string): {
-  typeSeg: string;
-  sizeSeg: string;
-  varietySeg: string;
-} | null {
-  const full = parseCompositeKeyFull(key);
-  if (!full) return null;
-  const { typeSeg, sizeSeg, varietySeg } = full;
-  return { typeSeg, sizeSeg, varietySeg };
-}
-
 function parseCompositeKeyFull(key: string): {
   typeSeg: string;
   sizeSeg: string;
@@ -165,21 +159,16 @@ function parseCompositeKeyFull(key: string): {
 }
 
 function sizeOrderIndex(sizeLabel: string): number {
-  const i = SUMMARY_GRADING_BAG_SIZE_ORDER.indexOf(sizeLabel);
-  return i >= 0 ? i : SUMMARY_GRADING_BAG_SIZE_ORDER.length + 1;
+  return (
+    SUMMARY_SIZE_ORDER_INDEX.get(sizeLabel) ??
+    SUMMARY_GRADING_BAG_SIZE_ORDER.length + 1
+  );
 }
 
-/**
- * Rows read left-to-right like the PDF summary: sweep **sizes in column order**, then club lines that share
- * a size (**type**, then **wt/bag**, then variety). Ordering by TYPE first yielded all JUTE then all LENO.
- */
-function compareCompositeKeysForRowOrder(a: string, b: string): number {
-  const pa = parseCompositeKeyFull(a);
-  const pb = parseCompositeKeyFull(b);
-  if (!pa && !pb) return 0;
-  if (!pa) return -1;
-  if (!pb) return 1;
-
+function compareParsedCompositeForRowOrder(
+  pa: NonNullable<ReturnType<typeof parseCompositeKeyFull>>,
+  pb: NonNullable<ReturnType<typeof parseCompositeKeyFull>>
+): number {
   const sa = sizeOrderIndex(pa.sizeSeg);
   const sb = sizeOrderIndex(pb.sizeSeg);
   if (sa !== sb) return sa - sb;
@@ -248,11 +237,11 @@ export function totalsBySizeFromGroupedMap(
   const totals: GradingSummaryColumnTotals = {};
 
   for (const [compositeKey, qty] of groupedMap) {
-    const parsed = parseCompositeKey(compositeKey);
-    if (!parsed) continue;
+    const full = parseCompositeKeyFull(compositeKey);
+    if (!full || !full.sizeSeg.trim()) continue;
     const increment = qty === null || qty === undefined ? 0 : Number(qty);
 
-    totals[parsed.sizeSeg] = (totals[parsed.sizeSeg] ?? 0) + increment;
+    totals[full.sizeSeg] = (totals[full.sizeSeg] ?? 0) + increment;
   }
 
   return totals;
@@ -326,14 +315,23 @@ function sparseSummaryRowsFromGroupedMap(
 ): GradingBagTypeQtySummaryRow[] {
   if (groupedMap.size === 0) return [];
 
-  const keys = [...groupedMap.keys()].sort(compareCompositeKeysForRowOrder);
+  type ParsedEntry = {
+    compositeKey: string;
+    full: NonNullable<ReturnType<typeof parseCompositeKeyFull>>;
+  };
+  const decoded: ParsedEntry[] = [];
+  for (const compositeKey of groupedMap.keys()) {
+    const full = parseCompositeKeyFull(compositeKey);
+    if (full) decoded.push({ compositeKey, full });
+  }
+  decoded.sort((a, b) => compareParsedCompositeForRowOrder(a.full, b.full));
+
   const usedIds = new Set<string>();
   const bagWeights = getBagWeightsFromStore();
+  const buyBackRateCache = new Map<string, number | null>();
 
   const rows: GradingBagTypeQtySummaryRow[] = [];
-  for (const compositeKey of keys) {
-    const full = parseCompositeKeyFull(compositeKey);
-    if (!full) continue;
+  for (const { compositeKey, full } of decoded) {
     const qtyRaw = groupedMap.get(compositeKey);
     const qty = qtyRaw === null || qtyRaw === undefined ? 0 : Number(qtyRaw);
     if (qty === 0) continue;
@@ -345,11 +343,16 @@ function sparseSummaryRowsFromGroupedMap(
     const bardanaWeightKg = roundMax2(qty * bagWeightByType);
     const actualWeightKg = roundMax2(weightReceivedKg - bardanaWeightKg);
     const varietyLabel = full.varietySeg.trim();
-    const rate = resolveBuyBackRateFromPreferences(
-      preferences,
-      varietyLabel,
-      full.sizeSeg
-    );
+    const rateCacheKey = `${varietyLabel}\0${full.sizeSeg}`;
+    let rate = buyBackRateCache.get(rateCacheKey);
+    if (rate === undefined) {
+      rate = resolveBuyBackRateFromPreferences(
+        preferences,
+        varietyLabel,
+        full.sizeSeg
+      );
+      buyBackRateCache.set(rateCacheKey, rate);
+    }
     const amountPayable =
       rate == null ? null : roundMax2(actualWeightKg * Number(rate));
 

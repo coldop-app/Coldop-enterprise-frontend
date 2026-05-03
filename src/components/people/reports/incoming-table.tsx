@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, memo, useMemo, useState } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -383,4 +383,4 @@ const IncomingTable = ({ rows }: IncomingTableProps = {}) => {
   );
 };
 
-export default IncomingTable;
+export default memo(IncomingTable);

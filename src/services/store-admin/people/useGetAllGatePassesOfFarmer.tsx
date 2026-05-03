@@ -167,6 +167,14 @@ const EMPTY_GATE_PASSES_TOTALS: GatePassesTotals = {
   totalSeedBags: 0,
 };
 
+/** Stable fallbacks so list deps in consumers (useMemo etc.) stay referentially stable before data resolves. */
+const EMPTY_INCOMING: IncomingGatePassByFarmerStorageLinkItem[] = [];
+const EMPTY_GRADING: GradingGatePass[] = [];
+const EMPTY_STORAGE: StorageGatePassWithLink[] = [];
+const EMPTY_NIKASI: NikasiGatePass[] = [];
+const EMPTY_OUTGOING: OutgoingGatePass[] = [];
+const EMPTY_FARMER_SEEDS: FarmerSeedGatePass[] = [];
+
 function normalizeGatePassesData(
   data: GetAllGatePassesOfFarmerData
 ): GetAllGatePassesOfFarmerData {
@@ -253,37 +261,37 @@ export function useGetAllGatePassesOfFarmer(
     refetch: query.refetch,
     isFetching: query.isFetching,
     incoming: {
-      data: data?.incoming ?? [],
+      data: data?.incoming ?? EMPTY_INCOMING,
       isLoading: query.isLoading,
       isError: query.isError,
       error: query.error,
     },
     grading: {
-      data: data?.grading ?? [],
+      data: data?.grading ?? EMPTY_GRADING,
       isLoading: query.isLoading,
       isError: query.isError,
       error: query.error,
     },
     storage: {
-      data: data?.storage ?? [],
+      data: data?.storage ?? EMPTY_STORAGE,
       isLoading: query.isLoading,
       isError: query.isError,
       error: query.error,
     },
     nikasi: {
-      data: data?.dispatch ?? [],
+      data: data?.dispatch ?? EMPTY_NIKASI,
       isLoading: query.isLoading,
       isError: query.isError,
       error: query.error,
     },
     outgoing: {
-      data: data?.outgoing ?? [],
+      data: data?.outgoing ?? EMPTY_OUTGOING,
       isLoading: query.isLoading,
       isError: query.isError,
       error: query.error,
     },
     farmerSeeds: {
-      data: data?.farmerSeeds ?? [],
+      data: data?.farmerSeeds ?? EMPTY_FARMER_SEEDS,
       isLoading: query.isLoading,
       isError: query.isError,
       error: query.error,

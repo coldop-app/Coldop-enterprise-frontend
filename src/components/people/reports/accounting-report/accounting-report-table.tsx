@@ -57,6 +57,11 @@ const AccountingReportTable = ({
     [farmerSeedList]
   );
 
+  const incomingFetchErrorDescription = useMemo(
+    () => incomingErrorMessage(error),
+    [error]
+  );
+
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
       <div className="space-y-4">
@@ -83,7 +88,7 @@ const AccountingReportTable = ({
                       Could not load incoming gate passes
                     </EmptyTitle>
                     <EmptyDescription className="font-custom">
-                      {incomingErrorMessage(error)}
+                      {incomingFetchErrorDescription}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -120,7 +125,7 @@ const AccountingReportTable = ({
                       Could not load grading gate passes
                     </EmptyTitle>
                     <EmptyDescription className="font-custom">
-                      {incomingErrorMessage(error)}
+                      {incomingFetchErrorDescription}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -158,14 +163,14 @@ const AccountingReportTable = ({
                       Could not load summary (grading gate passes)
                     </EmptyTitle>
                     <EmptyDescription className="font-custom">
-                      {incomingErrorMessage(error)}
+                      {incomingFetchErrorDescription}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               </div>
             ) : (
               <div className="w-full">
-                <SummaryTable gradingGatePasses={gradingList ?? []} />
+                <SummaryTable gradingGatePasses={gradingList} />
               </div>
             )}
           </CardContent>
