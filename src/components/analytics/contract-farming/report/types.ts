@@ -13,6 +13,8 @@ export type FlattenedRow = {
   sizeAmount: number;
   buyBackBags: number | null;
   buyBackNetWeightKg: number | null;
+  /** Incoming net (kg); used with buy-back net for wastage when API provides it */
+  incomingNetWeightKg: number | null;
   gradeData: Record<string, { bags: number; netWeightKg: number }>;
   /** Total acres planted for this farmer × variety (all sizes); from seed.totalAcres or sum of sizes. */
   varietyTotalAcres: number;

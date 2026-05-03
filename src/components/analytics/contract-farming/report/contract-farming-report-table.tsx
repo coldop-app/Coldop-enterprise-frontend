@@ -46,6 +46,9 @@ import {
   formatContractFarmingGradeColumnLabel,
   isContractFarmingCutGrade,
 } from './view-filters-sheet/constants';
+import { roundMax2 } from '@/components/daybook/grading-calculations';
+import { resolveBuyBackRateFromPreferences } from '@/components/people/reports/helpers/summary-prepare';
+import { usePreferencesStore } from '@/stores/store';
 
 const multiValueFilterFn = (
   row: { getValue: (columnId: string) => unknown },
@@ -220,6 +223,67 @@ function getTotalGradeNetWeightKg(row: FlattenedRow): number | null {
   return total > 0 ? total : null;
 }
 
+function getTotalGradeNetWeightKgSum(row: FlattenedRow): number {
+  return Object.values(row.gradeData).reduce(
+    (sum, value) => sum + (value?.netWeightKg ?? 0),
+    0
+  );
+}
+
+/** Buy-back net weight, or incoming net when buy-back is missing (same units as graded net kg). */
+function getInboundNetWeightKgForWastage(row: FlattenedRow): number | null {
+  const buyBack = row.buyBackNetWeightKg;
+  if (buyBack !== null && buyBack !== undefined && !Number.isNaN(buyBack)) {
+    return buyBack;
+  }
+  const incoming = row.incomingNetWeightKg;
+  if (incoming !== null && incoming !== undefined && !Number.isNaN(incoming)) {
+    return incoming;
+  }
+  return null;
+}
+
+/** Wastage (kg) = inbound net (buy-back or incoming) minus total net weight after grading. */
+function getWastageKg(row: FlattenedRow): number | null {
+  const inbound = getInboundNetWeightKgForWastage(row);
+  if (inbound === null) return null;
+  return inbound - getTotalGradeNetWeightKgSum(row);
+}
+
+/** Output % = net weight after grading ÷ net incoming weight × 100 (incoming = same baseline as wastage). */
+function getOutputPercentage(row: FlattenedRow): number | null {
+  const netIncoming = getInboundNetWeightKgForWastage(row);
+  if (netIncoming === null || netIncoming <= 0) return null;
+  const gradedKg = getTotalGradeNetWeightKgSum(row);
+  return (gradedKg / netIncoming) * 100;
+}
+
+/**
+ * ₹ buy-back payable from graded net kg × cold-storage prefs `custom.buyBackCost` rate per variety + size —
+ * same rounding pattern as accounting summary ({@link roundMax2} on each grade line).
+ */
+function getBuyBackAmountFromGradeData(row: FlattenedRow): number | null {
+  const preferences = usePreferencesStore.getState().preferences;
+  let total = 0;
+  let hasPositiveNet = false;
+
+  for (const [sizeLabel, value] of Object.entries(row.gradeData)) {
+    const netKg = Number(value?.netWeightKg ?? 0);
+    if (!Number.isFinite(netKg) || netKg <= 0) continue;
+    hasPositiveNet = true;
+    const rate = resolveBuyBackRateFromPreferences(
+      preferences,
+      row.varietyName,
+      sizeLabel
+    );
+    if (rate === null) return null;
+    total += roundMax2(netKg * Number(rate));
+  }
+
+  if (!hasPositiveNet) return null;
+  return roundMax2(total);
+}
+
 /** Quintals / acre: net grading weight (kg) → quintals (÷100), divided by variety total acres. */
 function getAverageQuintalPerAcre(row: FlattenedRow): number | null {
   const netKg = getTotalGradeNetWeightKg(row);
@@ -246,9 +310,12 @@ const VARIETY_LEVEL_PERCENT_COLUMN_PREFIX = 'grade_weight_pct_';
 const TOTAL_GRADED_BAGS_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__totalAfterGrading`;
 const TOTAL_GRADED_NET_WEIGHT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__netWeightAfterGrading`;
 const AVG_QUINTAL_PER_ACRE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__avgQuintalPerAcre`;
+const WASTAGE_KG_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__wastageKg`;
+const OUTPUT_PERCENTAGE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__outputPercentage`;
+const BUY_BACK_AMOUNT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__buyBackAmount`;
 
 /** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
-const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 3;
+const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 6;
 
 type GlobalFilterValue = string | FilterGroupNode;
 const VARIETY_LEVEL_COLUMN_IDS = new Set(['variety', 'bbBags', 'bbNetWeight']);
@@ -326,6 +393,7 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
           sizeAmount: size.amountPayable,
           buyBackBags: variety.buyBack?.bags ?? null,
           buyBackNetWeightKg: variety.buyBack?.netWeightKg ?? null,
+          incomingNetWeightKg: variety.incomingNetWeightKg ?? null,
           gradeData: variety.grading ?? {},
           varietyTotalAcres,
         });
@@ -578,6 +646,36 @@ function buildColumns(
           enableGrouping: false,
           filterFn: multiValueFilterFn,
         }),
+        columnHelper.accessor((row) => getWastageKg(row), {
+          id: WASTAGE_KG_COLUMN_ID,
+          header: 'Wastage (kg)',
+          sortingFn: 'basic',
+          size: 150,
+          minSize: 120,
+          maxSize: 260,
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
+        }),
+        columnHelper.accessor((row) => getOutputPercentage(row), {
+          id: OUTPUT_PERCENTAGE_COLUMN_ID,
+          header: 'Output Percentage',
+          sortingFn: 'basic',
+          size: 155,
+          minSize: 120,
+          maxSize: 260,
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
+        }),
+        columnHelper.accessor((row) => getBuyBackAmountFromGradeData(row), {
+          id: BUY_BACK_AMOUNT_COLUMN_ID,
+          header: 'Buy Back Amount',
+          sortingFn: 'basic',
+          size: 160,
+          minSize: 120,
+          maxSize: 280,
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
+        }),
       ]
     : [
         columnHelper.display({
@@ -622,6 +720,10 @@ const ContractFarmingReportTable = () => {
     React.useState<ColumnResizeDirection>('ltr');
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
+  /** Re-evaluate grading-derived columns when cold-storage prefs (buy-back rates) change. */
+  const buyBackCostPrefsKey = usePreferencesStore((state) =>
+    JSON.stringify(state.preferences?.custom?.buyBackCost ?? null)
+  );
 
   const report = React.useMemo(() => normalizeReportData(data), [data]);
   const gradeHeaders = React.useMemo(
@@ -661,7 +763,9 @@ const ContractFarmingReportTable = () => {
   );
   const columns = React.useMemo(
     () => buildColumns(gradeHeaders),
-    [gradeHeaders]
+    // buyBackCostPrefsKey: accessors read prefs from store; rebuilding columns busts table when rates change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buyBackCostPrefsKey intentional cache bust
+    [gradeHeaders, buyBackCostPrefsKey]
   );
   const defaultColumnOrder = React.useMemo(
     () => [
@@ -683,6 +787,9 @@ const ContractFarmingReportTable = () => {
       TOTAL_GRADED_BAGS_COLUMN_ID,
       TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
       AVG_QUINTAL_PER_ACRE_COLUMN_ID,
+      WASTAGE_KG_COLUMN_ID,
+      OUTPUT_PERCENTAGE_COLUMN_ID,
+      BUY_BACK_AMOUNT_COLUMN_ID,
     ],
     // CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION busts cache when grading tail order changes (same gradeHeaders / HMR).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional invalidate key, not a reactive prop
@@ -889,6 +996,15 @@ const ContractFarmingReportTable = () => {
         }
         if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
           return 'Average Quintal Per Acre';
+        }
+        if (columnId === WASTAGE_KG_COLUMN_ID) {
+          return 'Wastage (kg)';
+        }
+        if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
+          return 'Output Percentage';
+        }
+        if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
+          return 'Buy Back Amount';
         }
         const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
         return formatContractFarmingGradeColumnLabel(grade);
@@ -1133,6 +1249,42 @@ const ContractFarmingReportTable = () => {
             style={{ width: columnWidth, minWidth: columnWidth }}
           >
             {avg !== null ? formatNumber(avg) : '-'}
+          </td>
+        );
+      }
+      if (columnId === WASTAGE_KG_COLUMN_ID) {
+        const wastage = getWastageKg(row);
+        return (
+          <td
+            rowSpan={row.varietyRowSpan}
+            className={`${bodyCellClass} text-right align-top tabular-nums`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            {wastage !== null ? formatNumber(wastage) : '-'}
+          </td>
+        );
+      }
+      if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
+        const outputPct = getOutputPercentage(row);
+        return (
+          <td
+            rowSpan={row.varietyRowSpan}
+            className={`${bodyCellClass} text-right align-top tabular-nums`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            {outputPct !== null ? `${formatNumber(outputPct, 2)}%` : '-'}
+          </td>
+        );
+      }
+      if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
+        const buyBackAmt = getBuyBackAmountFromGradeData(row);
+        return (
+          <td
+            rowSpan={row.varietyRowSpan}
+            className={`${bodyCellClass} text-right align-top tabular-nums`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            {buyBackAmt !== null ? `₹${formatNumber(buyBackAmt)}` : '-'}
           </td>
         );
       }
@@ -1387,6 +1539,60 @@ const ContractFarmingReportTable = () => {
                             columnId,
                             'Average Quintal Per Acre'
                           )}
+                          {renderLeafResizeHandle(columnId)}
+                        </th>
+                      );
+                    }
+                    if (columnId === WASTAGE_KG_COLUMN_ID) {
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(columnId, 'Wastage (kg)')}
+                          {renderLeafResizeHandle(columnId)}
+                        </th>
+                      );
+                    }
+                    if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(
+                            columnId,
+                            <span className="block leading-tight">
+                              Output Percentage
+                              <br />
+                              <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
+                                (%)
+                              </span>
+                            </span>
+                          )}
+                          {renderLeafResizeHandle(columnId)}
+                        </th>
+                      );
+                    }
+                    if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(columnId, 'Buy Back Amount')}
                           {renderLeafResizeHandle(columnId)}
                         </th>
                       );

@@ -31,6 +31,8 @@ export type ContractFarmingVariety = {
   name: string;
   seed: ContractFarmingSeed | null;
   buyBack: ContractFarmingBuyBack | null;
+  /** Incoming / gate net weight (kg) when tracked separately from buy-back; coalesced with buy-back for wastage. */
+  incomingNetWeightKg?: number | null;
   grading: Record<string, ContractFarmingGradingValue>;
 };
 

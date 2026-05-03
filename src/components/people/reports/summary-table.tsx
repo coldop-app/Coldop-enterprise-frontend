@@ -183,7 +183,7 @@ function useSummaryColumns(visibleSizes: readonly string[]) {
     base.push(
       columnHelper.accessor('rate', {
         id: 'rate',
-        header: () => <div className="w-full text-right">Rate (₹)</div>,
+        header: () => <div className="w-full text-right">Rate per bag (₹)</div>,
         cell: (info) => {
           const v = info.getValue() as number | null;
           if (v === null || v === undefined || !Number.isFinite(Number(v))) {
