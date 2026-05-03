@@ -18,6 +18,7 @@ import { Route as StoreAdminAuthenticatedSettingsIndexRouteImport } from './rout
 import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes/store-admin/_authenticated/people/index'
 import { Route as StoreAdminAuthenticatedNikasiGatePassIndexRouteImport } from './routes/store-admin/_authenticated/nikasi-gate-pass/index'
 import { Route as StoreAdminAuthenticatedIncomingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/index'
+import { Route as StoreAdminAuthenticatedGradingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/grading-gate-pass/index'
 import { Route as StoreAdminAuthenticatedFarmerSeedGatePassIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
 import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/index'
@@ -37,6 +38,7 @@ import { Route as StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRouteImport 
 import { Route as StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/ungraded/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/storage/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/incoming/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/grading/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/farmer-seed/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/contract-farming/index'
 
@@ -88,6 +90,12 @@ const StoreAdminAuthenticatedIncomingGatePassIndexRoute =
   StoreAdminAuthenticatedIncomingGatePassIndexRouteImport.update({
     id: '/incoming-gate-pass/',
     path: '/incoming-gate-pass/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedGradingGatePassIndexRoute =
+  StoreAdminAuthenticatedGradingGatePassIndexRouteImport.update({
+    id: '/grading-gate-pass/',
+    path: '/grading-gate-pass/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute =
@@ -204,6 +212,12 @@ const StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute =
     path: '/analytics/reports/incoming/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport.update({
+    id: '/analytics/reports/grading/',
+    path: '/analytics/reports/grading/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport.update({
     id: '/analytics/reports/farmer-seed/',
@@ -227,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/farmer-seed-gate-pass/': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  '/store-admin/grading-gate-pass/': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
   '/store-admin/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/nikasi-gate-pass/': typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
@@ -246,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/storage-gate-pass/history/': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   '/store-admin/analytics/reports/contract-farming/': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
   '/store-admin/analytics/reports/farmer-seed/': typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  '/store-admin/analytics/reports/grading/': typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
   '/store-admin/analytics/reports/incoming/': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   '/store-admin/analytics/reports/storage/': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   '/store-admin/analytics/reports/ungraded/': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
@@ -259,6 +275,7 @@ export interface FileRoutesByTo {
   '/store-admin/analytics': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/farmer-seed-gate-pass': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  '/store-admin/grading-gate-pass': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
   '/store-admin/incoming-gate-pass': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/nikasi-gate-pass': typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
@@ -278,6 +295,7 @@ export interface FileRoutesByTo {
   '/store-admin/storage-gate-pass/history': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   '/store-admin/analytics/reports/contract-farming': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
   '/store-admin/analytics/reports/farmer-seed': typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  '/store-admin/analytics/reports/grading': typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
   '/store-admin/analytics/reports/incoming': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   '/store-admin/analytics/reports/storage': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   '/store-admin/analytics/reports/ungraded': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
@@ -292,6 +310,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/_authenticated/farmer-seed-gate-pass/': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  '/store-admin/_authenticated/grading-gate-pass/': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
   '/store-admin/_authenticated/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   '/store-admin/_authenticated/nikasi-gate-pass/': typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
@@ -311,6 +330,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/storage-gate-pass/history/': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   '/store-admin/_authenticated/analytics/reports/contract-farming/': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
   '/store-admin/_authenticated/analytics/reports/farmer-seed/': typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  '/store-admin/_authenticated/analytics/reports/grading/': typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
   '/store-admin/_authenticated/analytics/reports/incoming/': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   '/store-admin/_authenticated/analytics/reports/storage/': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   '/store-admin/_authenticated/analytics/reports/ungraded/': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
@@ -326,6 +346,7 @@ export interface FileRouteTypes {
     | '/store-admin/analytics/'
     | '/store-admin/daybook/'
     | '/store-admin/farmer-seed-gate-pass/'
+    | '/store-admin/grading-gate-pass/'
     | '/store-admin/incoming-gate-pass/'
     | '/store-admin/nikasi-gate-pass/'
     | '/store-admin/people/'
@@ -345,6 +366,7 @@ export interface FileRouteTypes {
     | '/store-admin/storage-gate-pass/history/'
     | '/store-admin/analytics/reports/contract-farming/'
     | '/store-admin/analytics/reports/farmer-seed/'
+    | '/store-admin/analytics/reports/grading/'
     | '/store-admin/analytics/reports/incoming/'
     | '/store-admin/analytics/reports/storage/'
     | '/store-admin/analytics/reports/ungraded/'
@@ -358,6 +380,7 @@ export interface FileRouteTypes {
     | '/store-admin/analytics'
     | '/store-admin/daybook'
     | '/store-admin/farmer-seed-gate-pass'
+    | '/store-admin/grading-gate-pass'
     | '/store-admin/incoming-gate-pass'
     | '/store-admin/nikasi-gate-pass'
     | '/store-admin/people'
@@ -377,6 +400,7 @@ export interface FileRouteTypes {
     | '/store-admin/storage-gate-pass/history'
     | '/store-admin/analytics/reports/contract-farming'
     | '/store-admin/analytics/reports/farmer-seed'
+    | '/store-admin/analytics/reports/grading'
     | '/store-admin/analytics/reports/incoming'
     | '/store-admin/analytics/reports/storage'
     | '/store-admin/analytics/reports/ungraded'
@@ -390,6 +414,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/analytics/'
     | '/store-admin/_authenticated/daybook/'
     | '/store-admin/_authenticated/farmer-seed-gate-pass/'
+    | '/store-admin/_authenticated/grading-gate-pass/'
     | '/store-admin/_authenticated/incoming-gate-pass/'
     | '/store-admin/_authenticated/nikasi-gate-pass/'
     | '/store-admin/_authenticated/people/'
@@ -409,6 +434,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/storage-gate-pass/history/'
     | '/store-admin/_authenticated/analytics/reports/contract-farming/'
     | '/store-admin/_authenticated/analytics/reports/farmer-seed/'
+    | '/store-admin/_authenticated/analytics/reports/grading/'
     | '/store-admin/_authenticated/analytics/reports/incoming/'
     | '/store-admin/_authenticated/analytics/reports/storage/'
     | '/store-admin/_authenticated/analytics/reports/ungraded/'
@@ -485,6 +511,13 @@ declare module '@tanstack/react-router' {
       path: '/incoming-gate-pass'
       fullPath: '/store-admin/incoming-gate-pass/'
       preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/grading-gate-pass/': {
+      id: '/store-admin/_authenticated/grading-gate-pass/'
+      path: '/grading-gate-pass'
+      fullPath: '/store-admin/grading-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedGradingGatePassIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/farmer-seed-gate-pass/': {
@@ -620,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/analytics/reports/grading/': {
+      id: '/store-admin/_authenticated/analytics/reports/grading/'
+      path: '/analytics/reports/grading'
+      fullPath: '/store-admin/analytics/reports/grading/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/analytics/reports/farmer-seed/': {
       id: '/store-admin/_authenticated/analytics/reports/farmer-seed/'
       path: '/analytics/reports/farmer-seed'
@@ -641,6 +681,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedAnalyticsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
   StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  StoreAdminAuthenticatedGradingGatePassIndexRoute: typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
   StoreAdminAuthenticatedIncomingGatePassIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
   StoreAdminAuthenticatedNikasiGatePassIndexRoute: typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
@@ -660,6 +701,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
@@ -674,6 +716,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedDaybookIndexRoute,
     StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute:
       StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute,
+    StoreAdminAuthenticatedGradingGatePassIndexRoute:
+      StoreAdminAuthenticatedGradingGatePassIndexRoute,
     StoreAdminAuthenticatedIncomingGatePassIndexRoute:
       StoreAdminAuthenticatedIncomingGatePassIndexRoute,
     StoreAdminAuthenticatedNikasiGatePassIndexRoute:
@@ -712,6 +756,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute,
     StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute:
       StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute,
     StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute:
       StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute,
     StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute:

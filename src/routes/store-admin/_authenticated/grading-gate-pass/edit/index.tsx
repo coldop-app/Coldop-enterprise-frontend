@@ -1,7 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
+import { useState } from 'react';
 import { createFileRoute, Link, useLocation } from '@tanstack/react-router';
 
 import { GradingEditForm } from './-GradingEditForm';
+import { IncomingSelectionStep } from './-IncomingSelectionStep';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,7 +14,10 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useStore } from '@/stores/store';
-import type { GradingGatePassEditRouterState } from '@/types/grading-gate-pass';
+import type {
+  GradingGatePass,
+  GradingGatePassEditRouterState,
+} from '@/types/grading-gate-pass';
 import { useGetGradingGatePassById } from '@/services/store-admin/grading-gate-pass/useGetGradingGatePassById';
 
 export const Route = createFileRoute(
@@ -185,7 +190,39 @@ function RouteComponent() {
     );
   }
 
-  return <GradingEditForm key={resolvedPass._id} pass={resolvedPass} />;
+  return <GradingEditPage key={resolvedPass._id} pass={resolvedPass} />;
+}
+
+function GradingEditPage({ pass }: { pass: GradingGatePass }) {
+  const [selection, setSelection] = useState<{
+    selectedIncomingGatePassIds: string[];
+    selectedVariety: string;
+  } | null>(null);
+
+  if (!selection) {
+    return (
+      <main className="font-custom mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+        <IncomingSelectionStep
+          pass={pass}
+          onNext={({ selectedIds, variety }) =>
+            setSelection({
+              selectedIncomingGatePassIds: selectedIds,
+              selectedVariety: variety,
+            })
+          }
+        />
+      </main>
+    );
+  }
+
+  return (
+    <GradingEditForm
+      key={`${pass._id}-${selection.selectedIncomingGatePassIds.join(',')}-${selection.selectedVariety}`}
+      pass={pass}
+      selectedIncomingGatePassIds={selection.selectedIncomingGatePassIds}
+      selectedVariety={selection.selectedVariety}
+    />
+  );
 }
 
 function isGradingGatePassEditRouterState(

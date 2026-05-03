@@ -54,29 +54,25 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { BAG_TYPES, GRADER_OPTIONS, GRADING_SIZES } from '@/lib/constants';
-import { formatDate, formatDateToISO } from '@/lib/helpers';
-import { useEditGradingGatePass } from '@/services/store-admin/grading-gate-pass/useEditGradingGatePass';
+import { formatDateToISO } from '@/lib/helpers';
+import { useCreateGradingGatePass } from '@/services/store-admin/grading-gate-pass/useCreateGradingGatePass';
 import { useStore } from '@/stores/store';
-import type { GradingGatePass } from '@/types/grading-gate-pass';
+import type { GradingGatePassIncomingRef } from '@/types/grading-gate-pass';
 
 import {
   GradingSummarySheet,
   type GradingSummaryFormValues,
-} from './-SummarySheet';
+} from './edit/-SummarySheet';
+
+import type { GradingCreateIncomingSelection } from './-IncomingSelectionCreateStep';
 
 const KNOWN_GRADERS_SET = new Set<string>(GRADER_OPTIONS);
 const GRADER_SELECT_CUSTOM = '__custom__';
 
-function isoToDdMmYy(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return formatDate(new Date());
-  return formatDate(d);
-}
-
-function getFarmerFromPass(
-  pass: GradingGatePass
+function getFarmerFromIncomingRefs(
+  refs: GradingGatePassIncomingRef[]
 ): GradingSummaryFormValues['farmer'] {
-  const first = pass.incomingGatePassIds?.[0];
+  const first = refs[0];
   const link = first?.farmerStorageLinkId;
   if (link && typeof link === 'object' && link.farmerId) {
     return {
@@ -94,16 +90,10 @@ function getFarmerFromPass(
   };
 }
 
-function getGradedByLabel(pass: GradingGatePass): string | undefined {
-  const c = pass.createdBy;
-  if (c && typeof c === 'object' && 'name' in c) return String(c.name);
-  return undefined;
-}
-
-function buildIncomingLines(
-  pass: GradingGatePass
+function buildIncomingLinesFromRefs(
+  refs: GradingGatePassIncomingRef[]
 ): GradingSummaryFormValues['incomingLines'] {
-  return (pass.incomingGatePassIds ?? []).map((g) => {
+  return (refs ?? []).map((g) => {
     const gw = g.weightSlip?.grossWeightKg;
     const tw = g.weightSlip?.tareWeightKg;
     let netWeightKg: number | undefined;
@@ -170,40 +160,31 @@ function resolveGrader(knownKey: string, custom: string): string {
   return knownKey.trim();
 }
 
-type GradingEditFormProps = {
-  pass: GradingGatePass;
-  selectedIncomingGatePassIds?: string[];
-  selectedVariety?: string;
+type GradingCreateFormProps = {
+  selection: GradingCreateIncomingSelection;
+  /** Next system gate pass number from `/store-admin/voucher-number?type=grading-gate-pass` */
+  gatePassNo?: number;
+  isVoucherNumberLoading?: boolean;
 };
 
-export const GradingEditForm = memo(function GradingEditForm({
-  pass,
-  selectedIncomingGatePassIds,
-  selectedVariety,
-}: GradingEditFormProps) {
-  const { mutate: editGradingGatePass, isPending } = useEditGradingGatePass();
+export const GradingCreateForm = memo(function GradingCreateForm({
+  selection,
+  gatePassNo,
+  isVoucherNumberLoading = false,
+}: GradingCreateFormProps) {
+  const { mutate: createGradingGatePass, isPending } =
+    useCreateGradingGatePass();
   const setDaybookTab = useStore((s) => s.setDaybookActiveTab);
   const [step, setStep] = useState<0 | 1>(0);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const confirmSaveRef = useRef(false);
 
-  const effectiveIncomingPasses = useMemo(() => {
-    const selectedIds = selectedIncomingGatePassIds ?? [];
-    if (selectedIds.length === 0) return pass.incomingGatePassIds ?? [];
-    const selectedSet = new Set(selectedIds);
-    return (pass.incomingGatePassIds ?? []).filter((gp) =>
-      selectedSet.has(gp._id)
-    );
-  }, [pass.incomingGatePassIds, selectedIncomingGatePassIds]);
-
-  const effectivePass = useMemo(
-    () => ({ ...pass, incomingGatePassIds: effectiveIncomingPasses }),
-    [pass, effectiveIncomingPasses]
-  );
+  const effectiveIncomingPasses =
+    selection.selectedIncomingPasses ?? ([] as GradingGatePassIncomingRef[]);
 
   const farmerDisplay = useMemo(
-    () => getFarmerFromPass(effectivePass),
-    [effectivePass]
+    () => getFarmerFromIncomingRefs(effectiveIncomingPasses),
+    [effectiveIncomingPasses]
   );
 
   const sizeOptions: Option<string>[] = useMemo(
@@ -216,46 +197,37 @@ export const GradingEditForm = memo(function GradingEditForm({
     []
   );
 
-  const defaultKnownGrader = (() => {
-    const g = pass.grader?.trim();
-    if (!g) return GRADER_OPTIONS[0] ?? GRADER_SELECT_CUSTOM;
-    return KNOWN_GRADERS_SET.has(g) ? g : GRADER_SELECT_CUSTOM;
-  })();
+  const defaultKnownGrader: string = GRADER_OPTIONS[0] ?? GRADER_SELECT_CUSTOM;
 
-  const initialOrderDetails =
-    pass.orderDetails?.length > 0
-      ? pass.orderDetails.map((r) => ({
-          size: r.size,
-          bagType: r.bagType,
-          quantity: Number(r.currentQuantity ?? r.initialQuantity ?? 0),
-          weightPerBagKg: r.weightPerBagKg,
-        }))
-      : [
-          {
-            size: GRADING_SIZES.includes('Below 30')
-              ? 'Below 30'
-              : (GRADING_SIZES[0] ?? ''),
-            bagType: 'LENO',
-            quantity: 0,
-            weightPerBagKg: 56,
-          },
-        ];
+  const initialOrderDetails = [
+    {
+      size: GRADING_SIZES.includes('Below 30')
+        ? 'Below 30'
+        : (GRADING_SIZES[0] ?? ''),
+      bagType: 'LENO',
+      quantity: 0,
+      weightPerBagKg: 56,
+    },
+  ];
 
-  const resolvedVariety = selectedVariety?.trim() || pass.variety?.trim() || '';
+  const resolvedVariety = selection.variety?.trim() ?? '';
+
+  const voucherNumberReady =
+    typeof gatePassNo === 'number' &&
+    Number.isFinite(gatePassNo) &&
+    gatePassNo > 0;
+
+  const voucherNumberDisplay = voucherNumberReady
+    ? `#${gatePassNo}`
+    : undefined;
 
   const form = useForm({
     defaultValues: {
-      manualGatePassNumber:
-        pass.manualGatePassNumber != null && pass.manualGatePassNumber >= 0
-          ? pass.manualGatePassNumber
-          : undefined,
-      date: isoToDdMmYy(pass.date),
+      manualGatePassNumber: undefined,
+      date: '',
       graderKnownKey: defaultKnownGrader,
-      graderCustom:
-        defaultKnownGrader === GRADER_SELECT_CUSTOM
-          ? (pass.grader?.trim() ?? '')
-          : '',
-      remarks: pass.remarks?.trim() ?? '',
+      graderCustom: defaultKnownGrader === GRADER_SELECT_CUSTOM ? '' : '',
+      remarks: '',
       orderDetails: initialOrderDetails,
     },
     validators: {
@@ -281,6 +253,20 @@ export const GradingEditForm = memo(function GradingEditForm({
         return;
       }
 
+      if (!voucherNumberReady) {
+        toast.error(
+          'Could not load voucher number. Please refresh and try again.'
+        );
+        setStep(0);
+        return;
+      }
+
+      if (!resolvedVariety) {
+        toast.error('Variety missing from incoming selection.');
+        setStep(0);
+        return;
+      }
+
       if (!confirmSaveRef.current) {
         setSummaryOpen(true);
         return;
@@ -288,13 +274,15 @@ export const GradingEditForm = memo(function GradingEditForm({
 
       confirmSaveRef.current = false;
 
-      editGradingGatePass(
+      createGradingGatePass(
         {
-          gradingGatePassId: pass._id,
-          manualGatePassNumber: value.manualGatePassNumber,
+          farmerStorageLinkId: selection.farmerStorageLinkId,
+          incomingGatePassIds: selection.selectedIncomingGatePassIds,
+          gatePassNo: Math.floor(gatePassNo),
           date: formatDateToISO(value.date),
           variety: resolvedVariety,
           allocationStatus: 'UNALLOCATED',
+          manualGatePassNumber: value.manualGatePassNumber,
           grader: grader || undefined,
           remarks: value.remarks.trim() || undefined,
           orderDetails: body.map((r) => ({
@@ -307,10 +295,7 @@ export const GradingEditForm = memo(function GradingEditForm({
         },
         {
           onSuccess: (data) => {
-            const ok =
-              (typeof data.success === 'boolean' && data.success) ||
-              data.status?.toLowerCase() === 'success';
-            if (!ok) return;
+            if (!data.success) return;
             setSummaryOpen(false);
           },
         }
@@ -319,6 +304,10 @@ export const GradingEditForm = memo(function GradingEditForm({
   });
 
   const handleNext = () => {
+    if (!voucherNumberReady) {
+      toast.error('Waiting for voucher number. Please try again in a moment.');
+      return;
+    }
     const v = form.state.values;
     const parsed = stepOneSchema.safeParse({
       manualGatePassNumber: v.manualGatePassNumber,
@@ -337,20 +326,28 @@ export const GradingEditForm = memo(function GradingEditForm({
   const summaryValues: GradingSummaryFormValues = useMemo(() => {
     const v = form.state.values;
     const grader = resolveGrader(v.graderKnownKey, v.graderCustom);
+    const gn = voucherNumberReady ? Math.floor(gatePassNo) : 0;
     return {
-      gatePassNo: pass.gatePassNo,
+      gatePassNo: gn,
       manualGatePassNumber: v.manualGatePassNumber,
-      dateDisplay: v.date?.trim() ? v.date : isoToDdMmYy(pass.date),
+      dateDisplay: v.date?.trim() ?? '',
       variety: resolvedVariety,
       grader,
       remarks: v.remarks,
       allocationStatus: 'UNALLOCATED',
       orderDetails: v.orderDetails ?? [],
       farmer: farmerDisplay,
-      incomingLines: buildIncomingLines(effectivePass),
-      gradedByLabel: getGradedByLabel(pass),
+      incomingLines: buildIncomingLinesFromRefs(effectiveIncomingPasses),
+      gradedByLabel: undefined,
     };
-  }, [effectivePass, farmerDisplay, form.state.values, pass, resolvedVariety]);
+  }, [
+    effectiveIncomingPasses,
+    farmerDisplay,
+    form.state.values,
+    gatePassNo,
+    resolvedVariety,
+    voucherNumberReady,
+  ]);
 
   return (
     <main className="font-custom mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -373,12 +370,24 @@ export const GradingEditForm = memo(function GradingEditForm({
           </Button>
           <div>
             <h1 className="font-custom text-3xl font-bold tracking-tighter text-[#333] sm:text-4xl">
-              Edit grading voucher
+              New grading voucher
             </h1>
             <p className="text-muted-foreground font-custom mt-1 max-w-xl text-sm leading-relaxed">
-              Update grading header in step one, then size breakdown and bag
+              Enter grading header in step one, then size breakdown and bag
               weights in step two.
             </p>
+            {isVoucherNumberLoading && !voucherNumberDisplay ? (
+              <p className="text-muted-foreground font-custom mt-3 text-sm">
+                Loading voucher number…
+              </p>
+            ) : null}
+            {voucherNumberDisplay ? (
+              <div className="bg-primary/20 mt-3 block w-fit rounded-full px-4 py-1.5">
+                <span className="font-custom text-primary text-sm font-medium">
+                  VOUCHER NO: {voucherNumberDisplay}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -386,11 +395,11 @@ export const GradingEditForm = memo(function GradingEditForm({
             variant="outline"
             className="font-custom h-9 gap-2 px-3 text-sm font-semibold"
           >
-            System #{pass.gatePassNo}
+            System #{voucherNumberReady ? gatePassNo : '—'}
           </Badge>
-          {pass.manualGatePassNumber != null ? (
+          {form.state.values.manualGatePassNumber != null ? (
             <Badge variant="secondary" className="font-custom h-9 px-3 text-sm">
-              Manual #{pass.manualGatePassNumber}
+              Manual #{form.state.values.manualGatePassNumber}
             </Badge>
           ) : null}
         </div>
@@ -417,7 +426,7 @@ export const GradingEditForm = memo(function GradingEditForm({
                 Pass & context
               </p>
               <p className="text-muted-foreground font-custom text-xs leading-snug">
-                Farmer context, voucher date, variety, and grader
+                Farmer context from your selection, voucher date and grader
               </p>
             </div>
           </div>
@@ -467,8 +476,8 @@ export const GradingEditForm = memo(function GradingEditForm({
                     Linked incoming passes
                   </CardTitle>
                   <CardDescription className="font-custom">
-                    Read-only reference from the vouchers linked to this grading
-                    pass.
+                    Incoming gate passes selected in the previous step
+                    (read-only).
                   </CardDescription>
                 </CardHeader>
                 <Separator />
@@ -489,6 +498,14 @@ export const GradingEditForm = memo(function GradingEditForm({
                           <span>{farmerDisplay.mobileNumber}</span>
                         ) : null}
                       </div>
+                      {resolvedVariety ? (
+                        <p className="text-muted-foreground font-custom mt-2 text-xs">
+                          Variety:{' '}
+                          <span className="text-foreground font-medium">
+                            {resolvedVariety}
+                          </span>
+                        </p>
+                      ) : null}
                     </CardContent>
                   </Card>
                   <ul className="space-y-2">
@@ -529,8 +546,8 @@ export const GradingEditForm = memo(function GradingEditForm({
                     Grading voucher
                   </CardTitle>
                   <CardDescription className="font-custom">
-                    Identifiers and grading metadata — same shapes as stored on
-                    the grading pass.
+                    Manual number (optional), voucher date, and grader for this
+                    voucher.
                   </CardDescription>
                 </CardHeader>
                 <Separator />
@@ -598,7 +615,7 @@ export const GradingEditForm = memo(function GradingEditForm({
                           Date
                         </FieldLabel>
                         <DatePicker
-                          id={`grading-edit-date`}
+                          id="grading-create-date"
                           compact
                           label=""
                           value={field.state.value}
@@ -731,6 +748,7 @@ export const GradingEditForm = memo(function GradingEditForm({
                   type="button"
                   size="lg"
                   className="font-custom focus-visible:ring-primary font-bold shadow-md"
+                  disabled={!voucherNumberReady || isVoucherNumberLoading}
                   onClick={handleNext}
                 >
                   Next
@@ -1206,6 +1224,9 @@ export const GradingEditForm = memo(function GradingEditForm({
                     type="submit"
                     size="lg"
                     className="font-custom focus-visible:ring-primary font-bold shadow-lg"
+                    disabled={
+                      isPending || !voucherNumberReady || isVoucherNumberLoading
+                    }
                   >
                     Review
                     <ChevronRight className="ml-1 size-4" />
@@ -1221,6 +1242,9 @@ export const GradingEditForm = memo(function GradingEditForm({
         open={summaryOpen}
         summary={summaryValues}
         isPending={isPending}
+        sheetDescription="Confirm header, grading details, and size breakdown before creating this voucher."
+        confirmLabel="Create voucher"
+        pendingLabel="Creating…"
         onOpenChange={(open) => {
           if (!open) confirmSaveRef.current = false;
           setSummaryOpen(open);

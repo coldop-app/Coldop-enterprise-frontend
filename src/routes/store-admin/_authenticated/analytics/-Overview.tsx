@@ -210,12 +210,14 @@ interface GradingCardProps {
   initialQuantity: number;
   currentQuantity: number;
   weightKg: number;
+  onGetReportClick?: () => void;
 }
 
 const GradingCard = memo(function GradingCard({
   initialQuantity,
   currentQuantity,
   weightKg,
+  onGetReportClick,
 }: GradingCardProps) {
   const [open, setOpen] = useState(false);
 
@@ -241,6 +243,7 @@ const GradingCard = memo(function GradingCard({
           <Button
             variant="outline"
             size="sm"
+            onClick={onGetReportClick}
             className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
           >
             <FileText className="h-4 w-4" />
@@ -390,6 +393,9 @@ const Overview = memo(function Overview() {
         initialQuantity={normalized.totalGradingBags.initialQuantity}
         currentQuantity={normalized.totalGradingBags.currentQuantity}
         weightKg={normalized.totalGradingWeight}
+        onGetReportClick={() =>
+          void navigate({ to: '/store-admin/analytics/reports/grading' })
+        }
       />
       <StatCard
         title="Bags Stored"

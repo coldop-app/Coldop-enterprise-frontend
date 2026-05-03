@@ -28,6 +28,7 @@ import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-m
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
 import { useEditNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useEditNikasiGatePass';
+import { useGetIncomingGatePassesOfFarmer } from '@/services/store-admin/general/useGetIncomingGatePassesOfFarmer';
 import type { NikasiGatePassEditState } from '@/components/daybook/nikasi-gate-pass-card';
 import {
   blurTargetOnNumberWheel,
@@ -244,6 +245,10 @@ const NikasiEditForm = memo(function NikasiEditForm({
       );
     },
   });
+  const selectedFarmerStorageLinkId = form.state.values.farmerStorageLinkId;
+  const { data: incomingGatePassesOfFarmer = [] } =
+    useGetIncomingGatePassesOfFarmer(selectedFarmerStorageLinkId);
+
   const selectedFarmerName =
     farmerLinks
       ?.find((link) => link._id === form.state.values.farmerStorageLinkId)
@@ -298,7 +303,9 @@ const NikasiEditForm = memo(function NikasiEditForm({
                 [
                   ...Object.values(values.sizeVarieties ?? {}),
                   ...(values.extraQuantityRows ?? []).map((row) => row.variety),
-                ].find((v) => v?.trim()) ?? '-'
+                ].find((v) => v?.trim()) ??
+                incomingGatePassesOfFarmer[0]?.variety ??
+                '-'
               ).trim(),
               allocations: [...fixedAllocations, ...extraAllocations],
             },
@@ -306,7 +313,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         },
       ],
     };
-  }, [form.state.values, selectedFarmerName]);
+  }, [form.state.values, incomingGatePassesOfFarmer, selectedFarmerName]);
 
   const handleDispatchLedgerAdded = useCallback(() => {
     refetchDispatchLedgers();

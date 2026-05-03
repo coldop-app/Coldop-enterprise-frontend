@@ -228,7 +228,7 @@ const GradingTab = ({ isActive = true }: GradingTabProps) => {
   }, [navigate]);
 
   const handleNavigateAdd = useCallback(() => {
-    void navigate({ to: '/store-admin/grading-gate-pass/edit' });
+    void navigate({ to: '/store-admin/grading-gate-pass' });
   }, [navigate]);
 
   const emptyTitle = useMemo(() => {

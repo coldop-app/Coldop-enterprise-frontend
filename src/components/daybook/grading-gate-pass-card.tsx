@@ -163,9 +163,6 @@ function GradingVoucherCardComponent({
             >
               {formatNumber(grading.totals.totalInitial)} Bags
             </Badge>
-            <Badge className="font-custom px-2 py-0.5 text-[10px] font-medium capitalize">
-              {gradingGatePass.allocationStatus.toLowerCase()}
-            </Badge>
           </div>
         </div>
 

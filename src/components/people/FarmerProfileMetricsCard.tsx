@@ -1,12 +1,5 @@
 import { memo } from 'react';
-import {
-  ArrowUpFromLine,
-  ArrowDownToLine,
-  Clock,
-  Layers,
-  Warehouse,
-  Truck,
-} from 'lucide-react';
+import { ArrowUpFromLine, Clock, Layers } from 'lucide-react';
 
 export interface FarmerProfileAggregates {
   totalBagsIncoming: number;
@@ -40,19 +33,6 @@ const METRICS: Array<{
     color: 'warning',
   },
   { key: 'totalBagsGraded', label: 'Grading', Icon: Layers, color: 'default' },
-  { key: 'totalBagsStored', label: 'Storage', Icon: Warehouse, color: 'info' },
-  {
-    key: 'totalBagsNikasi',
-    label: 'Dispatch (PreStorage)',
-    Icon: Truck,
-    color: 'default',
-  },
-  {
-    key: 'totalBagsOutgoing',
-    label: 'Dispatch (PostStorage)',
-    Icon: ArrowDownToLine,
-    color: 'success',
-  },
 ];
 
 const iconWrapperClass: Record<string, string> = {

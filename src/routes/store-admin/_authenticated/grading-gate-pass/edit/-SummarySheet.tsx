@@ -109,6 +109,10 @@ interface GradingSummarySheetProps {
   summary: GradingSummaryFormValues;
   isPending: boolean;
   onConfirm: () => void;
+  /** Defaults to copy for edit flow */
+  sheetDescription?: string;
+  confirmLabel?: string;
+  pendingLabel?: string;
 }
 
 export const GradingSummarySheet = memo(function GradingSummarySheet({
@@ -117,6 +121,9 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
   summary,
   isPending,
   onConfirm,
+  sheetDescription = 'Confirm header, grading details, and size breakdown before saving changes.',
+  confirmLabel = 'Save changes',
+  pendingLabel = 'Saving…',
 }: GradingSummarySheetProps) {
   const totalBags = summary.orderDetails.reduce(
     (s, row) => s + (Number(row.quantity) || 0),
@@ -140,8 +147,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
             Review grading voucher
           </SheetTitle>
           <SheetDescription className="font-custom text-sm leading-relaxed">
-            Confirm header, grading details, and size breakdown before saving
-            changes.
+            {sheetDescription}
           </SheetDescription>
         </SheetHeader>
 
@@ -382,10 +388,10 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
               {isPending ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Saving…
+                  {pendingLabel}
                 </span>
               ) : (
-                'Save changes'
+                confirmLabel
               )}
             </Button>
           </div>

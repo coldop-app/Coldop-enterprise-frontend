@@ -56,12 +56,24 @@ export interface GradingGatePassIncomingRefLink {
   accountNumber: number;
 }
 
+/**
+ * Populated farmer storage link on GET `/grading-gate-pass/report` nested `incomingGatePassIds`.
+ * Omits cold-storage bookkeeping fields sometimes absent on this projection.
+ */
+export interface GradingGatePassIncomingReportFarmerStorageLink {
+  _id: string;
+  farmerId: Farmer;
+  accountNumber: number;
+  linkedById?: GradingGatePassLinkedBy;
+}
+
 /** Incoming gate pass as nested in grading pass incomingGatePassIds[] (list API and get-all-gate-passes-of-farmer) */
 export interface GradingGatePassIncomingRef {
   _id: string;
   farmerStorageLinkId?:
     | GradingGatePassIncomingRefLink
-    | GradingGatePassFarmerStorageLink;
+    | GradingGatePassFarmerStorageLink
+    | GradingGatePassIncomingReportFarmerStorageLink;
   gatePassNo: number;
   manualGatePassNumber?: number;
   date: string;

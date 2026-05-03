@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { JUTE_BAG_WEIGHT } from '@/lib/constants';
 
 const STATUS_LABELS = {
-  NOT_GRADED: 'Pending Grading',
+  NOT_GRADED: 'Not Graded',
   GRADED: 'Graded',
   PARTIALLY_GRADED: 'Partially Graded',
 } as const;
@@ -98,12 +98,13 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
     ? gatePass.createdBy.name
     : 'Unknown user';
   const statusLabel = STATUS_LABELS[gatePass.status] ?? gatePass.status;
+  const isNotGraded = gatePass.status === 'NOT_GRADED';
   const gross = gatePass.weightSlip?.grossWeightKg ?? 0;
   const tare = gatePass.weightSlip?.tareWeightKg ?? 0;
   const netKg = gross - tare;
   const bardanaKg = gatePass.bagsReceived * JUTE_BAG_WEIGHT;
   const netProductKg = netKg - bardanaKg;
-  const isCancelledGatePass = gatePass.bagsReceived === 0;
+  const isCancelledGatePass = gatePass.bagsReceived === 0 && !isNotGraded;
 
   const handleEditClick = () => {
     const editSearch = {
@@ -206,7 +207,13 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
               Cancelled Gate Pass
             </Badge>
           ) : null}
-          <Badge className="font-custom px-2 py-0.5 text-[10px] font-medium">
+          <Badge
+            className={cn(
+              'font-custom px-2 py-0.5 text-[10px] font-medium',
+              gatePass.status === 'NOT_GRADED' &&
+                'bg-amber-100 text-amber-800 hover:bg-amber-100'
+            )}
+          >
             {statusLabel}
           </Badge>
         </div>
