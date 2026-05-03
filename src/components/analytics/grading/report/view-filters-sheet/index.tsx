@@ -16,7 +16,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import {
-  Plus,
   RotateCcw,
   SlidersHorizontal,
   Columns3,
@@ -24,8 +23,7 @@ import {
   Settings2,
   Search,
   ChevronDown,
-  CheckCircle2,
-  Circle,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,34 +42,33 @@ import {
 } from '@/components/ui/tooltip';
 
 import {
-  createDefaultCondition,
-  createDefaultFilterGroup,
-  getDefaultOperatorForField,
-  hasAnyUsableFilter,
-  isAdvancedFilterGroup,
-  type FilterField,
-  type FilterGroupNode,
-  type FilterOperator,
-} from '@/lib/advanced-filters';
-import type {
-  FilterableColumnId,
-  StatusFilterValue,
-  ViewFiltersSheetProps,
-} from './types';
+  createDefaultGradingCondition,
+  createDefaultGradingFilterGroup,
+  getDefaultOperatorForGradingField,
+  hasAnyUsableGradingFilter,
+  isGradingAdvancedFilterGroup,
+  type GradingFilterField,
+  type GradingFilterGroupNode,
+  type GradingFilterOperator,
+} from './advanced-filters';
+import { defaultGradingColumnOrder } from '../column-meta';
+import type { GradingFilterableColumnId, ViewFiltersSheetProps } from './types';
 import {
   advancedFilterFields,
   filterableColumns,
   getEmptyValueFilters,
   getInitialExpandedFilters,
   getInitialSearchQueries,
-  statusFilterOptions,
+  getInitialValueFilterTouched,
+  gradingColumnLabels,
 } from './constants';
 import {
-  mutateFilterNodeById,
+  mutateGradingFilterNodeById,
   parseGroupingColumnId,
   parseGroupingSlotIndex,
-  removeFilterNodeById,
+  removeGradingFilterNodeById,
 } from './helpers';
+import { LogicBuilder } from './logic-builder';
 import {
   EmptyState,
   GroupingDropZone,
@@ -79,47 +76,18 @@ import {
   SortableColumnRow,
   SortableGroupingRow,
 } from './primitives';
-import { LogicBuilder } from './logic-builder';
-
-const columnLabels: Record<string, string> = {
-  gatePassNo: 'System Generated Gate Pass No',
-  manualGatePassNumber: 'Manual Gate Pass No',
-  date: 'Date',
-  farmerName: 'Farmer',
-  variety: 'Variety',
-  bagsReceived: 'Bags',
-  netWeightKg: 'Net Weight (kg)',
-  status: 'Status',
-  location: 'Location',
-  truckNumber: 'Truck No.',
-  remarks: 'Remarks',
-};
-
-const getInitialValueFilterTouched = (): Record<
-  FilterableColumnId,
-  boolean
-> => ({
-  gatePassNo: false,
-  date: false,
-  farmerName: false,
-  variety: false,
-  bagsReceived: false,
-  netWeightKg: false,
-  location: false,
-  truckNumber: false,
-});
 
 type AdvancedTabContentProps = {
-  draftLogicFilter: FilterGroupNode;
-  advancedFieldValueOptions: Record<FilterField, string[]>;
+  draftLogicFilter: GradingFilterGroupNode;
+  advancedFieldValueOptions: Record<GradingFilterField, string[]>;
   onResetLogicBuilder: () => void;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
   onAddConditionToGroup: (groupId: string) => void;
   onAddNestedGroup: (groupId: string) => void;
-  onSetConditionField: (conditionId: string, field: FilterField) => void;
+  onSetConditionField: (conditionId: string, field: GradingFilterField) => void;
   onSetConditionOperator: (
     conditionId: string,
-    operator: FilterOperator
+    operator: GradingFilterOperator
   ) => void;
   onSetConditionValue: (conditionId: string, value: string) => void;
   onRemoveNode: (nodeId: string) => void;
@@ -159,8 +127,7 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
             Logic Builder
           </SectionLabel>
           <p className="text-muted-foreground mb-3 text-xs">
-            Combine filters with AND / OR logic. E.g. status is Graded AND bags
-            &gt; 10.
+            Combine filters with AND / OR logic on grading report fields.
           </p>
           <LogicBuilder
             group={draftLogicFilter}
@@ -205,20 +172,27 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
   );
 });
 
+const emptyAdvancedOptions = (): Record<GradingFilterField, string[]> =>
+  Object.fromEntries(defaultGradingColumnOrder.map((id) => [id, []])) as Record<
+    GradingFilterField,
+    string[]
+  >;
+
 export function ViewFiltersSheet({
   open,
   onOpenChange,
   table,
   defaultColumnOrder,
+  defaultColumnVisibility,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
 }: ViewFiltersSheetProps) {
   const [activeTab, setActiveTab] = React.useState('filters');
   const [searchQueries, setSearchQueries] = React.useState<
-    Record<FilterableColumnId, string>
+    Record<GradingFilterableColumnId, string>
   >(getInitialSearchQueries());
   const [expandedFilters, setExpandedFilters] = React.useState<
-    Record<FilterableColumnId, boolean>
+    Record<GradingFilterableColumnId, boolean>
   >(getInitialExpandedFilters());
 
   const hidableColumns = React.useMemo(
@@ -243,22 +217,20 @@ export function ViewFiltersSheet({
     () => {
       const activeOrder = table.getState().columnOrder;
       const validOrder = (
-        activeOrder.length ? activeOrder : defaultColumnOrder
+        activeOrder.length ? activeOrder : [...defaultColumnOrder]
       ).filter((id) => hidableColumnIds.includes(id));
       const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
       return [...validOrder, ...missing];
     }
   );
   const [draftGrouping, setDraftGrouping] = React.useState<string[]>([]);
-  const [draftStatusFilters, setDraftStatusFilters] =
-    React.useState<StatusFilterValue[]>(statusFilterOptions);
   const [draftLogicFilter, setDraftLogicFilter] =
-    React.useState<FilterGroupNode>(createDefaultFilterGroup());
+    React.useState<GradingFilterGroupNode>(createDefaultGradingFilterGroup());
   const [draftValueFilters, setDraftValueFilters] = React.useState<
-    Record<FilterableColumnId, string[]>
+    Record<GradingFilterableColumnId, string[]>
   >(getEmptyValueFilters());
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
-    Record<FilterableColumnId, boolean>
+    Record<GradingFilterableColumnId, boolean>
   >(getInitialValueFilterTouched());
 
   const sensors = useSensors(
@@ -270,7 +242,6 @@ export function ViewFiltersSheet({
 
   const getUniqueColumnValues = React.useCallback(
     (columnId: string): string[] => {
-      // Re-run option derivation when row data changes.
       void coreRowCount;
       const facetedValues = table.getColumn(columnId)?.getFacetedUniqueValues();
       let values = facetedValues ? Array.from(facetedValues.keys()) : [];
@@ -296,19 +267,9 @@ export function ViewFiltersSheet({
   );
 
   const availableFilterOptions = React.useMemo<
-    Record<FilterableColumnId, string[]>
+    Record<GradingFilterableColumnId, string[]>
   >(() => {
-    const options = {
-      gatePassNo: [],
-      date: [],
-      farmerName: [],
-      variety: [],
-      bagsReceived: [],
-      netWeightKg: [],
-      location: [],
-      truckNumber: [],
-    } as Record<FilterableColumnId, string[]>;
-
+    const options = {} as Record<GradingFilterableColumnId, string[]>;
     filterableColumns.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);
     });
@@ -316,44 +277,24 @@ export function ViewFiltersSheet({
   }, [getUniqueColumnValues]);
 
   const advancedFieldValueOptions = React.useMemo<
-    Record<FilterField, string[]>
+    Record<GradingFilterField, string[]>
   >(() => {
-    const options = {
-      gatePassNo: [],
-      manualGatePassNumber: [],
-      date: [],
-      farmerName: [],
-      variety: [],
-      totalBags: [],
-      bagsReceived: [],
-      netWeightKg: [],
-      status: [...statusFilterOptions],
-      location: [],
-      truckNumber: [],
-    } as Record<FilterField, string[]>;
-
+    const options = emptyAdvancedOptions();
     advancedFilterFields.forEach(({ id }) => {
-      options[id] =
-        id === 'status' ? [...statusFilterOptions] : getUniqueColumnValues(id);
+      options[id] = getUniqueColumnValues(id);
     });
     return options;
   }, [getUniqueColumnValues]);
 
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
-    if (draftStatusFilters.length < statusFilterOptions.length) count++;
     filterableColumns.forEach(({ id }) => {
       const all = availableFilterOptions[id];
       if (all.length > 0 && draftValueFilters[id].length < all.length) count++;
     });
-    if (hasAnyUsableFilter(draftLogicFilter)) count++;
+    if (hasAnyUsableGradingFilter(draftLogicFilter)) count++;
     return count;
-  }, [
-    draftStatusFilters,
-    draftValueFilters,
-    draftLogicFilter,
-    availableFilterOptions,
-  ]);
+  }, [draftValueFilters, draftLogicFilter, availableFilterOptions]);
 
   const activeColumnCount = React.useMemo(
     () => Object.values(draftColumnVisibility).filter((v) => !v).length,
@@ -365,7 +306,7 @@ export function ViewFiltersSheet({
       {
         value: 'filters',
         label: 'Filters',
-        description: 'Refine rows by status, date range, and values.',
+        description: 'Refine rows by column values and logic.',
         icon: <SlidersHorizontal className="h-3.5 w-3.5" />,
         badge: activeFilterCount || undefined,
       },
@@ -405,7 +346,7 @@ export function ViewFiltersSheet({
 
     const activeOrder = table.getState().columnOrder;
     const validOrder = (
-      activeOrder.length ? activeOrder : defaultColumnOrder
+      activeOrder.length ? activeOrder : [...defaultColumnOrder]
     ).filter((id) => hidableColumnIds.includes(id));
     const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
 
@@ -418,22 +359,15 @@ export function ViewFiltersSheet({
         : [...availableFilterOptions[id]];
     });
 
-    const rawStatusFilter = table.getColumn('status')?.getFilterValue();
-
-    setDraftStatusFilters(
-      Array.isArray(rawStatusFilter)
-        ? (rawStatusFilter as StatusFilterValue[])
-        : [...statusFilterOptions]
-    );
     setDraftColumnVisibility(visibility);
     setDraftColumnOrder([...validOrder, ...missing]);
     setDraftGrouping(table.getState().grouping);
     setDraftValueFilters(nextValueFilters);
     const activeGlobalFilter = table.getState().globalFilter;
     setDraftLogicFilter(
-      isAdvancedFilterGroup(activeGlobalFilter)
+      isGradingAdvancedFilterGroup(activeGlobalFilter)
         ? activeGlobalFilter
-        : createDefaultFilterGroup()
+        : createDefaultGradingFilterGroup()
     );
   }, [
     availableFilterOptions,
@@ -455,28 +389,51 @@ export function ViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility(table.initialState.columnVisibility ?? {});
-    table.setColumnOrder(defaultColumnOrder);
+    table.setColumnVisibility(defaultColumnVisibility);
+    table.setColumnOrder([...defaultColumnOrder]);
     table.resetColumnFilters();
     table.setGrouping([]);
     table.setGlobalFilter('');
+    table.setSorting([]);
     table.resetColumnSizing();
     onColumnResizeModeChange('onChange');
     onColumnResizeDirectionChange('ltr');
-    syncDraftFromTable();
+
+    const visibility: Record<string, boolean> = {};
+    hidableColumns.forEach((column) => {
+      visibility[column.id] = defaultColumnVisibility[column.id] !== false;
+    });
+    const validOrder = [...defaultColumnOrder].filter((id) =>
+      hidableColumnIds.includes(id)
+    );
+    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+
+    setDraftColumnVisibility(visibility);
+    setDraftColumnOrder([...validOrder, ...missing]);
+    setDraftGrouping([]);
+    const nextValueFilters = getEmptyValueFilters();
+    filterableColumns.forEach(({ id }) => {
+      nextValueFilters[id] = [...availableFilterOptions[id]];
+    });
+    setDraftValueFilters(nextValueFilters);
+    setDraftLogicFilter(createDefaultGradingFilterGroup());
     setSearchQueries(getInitialSearchQueries());
     setExpandedFilters(getInitialExpandedFilters());
     setValueFilterTouched(getInitialValueFilterTouched());
+    setActiveTab('filters');
   }, [
+    availableFilterOptions,
     defaultColumnOrder,
+    defaultColumnVisibility,
+    hidableColumnIds,
+    hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
-    syncDraftFromTable,
     table,
   ]);
 
   const getEffectiveDraftValues = React.useCallback(
-    (columnId: FilterableColumnId) => {
+    (columnId: GradingFilterableColumnId) => {
       const selected = draftValueFilters[columnId];
       if (valueFilterTouched[columnId] || selected.length > 0) return selected;
       return availableFilterOptions[columnId];
@@ -489,13 +446,6 @@ export function ViewFiltersSheet({
     table.setColumnOrder(draftColumnOrder);
     table.setGrouping(draftGrouping);
 
-    const statusColumn = table.getColumn('status');
-    statusColumn?.setFilterValue(
-      draftStatusFilters.length === statusFilterOptions.length
-        ? undefined
-        : draftStatusFilters
-    );
-
     filterableColumns.forEach(({ id }) => {
       const allValues = availableFilterOptions[id];
       const selected = getEffectiveDraftValues(id);
@@ -506,9 +456,9 @@ export function ViewFiltersSheet({
         );
     });
 
-    if (hasAnyUsableFilter(draftLogicFilter)) {
+    if (hasAnyUsableGradingFilter(draftLogicFilter)) {
       table.setGlobalFilter(draftLogicFilter);
-    } else if (isAdvancedFilterGroup(table.getState().globalFilter)) {
+    } else if (isGradingAdvancedFilterGroup(table.getState().globalFilter)) {
       table.setGlobalFilter('');
     }
     onOpenChange(false);
@@ -518,22 +468,10 @@ export function ViewFiltersSheet({
     draftColumnVisibility,
     draftGrouping,
     draftLogicFilter,
-    draftStatusFilters,
     getEffectiveDraftValues,
     onOpenChange,
     table,
   ]);
-
-  const handleColumnDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setDraftColumnOrder((current) => {
-      const oldIndex = current.indexOf(String(active.id));
-      const newIndex = current.indexOf(String(over.id));
-      if (oldIndex < 0 || newIndex < 0) return current;
-      return arrayMove(current, oldIndex, newIndex);
-    });
-  };
 
   const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
     number | null
@@ -598,21 +536,19 @@ export function ViewFiltersSheet({
     });
   };
 
-  const toggleStatusDraft = React.useCallback(
-    (status: StatusFilterValue, checked: boolean) => {
-      setDraftStatusFilters((current) =>
-        checked
-          ? current.includes(status)
-            ? current
-            : [...current, status]
-          : current.filter((v) => v !== status)
-      );
-    },
-    []
-  );
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setDraftColumnOrder((current) => {
+      const oldIndex = current.indexOf(String(active.id));
+      const newIndex = current.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return current;
+      return arrayMove(current, oldIndex, newIndex);
+    });
+  };
 
   const toggleValueDraft = React.useCallback(
-    (columnId: FilterableColumnId, value: string, checked: boolean) => {
+    (columnId: GradingFilterableColumnId, value: string, checked: boolean) => {
       setDraftValueFilters((current) => {
         const hasTouchedFilter = valueFilterTouched[columnId];
         const currentValues =
@@ -635,7 +571,7 @@ export function ViewFiltersSheet({
   );
 
   const handleToggleAllValues = React.useCallback(
-    (columnId: FilterableColumnId) => {
+    (columnId: GradingFilterableColumnId) => {
       setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
       const allValues = availableFilterOptions[columnId];
       const areAllSelected =
@@ -650,7 +586,7 @@ export function ViewFiltersSheet({
   );
 
   const getFilteredOptionsForColumn = React.useCallback(
-    (columnId: FilterableColumnId) => {
+    (columnId: GradingFilterableColumnId) => {
       const query = searchQueries[columnId].trim().toLowerCase();
       const allValues = availableFilterOptions[columnId];
       return query
@@ -663,7 +599,7 @@ export function ViewFiltersSheet({
   const setGroupOperator = React.useCallback(
     (groupId: string, operator: 'AND' | 'OR') =>
       setDraftLogicFilter((current) =>
-        mutateFilterNodeById(current, groupId, (node) =>
+        mutateGradingFilterNodeById(current, groupId, (node) =>
           node.type === 'group' ? { ...node, operator } : node
         )
       ),
@@ -672,11 +608,14 @@ export function ViewFiltersSheet({
   const addConditionToGroup = React.useCallback(
     (groupId: string) =>
       setDraftLogicFilter((current) =>
-        mutateFilterNodeById(current, groupId, (node) =>
+        mutateGradingFilterNodeById(current, groupId, (node) =>
           node.type === 'group'
             ? {
                 ...node,
-                conditions: [...node.conditions, createDefaultCondition()],
+                conditions: [
+                  ...node.conditions,
+                  createDefaultGradingCondition(),
+                ],
               }
             : node
         )
@@ -686,11 +625,14 @@ export function ViewFiltersSheet({
   const addNestedGroup = React.useCallback(
     (groupId: string) =>
       setDraftLogicFilter((current) =>
-        mutateFilterNodeById(current, groupId, (node) =>
+        mutateGradingFilterNodeById(current, groupId, (node) =>
           node.type === 'group'
             ? {
                 ...node,
-                conditions: [...node.conditions, createDefaultFilterGroup()],
+                conditions: [
+                  ...node.conditions,
+                  createDefaultGradingFilterGroup(),
+                ],
               }
             : node
         )
@@ -698,14 +640,14 @@ export function ViewFiltersSheet({
     []
   );
   const setConditionField = React.useCallback(
-    (conditionId: string, field: FilterField) =>
+    (conditionId: string, field: GradingFilterField) =>
       setDraftLogicFilter((current) =>
-        mutateFilterNodeById(current, conditionId, (node) =>
+        mutateGradingFilterNodeById(current, conditionId, (node) =>
           node.type === 'condition'
             ? {
                 ...node,
                 field,
-                operator: getDefaultOperatorForField(field),
+                operator: getDefaultOperatorForGradingField(field),
                 value: '',
               }
             : node
@@ -714,9 +656,9 @@ export function ViewFiltersSheet({
     []
   );
   const setConditionOperator = React.useCallback(
-    (conditionId: string, operator: FilterOperator) =>
+    (conditionId: string, operator: GradingFilterOperator) =>
       setDraftLogicFilter((current) =>
-        mutateFilterNodeById(current, conditionId, (node) =>
+        mutateGradingFilterNodeById(current, conditionId, (node) =>
           node.type === 'condition' ? { ...node, operator } : node
         )
       ),
@@ -725,7 +667,7 @@ export function ViewFiltersSheet({
   const setConditionValue = React.useCallback(
     (conditionId: string, value: string) =>
       setDraftLogicFilter((current) =>
-        mutateFilterNodeById(current, conditionId, (node) =>
+        mutateGradingFilterNodeById(current, conditionId, (node) =>
           node.type === 'condition' ? { ...node, value } : node
         )
       ),
@@ -733,11 +675,13 @@ export function ViewFiltersSheet({
   );
   const removeNode = React.useCallback(
     (nodeId: string) =>
-      setDraftLogicFilter((current) => removeFilterNodeById(current, nodeId)),
+      setDraftLogicFilter((current) =>
+        removeGradingFilterNodeById(current, nodeId)
+      ),
     []
   );
   const handleResetLogicBuilder = React.useCallback(() => {
-    setDraftLogicFilter(createDefaultFilterGroup());
+    setDraftLogicFilter(createDefaultGradingFilterGroup());
   }, []);
   const handleResetColumnResizing = React.useCallback(() => {
     onColumnResizeModeChange('onChange');
@@ -777,7 +721,7 @@ export function ViewFiltersSheet({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="left">
-                Reset all filters, columns & grouping
+                Reset all filters, columns, grouping & sizing
               </TooltipContent>
             </Tooltip>
           </div>
@@ -815,50 +759,6 @@ export function ViewFiltersSheet({
             <div className="bg-muted/10 flex-1 overflow-y-auto">
               <TabsContent value="filters" className="m-0 focus-visible:ring-0">
                 <div className="space-y-6 p-5">
-                  <div className="hidden">
-                    <SectionLabel>QC Status</SectionLabel>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {
-                          value: 'GRADED' as StatusFilterValue,
-                          label: 'Graded',
-                          indicator: 'bg-green-500',
-                        },
-                        {
-                          value: 'NOT_GRADED' as StatusFilterValue,
-                          label: 'Ungraded',
-                          indicator: 'bg-yellow-500',
-                        },
-                      ].map(({ value, label, indicator }) => {
-                        const checked = draftStatusFilters.includes(value);
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => toggleStatusDraft(value, !checked)}
-                            className={`flex items-center gap-2.5 rounded-lg border p-3 text-left transition-all ${
-                              checked
-                                ? 'border-primary/30 bg-primary/5 shadow-sm'
-                                : 'border-border bg-background opacity-70'
-                            }`}
-                          >
-                            {checked ? (
-                              <CheckCircle2 className="text-primary h-4 w-4 shrink-0" />
-                            ) : (
-                              <Circle className="text-muted-foreground/40 h-4 w-4 shrink-0" />
-                            )}
-                            <span
-                              className={`h-2 w-2 shrink-0 rounded-full ${indicator}`}
-                            />
-                            <span className="text-foreground text-sm font-medium">
-                              {label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
                     <SectionLabel>Column Filters</SectionLabel>
                     <div className="divide-border bg-background divide-y overflow-hidden rounded-lg border">
@@ -1017,7 +917,7 @@ export function ViewFiltersSheet({
                           <SortableColumnRow
                             key={columnId}
                             columnId={columnId}
-                            label={columnLabels[columnId] ?? columnId}
+                            label={gradingColumnLabels[columnId] ?? columnId}
                             visible={draftColumnVisibility[columnId] ?? true}
                             onToggle={(checked) =>
                               setDraftColumnVisibility((c) => ({
@@ -1069,7 +969,8 @@ export function ViewFiltersSheet({
                       >
                         <div className="space-y-1">
                           {draftGrouping.map((columnId, index) => {
-                            const label = columnLabels[columnId] ?? columnId;
+                            const label =
+                              gradingColumnLabels[columnId] ?? columnId;
                             return (
                               <React.Fragment key={columnId}>
                                 <GroupingDropZone
@@ -1125,7 +1026,7 @@ export function ViewFiltersSheet({
                               className="bg-background flex items-center justify-between rounded-lg border px-3 py-2.5"
                             >
                               <span className="text-foreground text-sm">
-                                {columnLabels[column.id] ?? column.id}
+                                {gradingColumnLabels[column.id] ?? column.id}
                               </span>
                               <button
                                 type="button"

@@ -9,13 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { numericGradingFilterFields } from './advanced-filters';
 import type {
-  FilterConditionNode,
-  FilterField,
-  FilterGroupNode,
-  FilterOperator,
-} from '@/lib/advanced-filters';
-import { numericFilterFields } from '@/lib/advanced-filters';
+  GradingFilterGroupNode,
+  GradingFilterOperator,
+} from './advanced-filters';
+import type { GradingFilterField } from '../column-meta';
 import {
   advancedFilterFields,
   filterOperatorLabels,
@@ -24,15 +23,15 @@ import {
 } from './constants';
 
 type LogicBuilderProps = {
-  group: FilterGroupNode;
-  advancedFieldValueOptions: Record<FilterField, string[]>;
+  group: GradingFilterGroupNode;
+  advancedFieldValueOptions: Record<GradingFilterField, string[]>;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
   onAddConditionToGroup: (groupId: string) => void;
   onAddNestedGroup: (groupId: string) => void;
-  onSetConditionField: (conditionId: string, field: FilterField) => void;
+  onSetConditionField: (conditionId: string, field: GradingFilterField) => void;
   onSetConditionOperator: (
     conditionId: string,
-    operator: FilterOperator
+    operator: GradingFilterOperator
   ) => void;
   onSetConditionValue: (conditionId: string, value: string) => void;
   onRemoveNode: (nodeId: string) => void;
@@ -49,7 +48,10 @@ export const LogicBuilder = React.memo(function LogicBuilder({
   onSetConditionValue,
   onRemoveNode,
 }: LogicBuilderProps) {
-  function renderGroup(nodeGroup: FilterGroupNode, depth = 0): React.ReactNode {
+  function renderGroup(
+    nodeGroup: GradingFilterGroupNode,
+    depth = 0
+  ): React.ReactNode {
     return (
       <div
         key={nodeGroup.id}
@@ -120,7 +122,7 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                 );
               }
 
-              const isNumeric = numericFilterFields.includes(node.field);
+              const isNumeric = numericGradingFilterFields.includes(node.field);
               const operators = isNumeric ? numberOperators : stringOperators;
               const valueOptions = advancedFieldValueOptions[node.field] ?? [];
 
@@ -133,7 +135,10 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                     <Select
                       value={node.field}
                       onValueChange={(value) =>
-                        onSetConditionField(node.id, value as FilterField)
+                        onSetConditionField(
+                          node.id,
+                          value as GradingFilterField
+                        )
                       }
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -158,7 +163,7 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                       onValueChange={(value) =>
                         onSetConditionOperator(
                           node.id,
-                          value as FilterConditionNode['operator']
+                          value as GradingFilterOperator
                         )
                       }
                     >
@@ -180,7 +185,7 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                       onChange={(event) =>
                         onSetConditionValue(node.id, event.target.value)
                       }
-                      list={`logic-value-options-${node.id}`}
+                      list={`grading-logic-value-options-${node.id}`}
                       placeholder={
                         valueOptions.length > 0
                           ? 'Select or type value...'
@@ -188,7 +193,7 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                       }
                       className="h-8 text-xs"
                     />
-                    <datalist id={`logic-value-options-${node.id}`}>
+                    <datalist id={`grading-logic-value-options-${node.id}`}>
                       {valueOptions.map((opt) => (
                         <option key={`${node.id}-${opt}`} value={opt} />
                       ))}

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2026-05-03
+
+### Changed
+- Grading analytics report is reorganized under `src/components/analytics/grading/report/` with split modules for column metadata, column definitions, the main grading report table, and the advanced view-filters sheet (advanced filter rules, constants, helpers, logic builder, primitives, and shared types).
+- The store-admin grading analytics report route now imports the report table from the new module path.
+- Grading gate pass create form uses a clearer Zod shape for optional manual gate pass numbers, explicit typed default values, and a stricter submit validator without type assertions.
+- Project version updated to `0.5.7` for this grading report refactor and form validation release.
+
+### Removed
+- The previous `grading/reports/` implementation, including the grading report PDF worker and PDF document/prepare modules, in favor of the consolidated report module layout.
+
 ## [0.5.6] - 2026-05-02
 
 ### Added

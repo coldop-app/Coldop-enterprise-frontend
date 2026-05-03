@@ -124,13 +124,15 @@ const orderRowSchema = z.object({
 });
 
 const fullFormSchema = z.object({
-  manualGatePassNumber: z.union([z.number().nonnegative(), z.undefined()]),
+  manualGatePassNumber: z.number().nonnegative().optional(),
   date: z.string().trim().min(1, 'Date is required'),
   graderKnownKey: z.string(),
   graderCustom: z.string(),
-  remarks: z.string().max(500).default(''),
+  remarks: z.string().max(500),
   orderDetails: z.array(orderRowSchema).min(1, 'Add at least one size row'),
 });
+
+type GradingGatePassCreateFormValues = z.infer<typeof fullFormSchema>;
 
 const stepOneSchema = z
   .object({
@@ -221,17 +223,19 @@ export const GradingCreateForm = memo(function GradingCreateForm({
     ? `#${gatePassNo}`
     : undefined;
 
+  const gradingGatePassCreateDefaultValues: GradingGatePassCreateFormValues = {
+    manualGatePassNumber: undefined,
+    date: '',
+    graderKnownKey: defaultKnownGrader,
+    graderCustom: defaultKnownGrader === GRADER_SELECT_CUSTOM ? '' : '',
+    remarks: '',
+    orderDetails: initialOrderDetails,
+  };
+
   const form = useForm({
-    defaultValues: {
-      manualGatePassNumber: undefined,
-      date: '',
-      graderKnownKey: defaultKnownGrader,
-      graderCustom: defaultKnownGrader === GRADER_SELECT_CUSTOM ? '' : '',
-      remarks: '',
-      orderDetails: initialOrderDetails,
-    },
+    defaultValues: gradingGatePassCreateDefaultValues,
     validators: {
-      onSubmit: fullFormSchema as never,
+      onSubmit: fullFormSchema,
     },
     onSubmit: async ({ value }) => {
       const grader = resolveGrader(value.graderKnownKey, value.graderCustom);
