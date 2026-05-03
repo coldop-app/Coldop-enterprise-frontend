@@ -220,6 +220,15 @@ function getTotalGradeNetWeightKg(row: FlattenedRow): number | null {
   return total > 0 ? total : null;
 }
 
+/** Quintals / acre: net grading weight (kg) → quintals (÷100), divided by variety total acres. */
+function getAverageQuintalPerAcre(row: FlattenedRow): number | null {
+  const netKg = getTotalGradeNetWeightKg(row);
+  if (netKg === null || netKg <= 0) return null;
+  const acres = row.varietyTotalAcres;
+  if (!acres || acres <= 0) return null;
+  return netKg / 100 / acres;
+}
+
 function getGroupedGradeOrderIndex(grade: string): number | undefined {
   const orderGrade =
     grade === BELOW_40_GROUP_GRADE
@@ -236,6 +245,10 @@ const VARIETY_LEVEL_COLUMN_PREFIX = FILTER_VARIETY_LEVEL_PREFIX;
 const VARIETY_LEVEL_PERCENT_COLUMN_PREFIX = 'grade_weight_pct_';
 const TOTAL_GRADED_BAGS_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__totalAfterGrading`;
 const TOTAL_GRADED_NET_WEIGHT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__netWeightAfterGrading`;
+const AVG_QUINTAL_PER_ACRE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__avgQuintalPerAcre`;
+
+/** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
+const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 3;
 
 type GlobalFilterValue = string | FilterGroupNode;
 const VARIETY_LEVEL_COLUMN_IDS = new Set(['variety', 'bbBags', 'bbNetWeight']);
@@ -295,6 +308,8 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
               return a.name.localeCompare(b.name);
             })
           : [{ name: '-', quantity: 0, acres: 0, amountPayable: 0 }];
+      const acresSum = normalizedSizes.reduce((sum, s) => sum + s.acres, 0);
+      const varietyTotalAcres = variety.seed?.totalAcres ?? acresSum;
 
       normalizedSizes.forEach((size, sizeIndex) => {
         rows.push({
@@ -312,6 +327,7 @@ function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
           buyBackBags: variety.buyBack?.bags ?? null,
           buyBackNetWeightKg: variety.buyBack?.netWeightKg ?? null,
           gradeData: variety.grading ?? {},
+          varietyTotalAcres,
         });
       });
     });
@@ -520,6 +536,18 @@ function buildColumns(
             filterFn: multiValueFilterFn,
           })
         ),
+        ...gradeHeaders.map((grade) =>
+          columnHelper.accessor((row) => getGradeWeightPercent(row, grade), {
+            id: `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`,
+            header: `${formatContractFarmingGradeColumnLabel(grade)} %`,
+            sortingFn: 'basic',
+            size: 130,
+            minSize: 110,
+            maxSize: 260,
+            enableGrouping: false,
+            filterFn: multiValueFilterFn,
+          })
+        ),
         columnHelper.accessor((row) => getTotalGradeBags(row), {
           id: TOTAL_GRADED_BAGS_COLUMN_ID,
           header: 'Total Bags After Grading',
@@ -540,18 +568,16 @@ function buildColumns(
           enableGrouping: false,
           filterFn: multiValueFilterFn,
         }),
-        ...gradeHeaders.map((grade) =>
-          columnHelper.accessor((row) => getGradeWeightPercent(row, grade), {
-            id: `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`,
-            header: `${formatContractFarmingGradeColumnLabel(grade)} %`,
-            sortingFn: 'basic',
-            size: 130,
-            minSize: 110,
-            maxSize: 260,
-            enableGrouping: false,
-            filterFn: multiValueFilterFn,
-          })
-        ),
+        columnHelper.accessor((row) => getAverageQuintalPerAcre(row), {
+          id: AVG_QUINTAL_PER_ACRE_COLUMN_ID,
+          header: 'Average Quintal Per Acre',
+          sortingFn: 'basic',
+          size: 175,
+          minSize: 130,
+          maxSize: 280,
+          enableGrouping: false,
+          filterFn: multiValueFilterFn,
+        }),
       ]
     : [
         columnHelper.display({
@@ -651,13 +677,16 @@ const ContractFarmingReportTable = () => {
       'bbBags',
       'bbNetWeight',
       ...gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
-      TOTAL_GRADED_BAGS_COLUMN_ID,
-      TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
       ...gradeHeaders.map(
         (grade) => `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`
       ),
+      TOTAL_GRADED_BAGS_COLUMN_ID,
+      TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
+      AVG_QUINTAL_PER_ACRE_COLUMN_ID,
     ],
-    [gradeHeaders]
+    // CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION busts cache when grading tail order changes (same gradeHeaders / HMR).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional invalidate key, not a reactive prop
+    [gradeHeaders, CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION]
   );
 
   const filterableColumns = React.useMemo(
@@ -673,7 +702,13 @@ const ContractFarmingReportTable = () => {
   React.useEffect(() => {
     setColumnOrder((current) => {
       if (current.length === 0) return defaultColumnOrder;
-      const preserved = current.filter((id) => defaultColumnOrder.includes(id));
+      const defaultIndex = (id: string) => {
+        const i = defaultColumnOrder.indexOf(id);
+        return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+      };
+      const preserved = current
+        .filter((id) => defaultColumnOrder.includes(id))
+        .sort((a, b) => defaultIndex(a) - defaultIndex(b));
       const missing = defaultColumnOrder.filter(
         (id) => !preserved.includes(id)
       );
@@ -851,6 +886,9 @@ const ContractFarmingReportTable = () => {
         }
         if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
           return 'Net Weight After Grading';
+        }
+        if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
+          return 'Average Quintal Per Acre';
         }
         const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
         return formatContractFarmingGradeColumnLabel(grade);
@@ -1086,6 +1124,18 @@ const ContractFarmingReportTable = () => {
           </td>
         );
       }
+      if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
+        const avg = getAverageQuintalPerAcre(row);
+        return (
+          <td
+            rowSpan={row.varietyRowSpan}
+            className={`${bodyCellClass} text-right align-top tabular-nums`}
+            style={{ width: columnWidth, minWidth: columnWidth }}
+          >
+            {avg !== null ? formatNumber(avg) : '-'}
+          </td>
+        );
+      }
       const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
       const bags = getGradeBagCount(row, grade);
       return (
@@ -1318,6 +1368,24 @@ const ContractFarmingReportTable = () => {
                           {renderLeafSortHeader(
                             columnId,
                             'Net Weight After Grading'
+                          )}
+                          {renderLeafResizeHandle(columnId)}
+                        </th>
+                      );
+                    }
+                    if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
+                      return (
+                        <th
+                          key={columnId}
+                          className={`${headerCellClass} relative`}
+                          style={{
+                            width: column.getSize(),
+                            minWidth: column.getSize(),
+                          }}
+                        >
+                          {renderLeafSortHeader(
+                            columnId,
+                            'Average Quintal Per Acre'
                           )}
                           {renderLeafResizeHandle(columnId)}
                         </th>

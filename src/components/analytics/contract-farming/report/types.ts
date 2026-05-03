@@ -14,4 +14,6 @@ export type FlattenedRow = {
   buyBackBags: number | null;
   buyBackNetWeightKg: number | null;
   gradeData: Record<string, { bags: number; netWeightKg: number }>;
+  /** Total acres planted for this farmer × variety (all sizes); from seed.totalAcres or sum of sizes. */
+  varietyTotalAcres: number;
 };
