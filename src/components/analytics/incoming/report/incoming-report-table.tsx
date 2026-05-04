@@ -7,6 +7,7 @@ import {
   type GroupingState,
   type Row,
   type SortingState,
+  type Table,
   type VisibilityState,
   createColumnHelper,
   flexRender,
@@ -24,11 +25,13 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  FileSpreadsheet,
   RefreshCw,
   FileText,
   SlidersHorizontal,
   Search,
 } from 'lucide-react';
+import { utils, writeFileXLSX } from 'xlsx';
 import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -470,6 +473,11 @@ type IncomingPdfButtonProps = {
   buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
 };
 
+type IncomingExcelButtonProps = {
+  table: Table<IncomingReportRow>;
+  coldStorageName: string;
+};
+
 type IncomingReportTableProps = {
   enforcedStatus?: string;
 };
@@ -653,6 +661,167 @@ const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
         <FileText className="h-3.5 w-3.5" />
       )}
       {isGeneratingPdf ? 'Generating...' : 'Pdf'}
+    </Button>
+  );
+};
+
+function getColumnHeaderLabel(
+  column: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>[number]
+): string {
+  const headerDefinition = column.columnDef.header;
+  if (typeof headerDefinition === 'string') return headerDefinition;
+  if (typeof column.columnDef.meta === 'string') return column.columnDef.meta;
+  return column.id;
+}
+
+function getDayOrdinal(day: number): string {
+  const mod10 = day % 10;
+  const mod100 = day % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${day}st`;
+  if (mod10 === 2 && mod100 !== 12) return `${day}nd`;
+  if (mod10 === 3 && mod100 !== 13) return `${day}rd`;
+  return `${day}th`;
+}
+
+function getIncomingReportExportDateLabel(date: Date): string {
+  const day = getDayOrdinal(date.getDate());
+  const month = date.toLocaleString('en-IN', { month: 'long' });
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+function getExcelBodyRowsFromTableState(
+  rows: Row<IncomingReportRow>[],
+  visibleColumns: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>
+): Array<Array<string | number>> {
+  const columnIndexById = new Map(
+    visibleColumns.map((column, index) => [column.id, index])
+  );
+
+  const bodyRows: Array<Array<string | number>> = [];
+
+  const appendRows = (tableRows: Row<IncomingReportRow>[]) => {
+    for (const row of tableRows) {
+      const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
+        ''
+      );
+
+      for (const cell of row.getVisibleCells()) {
+        const columnId = cell.column.id;
+        const columnIndex = columnIndexById.get(columnId);
+        if (columnIndex == null) continue;
+
+        const isGroupedCell = cell.getIsGrouped();
+        const isAggregatedCell = cell.getIsAggregated();
+        const isPlaceholderCell = cell.getIsPlaceholder();
+        const shouldSuppressAggregation =
+          isAggregatedCell &&
+          (columnId === 'gatePassNo' || columnId === 'manualGatePassNumber');
+
+        if (isGroupedCell) {
+          const groupedValue = row.getValue(columnId);
+          nextRow[columnIndex] = `${'  '.repeat(row.depth)}${String(
+            groupedValue ?? ''
+          )} (${row.subRows.length})`;
+          continue;
+        }
+
+        if (isAggregatedCell) {
+          if (shouldSuppressAggregation) {
+            nextRow[columnIndex] = '-';
+            continue;
+          }
+          const aggregatedValue = row.getValue(columnId);
+          nextRow[columnIndex] =
+            aggregatedValue == null ? '' : (aggregatedValue as string | number);
+          continue;
+        }
+
+        if (isPlaceholderCell) {
+          nextRow[columnIndex] = '';
+          continue;
+        }
+
+        const value = row.getValue(columnId);
+        nextRow[columnIndex] = value == null ? '' : (value as string | number);
+      }
+
+      bodyRows.push(nextRow);
+
+      // Export all subgroup rows even if they are collapsed in the UI.
+      if (row.getIsGrouped() && row.subRows.length > 0) {
+        appendRows(row.subRows);
+      }
+    }
+  };
+
+  appendRows(rows);
+  return bodyRows;
+}
+
+const IncomingExcelButton = ({
+  table,
+  coldStorageName,
+}: IncomingExcelButtonProps) => {
+  const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
+
+  const handleGenerate = React.useCallback(() => {
+    if (isGeneratingExcel) return;
+
+    try {
+      setIsGeneratingExcel(true);
+
+      const visibleColumns = table.getVisibleLeafColumns();
+      const headerRow = visibleColumns.map((column) =>
+        getColumnHeaderLabel(column)
+      );
+      const sourceRows =
+        table.getState().grouping.length > 0
+          ? table.getGroupedRowModel().rows
+          : table.getRowModel().rows;
+      const bodyRows = getExcelBodyRowsFromTableState(
+        sourceRows,
+        visibleColumns
+      );
+
+      const worksheet = utils.aoa_to_sheet([headerRow, ...bodyRows]);
+      worksheet['!cols'] = visibleColumns.map((column) => ({
+        wch: Math.max(12, Math.round(column.getSize() / 8)),
+      }));
+
+      const workbook = utils.book_new();
+      utils.book_append_sheet(workbook, worksheet, 'Incoming Report');
+
+      const fileDateLabel = getIncomingReportExportDateLabel(new Date());
+      const safeColdStorageName = coldStorageName
+        .trim()
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ');
+      const fileName = `${safeColdStorageName || 'Cold Storage'} Incoming Report ${fileDateLabel}.xlsx`;
+
+      writeFileXLSX(workbook, fileName);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      window.alert(`Failed to generate Excel: ${message}`);
+    } finally {
+      setIsGeneratingExcel(false);
+    }
+  }, [coldStorageName, isGeneratingExcel, table]);
+
+  return (
+    <Button
+      variant="default"
+      className="h-8 rounded-lg px-4 text-sm leading-none"
+      disabled={isGeneratingExcel}
+      onClick={handleGenerate}
+    >
+      {isGeneratingExcel ? (
+        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <FileSpreadsheet className="h-3.5 w-3.5" />
+      )}
+      {isGeneratingExcel ? 'Generating...' : 'Excel'}
     </Button>
   );
 };
@@ -880,7 +1049,7 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
             size="sm"
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
-            <div className="flex w-full flex-wrap items-end gap-3 lg:flex-nowrap">
+            <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
               {/* Date range */}
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
@@ -927,8 +1096,8 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
               <div className="bg-border/40 hidden h-7 w-px lg:block" />
 
               {/* Search + Right actions */}
-              <div className="ml-auto flex items-center gap-2 self-end">
-                <div className="relative min-w-[160px] lg:w-[220px]">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2 self-end">
+                <div className="relative w-[140px] sm:w-[170px]">
                   <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
                   <Input
                     value={typeof globalFilter === 'string' ? globalFilter : ''}
@@ -945,10 +1114,14 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
+                <IncomingExcelButton
+                  table={table}
+                  coldStorageName={coldStorageName}
+                />
                 <IncomingPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"
-                  className="text-muted-foreground h-8 rounded-lg px-2 leading-none"
+                  className="text-muted-foreground h-8 w-8 rounded-lg p-0 leading-none"
                   disabled={isFetching}
                   onClick={() => refetch()}
                   aria-label="Refresh"
