@@ -68,6 +68,8 @@ export interface NikasiGatePassItem {
   isInternalTransfer: boolean;
   date: string;
   from: string;
+  /** Destination label on the gate pass; when unset, UI falls back to dispatch ledger name. */
+  to?: string;
   /** @deprecated Legacy field kept for backward compatibility in UI */
   toField?: string;
   bagSize?: NikasiGatePassBagSize[];

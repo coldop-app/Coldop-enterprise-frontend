@@ -18,6 +18,8 @@ export interface EditNikasiGatePassInput {
   isInternalTransfer?: boolean;
   date?: string;
   from?: string;
+  /** Destination label; omitted when empty after trim. */
+  to?: string;
   dispatchLedgerId?: string;
   bagSizes?: NikasiBagSizeInput[];
   remarks?: string;
@@ -97,6 +99,10 @@ function normalizeEditNikasiGatePassPayload(
     ...(payload.from !== undefined && {
       from: payload.from.trim(),
     }),
+    ...(payload.to !== undefined &&
+      payload.to.trim() !== '' && {
+        to: payload.to.trim(),
+      }),
     ...(payload.dispatchLedgerId !== undefined && {
       dispatchLedgerId: payload.dispatchLedgerId.trim(),
     }),

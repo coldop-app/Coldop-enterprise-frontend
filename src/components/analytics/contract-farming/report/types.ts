@@ -1,4 +1,4 @@
-/** One logical row before rowspan metadata is merged in `recomputeRowSpans`. */
+/** One logical row per size line in the contract-farming report grid. */
 export type FlattenedRow = {
   rowId: string;
   farmerName: string;
@@ -18,4 +18,6 @@ export type FlattenedRow = {
   gradeData: Record<string, { bags: number; netWeightKg: number }>;
   /** Total acres planted for this farmer × variety (all sizes); from seed.totalAcres or sum of sizes. */
   varietyTotalAcres: number;
+  /** Sum of seed `amountPayable` for this farmer × variety (matches seed.totalAmountPayable or summed sizes). */
+  varietyTotalSeedAmountPayable: number;
 };

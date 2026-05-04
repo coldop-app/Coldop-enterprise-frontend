@@ -102,6 +102,8 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
   const [farmerStorageLinkId, setFarmerStorageLinkId] = useState('');
   const [dispatchLedgerId, setDispatchLedgerId] = useState('');
   const [toField, setToField] = useState('');
+  /** Optional override for API `to`; when empty, selected ledger name (`toField`) is used. */
+  const [toLabelOptional, setToLabelOptional] = useState('');
   const [date, setDate] = useState('');
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>(
     defaultSizeQuantities
@@ -165,7 +167,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
         {
           date,
           from: selectedFarmerName,
-          toField,
+          toField: toLabelOptional.trim() || toField,
           remarks,
           isInternalTransfer,
           gradingGatePasses: [
@@ -187,6 +189,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     date,
     selectedFarmerName,
     toField,
+    toLabelOptional,
     remarks,
     isInternalTransfer,
     sizeQuantities,
@@ -241,6 +244,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
         date: formatDateToISO(date),
         from: selectedFarmerName,
         dispatchLedgerId: dispatchLedgerId.trim(),
+        to: toLabelOptional.trim() || toField.trim() || undefined,
         bagSizes,
         remarks: remarks.trim() || undefined,
         netWeight,
@@ -349,6 +353,18 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                 onDispatchLedgerAdded={refetchDispatchLedgers}
               />
             </div>
+            <p className="font-custom text-muted-foreground mt-2 text-sm">
+              Optional: set a custom destination label for the gate pass; if
+              left blank, the selected ledger name is used.
+            </p>
+            <Input
+              id="nikasi-create-to-label-optional"
+              value={toLabelOptional}
+              onChange={(e) => setToLabelOptional(e.target.value)}
+              placeholder="Destination label (optional)"
+              maxLength={200}
+              className="font-custom focus-visible:ring-primary mt-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            />
           </Field>
 
           <Field>
@@ -644,6 +660,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
               setFarmerStorageLinkId('');
               setDispatchLedgerId('');
               setToField('');
+              setToLabelOptional('');
               setDate('');
               setSizeQuantities(defaultSizeQuantities);
               setSizeBagTypes(defaultSizeBagTypes);

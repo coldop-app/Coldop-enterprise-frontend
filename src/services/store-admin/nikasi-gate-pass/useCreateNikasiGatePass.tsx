@@ -18,6 +18,8 @@ export interface CreateNikasiGatePassInput {
   isInternalTransfer?: boolean;
   date: string;
   from: string;
+  /** Optional display / destination label for the gate pass. */
+  to?: string;
   bagSizes: NikasiBagSizeInput[];
   remarks?: string;
   netWeight?: number;
@@ -86,6 +88,10 @@ function normalizeCreateNikasiGatePassPayload(
     }),
     date: payload.date,
     from: payload.from.trim(),
+    ...(payload.to !== undefined &&
+      payload.to.trim() !== '' && {
+        to: payload.to.trim(),
+      }),
     bagSizes: payload.bagSizes.map((bag) => ({
       size: bag.size.trim(),
       variety: bag.variety.trim(),

@@ -168,7 +168,6 @@ export function ContractFarmingViewFiltersSheet({
   onOpenChange,
   table,
   defaultColumnOrder,
-  filterableColumns,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
   rowSpanGrouping,
@@ -190,6 +189,37 @@ export function ContractFarmingViewFiltersSheet({
     () => hidableColumns.map((column) => column.id),
     [hidableColumns]
   );
+
+  /** All leaf columns with a filterFn — mirrors the grid (grades, %, totals, ₹, etc.) */
+  const filterableColumns = React.useMemo(() => {
+    const leafById = new Map(table.getAllLeafColumns().map((c) => [c.id, c]));
+    const order = table.getState().columnOrder;
+    const canonical = order.length > 0 ? order : defaultColumnOrder;
+    const seen = new Set<string>();
+    const rows: Array<{ id: string; label: string }> = [];
+
+    const pushIfFilterable = (id: string) => {
+      if (seen.has(id)) return;
+      const col = leafById.get(id);
+      if (!col?.getCanFilter()) return;
+      seen.add(id);
+      const h = col.columnDef.header;
+      rows.push({
+        id,
+        label: typeof h === 'string' ? h : id,
+      });
+    };
+
+    canonical.forEach(pushIfFilterable);
+
+    leafById.forEach((col, id) => {
+      if (!seen.has(id) && col.getCanFilter()) {
+        pushIfFilterable(id);
+      }
+    });
+
+    return rows;
+  }, [defaultColumnOrder, table]);
 
   const [draftColumnVisibility, setDraftColumnVisibility] = React.useState<
     Record<string, boolean>
@@ -344,12 +374,12 @@ export function ContractFarmingViewFiltersSheet({
 
   const resolveColumnLabel = React.useCallback(
     (columnId: string) => {
-      const fromFilter = filterableColumns.find((c) => c.id === columnId);
-      if (fromFilter) return fromFilter.label;
       const col = table.getColumn(columnId);
       const h = col?.columnDef.header;
       if (typeof h === 'string') return h;
-      return columnId;
+      return (
+        filterableColumns.find((c) => c.id === columnId)?.label ?? columnId
+      );
     },
     [filterableColumns, table]
   );

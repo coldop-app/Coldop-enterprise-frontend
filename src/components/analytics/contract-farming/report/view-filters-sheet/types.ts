@@ -11,7 +11,6 @@ export type ContractFarmingViewFiltersSheetProps = {
   onOpenChange: (open: boolean) => void;
   table: TanstackTable<FlattenedRow>;
   defaultColumnOrder: string[];
-  filterableColumns: Array<{ id: string; label: string }>;
   columnResizeMode: ColumnResizeMode;
   columnResizeDirection: ColumnResizeDirection;
   onColumnResizeModeChange: (mode: ColumnResizeMode) => void;

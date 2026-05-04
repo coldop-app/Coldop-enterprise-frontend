@@ -1,13 +1,14 @@
 import * as React from 'react';
 import {
-  type ColumnDef,
+  type Column,
   type ColumnFiltersState,
   type ColumnResizeDirection,
   type ColumnResizeMode,
   type GroupingState,
+  type Row as TanStackRow,
   type SortingState,
   type VisibilityState,
-  createColumnHelper,
+  type Updater,
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
@@ -28,676 +29,446 @@ import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  useGetContractFarmingReport,
-  type ContractFarmingReportData,
-  type ContractFarmingReportFarmer,
-} from '@/services/store-admin/general/useGetContractFarmingReport';
+import { useGetContractFarmingReport } from '@/services/store-admin/general/useGetContractFarmingReport';
 import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
+import {
+  buildGradeHeaders,
+  flattenRows,
+  formatNumber,
+  getAverageQuintalPerAcre,
+  getBuyBackAmountFromGradeData,
+  getGradeBagCount,
+  getGradeWeightPercent,
+  getNetAmountPerAcreRupee,
+  getNetAmountRupee,
+  getOutputPercentage,
+  getTotalGradeBags,
+  getTotalGradeNetWeightKg,
+  getWastageKg,
+  normalizeReportData,
+  recomputeRowSpans,
+  type RenderRow,
+} from './contract-farming-report-calculations';
+import {
+  AVG_QUINTAL_PER_ACRE_COLUMN_ID,
+  buildColumns,
+  buildContractFarmingGradingLeafColumnIds,
+  BUY_BACK_AMOUNT_COLUMN_ID,
+  BUY_BACK_COLUMN_IDS,
+  CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION,
+  isNumericSortColumnId,
+  NET_AMOUNT_COLUMN_ID,
+  NET_AMOUNT_PER_ACRE_COLUMN_ID,
+  OUTPUT_PERCENTAGE_COLUMN_ID,
+  SEED_AMOUNT_COLUMN_ID,
+  TOTAL_GRADED_BAGS_COLUMN_ID,
+  TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
+  TRAILING_TWO_ROW_HEADER_COLUMN_IDS,
+  TRAILING_TWO_ROW_HEADER_ID_SET,
+  VARIETY_LEVEL_COLUMN_IDS,
+  VARIETY_LEVEL_COLUMN_PREFIX,
+  VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
+  WASTAGE_KG_COLUMN_ID,
+} from './columns';
 import type { FlattenedRow } from './types';
+import { formatContractFarmingFooterRow } from './contract-farming-footer-totals';
 import { ContractFarmingViewFiltersSheet } from './view-filters-sheet/index';
 import {
-  buildContractFarmingFilterableColumns,
-  FILTER_VARIETY_LEVEL_PREFIX,
   formatContractFarmingGradeColumnLabel,
   isContractFarmingCutGrade,
 } from './view-filters-sheet/constants';
-import { roundMax2 } from '@/components/daybook/grading-calculations';
-import { resolveBuyBackRateFromPreferences } from '@/components/people/reports/helpers/summary-prepare';
 import { usePreferencesStore } from '@/stores/store';
 
-const multiValueFilterFn = (
-  row: { getValue: (columnId: string) => unknown },
+type GlobalFilterValue = string | FilterGroupNode;
+
+/** Stable row-model factories — avoid recreating on every render (TanStack Table docs). */
+const CF_GET_CORE_ROW_MODEL = getCoreRowModel();
+const CF_GET_FILTERED_ROW_MODEL = getFilteredRowModel();
+const CF_GET_SORTED_ROW_MODEL = getSortedRowModel();
+
+const CF_TABLE_DEFAULT_COLUMN = {
+  size: 130,
+  minSize: 90,
+  maxSize: 550,
+} as const;
+
+const CF_TABLE_INITIAL_STATE = {
+  columnVisibility: { farmerMobile: false },
+} as const;
+
+const CF_HEADER_CELL_CLASS =
+  'font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase';
+const CF_BODY_CELL_CLASS =
+  'font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5';
+
+function cfGetRowId(row: FlattenedRow): string {
+  return row.rowId;
+}
+
+function cfGlobalFilterFn(
+  row: TanStackRow<FlattenedRow>,
+  _columnId: string,
+  filterValue: GlobalFilterValue
+): boolean {
+  if (isAdvancedFilterGroup(filterValue)) {
+    return evaluateFilterGroup(row.original, filterValue);
+  }
+  const query = String(filterValue ?? '')
+    .trim()
+    .toLowerCase();
+  if (!query) return true;
+
+  const o = row.original;
+  const values = [
+    o.farmerName,
+    o.farmerAddress,
+    o.farmerMobile,
+    o.varietyName,
+    o.generation,
+    o.sizeName,
+    String(o.farmerAccount),
+  ];
+  return values.some((value) => value.toLowerCase().includes(query));
+}
+
+function renderCfBodyCellContent(
+  row: RenderRow,
   columnId: string,
-  filterValue: string[] | string
-) => {
-  const raw = row.getValue(columnId);
-  const cellValue = raw === null || raw === undefined ? '' : String(raw);
-  if (typeof filterValue === 'string') {
-    const normalized = filterValue.trim().toLowerCase();
-    if (!normalized) return true;
-    return cellValue.toLowerCase().includes(normalized);
-  }
-  if (!Array.isArray(filterValue)) return true;
-  if (filterValue.length === 0) return true;
-  return filterValue.includes(cellValue);
-};
-
-type RenderRow = FlattenedRow & {
-  isFirstFarmerRow: boolean;
-  isFirstVarietyRow: boolean;
-  isFarmerBlockStart: boolean;
-  isVarietyBlockStart: boolean;
-  farmerRowSpan: number;
-  varietyRowSpan: number;
-};
-
-type GroupingOptions = {
-  groupByFarmer: boolean;
-  groupByVariety: boolean;
-};
-
-const BAG_SIZE_DISPLAY_ORDER = [
-  'Below 25',
-  '25–30',
-  'Below 30',
-  '30–35',
-  '30–40',
-  '35–40',
-  'Below 40',
-  '40–45',
-  '40-50',
-  '45–50',
-  '50–55',
-  'Above 50',
-  'Above 55',
-  'Below 40 (mm)',
-  'Above 50 (mm)',
-  'Cut',
-] as const;
-
-function normalizeRangeLabel(label: string) {
-  return label.replace(/-/g, '–').toLowerCase().trim();
-}
-
-const BAG_SIZE_ORDER_INDEX = new Map<string, number>(
-  BAG_SIZE_DISPLAY_ORDER.map((size, index) => [
-    normalizeRangeLabel(size),
-    index,
-  ])
-);
-
-const BELOW_40_GRADE_VALUES = new Set([
-  normalizeRangeLabel('Below 25'),
-  normalizeRangeLabel('25–30'),
-  normalizeRangeLabel('Below 30'),
-  normalizeRangeLabel('30–35'),
-  normalizeRangeLabel('30–40'),
-  normalizeRangeLabel('35–40'),
-]);
-
-const ABOVE_50_GRADE_VALUES = new Set([
-  normalizeRangeLabel('50–55'),
-  normalizeRangeLabel('Above 50'),
-  normalizeRangeLabel('Above 55'),
-]);
-
-const BELOW_40_GROUP_GRADE = 'Below 40';
-const ABOVE_50_GROUP_GRADE = 'Above 50';
-
-function toGroupedGrade(grade: string): string {
-  const normalized = normalizeRangeLabel(grade);
-  if (BELOW_40_GRADE_VALUES.has(normalized)) return BELOW_40_GROUP_GRADE;
-  if (ABOVE_50_GRADE_VALUES.has(normalized)) return ABOVE_50_GROUP_GRADE;
-  return grade;
-}
-
-function getGradeBagCount(
-  row: FlattenedRow,
-  gradeHeader: string
-): number | null {
-  if (gradeHeader === BELOW_40_GROUP_GRADE) {
-    const total = Object.entries(row.gradeData).reduce(
-      (sum, [grade, value]) => {
-        if (!BELOW_40_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
-        return sum + (value?.bags ?? 0);
-      },
-      0
+  columnWidth: number
+): React.ReactNode {
+  if (columnId === 'farmer') {
+    if (!row.isFirstFarmerRow) return null;
+    return (
+      <td
+        rowSpan={row.farmerRowSpan}
+        className={`${CF_BODY_CELL_CLASS} max-w-56 align-top`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        <div className="font-medium">
+          {row.farmerName}
+          <span className="text-muted-foreground ml-1 text-sm font-normal">
+            (#{row.farmerAccount})
+          </span>
+        </div>
+      </td>
     );
-    return total;
   }
 
-  if (gradeHeader === ABOVE_50_GROUP_GRADE) {
-    const total = Object.entries(row.gradeData).reduce(
-      (sum, [grade, value]) => {
-        if (!ABOVE_50_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
-        return sum + (value?.bags ?? 0);
-      },
-      0
+  if (columnId === 'farmerMobile') {
+    if (!row.isFirstFarmerRow) return null;
+    return (
+      <td
+        rowSpan={row.farmerRowSpan}
+        className={`${CF_BODY_CELL_CLASS} align-top tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {row.farmerMobile}
+      </td>
     );
-    return total;
   }
 
-  return row.gradeData[gradeHeader]?.bags ?? null;
-}
-
-function getGradeNetWeightKg(
-  row: FlattenedRow,
-  gradeHeader: string
-): number | null {
-  if (gradeHeader === BELOW_40_GROUP_GRADE) {
-    const total = Object.entries(row.gradeData).reduce(
-      (sum, [grade, value]) => {
-        if (!BELOW_40_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
-        return sum + (value?.netWeightKg ?? 0);
-      },
-      0
+  if (columnId === 'address') {
+    if (!row.isFirstFarmerRow) return null;
+    return (
+      <td
+        rowSpan={row.farmerRowSpan}
+        className={`${CF_BODY_CELL_CLASS} align-top`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {row.farmerAddress}
+      </td>
     );
-    return total;
   }
 
-  if (gradeHeader === ABOVE_50_GROUP_GRADE) {
-    const total = Object.entries(row.gradeData).reduce(
-      (sum, [grade, value]) => {
-        if (!ABOVE_50_GRADE_VALUES.has(normalizeRangeLabel(grade))) return sum;
-        return sum + (value?.netWeightKg ?? 0);
-      },
-      0
+  if (columnId === 'variety') {
+    if (!row.isFirstVarietyRow) return null;
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className={`${CF_BODY_CELL_CLASS} align-top`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+          {row.varietyName}
+        </span>
+      </td>
     );
-    return total;
   }
 
-  return row.gradeData[gradeHeader]?.netWeightKg ?? null;
-}
-
-function getGradeWeightPercent(
-  row: FlattenedRow,
-  gradeHeader: string
-): number | null {
-  const totalWeight = Object.values(row.gradeData).reduce(
-    (sum, value) => sum + (value?.netWeightKg ?? 0),
-    0
-  );
-  if (totalWeight <= 0) return null;
-  const gradeWeight = getGradeNetWeightKg(row, gradeHeader) ?? 0;
-  return (gradeWeight / totalWeight) * 100;
-}
-
-function getTotalGradeBags(row: FlattenedRow): number | null {
-  const total = Object.values(row.gradeData).reduce(
-    (sum, value) => sum + (value?.bags ?? 0),
-    0
-  );
-  return total > 0 ? total : null;
-}
-
-function getTotalGradeNetWeightKg(row: FlattenedRow): number | null {
-  const total = Object.values(row.gradeData).reduce(
-    (sum, value) => sum + (value?.netWeightKg ?? 0),
-    0
-  );
-  return total > 0 ? total : null;
-}
-
-function getTotalGradeNetWeightKgSum(row: FlattenedRow): number {
-  return Object.values(row.gradeData).reduce(
-    (sum, value) => sum + (value?.netWeightKg ?? 0),
-    0
-  );
-}
-
-/** Buy-back net weight, or incoming net when buy-back is missing (same units as graded net kg). */
-function getInboundNetWeightKgForWastage(row: FlattenedRow): number | null {
-  const buyBack = row.buyBackNetWeightKg;
-  if (buyBack !== null && buyBack !== undefined && !Number.isNaN(buyBack)) {
-    return buyBack;
+  if (columnId === 'generation') {
+    return (
+      <td
+        className={CF_BODY_CELL_CLASS}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+          {row.generation}
+        </span>
+      </td>
+    );
   }
-  const incoming = row.incomingNetWeightKg;
-  if (incoming !== null && incoming !== undefined && !Number.isNaN(incoming)) {
-    return incoming;
+
+  if (columnId === 'size') {
+    return (
+      <td
+        className={CF_BODY_CELL_CLASS}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {row.sizeName}
+      </td>
+    );
   }
+
+  if (columnId === 'qty') {
+    return (
+      <td
+        className={`${CF_BODY_CELL_CLASS} text-right tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {formatNumber(row.sizeQuantity, 0)}
+      </td>
+    );
+  }
+
+  if (columnId === 'acres') {
+    return (
+      <td
+        className={`${CF_BODY_CELL_CLASS} text-right tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {formatNumber(row.sizeAcres)}
+      </td>
+    );
+  }
+
+  if (columnId === SEED_AMOUNT_COLUMN_ID) {
+    return (
+      <td
+        className={`${CF_BODY_CELL_CLASS} text-right tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {row.sizeAmount > 0 ? `₹${formatNumber(row.sizeAmount)}` : '-'}
+      </td>
+    );
+  }
+
+  const isVarietyLevelColumn =
+    VARIETY_LEVEL_COLUMN_IDS.has(columnId) ||
+    columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
+    columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX) ||
+    columnId === NET_AMOUNT_COLUMN_ID ||
+    columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID ||
+    columnId === 'noGrades';
+
+  if (isVarietyLevelColumn && !row.isFirstVarietyRow) {
+    return null;
+  }
+
+  if (columnId === 'bbBags') {
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {formatNumber(row.buyBackBags, 0)}
+      </td>
+    );
+  }
+
+  if (columnId === 'bbNetWeight') {
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {formatNumber(row.buyBackNetWeightKg)}
+      </td>
+    );
+  }
+
+  if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
+    if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
+      const totalBags = getTotalGradeBags(row);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {totalBags !== null ? formatNumber(totalBags, 0) : '-'}
+        </td>
+      );
+    }
+    if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
+      const totalNetWeightKg = getTotalGradeNetWeightKg(row);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {totalNetWeightKg !== null ? formatNumber(totalNetWeightKg) : '-'}
+        </td>
+      );
+    }
+    if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
+      const avg = getAverageQuintalPerAcre(row);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {avg !== null ? formatNumber(avg) : '-'}
+        </td>
+      );
+    }
+    if (columnId === WASTAGE_KG_COLUMN_ID) {
+      const wastage = getWastageKg(row);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {wastage !== null ? formatNumber(wastage) : '-'}
+        </td>
+      );
+    }
+    if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
+      const outputPct = getOutputPercentage(row);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {outputPct !== null ? `${formatNumber(outputPct, 2)}%` : '-'}
+        </td>
+      );
+    }
+    if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
+      const buyBackAmt = getBuyBackAmountFromGradeData(row);
+      return (
+        <td
+          rowSpan={row.varietyRowSpan}
+          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+          style={{ width: columnWidth, minWidth: columnWidth }}
+        >
+          {buyBackAmt !== null ? `₹${formatNumber(buyBackAmt)}` : '-'}
+        </td>
+      );
+    }
+    const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
+    const bags = getGradeBagCount(row, grade);
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {bags !== null ? formatNumber(bags, 0) : '-'}
+      </td>
+    );
+  }
+
+  if (columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) {
+    const grade = columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '');
+    const weightPercent = getGradeWeightPercent(row, grade);
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {weightPercent !== null ? `${formatNumber(weightPercent, 2)}%` : '-'}
+      </td>
+    );
+  }
+
+  if (columnId === NET_AMOUNT_COLUMN_ID) {
+    const net = getNetAmountRupee(row);
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {net !== null ? `₹${formatNumber(net)}` : '-'}
+      </td>
+    );
+  }
+
+  if (columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID) {
+    const perAcre = getNetAmountPerAcreRupee(row);
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        {perAcre !== null ? `₹${formatNumber(perAcre)}` : '-'}
+      </td>
+    );
+  }
+
+  if (columnId === 'noGrades') {
+    return (
+      <td
+        rowSpan={row.varietyRowSpan}
+        className={`${CF_BODY_CELL_CLASS} text-center align-top`}
+        style={{ width: columnWidth, minWidth: columnWidth }}
+      >
+        -
+      </td>
+    );
+  }
+
   return null;
 }
 
-/** Wastage (kg) = inbound net (buy-back or incoming) minus total net weight after grading. */
-function getWastageKg(row: FlattenedRow): number | null {
-  const inbound = getInboundNetWeightKgForWastage(row);
-  if (inbound === null) return null;
-  return inbound - getTotalGradeNetWeightKgSum(row);
-}
+type CfBodyRowProps = {
+  row: RenderRow;
+  rowIndex: number;
+  visibleColumnIds: readonly string[];
+  visibleColumnById: Map<string, Column<FlattenedRow, unknown>>;
+};
 
-/** Output % = net weight after grading ÷ net incoming weight × 100 (incoming = same baseline as wastage). */
-function getOutputPercentage(row: FlattenedRow): number | null {
-  const netIncoming = getInboundNetWeightKgForWastage(row);
-  if (netIncoming === null || netIncoming <= 0) return null;
-  const gradedKg = getTotalGradeNetWeightKgSum(row);
-  return (gradedKg / netIncoming) * 100;
-}
+const ContractFarmingReportBodyRow = React.memo(
+  function ContractFarmingReportBodyRow({
+    row,
+    rowIndex,
+    visibleColumnIds,
+    visibleColumnById,
+  }: CfBodyRowProps) {
+    const rowClass = row.isFarmerBlockStart
+      ? 'border-border/70 border-t-2'
+      : row.isVarietyBlockStart
+        ? 'border-border/60 border-t'
+        : 'border-border/40 border-t border-dashed';
+    const stripingClass = rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25';
 
-/**
- * ₹ buy-back payable from graded net kg × cold-storage prefs `custom.buyBackCost` rate per variety + size —
- * same rounding pattern as accounting summary ({@link roundMax2} on each grade line).
- */
-function getBuyBackAmountFromGradeData(row: FlattenedRow): number | null {
-  const preferences = usePreferencesStore.getState().preferences;
-  let total = 0;
-  let hasPositiveNet = false;
-
-  for (const [sizeLabel, value] of Object.entries(row.gradeData)) {
-    const netKg = Number(value?.netWeightKg ?? 0);
-    if (!Number.isFinite(netKg) || netKg <= 0) continue;
-    hasPositiveNet = true;
-    const rate = resolveBuyBackRateFromPreferences(
-      preferences,
-      row.varietyName,
-      sizeLabel
+    return (
+      <tr className={`hover:bg-accent/40 ${rowClass} ${stripingClass}`}>
+        {visibleColumnIds.map((columnId) => {
+          const column = visibleColumnById.get(columnId);
+          if (!column) return null;
+          return (
+            <React.Fragment key={`${row.rowId}-${columnId}`}>
+              {renderCfBodyCellContent(row, columnId, column.getSize())}
+            </React.Fragment>
+          );
+        })}
+      </tr>
     );
-    if (rate === null) return null;
-    total += roundMax2(netKg * Number(rate));
   }
-
-  if (!hasPositiveNet) return null;
-  return roundMax2(total);
-}
-
-/** Quintals / acre: net grading weight (kg) → quintals (÷100), divided by variety total acres. */
-function getAverageQuintalPerAcre(row: FlattenedRow): number | null {
-  const netKg = getTotalGradeNetWeightKg(row);
-  if (netKg === null || netKg <= 0) return null;
-  const acres = row.varietyTotalAcres;
-  if (!acres || acres <= 0) return null;
-  return netKg / 100 / acres;
-}
-
-function getGroupedGradeOrderIndex(grade: string): number | undefined {
-  const orderGrade =
-    grade === BELOW_40_GROUP_GRADE
-      ? 'Below 40'
-      : grade === ABOVE_50_GROUP_GRADE
-        ? 'Above 50'
-        : grade;
-  return BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(orderGrade));
-}
-
-const columnHelper = createColumnHelper<FlattenedRow>();
-
-const VARIETY_LEVEL_COLUMN_PREFIX = FILTER_VARIETY_LEVEL_PREFIX;
-const VARIETY_LEVEL_PERCENT_COLUMN_PREFIX = 'grade_weight_pct_';
-const TOTAL_GRADED_BAGS_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__totalAfterGrading`;
-const TOTAL_GRADED_NET_WEIGHT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__netWeightAfterGrading`;
-const AVG_QUINTAL_PER_ACRE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__avgQuintalPerAcre`;
-const WASTAGE_KG_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__wastageKg`;
-const OUTPUT_PERCENTAGE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__outputPercentage`;
-const BUY_BACK_AMOUNT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__buyBackAmount`;
-
-/** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
-const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 6;
-
-type GlobalFilterValue = string | FilterGroupNode;
-const VARIETY_LEVEL_COLUMN_IDS = new Set(['variety', 'bbBags', 'bbNetWeight']);
-const BUY_BACK_COLUMN_IDS = new Set(['bbBags', 'bbNetWeight']);
-
-function isNumericSortColumnId(columnId: string) {
-  return (
-    columnId === 'qty' ||
-    columnId === 'acres' ||
-    columnId === 'amount' ||
-    BUY_BACK_COLUMN_IDS.has(columnId) ||
-    columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
-    columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
-  );
-}
-
-function formatNumber(value: number | null | undefined, decimals = 2) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '-';
-  return Number(value).toLocaleString('en-IN', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-function normalizeReportData(data: ContractFarmingReportData | undefined) {
-  return (
-    data ?? {
-      farmers: [],
-      meta: { allGrades: [], allVarieties: [] },
-    }
-  );
-}
-
-function flattenRows(farmers: ContractFarmingReportFarmer[]): FlattenedRow[] {
-  const rows: FlattenedRow[] = [];
-
-  farmers.forEach((farmer, farmerIndex) => {
-    const farmerVarieties = farmer.varieties ?? [];
-
-    farmerVarieties.forEach((variety, varietyIndex) => {
-      const sizes = variety.seed?.sizes ?? [];
-      const normalizedSizes =
-        sizes.length > 0
-          ? [...sizes].sort((a, b) => {
-              const aOrder = BAG_SIZE_ORDER_INDEX.get(
-                normalizeRangeLabel(a.name)
-              );
-              const bOrder = BAG_SIZE_ORDER_INDEX.get(
-                normalizeRangeLabel(b.name)
-              );
-
-              if (aOrder !== undefined && bOrder !== undefined) {
-                return aOrder - bOrder;
-              }
-              if (aOrder !== undefined) return -1;
-              if (bOrder !== undefined) return 1;
-              return a.name.localeCompare(b.name);
-            })
-          : [{ name: '-', quantity: 0, acres: 0, amountPayable: 0 }];
-      const acresSum = normalizedSizes.reduce((sum, s) => sum + s.acres, 0);
-      const varietyTotalAcres = variety.seed?.totalAcres ?? acresSum;
-
-      normalizedSizes.forEach((size, sizeIndex) => {
-        rows.push({
-          rowId: `${farmer.id}-${variety.name}-${sizeIndex}-${farmerIndex}-${varietyIndex}`,
-          farmerName: farmer.name,
-          farmerMobile: farmer.mobileNumber,
-          farmerAccount: farmer.accountNumber,
-          farmerAddress: farmer.address,
-          varietyName: variety.name,
-          generation: variety.seed?.generation ?? '-',
-          sizeName: size.name,
-          sizeQuantity: size.quantity,
-          sizeAcres: size.acres,
-          sizeAmount: size.amountPayable,
-          buyBackBags: variety.buyBack?.bags ?? null,
-          buyBackNetWeightKg: variety.buyBack?.netWeightKg ?? null,
-          incomingNetWeightKg: variety.incomingNetWeightKg ?? null,
-          gradeData: variety.grading ?? {},
-          varietyTotalAcres,
-        });
-      });
-    });
-  });
-
-  return rows;
-}
-
-function recomputeRowSpans(rows: FlattenedRow[], options: GroupingOptions) {
-  const { groupByFarmer, groupByVariety } = options;
-  const nextRows: RenderRow[] = rows.map((row) => ({
-    ...row,
-    isFirstFarmerRow: false,
-    isFirstVarietyRow: false,
-    isFarmerBlockStart: false,
-    isVarietyBlockStart: false,
-    farmerRowSpan: 1,
-    varietyRowSpan: 1,
-  }));
-
-  if (nextRows.length === 0) return nextRows;
-
-  if (groupByFarmer) {
-    let farmerStart = 0;
-    for (let i = 1; i <= nextRows.length; i += 1) {
-      const isBoundary =
-        i === nextRows.length ||
-        nextRows[i].farmerName !== nextRows[farmerStart].farmerName;
-      if (isBoundary) {
-        const span = i - farmerStart;
-        nextRows[farmerStart].isFirstFarmerRow = true;
-        nextRows[farmerStart].isFarmerBlockStart = true;
-        nextRows[farmerStart].farmerRowSpan = span;
-        farmerStart = i;
-      }
-    }
-  } else {
-    nextRows.forEach((row, index) => {
-      row.isFirstFarmerRow = true;
-      row.isFarmerBlockStart = index === 0;
-      row.farmerRowSpan = 1;
-    });
-  }
-
-  if (groupByVariety) {
-    let varietyStart = 0;
-    for (let i = 1; i <= nextRows.length; i += 1) {
-      const isBoundary =
-        i === nextRows.length ||
-        nextRows[i].farmerName !== nextRows[varietyStart].farmerName ||
-        nextRows[i].varietyName !== nextRows[varietyStart].varietyName;
-      if (isBoundary) {
-        const span = i - varietyStart;
-        nextRows[varietyStart].isFirstVarietyRow = true;
-        nextRows[varietyStart].varietyRowSpan = span;
-        if (!nextRows[varietyStart].isFirstFarmerRow) {
-          nextRows[varietyStart].isVarietyBlockStart = true;
-        }
-        varietyStart = i;
-      }
-    }
-  } else {
-    nextRows.forEach((row) => {
-      row.isFirstVarietyRow = true;
-      row.varietyRowSpan = 1;
-      row.isVarietyBlockStart = false;
-    });
-  }
-
-  return nextRows;
-}
-
-function buildColumns(
-  gradeHeaders: string[]
-): ColumnDef<FlattenedRow, unknown>[] {
-  const baseColumns = [
-    columnHelper.accessor('farmerName', {
-      id: 'farmer',
-      header: 'Farmer',
-      sortingFn: 'text',
-      size: 240,
-      minSize: 180,
-      maxSize: 550,
-      enableGrouping: true,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('farmerMobile', {
-      id: 'farmerMobile',
-      header: 'Mobile',
-      sortingFn: 'text',
-      size: 150,
-      minSize: 120,
-      maxSize: 320,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('farmerAddress', {
-      id: 'address',
-      header: 'Address',
-      sortingFn: 'text',
-      size: 230,
-      minSize: 160,
-      maxSize: 550,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('varietyName', {
-      id: 'variety',
-      header: 'Variety',
-      sortingFn: 'text',
-      size: 150,
-      minSize: 120,
-      maxSize: 260,
-      enableGrouping: true,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('generation', {
-      id: 'generation',
-      header: 'Stage',
-      sortingFn: 'text',
-      size: 110,
-      minSize: 90,
-      maxSize: 180,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('sizeName', {
-      id: 'size',
-      header: 'Size',
-      sortingFn: 'text',
-      size: 120,
-      minSize: 90,
-      maxSize: 220,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('sizeQuantity', {
-      id: 'qty',
-      header: 'Qty (bags)',
-      sortingFn: 'basic',
-      size: 120,
-      minSize: 100,
-      maxSize: 220,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('sizeAcres', {
-      id: 'acres',
-      header: 'Acres',
-      sortingFn: 'basic',
-      size: 120,
-      minSize: 100,
-      maxSize: 220,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.accessor('sizeAmount', {
-      id: 'amount',
-      header: 'Seed amt (₹)',
-      sortingFn: 'basic',
-      size: 145,
-      minSize: 120,
-      maxSize: 260,
-      enableGrouping: false,
-      filterFn: multiValueFilterFn,
-    }),
-    columnHelper.group({
-      id: 'buyBackGroup',
-      header: 'Buy back',
-      columns: [
-        columnHelper.accessor('buyBackBags', {
-          id: 'bbBags',
-          header: 'Bags',
-          sortingFn: 'basic',
-          size: 120,
-          minSize: 100,
-          maxSize: 220,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-        columnHelper.accessor('buyBackNetWeightKg', {
-          id: 'bbNetWeight',
-          header: 'Net wt (kg)',
-          sortingFn: 'basic',
-          size: 140,
-          minSize: 120,
-          maxSize: 260,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-      ],
-    }),
-  ];
-
-  const gradingColumns = gradeHeaders.length
-    ? [
-        ...gradeHeaders.map((grade) =>
-          columnHelper.accessor((row) => getGradeBagCount(row, grade), {
-            id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
-            header: formatContractFarmingGradeColumnLabel(grade),
-            sortingFn: 'basic',
-            size: 130,
-            minSize: 110,
-            maxSize: 260,
-            enableGrouping: false,
-            filterFn: multiValueFilterFn,
-          })
-        ),
-        ...gradeHeaders.map((grade) =>
-          columnHelper.accessor((row) => getGradeWeightPercent(row, grade), {
-            id: `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`,
-            header: `${formatContractFarmingGradeColumnLabel(grade)} %`,
-            sortingFn: 'basic',
-            size: 130,
-            minSize: 110,
-            maxSize: 260,
-            enableGrouping: false,
-            filterFn: multiValueFilterFn,
-          })
-        ),
-        columnHelper.accessor((row) => getTotalGradeBags(row), {
-          id: TOTAL_GRADED_BAGS_COLUMN_ID,
-          header: 'Total Bags After Grading',
-          sortingFn: 'basic',
-          size: 170,
-          minSize: 130,
-          maxSize: 280,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-        columnHelper.accessor((row) => getTotalGradeNetWeightKg(row), {
-          id: TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
-          header: 'Net Weight After Grading',
-          sortingFn: 'basic',
-          size: 170,
-          minSize: 130,
-          maxSize: 280,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-        columnHelper.accessor((row) => getAverageQuintalPerAcre(row), {
-          id: AVG_QUINTAL_PER_ACRE_COLUMN_ID,
-          header: 'Average Quintal Per Acre',
-          sortingFn: 'basic',
-          size: 175,
-          minSize: 130,
-          maxSize: 280,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-        columnHelper.accessor((row) => getWastageKg(row), {
-          id: WASTAGE_KG_COLUMN_ID,
-          header: 'Wastage (kg)',
-          sortingFn: 'basic',
-          size: 150,
-          minSize: 120,
-          maxSize: 260,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-        columnHelper.accessor((row) => getOutputPercentage(row), {
-          id: OUTPUT_PERCENTAGE_COLUMN_ID,
-          header: 'Output Percentage',
-          sortingFn: 'basic',
-          size: 155,
-          minSize: 120,
-          maxSize: 260,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-        columnHelper.accessor((row) => getBuyBackAmountFromGradeData(row), {
-          id: BUY_BACK_AMOUNT_COLUMN_ID,
-          header: 'Buy Back Amount',
-          sortingFn: 'basic',
-          size: 160,
-          minSize: 120,
-          maxSize: 280,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-        }),
-      ]
-    : [
-        columnHelper.display({
-          id: 'noGrades',
-          header: 'No grades',
-          enableSorting: false,
-          enableGrouping: false,
-          size: 130,
-          minSize: 110,
-          maxSize: 260,
-        }),
-      ];
-
-  return [
-    ...baseColumns,
-    columnHelper.group({
-      id: 'gradingGroup',
-      header: 'Grading',
-      columns: gradingColumns,
-    }),
-  ] as ColumnDef<FlattenedRow, unknown>[];
-}
+);
 
 const ContractFarmingReportTable = () => {
   const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
@@ -727,34 +498,7 @@ const ContractFarmingReportTable = () => {
 
   const report = React.useMemo(() => normalizeReportData(data), [data]);
   const gradeHeaders = React.useMemo(
-    () =>
-      [
-        ...new Set(
-          [...report.meta.allGrades]
-            .sort((a, b) => {
-              const aOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(a));
-              const bOrder = BAG_SIZE_ORDER_INDEX.get(normalizeRangeLabel(b));
-
-              if (aOrder !== undefined && bOrder !== undefined) {
-                return aOrder - bOrder;
-              }
-              if (aOrder !== undefined) return -1;
-              if (bOrder !== undefined) return 1;
-              return a.localeCompare(b);
-            })
-            .map((grade) => toGroupedGrade(grade))
-        ),
-      ].sort((a, b) => {
-        const aOrder = getGroupedGradeOrderIndex(a);
-        const bOrder = getGroupedGradeOrderIndex(b);
-
-        if (aOrder !== undefined && bOrder !== undefined) {
-          return aOrder - bOrder;
-        }
-        if (aOrder !== undefined) return -1;
-        if (bOrder !== undefined) return 1;
-        return a.localeCompare(b);
-      }),
+    () => buildGradeHeaders(report.meta.allGrades),
     [report.meta.allGrades]
   );
   const flattenedRows = React.useMemo(
@@ -777,38 +521,43 @@ const ContractFarmingReportTable = () => {
       'size',
       'qty',
       'acres',
-      'amount',
       'bbBags',
       'bbNetWeight',
-      ...gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
-      ...gradeHeaders.map(
-        (grade) => `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`
-      ),
-      TOTAL_GRADED_BAGS_COLUMN_ID,
-      TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
-      AVG_QUINTAL_PER_ACRE_COLUMN_ID,
-      WASTAGE_KG_COLUMN_ID,
-      OUTPUT_PERCENTAGE_COLUMN_ID,
-      BUY_BACK_AMOUNT_COLUMN_ID,
+      ...buildContractFarmingGradingLeafColumnIds(gradeHeaders),
+      SEED_AMOUNT_COLUMN_ID,
+      NET_AMOUNT_COLUMN_ID,
+      NET_AMOUNT_PER_ACRE_COLUMN_ID,
     ],
     // CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION busts cache when grading tail order changes (same gradeHeaders / HMR).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional invalidate key, not a reactive prop
     [gradeHeaders, CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION]
   );
 
-  const filterableColumns = React.useMemo(
-    () => buildContractFarmingFilterableColumns(gradeHeaders),
-    [gradeHeaders]
-  );
   const deferredGlobalFilter = React.useDeferredValue(
     typeof globalFilter === 'string' ? globalFilter : ''
   );
   const effectiveGlobalFilter: GlobalFilterValue =
     typeof globalFilter === 'string' ? deferredGlobalFilter : globalFilter;
 
+  /** Empty `columnOrder` otherwise uses TanStack’s definition order (not our grading sequence) on first paint */
+  const effectiveColumnOrder = React.useMemo(
+    () => (columnOrder.length > 0 ? columnOrder : defaultColumnOrder),
+    [columnOrder, defaultColumnOrder]
+  );
+
+  const onColumnOrderChange = React.useCallback(
+    (updater: Updater<string[]>) => {
+      setColumnOrder((prev) => {
+        const resolvedPrev = prev.length > 0 ? prev : defaultColumnOrder;
+        return typeof updater === 'function' ? updater(resolvedPrev) : updater;
+      });
+    },
+    [defaultColumnOrder]
+  );
+
   React.useEffect(() => {
     setColumnOrder((current) => {
-      if (current.length === 0) return defaultColumnOrder;
+      if (current.length === 0) return current;
       const defaultIndex = (id: string) => {
         const i = defaultColumnOrder.indexOf(id);
         return i === -1 ? Number.MAX_SAFE_INTEGER : i;
@@ -823,61 +572,42 @@ const ContractFarmingReportTable = () => {
     });
   }, [defaultColumnOrder]);
 
-  const table = useReactTable({
+  const table = useReactTable<FlattenedRow>({
     data: flattenedRows,
     columns,
-    initialState: {
-      columnVisibility: { farmerMobile: false },
-    },
-    defaultColumn: {
-      size: 130,
-      minSize: 90,
-      maxSize: 550,
-    },
+    initialState: CF_TABLE_INITIAL_STATE,
+    defaultColumn: CF_TABLE_DEFAULT_COLUMN,
     state: {
       sorting,
       globalFilter: effectiveGlobalFilter,
       columnFilters,
       columnVisibility,
-      columnOrder,
+      columnOrder: effectiveColumnOrder,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onColumnOrderChange: setColumnOrder,
+    onColumnOrderChange,
     enableColumnResizing: true,
     columnResizeMode,
     columnResizeDirection,
-    getRowId: (row) => row.rowId,
-    globalFilterFn: (row, _columnId, filterValue: GlobalFilterValue) => {
-      if (isAdvancedFilterGroup(filterValue)) {
-        return evaluateFilterGroup(row.original, filterValue);
-      }
-      const query = String(filterValue ?? '')
-        .trim()
-        .toLowerCase();
-      if (!query) return true;
-
-      const values = [
-        row.original.farmerName,
-        row.original.farmerAddress,
-        row.original.farmerMobile,
-        row.original.varietyName,
-        row.original.generation,
-        row.original.sizeName,
-        String(row.original.farmerAccount),
-      ];
-      return values.some((value) => value.toLowerCase().includes(query));
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    getRowId: cfGetRowId,
+    globalFilterFn: cfGlobalFilterFn,
+    getCoreRowModel: CF_GET_CORE_ROW_MODEL,
+    getFilteredRowModel: CF_GET_FILTERED_ROW_MODEL,
+    /** Per-render factories — generics differ from hoisted plugin row models in this TS setup */
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: CF_GET_SORTED_ROW_MODEL,
   });
 
-  const visibleColumns = table.getVisibleLeafColumns();
+  const { columnSizing } = table.getState();
+  const visibleColumns = React.useMemo(
+    () => table.getVisibleLeafColumns(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `table` is stable; need sizing/visibility/column defs to bust memo for BodyRow widths
+    [table, columnVisibility, columnOrder, columns, columnSizing]
+  );
   const visibleColumnById = React.useMemo(
     () => new Map(visibleColumns.map((column) => [column.id, column])),
     [visibleColumns]
@@ -903,6 +633,14 @@ const ContractFarmingReportTable = () => {
       ),
     [visibleBaseColumnIds]
   );
+  /** Seed amt & net amount render after grading in header — keep out of the leading rowspan strip */
+  const visibleLeadingNonBuyBackBaseColumnIds = React.useMemo(
+    () =>
+      visibleNonBuyBackBaseColumnIds.filter(
+        (id) => !TRAILING_TWO_ROW_HEADER_ID_SET.has(id)
+      ),
+    [visibleNonBuyBackBaseColumnIds]
+  );
   const visibleBuyBackColumnIds = React.useMemo(
     () =>
       visibleBaseColumnIds.filter((columnId) =>
@@ -918,7 +656,8 @@ const ContractFarmingReportTable = () => {
           .filter((header) => header.subHeaders.length === 0)
           .map((header) => [header.column.id, header])
       ),
-    [table]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- match visibleColumns bust (resize / visibility / defs)
+    [table, columnSizing, columnVisibility, columns, columnOrder]
   );
   const visibleGradeColumnIds = React.useMemo(
     () =>
@@ -929,17 +668,38 @@ const ContractFarmingReportTable = () => {
       ),
     [visibleColumnIds]
   );
-  const hasNoGradesPlaceholder = visibleColumnIds.includes('noGrades');
-  const hasVisibleBuyBack = visibleBaseColumnIds.some((id) =>
-    BUY_BACK_COLUMN_IDS.has(id)
+  const hasNoGradesPlaceholder = React.useMemo(
+    () => visibleColumnIds.includes('noGrades'),
+    [visibleColumnIds]
   );
-  // Do not memoize against `table` alone — `useReactTable` keeps a stable instance while
-  // row model updates; a single memo([table]) would stick to the initial empty snapshot.
-  const dataRows = table.getSortedRowModel().rows.map((row) => row.original);
-  const renderedRows = recomputeRowSpans(dataRows, {
-    groupByFarmer: rowSpanGrouping.includes('farmer'),
-    groupByVariety: rowSpanGrouping.includes('variety'),
-  });
+  const hasVisibleBuyBack = React.useMemo(() => {
+    return visibleBaseColumnIds.some((id) => BUY_BACK_COLUMN_IDS.has(id));
+  }, [visibleBaseColumnIds]);
+
+  const rowSpanOptions = React.useMemo(
+    () => ({
+      groupByFarmer: rowSpanGrouping.includes('farmer'),
+      groupByVariety: rowSpanGrouping.includes('variety'),
+    }),
+    [rowSpanGrouping]
+  );
+
+  const sortedRowModel = table.getSortedRowModel();
+  const dataRows = React.useMemo(
+    () => sortedRowModel.rows.map((row) => row.original),
+    [sortedRowModel.rows]
+  );
+  const renderedRows = React.useMemo(
+    () => recomputeRowSpans(dataRows, rowSpanOptions),
+    [dataRows, rowSpanOptions]
+  );
+  const footerCells = React.useMemo(
+    () =>
+      dataRows.length > 0
+        ? formatContractFarmingFooterRow(dataRows, visibleColumnIds)
+        : null,
+    [dataRows, visibleColumnIds]
+  );
   const totalColumns = Math.max(visibleColumnIds.length, 1);
 
   const renderLeafSortHeader = React.useCallback(
@@ -977,11 +737,6 @@ const ContractFarmingReportTable = () => {
     },
     [table]
   );
-
-  const headerCellClass =
-    'font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase';
-  const bodyCellClass =
-    'font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5';
 
   const getColumnLabel = React.useCallback(
     (columnId: string) => {
@@ -1059,276 +814,6 @@ const ContractFarmingReportTable = () => {
       visibleColumnById,
     ]
   );
-
-  const renderCellContent = (
-    row: RenderRow,
-    columnId: string,
-    columnWidth: number
-  ) => {
-    if (columnId === 'farmer') {
-      if (!row.isFirstFarmerRow) return null;
-      return (
-        <td
-          rowSpan={row.farmerRowSpan}
-          className={`${bodyCellClass} max-w-56 align-top`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          <div className="font-medium">
-            {row.farmerName}
-            <span className="text-muted-foreground ml-1 text-sm font-normal">
-              (#{row.farmerAccount})
-            </span>
-          </div>
-        </td>
-      );
-    }
-
-    if (columnId === 'farmerMobile') {
-      if (!row.isFirstFarmerRow) return null;
-      return (
-        <td
-          rowSpan={row.farmerRowSpan}
-          className={`${bodyCellClass} align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {row.farmerMobile}
-        </td>
-      );
-    }
-
-    if (columnId === 'address') {
-      if (!row.isFirstFarmerRow) return null;
-      return (
-        <td
-          rowSpan={row.farmerRowSpan}
-          className={`${bodyCellClass} align-top`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {row.farmerAddress}
-        </td>
-      );
-    }
-
-    if (columnId === 'variety') {
-      if (!row.isFirstVarietyRow) return null;
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${bodyCellClass} align-top`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-            {row.varietyName}
-          </span>
-        </td>
-      );
-    }
-
-    if (columnId === 'generation') {
-      return (
-        <td
-          className={bodyCellClass}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-            {row.generation}
-          </span>
-        </td>
-      );
-    }
-
-    if (columnId === 'size') {
-      return (
-        <td
-          className={bodyCellClass}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {row.sizeName}
-        </td>
-      );
-    }
-
-    if (columnId === 'qty') {
-      return (
-        <td
-          className={`${bodyCellClass} text-right tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {formatNumber(row.sizeQuantity, 0)}
-        </td>
-      );
-    }
-
-    if (columnId === 'acres') {
-      return (
-        <td
-          className={`${bodyCellClass} text-right tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {formatNumber(row.sizeAcres)}
-        </td>
-      );
-    }
-
-    if (columnId === 'amount') {
-      return (
-        <td
-          className={`${bodyCellClass} text-right tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {row.sizeAmount > 0 ? `₹${formatNumber(row.sizeAmount)}` : '-'}
-        </td>
-      );
-    }
-
-    const isVarietyLevelColumn =
-      VARIETY_LEVEL_COLUMN_IDS.has(columnId) ||
-      columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
-      columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX) ||
-      columnId === 'noGrades';
-
-    if (isVarietyLevelColumn && !row.isFirstVarietyRow) {
-      return null;
-    }
-
-    if (columnId === 'bbBags') {
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {formatNumber(row.buyBackBags, 0)}
-        </td>
-      );
-    }
-
-    if (columnId === 'bbNetWeight') {
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {formatNumber(row.buyBackNetWeightKg)}
-        </td>
-      );
-    }
-
-    if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
-      if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
-        const totalBags = getTotalGradeBags(row);
-        return (
-          <td
-            rowSpan={row.varietyRowSpan}
-            className={`${bodyCellClass} text-right align-top tabular-nums`}
-            style={{ width: columnWidth, minWidth: columnWidth }}
-          >
-            {totalBags !== null ? formatNumber(totalBags, 0) : '-'}
-          </td>
-        );
-      }
-      if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
-        const totalNetWeightKg = getTotalGradeNetWeightKg(row);
-        return (
-          <td
-            rowSpan={row.varietyRowSpan}
-            className={`${bodyCellClass} text-right align-top tabular-nums`}
-            style={{ width: columnWidth, minWidth: columnWidth }}
-          >
-            {totalNetWeightKg !== null ? formatNumber(totalNetWeightKg) : '-'}
-          </td>
-        );
-      }
-      if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
-        const avg = getAverageQuintalPerAcre(row);
-        return (
-          <td
-            rowSpan={row.varietyRowSpan}
-            className={`${bodyCellClass} text-right align-top tabular-nums`}
-            style={{ width: columnWidth, minWidth: columnWidth }}
-          >
-            {avg !== null ? formatNumber(avg) : '-'}
-          </td>
-        );
-      }
-      if (columnId === WASTAGE_KG_COLUMN_ID) {
-        const wastage = getWastageKg(row);
-        return (
-          <td
-            rowSpan={row.varietyRowSpan}
-            className={`${bodyCellClass} text-right align-top tabular-nums`}
-            style={{ width: columnWidth, minWidth: columnWidth }}
-          >
-            {wastage !== null ? formatNumber(wastage) : '-'}
-          </td>
-        );
-      }
-      if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
-        const outputPct = getOutputPercentage(row);
-        return (
-          <td
-            rowSpan={row.varietyRowSpan}
-            className={`${bodyCellClass} text-right align-top tabular-nums`}
-            style={{ width: columnWidth, minWidth: columnWidth }}
-          >
-            {outputPct !== null ? `${formatNumber(outputPct, 2)}%` : '-'}
-          </td>
-        );
-      }
-      if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
-        const buyBackAmt = getBuyBackAmountFromGradeData(row);
-        return (
-          <td
-            rowSpan={row.varietyRowSpan}
-            className={`${bodyCellClass} text-right align-top tabular-nums`}
-            style={{ width: columnWidth, minWidth: columnWidth }}
-          >
-            {buyBackAmt !== null ? `₹${formatNumber(buyBackAmt)}` : '-'}
-          </td>
-        );
-      }
-      const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
-      const bags = getGradeBagCount(row, grade);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${bodyCellClass} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {bags !== null ? formatNumber(bags, 0) : '-'}
-        </td>
-      );
-    }
-
-    if (columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) {
-      const grade = columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '');
-      const weightPercent = getGradeWeightPercent(row, grade);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${bodyCellClass} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {weightPercent !== null ? `${formatNumber(weightPercent, 2)}%` : '-'}
-        </td>
-      );
-    }
-
-    if (columnId === 'noGrades') {
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${bodyCellClass} text-center align-top`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          -
-        </td>
-      );
-    }
-
-    return null;
-  };
 
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -1426,14 +911,14 @@ const ContractFarmingReportTable = () => {
             <table className="font-custom min-w-full border-collapse text-sm">
               <thead className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
                 <tr>
-                  {visibleNonBuyBackBaseColumnIds.map((columnId) => {
+                  {visibleLeadingNonBuyBackBaseColumnIds.map((columnId) => {
                     const column = visibleColumnById.get(columnId);
                     if (!column) return null;
                     return (
                       <th
                         key={columnId}
                         rowSpan={2}
-                        className={`${headerCellClass} relative`}
+                        className={`${CF_HEADER_CELL_CLASS} relative`}
                         style={{
                           width: column.getSize(),
                           minWidth: column.getSize(),
@@ -1450,7 +935,7 @@ const ContractFarmingReportTable = () => {
                   {hasVisibleBuyBack ? (
                     <th
                       colSpan={visibleBuyBackColumnIds.length}
-                      className={`${headerCellClass} bg-green-50`}
+                      className={`${CF_HEADER_CELL_CLASS} bg-green-50`}
                     >
                       Buy back
                     </th>
@@ -1460,10 +945,32 @@ const ContractFarmingReportTable = () => {
                       visibleGradeColumnIds.length +
                       (hasNoGradesPlaceholder ? 1 : 0)
                     }
-                    className={headerCellClass}
+                    className={CF_HEADER_CELL_CLASS}
                   >
                     Grading
                   </th>
+                  {TRAILING_TWO_ROW_HEADER_COLUMN_IDS.map((columnId) => {
+                    const col = visibleColumnById.get(columnId);
+                    if (!col) return null;
+                    const w = col.getSize();
+                    return (
+                      <th
+                        key={columnId}
+                        rowSpan={2}
+                        className={`${CF_HEADER_CELL_CLASS} relative`}
+                        style={{
+                          width: w,
+                          minWidth: w,
+                        }}
+                      >
+                        {renderLeafSortHeader(
+                          columnId,
+                          getColumnLabel(columnId)
+                        )}
+                        {renderLeafResizeHandle(columnId)}
+                      </th>
+                    );
+                  })}
                 </tr>
                 <tr>
                   {visibleBuyBackColumnIds.map((columnId) => {
@@ -1472,7 +979,7 @@ const ContractFarmingReportTable = () => {
                     return (
                       <th
                         key={columnId}
-                        className={`${headerCellClass} relative bg-green-50`}
+                        className={`${CF_HEADER_CELL_CLASS} relative bg-green-50`}
                         style={{
                           width: column.getSize(),
                           minWidth: column.getSize(),
@@ -1493,7 +1000,7 @@ const ContractFarmingReportTable = () => {
                       return (
                         <th
                           key={columnId}
-                          className={`${headerCellClass} relative`}
+                          className={`${CF_HEADER_CELL_CLASS} relative`}
                           style={{
                             width: column.getSize(),
                             minWidth: column.getSize(),
@@ -1511,7 +1018,7 @@ const ContractFarmingReportTable = () => {
                       return (
                         <th
                           key={columnId}
-                          className={`${headerCellClass} relative`}
+                          className={`${CF_HEADER_CELL_CLASS} relative`}
                           style={{
                             width: column.getSize(),
                             minWidth: column.getSize(),
@@ -1529,7 +1036,7 @@ const ContractFarmingReportTable = () => {
                       return (
                         <th
                           key={columnId}
-                          className={`${headerCellClass} relative`}
+                          className={`${CF_HEADER_CELL_CLASS} relative`}
                           style={{
                             width: column.getSize(),
                             minWidth: column.getSize(),
@@ -1547,7 +1054,7 @@ const ContractFarmingReportTable = () => {
                       return (
                         <th
                           key={columnId}
-                          className={`${headerCellClass} relative`}
+                          className={`${CF_HEADER_CELL_CLASS} relative`}
                           style={{
                             width: column.getSize(),
                             minWidth: column.getSize(),
@@ -1562,7 +1069,7 @@ const ContractFarmingReportTable = () => {
                       return (
                         <th
                           key={columnId}
-                          className={`${headerCellClass} relative`}
+                          className={`${CF_HEADER_CELL_CLASS} relative`}
                           style={{
                             width: column.getSize(),
                             minWidth: column.getSize(),
@@ -1586,7 +1093,7 @@ const ContractFarmingReportTable = () => {
                       return (
                         <th
                           key={columnId}
-                          className={`${headerCellClass} relative`}
+                          className={`${CF_HEADER_CELL_CLASS} relative`}
                           style={{
                             width: column.getSize(),
                             minWidth: column.getSize(),
@@ -1620,7 +1127,7 @@ const ContractFarmingReportTable = () => {
                     return (
                       <th
                         key={columnId}
-                        className={`${headerCellClass} relative`}
+                        className={`${CF_HEADER_CELL_CLASS} relative`}
                         style={{
                           width: column.getSize(),
                           minWidth: column.getSize(),
@@ -1632,42 +1139,21 @@ const ContractFarmingReportTable = () => {
                     );
                   })}
                   {hasNoGradesPlaceholder ? (
-                    <th className={headerCellClass}>No grades</th>
+                    <th className={CF_HEADER_CELL_CLASS}>No grades</th>
                   ) : null}
                 </tr>
               </thead>
               <tbody>
                 {renderedRows.length > 0 ? (
-                  renderedRows.map((row, rowIndex) => {
-                    const rowClass = row.isFarmerBlockStart
-                      ? 'border-border/70 border-t-2'
-                      : row.isVarietyBlockStart
-                        ? 'border-border/60 border-t'
-                        : 'border-border/40 border-t border-dashed';
-                    const stripingClass =
-                      rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25';
-
-                    return (
-                      <tr
-                        key={row.rowId}
-                        className={`hover:bg-accent/40 ${rowClass} ${stripingClass}`}
-                      >
-                        {visibleColumnIds.map((columnId) => {
-                          const column = visibleColumnById.get(columnId);
-                          if (!column) return null;
-                          return (
-                            <React.Fragment key={`${row.rowId}-${columnId}`}>
-                              {renderCellContent(
-                                row,
-                                columnId,
-                                column.getSize()
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })
+                  renderedRows.map((row, rowIndex) => (
+                    <ContractFarmingReportBodyRow
+                      key={row.rowId}
+                      row={row}
+                      rowIndex={rowIndex}
+                      visibleColumnIds={visibleColumnIds}
+                      visibleColumnById={visibleColumnById}
+                    />
+                  ))
                 ) : (
                   <tr>
                     <td
@@ -1678,6 +1164,33 @@ const ContractFarmingReportTable = () => {
                     </td>
                   </tr>
                 )}
+                {footerCells ? (
+                  <tr className="bg-muted/45 border-border/70 border-t-2">
+                    {visibleColumnIds.map((columnId) => {
+                      const column = visibleColumnById.get(columnId);
+                      if (!column) return null;
+                      const w = column.getSize();
+                      const text = footerCells[columnId] ?? '';
+                      const alignRight = isNumericSortColumnId(columnId);
+                      const buyBackCell = BUY_BACK_COLUMN_IDS.has(columnId);
+                      return (
+                        <td
+                          key={`cf-footer-${columnId}`}
+                          className={`${CF_BODY_CELL_CLASS} text-foreground font-custom font-semibold ${
+                            alignRight ? 'text-right tabular-nums' : ''
+                          } ${buyBackCell ? 'bg-green-50' : ''} ${
+                            columnId === 'noGrades'
+                              ? 'text-center font-medium'
+                              : ''
+                          }`}
+                          style={{ width: w, minWidth: w }}
+                        >
+                          {text}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           )}
@@ -1689,7 +1202,6 @@ const ContractFarmingReportTable = () => {
         onOpenChange={setIsViewFiltersOpen}
         table={table}
         defaultColumnOrder={defaultColumnOrder}
-        filterableColumns={filterableColumns}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}

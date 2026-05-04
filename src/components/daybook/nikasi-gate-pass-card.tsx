@@ -58,6 +58,8 @@ export interface NikasiGatePassEditState {
   manualGatePassNumber: string;
   date: string;
   from: string;
+  /** API destination label (`to`), if any. */
+  to?: string;
   toField: string;
   remarks: string;
   isInternalTransfer: boolean;
@@ -157,6 +159,7 @@ export function NikasiVoucherCard({
       manualGatePassNumber: String(gatePass.manualGatePassNumber ?? ''),
       date: gatePass.date,
       from: gatePass.from,
+      to: gatePass.to?.trim() ?? '',
       toField: gatePass.toField ?? '',
       remarks: gatePass.remarks ?? '',
       isInternalTransfer: Boolean(gatePass.isInternalTransfer),
@@ -261,16 +264,20 @@ export function NikasiVoucherCard({
       </div>
 
       <div className="px-3 py-3 sm:px-4 sm:py-4">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3">
           <InfoBlock
             label="Variety"
             value={bagDetails[0]?.variety ?? '--'}
             icon={Package}
           />
-          <InfoBlock label="From" value={gatePass.from} icon={MapPin} />
+          <InfoBlock
+            label="Dispatch ledger"
+            value={dispatchLedger?.name?.trim() ?? 'Define disp ledger'}
+            icon={MapPin}
+          />
           <InfoBlock
             label="To"
-            value={dispatchLedger?.name || gatePass.toField || '--'}
+            value={gatePass.to?.trim() || '—'}
             icon={ArrowRightCircle}
           />
         </div>

@@ -66,6 +66,7 @@ const formSchema = z.object({
   farmerStorageLinkId: z.string().min(1, 'Please select a farmer account'),
   dispatchLedgerId: z.string().trim().min(1, 'Please select a dispatch ledger'),
   toField: z.string().trim().optional().default(''),
+  toLabelOptional: z.string().max(200).optional().default(''),
   date: z.string().trim().min(1, 'Date is required'),
   sizeQuantities: z.record(z.string(), z.number().min(0)),
   sizeBagTypes: z.record(z.string(), z.string()),
@@ -160,6 +161,16 @@ const NikasiEditForm = memo(function NikasiEditForm({
       const netWeightParsed = Number(editData.netWeight);
       const avgWeightParsed = Number(editData.averageWeightPerBag);
 
+      const ledgerNameTrim = (editData.dispatchLedgerName ?? '').trim();
+      const apiToTrim = (editData.to ?? '').trim();
+      const legacyToTrim = (editData.toField ?? '').trim();
+      const initialToLabelOptional =
+        apiToTrim && apiToTrim !== ledgerNameTrim
+          ? apiToTrim
+          : !apiToTrim && legacyToTrim && legacyToTrim !== ledgerNameTrim
+            ? legacyToTrim
+            : '';
+
       return {
         manualGatePassNumber:
           Number.isFinite(manualParsed) && manualParsed > 0
@@ -168,6 +179,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         farmerStorageLinkId: editData.farmerLinkId ?? '',
         dispatchLedgerId: editData.dispatchLedgerId ?? '',
         toField: editData.dispatchLedgerName || editData.toField || '',
+        toLabelOptional: initialToLabelOptional,
         date: editData.date ?? '',
         sizeQuantities,
         sizeBagTypes,
@@ -230,6 +242,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
           date: parseDisplayDateToIso(value.date),
           from: selectedFarmerName,
           dispatchLedgerId: value.dispatchLedgerId.trim(),
+          to: value.toLabelOptional.trim() || value.toField.trim() || undefined,
           bagSizes,
           remarks: value.remarks.trim() || undefined,
           netWeight: value.netWeight,
@@ -293,7 +306,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         {
           date: values.date,
           from: selectedFarmerName,
-          toField: values.toField,
+          toField: values.toLabelOptional.trim() || values.toField,
           remarks: values.remarks,
           isInternalTransfer: values.isInternalTransfer,
           gradingGatePasses: [
@@ -435,6 +448,28 @@ const NikasiEditForm = memo(function NikasiEditForm({
                         onDispatchLedgerAdded={handleDispatchLedgerAdded}
                       />
                     </div>
+                    <form.Field
+                      name="toLabelOptional"
+                      children={(optField) => (
+                        <>
+                          <p className="font-custom text-muted-foreground mt-2 text-sm">
+                            Optional: set a custom destination label for the
+                            gate pass; if left blank, the selected ledger name
+                            is used.
+                          </p>
+                          <Input
+                            id="nikasi-edit-to-label-optional"
+                            value={optField.state.value}
+                            onChange={(e) =>
+                              optField.handleChange(e.target.value)
+                            }
+                            placeholder="Destination label (optional)"
+                            maxLength={200}
+                            className="font-custom focus-visible:ring-primary mt-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                          />
+                        </>
+                      )}
+                    />
                   </Field>
                 )}
               />
