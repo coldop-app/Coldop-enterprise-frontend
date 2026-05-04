@@ -16,6 +16,8 @@ const COLORS = {
   headerFg: 'FFFFFFFF',
   rowEven: 'FFEFF8F3',
   rowOdd: 'FFFFFFFF',
+  totalRowBg: 'FFDCEFE4',
+  totalRowFg: 'FF1A4731',
   borderColor: 'FFB8DEC9',
 } as const;
 
@@ -26,6 +28,85 @@ const FONTS = {
   colHeader: { name: 'Calibri', size: 10, bold: true },
   body: { name: 'Calibri', size: 10, bold: false },
 } as const;
+
+const SMART_NUMBER_FORMAT = '#,##0.##';
+
+const FARMER_SEED_SUM_COLUMN_IDS = new Set<string>([
+  'totalAcres',
+  'bag35to40',
+  'bag40to45',
+  'bag40to50',
+  'bag45to50',
+  'bag50to55',
+  'totalBags',
+  'totalAmount',
+]);
+
+function toSumNumber(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t === '' || t === '-') return 0;
+    const n = Number(t);
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+function collectFarmerSeedLeafColumnSums(
+  rows: Row<FarmerSeedReportRow>[],
+  sums: Record<string, number>
+): void {
+  for (const row of rows) {
+    if (row.subRows.length > 0) {
+      collectFarmerSeedLeafColumnSums(row.subRows, sums);
+      continue;
+    }
+    for (const id of FARMER_SEED_SUM_COLUMN_IDS) {
+      sums[id] =
+        (sums[id] ?? 0) +
+        toSumNumber(row.getValue(id as keyof FarmerSeedReportRow));
+    }
+  }
+}
+
+function buildFarmerSeedTotalsRowValues(
+  visibleColumns: ReturnType<
+    Table<FarmerSeedReportRow>['getVisibleLeafColumns']
+  >,
+  sums: Record<string, number>
+): Array<string | number> {
+  return visibleColumns.map((col, idx) => {
+    if (idx === 0) return 'Total';
+    const id = col.id;
+    if (FARMER_SEED_SUM_COLUMN_IDS.has(id)) return sums[id] ?? 0;
+    return '';
+  });
+}
+
+function addTotalsRow(ws: ExcelJS.Worksheet, values: Array<string | number>) {
+  const exRow = ws.addRow(values);
+  exRow.height = 24;
+  exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    const rawVal = values[colNumber - 1];
+    applyFill(cell, COLORS.totalRowBg);
+    applyBorder(cell, COLORS.borderColor);
+    cell.font = {
+      ...FONTS.body,
+      bold: true,
+      color: { argb: COLORS.totalRowFg },
+    };
+    const isNumeric = typeof rawVal === 'number';
+    cell.alignment = {
+      horizontal: isNumeric ? 'right' : 'left',
+      vertical: 'middle',
+    };
+    if (isNumeric) {
+      cell.numFmt = SMART_NUMBER_FORMAT;
+    }
+  });
+}
 
 type FarmerSeedExcelButtonProps = {
   table: Table<FarmerSeedReportRow>;
@@ -112,6 +193,23 @@ function getExportDateLabel(date: Date): string {
   return `${day} ${month} ${year}`;
 }
 
+/**
+ * Coerces a value to a number if it looks like one (string of digits, optional
+ * leading/trailing whitespace, optional decimal point). Returns the original
+ * value unchanged for anything that isn't cleanly numeric.
+ */
+function coerceToNumber(value: string | number): string | number {
+  if (typeof value === 'number') return value;
+  const trimmed = value.trim();
+  if (trimmed === '') return value;
+  // Match integers and decimals, including negative values
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const parsed = Number(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return value;
+}
+
 function getExcelBodyRows(
   rows: Row<FarmerSeedReportRow>[],
   visibleColumns: ReturnType<
@@ -139,15 +237,21 @@ function getExcelBodyRows(
           nextRow[columnIndex] =
             `${'  '.repeat(row.depth)}${String(value ?? '')} (${row.subRows.length})`;
         } else if (cell.getIsAggregated()) {
-          nextRow[columnIndex] = (row.getValue(columnId) ?? '') as
-            | string
-            | number;
+          const raw = (row.getValue(columnId) ?? '') as string | number;
+          nextRow[columnIndex] = coerceToNumber(
+            typeof raw === 'number' ? raw : String(raw)
+          );
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
         } else {
           const value = row.getValue(columnId);
-          nextRow[columnIndex] =
-            value == null ? '' : (value as string | number);
+          if (value == null) {
+            nextRow[columnIndex] = '';
+          } else {
+            nextRow[columnIndex] = coerceToNumber(
+              typeof value === 'number' ? value : String(value)
+            );
+          }
         }
       }
 
@@ -159,6 +263,16 @@ function getExcelBodyRows(
   appendRows(rows);
   return bodyRows;
 }
+
+/**
+ * Returns the smart number format:
+ *   - Whole numbers → no decimal places  (e.g. 42)
+ *   - Decimals      → up to 2 places, trailing zeros stripped  (e.g. 3.5, 12.75)
+ * ExcelJS doesn't support conditional number formats natively so we use a
+ * conditional format string: [integer part check via two sections].
+ * The trick: Excel format `#,##0.##` already drops trailing zeros — and shows
+ * nothing after the decimal when the value is whole. This is exactly what we want.
+ */
 
 function applyFill(cell: ExcelJS.Cell, argb: string) {
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
@@ -172,28 +286,77 @@ function applyBorder(cell: ExcelJS.Cell, color: string) {
   cell.border = { top: border, bottom: border, left: border, right: border };
 }
 
+/**
+ * Estimates the minimum column width (in Excel character units) needed to
+ * display the header label and body data without truncation.
+ * Excel's character unit ≈ 7px at default font size.
+ */
+function estimateColumnWidth(
+  headerLabel: string,
+  bodyRows: Array<Array<string | number>>,
+  columnIndex: number
+): number {
+  // For wrapped headers we care about the longest *word* in the header,
+  // not the full label, since wrapping will break at spaces.
+  const longestHeaderWord = headerLabel
+    .split(/\s+/)
+    .reduce((max, word) => Math.max(max, word.length), 0);
+
+  let maxDataChars = 0;
+  for (const row of bodyRows) {
+    const cell = row[columnIndex];
+    if (cell !== '' && cell != null) {
+      const str =
+        typeof cell === 'number' ? cell.toLocaleString('en-IN') : String(cell);
+      maxDataChars = Math.max(maxDataChars, str.length);
+    }
+  }
+
+  // Add a small padding buffer; minimum 10, maximum 40 characters wide
+  const computed = Math.max(longestHeaderWord, maxDataChars) + 2;
+  return Math.min(40, Math.max(10, computed));
+}
+
 export const FarmerSeedExcelButton = ({
   table,
   coldStorageName,
 }: FarmerSeedExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
+  const tableRef = React.useRef(table);
+  React.useEffect(() => {
+    tableRef.current = table;
+  }, [table]);
+  const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
-    if (isGeneratingExcel) return;
+    if (generatingExcelRef.current) return;
+    const t = tableRef.current;
+    if (!t) {
+      window.alert('Table is not ready. Please try again.');
+      return;
+    }
 
     try {
+      generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = table.getVisibleLeafColumns();
+      const visibleColumns = t.getVisibleLeafColumns();
       const columnCount = visibleColumns.length;
       const headerLabels = visibleColumns.map((column) =>
-        getRenderedHeaderLabel(table, column)
+        getRenderedHeaderLabel(t, column)
       );
       const sourceRows =
-        table.getState().grouping.length > 0
-          ? table.getGroupedRowModel().rows
-          : table.getRowModel().rows;
+        t.getState().grouping.length > 0
+          ? t.getGroupedRowModel().rows
+          : t.getRowModel().rows;
       const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+
+      const sums: Record<string, number> = {};
+      collectFarmerSeedLeafColumnSums(sourceRows, sums);
+      const totalsRowValues = buildFarmerSeedTotalsRowValues(
+        visibleColumns,
+        sums
+      );
 
       const safeName =
         coldStorageName
@@ -208,17 +371,24 @@ export const FarmerSeedExcelButton = ({
       workbook.creator = safeName;
       const worksheet = workbook.addWorksheet('Farmer Seed Report');
 
-      worksheet.columns = visibleColumns.map((column, i) => ({
+      // ── Column widths ────────────────────────────────────────────────────────
+      // Calculate smart widths based on header text and data content
+      worksheet.columns = visibleColumns.map((_, i) => ({
         key: String(i),
-        width: Math.max(14, Math.round(column.getSize() / 7.5)),
+        width: estimateColumnWidth(
+          headerLabels[i],
+          [...bodyRows, totalsRowValues],
+          i
+        ),
       }));
 
+      // ── Title row ────────────────────────────────────────────────────────────
       const titleRow = worksheet.addRow([
         safeName,
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(1, 1, 1, columnCount);
-      titleRow.height = 36;
+      titleRow.height = 40;
       titleRow.getCell(1).value = safeName;
       titleRow.getCell(1).font = {
         ...FONTS.title,
@@ -226,16 +396,17 @@ export const FarmerSeedExcelButton = ({
       };
       applyFill(titleRow.getCell(1), COLORS.titleBg);
       titleRow.getCell(1).alignment = {
-        horizontal: 'center',
+        horizontal: 'left', // ← left-aligned
         vertical: 'middle',
       };
 
+      // ── Subtitle row ─────────────────────────────────────────────────────────
       const subtitleRow = worksheet.addRow([
         'Farmer Seed Report',
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(2, 1, 2, columnCount);
-      subtitleRow.height = 22;
+      subtitleRow.height = 26;
       subtitleRow.getCell(1).value = 'Farmer Seed Report';
       subtitleRow.getCell(1).font = {
         ...FONTS.subtitle,
@@ -243,28 +414,30 @@ export const FarmerSeedExcelButton = ({
       };
       applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
       subtitleRow.getCell(1).alignment = {
-        horizontal: 'center',
+        horizontal: 'left', // ← left-aligned
         vertical: 'middle',
       };
 
+      // ── Date row ─────────────────────────────────────────────────────────────
       const dateRow = worksheet.addRow([
         `Generated on: ${dateLabel}`,
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(3, 1, 3, columnCount);
-      dateRow.height = 18;
+      dateRow.height = 20;
       const dateCell = dateRow.getCell(1);
       dateCell.value = `Generated on: ${dateLabel}`;
       dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
       applyFill(dateCell, COLORS.dateBg);
-      dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      dateCell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
 
+      // ── Powered-by row ───────────────────────────────────────────────────────
       const poweredByRow = worksheet.addRow([
         'Powered by Coldop',
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(4, 1, 4, columnCount);
-      poweredByRow.height = 16;
+      poweredByRow.height = 18;
       const poweredByCell = poweredByRow.getCell(1);
       poweredByCell.value = 'Powered by Coldop';
       poweredByCell.font = {
@@ -273,41 +446,49 @@ export const FarmerSeedExcelButton = ({
         italic: true,
         color: { argb: 'FF9CA3AF' },
       };
-      poweredByCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
 
+      // ── Spacer ───────────────────────────────────────────────────────────────
       worksheet.addRow([]);
 
+      // ── Column header row ────────────────────────────────────────────────────
       const columnHeaderRow = worksheet.addRow(headerLabels);
-      columnHeaderRow.height = 24;
+      columnHeaderRow.height = 36; // taller to accommodate wrapped text
       columnHeaderRow.eachCell((cell) => {
         applyFill(cell, COLORS.headerBg);
         applyBorder(cell, COLORS.borderColor);
         cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
         cell.alignment = {
-          horizontal: 'center',
+          horizontal: 'left', // ← left-aligned headers
           vertical: 'middle',
-          wrapText: true,
+          wrapText: true, // wrap long header labels
         };
       });
 
+      // ── Body rows ────────────────────────────────────────────────────────────
       bodyRows.forEach((dataRow, rowIndex) => {
         const excelRow = worksheet.addRow(dataRow);
         const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
-        excelRow.height = 18;
+        excelRow.height = 22; // taller body rows
 
         excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
           applyFill(cell, background);
           applyBorder(cell, COLORS.borderColor);
           cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
-          cell.alignment = { vertical: 'middle' };
+          cell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
 
-          if (typeof dataRow[columnNumber - 1] === 'number') {
+          const cellValue = dataRow[columnNumber - 1];
+          if (typeof cellValue === 'number') {
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            cell.numFmt = '#,##0.##';
+            // Smart format: whole numbers show no decimal; decimals show up to 2 places
+            cell.numFmt = SMART_NUMBER_FORMAT;
           }
         });
       });
 
+      addTotalsRow(worksheet, totalsRowValues);
+
+      // ── Write & download ─────────────────────────────────────────────────────
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -323,15 +504,16 @@ export const FarmerSeedExcelButton = ({
         error instanceof Error ? error.message : 'Unknown error occurred';
       window.alert(`Failed to generate Excel: ${message}`);
     } finally {
+      generatingExcelRef.current = false;
       setIsGeneratingExcel(false);
     }
-  }, [coldStorageName, isGeneratingExcel, table]);
+  }, [coldStorageName]);
 
   return (
     <Button
       variant="default"
       className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingExcel}
+      disabled={isGeneratingExcel || !table}
       onClick={handleGenerate}
     >
       {isGeneratingExcel ? (

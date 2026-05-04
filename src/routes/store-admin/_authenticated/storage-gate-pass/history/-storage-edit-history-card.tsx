@@ -179,16 +179,6 @@ export function StorageEditHistoryCard({ audit }: StorageEditHistoryCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4">
-        {/* Reason */}
-        <div className="bg-muted/50 rounded-lg border px-3 py-2.5">
-          <p className="font-custom text-foreground text-sm">
-            <span className="font-semibold">Reason: </span>
-            <span className="text-muted-foreground">
-              {renderFieldValue(audit.reason)}
-            </span>
-          </p>
-        </div>
-
         {/* Changed fields diff */}
         {changedFields.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">

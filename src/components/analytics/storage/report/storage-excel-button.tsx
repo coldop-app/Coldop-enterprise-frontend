@@ -16,6 +16,8 @@ const COLORS = {
   headerFg: 'FFFFFFFF',
   rowEven: 'FFEFF8F3',
   rowOdd: 'FFFFFFFF',
+  totalRowBg: 'FFDCEFE4',
+  totalRowFg: 'FF1A4731',
   borderColor: 'FFB8DEC9',
 } as const;
 
@@ -26,6 +28,89 @@ const FONTS = {
   colHeader: { name: 'Calibri', size: 10, bold: true },
   body: { name: 'Calibri', size: 10, bold: false },
 } as const;
+
+const SMART_NUMBER_FORMAT = '#,##0.##';
+
+/** Bag quantities + total (exclude gate pass / account ids). */
+const STORAGE_SUM_COLUMN_IDS = new Set<string>([
+  'bagBelow25',
+  'bag25to30',
+  'bagBelow30',
+  'bag30to35',
+  'bag30to40',
+  'bag35to40',
+  'bag40to45',
+  'bag45to50',
+  'bag50to55',
+  'bagAbove50',
+  'bagAbove55',
+  'bagCut',
+  'totalBags',
+]);
+
+function toSumNumber(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t === '' || t === '-') return 0;
+    const n = Number(t);
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+function collectStorageLeafColumnSums(
+  rows: Row<IncomingReportRow>[],
+  sums: Record<string, number>
+): void {
+  for (const row of rows) {
+    if (row.subRows.length > 0) {
+      collectStorageLeafColumnSums(row.subRows, sums);
+      continue;
+    }
+    for (const id of STORAGE_SUM_COLUMN_IDS) {
+      sums[id] =
+        (sums[id] ?? 0) +
+        toSumNumber(row.getValue(id as keyof IncomingReportRow));
+    }
+  }
+}
+
+function buildStorageTotalsRowValues(
+  visibleColumns: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>,
+  sums: Record<string, number>
+): Array<string | number> {
+  return visibleColumns.map((col, idx) => {
+    if (idx === 0) return 'Total';
+    const id = col.id;
+    if (STORAGE_SUM_COLUMN_IDS.has(id)) return sums[id] ?? 0;
+    return '';
+  });
+}
+
+function addTotalsRow(ws: ExcelJS.Worksheet, values: Array<string | number>) {
+  const exRow = ws.addRow(values);
+  exRow.height = 24;
+  exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    const rawVal = values[colNumber - 1];
+    applyFill(cell, COLORS.totalRowBg);
+    applyBorder(cell, COLORS.borderColor);
+    cell.font = {
+      ...FONTS.body,
+      bold: true,
+      color: { argb: COLORS.totalRowFg },
+    };
+    const isNumeric = typeof rawVal === 'number';
+    cell.alignment = {
+      horizontal: isNumeric ? 'right' : 'left',
+      vertical: 'middle',
+    };
+    if (isNumeric) {
+      cell.numFmt = SMART_NUMBER_FORMAT;
+    }
+  });
+}
 
 type StorageExcelButtonProps = {
   table: Table<IncomingReportRow>;
@@ -108,11 +193,186 @@ function getDayOrdinal(day: number): string {
   return `${day}th`;
 }
 
-function getExportDateLabel(date: Date): string {
+function getDateLabel(date: Date): string {
   const day = getDayOrdinal(date.getDate());
   const month = date.toLocaleString('en-IN', { month: 'long' });
   const year = date.getFullYear();
   return `${day} ${month} ${year}`;
+}
+
+function safeFilePart(value: string, fallback: string): string {
+  const safe = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/\s+/g, ' ');
+  return safe || fallback;
+}
+
+function coerceToNumber(value: string | number): string | number {
+  if (typeof value === 'number') return value;
+  const trimmed = value.trim();
+  if (trimmed === '') return value;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const parsed = Number(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return value;
+}
+
+function coerceRows(
+  rows: Array<Array<string | number>>
+): Array<Array<string | number>> {
+  return rows.map((row) => row.map(coerceToNumber));
+}
+
+function estimateColWidth(
+  headerLabel: string,
+  bodyRows: Array<Array<string | number>>,
+  colIndex: number
+): number {
+  const longestHeaderWord = headerLabel
+    .split(/\s+/)
+    .reduce((max, word) => Math.max(max, word.length), 0);
+
+  let maxDataChars = 0;
+  for (const row of bodyRows) {
+    const cell = row[colIndex];
+    if (cell !== '' && cell != null) {
+      const str =
+        typeof cell === 'number' ? cell.toLocaleString('en-IN') : String(cell);
+      maxDataChars = Math.max(maxDataChars, str.length);
+    }
+  }
+
+  const computed = Math.max(longestHeaderWord, maxDataChars) + 2;
+  return Math.min(40, Math.max(10, computed));
+}
+
+function applySmartColumnWidths(
+  ws: ExcelJS.Worksheet,
+  headers: string[],
+  allBodyRows: Array<Array<string | number>>
+) {
+  ws.columns = headers.map((header, i) => ({
+    key: `c${i}`,
+    width: estimateColWidth(header, allBodyRows, i),
+  }));
+}
+
+function applyFill(cell: ExcelJS.Cell, argb: string) {
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+}
+
+function applyBorder(cell: ExcelJS.Cell, color: string) {
+  const c = { style: 'thin' as ExcelJS.BorderStyle, color: { argb: color } };
+  cell.border = { top: c, bottom: c, left: c, right: c };
+}
+
+function buildReportHeader(
+  ws: ExcelJS.Worksheet,
+  colCount: number,
+  coldStorageName: string,
+  reportName: string,
+  dateLabel: string,
+  overviewLines: string[] = []
+) {
+  const titleRow = ws.addRow([
+    coldStorageName,
+    ...Array(colCount - 1).fill(''),
+  ]);
+  ws.mergeCells(1, 1, 1, colCount);
+  titleRow.height = 40;
+  const titleCell = titleRow.getCell(1);
+  titleCell.value = coldStorageName;
+  titleCell.font = { ...FONTS.title, color: { argb: COLORS.titleFg } };
+  titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  applyFill(titleCell, COLORS.titleBg);
+
+  const subtitleRow = ws.addRow([reportName, ...Array(colCount - 1).fill('')]);
+  ws.mergeCells(2, 1, 2, colCount);
+  subtitleRow.height = 26;
+  const subtitleCell = subtitleRow.getCell(1);
+  subtitleCell.value = reportName;
+  subtitleCell.font = { ...FONTS.subtitle, color: { argb: COLORS.subtitleFg } };
+  subtitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  applyFill(subtitleCell, COLORS.subtitleBg);
+
+  const dateRow = ws.addRow([
+    `Generated on: ${dateLabel}`,
+    ...Array(colCount - 1).fill(''),
+  ]);
+  ws.mergeCells(3, 1, 3, colCount);
+  dateRow.height = 20;
+  const dateCell = dateRow.getCell(1);
+  dateCell.value = `Generated on: ${dateLabel}`;
+  dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
+  dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  applyFill(dateCell, COLORS.dateBg);
+
+  const poweredByRow = ws.addRow([
+    'Powered by Coldop',
+    ...Array(colCount - 1).fill(''),
+  ]);
+  ws.mergeCells(4, 1, 4, colCount);
+  poweredByRow.height = 18;
+  const poweredByCell = poweredByRow.getCell(1);
+  poweredByCell.value = 'Powered by Coldop';
+  poweredByCell.font = {
+    name: 'Calibri',
+    size: 9,
+    italic: true,
+    color: { argb: 'FF9CA3AF' },
+  };
+  poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+  for (const line of overviewLines) {
+    const row = ws.addRow([line, ...Array(colCount - 1).fill('')]);
+    ws.mergeCells(row.number, 1, row.number, colCount);
+    row.height = 20;
+    const cell = row.getCell(1);
+    cell.value = line;
+    cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
+    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+    applyBorder(cell, COLORS.borderColor);
+  }
+
+  ws.addRow([]);
+}
+
+function addStyledTable(
+  ws: ExcelJS.Worksheet,
+  headers: string[],
+  rows: Array<Array<string | number>>
+) {
+  const headerRow = ws.addRow(headers);
+  headerRow.height = 36;
+  headerRow.eachCell((cell) => {
+    applyFill(cell, COLORS.headerBg);
+    applyBorder(cell, COLORS.borderColor);
+    cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
+    cell.alignment = {
+      horizontal: 'left',
+      vertical: 'middle',
+      wrapText: true,
+    };
+  });
+
+  rows.forEach((dataRow, idx) => {
+    const exRow = ws.addRow(dataRow);
+    exRow.height = 22;
+    const bgArgb = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
+    exRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
+      applyFill(cell, bgArgb);
+      applyBorder(cell, COLORS.borderColor);
+      cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+      if (typeof dataRow[colIndex - 1] === 'number') {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.numFmt = SMART_NUMBER_FORMAT;
+      }
+    });
+  });
 }
 
 function getExcelBodyRows(
@@ -161,153 +421,69 @@ function getExcelBodyRows(
   return bodyRows;
 }
 
-function applyFill(cell: ExcelJS.Cell, argb: string) {
-  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
-}
-
-function applyBorder(cell: ExcelJS.Cell, color: string) {
-  const border = {
-    style: 'thin' as ExcelJS.BorderStyle,
-    color: { argb: color },
-  };
-  cell.border = { top: border, bottom: border, left: border, right: border };
-}
-
 export const StorageExcelButton = ({
   table,
   coldStorageName,
 }: StorageExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
+  const tableRef = React.useRef(table);
+  React.useEffect(() => {
+    tableRef.current = table;
+  }, [table]);
+  const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
-    if (isGeneratingExcel) return;
+    if (generatingExcelRef.current) return;
+    const t = tableRef.current;
+    if (!t) {
+      window.alert('Table is not ready. Please try again.');
+      return;
+    }
 
     try {
+      generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = table.getVisibleLeafColumns();
+      const visibleColumns = t.getVisibleLeafColumns();
       const columnCount = visibleColumns.length;
       const headerLabels = visibleColumns.map((column) =>
-        getRenderedHeaderLabel(table, column)
+        getRenderedHeaderLabel(t, column)
       );
       const sourceRows =
-        table.getState().grouping.length > 0
-          ? table.getGroupedRowModel().rows
-          : table.getRowModel().rows;
-      const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+        t.getState().grouping.length > 0
+          ? t.getGroupedRowModel().rows
+          : t.getRowModel().rows;
+      const rawBodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+      const bodyRows = coerceRows(rawBodyRows);
 
-      const safeName =
-        coldStorageName
-          .trim()
-          .replace(/[\\/:*?"<>|]/g, '')
-          .replace(/\s+/g, ' ') || 'Cold Storage';
+      const sums: Record<string, number> = {};
+      collectStorageLeafColumnSums(sourceRows, sums);
+      const totalsRowValues = buildStorageTotalsRowValues(visibleColumns, sums);
 
-      const dateLabel = getExportDateLabel(new Date());
+      const safeName = safeFilePart(coldStorageName, 'Cold Storage');
+      const dateLabel = getDateLabel(new Date());
       const fileName = `${safeName} Storage Report ${dateLabel}.xlsx`;
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = safeName;
       const worksheet = workbook.addWorksheet('Storage Report');
 
-      worksheet.columns = visibleColumns.map((column, i) => ({
-        key: String(i),
-        width: Math.max(14, Math.round(column.getSize() / 7.5)),
-      }));
+      const allBodyRowsForWidth = [...bodyRows, totalsRowValues];
 
-      const titleRow = worksheet.addRow([
+      applySmartColumnWidths(worksheet, headerLabels, allBodyRowsForWidth);
+
+      const overviewLines = [`Data rows: ${bodyRows.length}`];
+      buildReportHeader(
+        worksheet,
+        columnCount,
         safeName,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(1, 1, 1, columnCount);
-      titleRow.height = 36;
-      titleRow.getCell(1).value = safeName;
-      titleRow.getCell(1).font = {
-        ...FONTS.title,
-        color: { argb: COLORS.titleFg },
-      };
-      applyFill(titleRow.getCell(1), COLORS.titleBg);
-      titleRow.getCell(1).alignment = {
-        horizontal: 'center',
-        vertical: 'middle',
-      };
-
-      const subtitleRow = worksheet.addRow([
         'Storage Report',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(2, 1, 2, columnCount);
-      subtitleRow.height = 22;
-      subtitleRow.getCell(1).value = 'Storage Report';
-      subtitleRow.getCell(1).font = {
-        ...FONTS.subtitle,
-        color: { argb: COLORS.subtitleFg },
-      };
-      applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
-      subtitleRow.getCell(1).alignment = {
-        horizontal: 'center',
-        vertical: 'middle',
-      };
+        dateLabel,
+        overviewLines
+      );
 
-      const dateRow = worksheet.addRow([
-        `Generated on: ${dateLabel}`,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(3, 1, 3, columnCount);
-      dateRow.height = 18;
-      const dateCell = dateRow.getCell(1);
-      dateCell.value = `Generated on: ${dateLabel}`;
-      dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
-      applyFill(dateCell, COLORS.dateBg);
-      dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-      const poweredByRow = worksheet.addRow([
-        'Powered by Coldop',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(4, 1, 4, columnCount);
-      poweredByRow.height = 16;
-      const poweredByCell = poweredByRow.getCell(1);
-      poweredByCell.value = 'Powered by Coldop';
-      poweredByCell.font = {
-        name: 'Calibri',
-        size: 9,
-        italic: true,
-        color: { argb: 'FF9CA3AF' },
-      };
-      poweredByCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-      worksheet.addRow([]);
-
-      const columnHeaderRow = worksheet.addRow(headerLabels);
-      columnHeaderRow.height = 24;
-      columnHeaderRow.eachCell((cell) => {
-        applyFill(cell, COLORS.headerBg);
-        applyBorder(cell, COLORS.borderColor);
-        cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
-        cell.alignment = {
-          horizontal: 'center',
-          vertical: 'middle',
-          wrapText: true,
-        };
-      });
-
-      bodyRows.forEach((dataRow, rowIndex) => {
-        const excelRow = worksheet.addRow(dataRow);
-        const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
-        excelRow.height = 18;
-
-        excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-          applyFill(cell, background);
-          applyBorder(cell, COLORS.borderColor);
-          cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
-          cell.alignment = { vertical: 'middle' };
-
-          if (typeof dataRow[columnNumber - 1] === 'number') {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            cell.numFmt = '#,##0.##';
-          }
-        });
-      });
+      addStyledTable(worksheet, headerLabels, bodyRows);
+      addTotalsRow(worksheet, totalsRowValues);
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
@@ -324,15 +500,16 @@ export const StorageExcelButton = ({
         error instanceof Error ? error.message : 'Unknown error occurred';
       window.alert(`Failed to generate Excel: ${message}`);
     } finally {
+      generatingExcelRef.current = false;
       setIsGeneratingExcel(false);
     }
-  }, [coldStorageName, isGeneratingExcel, table]);
+  }, [coldStorageName]);
 
   return (
     <Button
       variant="default"
-      className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingExcel}
+      className="font-custom h-9 rounded-lg px-4 text-sm leading-none shadow-sm"
+      disabled={isGeneratingExcel || !table}
       onClick={handleGenerate}
     >
       {isGeneratingExcel ? (

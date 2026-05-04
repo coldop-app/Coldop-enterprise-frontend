@@ -137,11 +137,7 @@ export function FarmerSeedEditHistoryCard({
   const editedBy = item.editedById as Record<string, unknown> | undefined;
   const farmerSeed = item.farmerSeedId as Record<string, unknown> | undefined;
 
-  const statusValue = String(farmerSeed?.status ?? item.status ?? 'UNKNOWN');
   const gatePassNumber = farmerSeed?.gatePassNo ?? updatedState?.gatePassNo;
-  const isApproved =
-    statusValue.toUpperCase() === 'APPROVED' ||
-    statusValue.toUpperCase() === 'GRADED';
 
   const changedFields = getChangedFields(previousState, updatedState);
 
@@ -154,16 +150,6 @@ export function FarmerSeedEditHistoryCard({
             Gate Pass #{renderFieldValue(gatePassNumber)}
           </span>
           <div className="flex items-center gap-2">
-            <Badge
-              variant="secondary"
-              className={
-                isApproved
-                  ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-50'
-                  : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50'
-              }
-            >
-              {statusValue.replace('_', ' ')}
-            </Badge>
             {changedFields.length > 0 && (
               <Badge
                 variant="outline"
@@ -190,16 +176,6 @@ export function FarmerSeedEditHistoryCard({
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4">
-        {/* Reason */}
-        <div className="bg-muted/50 rounded-lg border px-3 py-2.5">
-          <p className="font-custom text-foreground text-sm">
-            <span className="font-semibold">Reason: </span>
-            <span className="text-muted-foreground">
-              {renderFieldValue(item.reason)}
-            </span>
-          </p>
-        </div>
-
         {/* Changed fields diff */}
         {changedFields.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">

@@ -8,7 +8,9 @@ import {
   GRADING_BAG_SIZE_COLUMN_ID_TO_CANON,
   GRADING_BAG_SIZE_COLUMN_ORDER,
   getGradingBagSizeColumnId,
+  gradingBagSizeColumnHeaderText,
 } from './column-meta';
+import { gradingColumnLabels } from './view-filters-sheet/constants';
 
 const COLORS = {
   titleBg: 'FFFFFFFF',
@@ -21,6 +23,8 @@ const COLORS = {
   headerFg: 'FFFFFFFF',
   rowEven: 'FFEFF8F3',
   rowOdd: 'FFFFFFFF',
+  totalRowBg: 'FFDCEFE4',
+  totalRowFg: 'FF1A4731',
   borderColor: 'FFB8DEC9',
 } as const;
 
@@ -32,18 +36,203 @@ const FONTS = {
   body: { name: 'Calibri', size: 10, bold: false },
 } as const;
 
+const SMART_NUMBER_FORMAT = '#,##0.##';
+
+/**
+ * Coerces a value to a number if it is a clean numeric string.
+ * Returns the original value for anything else (dates, text, empty strings).
+ */
+function coerceToNumber(value: string | number): string | number {
+  if (typeof value === 'number') return value;
+  const trimmed = value.trim();
+  if (trimmed === '') return value;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const parsed = Number(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return value;
+}
+
+function coerceRows(
+  rows: Array<Array<string | number>>
+): Array<Array<string | number>> {
+  return rows.map((row) => row.map(coerceToNumber));
+}
+
+function estimateColWidth(
+  headerLabel: string,
+  bodyRows: Array<Array<string | number>>,
+  colIndex: number
+): number {
+  const longestHeaderWord = headerLabel
+    .split(/\s+/)
+    .reduce((max, word) => Math.max(max, word.length), 0);
+
+  let maxDataChars = 0;
+  for (const row of bodyRows) {
+    const cell = row[colIndex];
+    if (cell !== '' && cell != null) {
+      const str =
+        typeof cell === 'number' ? cell.toLocaleString('en-IN') : String(cell);
+      maxDataChars = Math.max(maxDataChars, str.length);
+    }
+  }
+
+  const computed = Math.max(longestHeaderWord, maxDataChars) + 2;
+  return Math.min(40, Math.max(10, computed));
+}
+
+function applySmartColumnWidths(
+  ws: ExcelJS.Worksheet,
+  headers: string[],
+  allBodyRows: Array<Array<string | number>>
+) {
+  ws.columns = headers.map((header, i) => ({
+    key: `c${i}`,
+    width: estimateColWidth(header, allBodyRows, i),
+  }));
+}
+
+function safeFilePart(value: string, fallback: string): string {
+  const safe = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/\s+/g, ' ');
+  return safe || fallback;
+}
+
+const GRADING_SUM_COLUMN_IDS = new Set<string>([
+  'incomingBagsReceived',
+  'incomingGrossKg',
+  'incomingTareKg',
+  'incomingNetKg',
+  'incomingBardanaWeightKg',
+  'incomingNetWeightWithoutBardana',
+  'gradedBags',
+  'gradingBardanaWeightKg',
+  'netWeightAfterGradingWithoutBardana',
+  ...GRADING_BAG_SIZE_COLUMN_ORDER.map((label) =>
+    getGradingBagSizeColumnId(label)
+  ),
+]);
+
+/** Columns where Excel shows numbers (and '-' for zero) — used to right-align dash placeholder. */
+const EXCEL_NUMERIC_DISPLAY_COLUMN_IDS = new Set<string>([
+  ...GRADING_SUM_COLUMN_IDS,
+  'wastagePercent',
+  'gatePassNo',
+]);
+
+function collectLeafRows(
+  rows: Row<GradingReportTableRow>[]
+): Row<GradingReportTableRow>[] {
+  const out: Row<GradingReportTableRow>[] = [];
+  for (const row of rows) {
+    if (row.subRows.length > 0) {
+      out.push(...collectLeafRows(row.subRows));
+    } else {
+      out.push(row);
+    }
+  }
+  return out;
+}
+
+function bagSizeColumnHasAnyNonZero(
+  columnId: string,
+  leafRows: Row<GradingReportTableRow>[]
+): boolean {
+  for (const row of leafRows) {
+    if (toSumNumber(row.getValue(columnId)) !== 0) return true;
+  }
+  return false;
+}
+
+/** Column accessors often expose Indian-formatted weight strings; strip grouping commas before parsing. */
+function toSumNumber(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (t === '' || t === '-') return 0;
+    const n = Number(t.replace(/,/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+function collectGradingLeafColumnSums(
+  rows: Row<GradingReportTableRow>[],
+  sums: Record<string, number>
+): void {
+  for (const row of rows) {
+    if (row.subRows.length > 0) {
+      collectGradingLeafColumnSums(row.subRows, sums);
+      continue;
+    }
+    for (const id of GRADING_SUM_COLUMN_IDS) {
+      sums[id] = (sums[id] ?? 0) + toSumNumber(row.getValue(id));
+    }
+  }
+}
+
+function buildGradingTotalsRowValues(
+  visibleColumns: ReturnType<
+    Table<GradingReportTableRow>['getVisibleLeafColumns']
+  >,
+  sums: Record<string, number>
+): Array<string | number> {
+  return visibleColumns.map((col, idx) => {
+    if (idx === 0) return 'Total';
+    const id = col.id;
+    if (GRADING_SUM_COLUMN_IDS.has(id)) {
+      const s = sums[id] ?? 0;
+      return s === 0 ? '-' : s;
+    }
+    return '';
+  });
+}
+
+function addTotalsRow(
+  ws: ExcelJS.Worksheet,
+  values: Array<string | number>,
+  columnIds: string[]
+) {
+  const exRow = ws.addRow(values);
+  exRow.height = 24;
+  exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    const rawVal = values[colNumber - 1];
+    const colId = columnIds[colNumber - 1];
+    applyFill(cell, COLORS.totalRowBg);
+    applyBorder(cell, COLORS.borderColor);
+    cell.font = {
+      ...FONTS.body,
+      bold: true,
+      color: { argb: COLORS.totalRowFg },
+    };
+    const isNumeric = typeof rawVal === 'number';
+    const isDashNumeric =
+      rawVal === '-' &&
+      colId != null &&
+      EXCEL_NUMERIC_DISPLAY_COLUMN_IDS.has(colId);
+    cell.alignment = {
+      horizontal: isNumeric || isDashNumeric ? 'right' : 'left',
+      vertical: 'middle',
+    };
+    if (isNumeric) {
+      cell.numFmt = SMART_NUMBER_FORMAT;
+    }
+  });
+}
+
+function replaceZerosWithDash(
+  rows: Array<Array<string | number>>
+): Array<Array<string | number>> {
+  return rows.map((row) => row.map((cell) => (cell === 0 ? '-' : cell)));
+}
+
 type GradingExcelButtonProps = {
   table: Table<GradingReportTableRow>;
   coldStorageName: string;
-};
-
-const EXCEL_HEADER_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
-  ...Object.fromEntries(
-    GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => [
-      getGradingBagSizeColumnId(sizeLabel),
-      sizeLabel === 'Cut' ? 'Cut' : `${sizeLabel} (mm)`,
-    ])
-  ),
 };
 
 function getColumnHeaderLabel(
@@ -51,12 +240,9 @@ function getColumnHeaderLabel(
     Table<GradingReportTableRow>['getVisibleLeafColumns']
   >[number]
 ): string {
-  const override = EXCEL_HEADER_LABEL_OVERRIDES[column.id];
-  if (override) return override;
-
   const bagSizeCanonLabel = GRADING_BAG_SIZE_COLUMN_ID_TO_CANON.get(column.id);
   if (bagSizeCanonLabel) {
-    return bagSizeCanonLabel === 'Cut' ? 'Cut' : `${bagSizeCanonLabel} (mm)`;
+    return gradingBagSizeColumnHeaderText(bagSizeCanonLabel);
   }
 
   const headerDefinition = column.columnDef.header;
@@ -81,24 +267,22 @@ function getRenderedHeaderLabel(
     Table<GradingReportTableRow>['getVisibleLeafColumns']
   >[number]
 ): string {
-  const override = EXCEL_HEADER_LABEL_OVERRIDES[column.id];
-  if (override) return override;
-
-  const flatHeader = table
-    .getFlatHeaders()
-    .find(
-      (header) =>
-        header.column.id === column.id && header.subHeaders.length === 0
+  for (const headerGroup of table.getHeaderGroups()) {
+    const header = headerGroup.headers.find(
+      (h) => h.column.id === column.id && !h.isPlaceholder
     );
-
-  if (flatHeader && !flatHeader.isPlaceholder) {
-    const rendered = flexRender(
-      flatHeader.column.columnDef.header,
-      flatHeader.getContext()
-    );
-    const text = extractTextFromNode(rendered);
-    if (text) return text;
+    if (header) {
+      const rendered = flexRender(
+        header.column.columnDef.header,
+        header.getContext()
+      );
+      const text = extractTextFromNode(rendered).trim();
+      if (text.length > 0) return text;
+    }
   }
+
+  const mapped = gradingColumnLabels[column.id];
+  if (mapped) return mapped;
 
   return getColumnHeaderLabel(column);
 }
@@ -203,48 +387,67 @@ export const GradingExcelButton = ({
   coldStorageName,
 }: GradingExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
+  const tableRef = React.useRef(table);
+  React.useEffect(() => {
+    tableRef.current = table;
+  }, [table]);
+  const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
-    if (isGeneratingExcel) return;
+    if (generatingExcelRef.current) return;
+    const t = tableRef.current;
+    if (!t) {
+      window.alert('Table is not ready. Please try again.');
+      return;
+    }
 
     try {
+      generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = table.getVisibleLeafColumns();
-      const columnCount = visibleColumns.length;
-      const headerLabels = visibleColumns.map((column) =>
-        getRenderedHeaderLabel(table, column)
-      );
+      const visibleColumns = t.getVisibleLeafColumns();
       const sourceRows =
-        table.getState().grouping.length > 0
-          ? table.getGroupedRowModel().rows
-          : table.getRowModel().rows;
-      const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+        t.getState().grouping.length > 0
+          ? t.getGroupedRowModel().rows
+          : t.getRowModel().rows;
 
-      const safeName =
-        coldStorageName
-          .trim()
-          .replace(/[\\/:*?"<>|]/g, '')
-          .replace(/\s+/g, ' ') || 'Cold Storage';
+      const leafRows = collectLeafRows(sourceRows);
+      const exportColumns = visibleColumns.filter((col) => {
+        if (!col.id.startsWith('bagSize__')) return true;
+        return bagSizeColumnHasAnyNonZero(col.id, leafRows);
+      });
+
+      const columnCount = exportColumns.length;
+      const exportColumnIds = exportColumns.map((c) => c.id);
+      const headerLabels = exportColumns.map((column) =>
+        getRenderedHeaderLabel(t, column)
+      );
+      const bodyRows = getExcelBodyRows(sourceRows, exportColumns);
+
+      const sums: Record<string, number> = {};
+      collectGradingLeafColumnSums(sourceRows, sums);
+      const totalsRowValues = buildGradingTotalsRowValues(exportColumns, sums);
+
+      const safeName = safeFilePart(coldStorageName, 'Cold Storage');
 
       const dateLabel = getExportDateLabel(new Date());
       const fileName = `${safeName} Grading Report ${dateLabel}.xlsx`;
+
+      const coercedBodyRows = replaceZerosWithDash(coerceRows(bodyRows));
+      const allRowsForWidth = [...coercedBodyRows, totalsRowValues];
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = safeName;
       const worksheet = workbook.addWorksheet('Grading Report');
 
-      worksheet.columns = visibleColumns.map((column, i) => ({
-        key: String(i),
-        width: Math.max(14, Math.round(column.getSize() / 7.5)),
-      }));
+      applySmartColumnWidths(worksheet, headerLabels, allRowsForWidth);
 
       const titleRow = worksheet.addRow([
         safeName,
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(1, 1, 1, columnCount);
-      titleRow.height = 36;
+      titleRow.height = 40;
       titleRow.getCell(1).value = safeName;
       titleRow.getCell(1).font = {
         ...FONTS.title,
@@ -252,7 +455,7 @@ export const GradingExcelButton = ({
       };
       applyFill(titleRow.getCell(1), COLORS.titleBg);
       titleRow.getCell(1).alignment = {
-        horizontal: 'center',
+        horizontal: 'left',
         vertical: 'middle',
       };
 
@@ -261,7 +464,7 @@ export const GradingExcelButton = ({
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(2, 1, 2, columnCount);
-      subtitleRow.height = 22;
+      subtitleRow.height = 26;
       subtitleRow.getCell(1).value = 'Grading Report';
       subtitleRow.getCell(1).font = {
         ...FONTS.subtitle,
@@ -269,7 +472,7 @@ export const GradingExcelButton = ({
       };
       applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
       subtitleRow.getCell(1).alignment = {
-        horizontal: 'center',
+        horizontal: 'left',
         vertical: 'middle',
       };
 
@@ -278,19 +481,19 @@ export const GradingExcelButton = ({
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(3, 1, 3, columnCount);
-      dateRow.height = 18;
+      dateRow.height = 20;
       const dateCell = dateRow.getCell(1);
       dateCell.value = `Generated on: ${dateLabel}`;
       dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
       applyFill(dateCell, COLORS.dateBg);
-      dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
 
       const poweredByRow = worksheet.addRow([
         'Powered by Coldop',
         ...Array(columnCount - 1).fill(''),
       ]);
       worksheet.mergeCells(4, 1, 4, columnCount);
-      poweredByRow.height = 16;
+      poweredByRow.height = 18;
       const poweredByCell = poweredByRow.getCell(1);
       poweredByCell.value = 'Powered by Coldop';
       poweredByCell.font = {
@@ -299,40 +502,51 @@ export const GradingExcelButton = ({
         italic: true,
         color: { argb: 'FF9CA3AF' },
       };
-      poweredByCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' };
 
       worksheet.addRow([]);
 
       const columnHeaderRow = worksheet.addRow(headerLabels);
-      columnHeaderRow.height = 24;
+      columnHeaderRow.height = 36;
       columnHeaderRow.eachCell((cell) => {
         applyFill(cell, COLORS.headerBg);
         applyBorder(cell, COLORS.borderColor);
         cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
         cell.alignment = {
-          horizontal: 'center',
+          horizontal: 'left',
           vertical: 'middle',
           wrapText: true,
         };
       });
 
-      bodyRows.forEach((dataRow, rowIndex) => {
+      coercedBodyRows.forEach((dataRow, rowIndex) => {
         const excelRow = worksheet.addRow(dataRow);
         const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
-        excelRow.height = 18;
+        excelRow.height = 22;
 
         excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
           applyFill(cell, background);
           applyBorder(cell, COLORS.borderColor);
           cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
-          cell.alignment = { vertical: 'middle' };
-
-          if (typeof dataRow[columnNumber - 1] === 'number') {
+          const raw = dataRow[columnNumber - 1];
+          const colId = exportColumnIds[columnNumber - 1];
+          const isNumber = typeof raw === 'number';
+          const isDashNumeric =
+            raw === '-' &&
+            colId != null &&
+            EXCEL_NUMERIC_DISPLAY_COLUMN_IDS.has(colId);
+          if (isNumber) {
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            cell.numFmt = '#,##0.##';
+            cell.numFmt = SMART_NUMBER_FORMAT;
+          } else if (isDashNumeric) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
           }
         });
       });
+
+      addTotalsRow(worksheet, totalsRowValues, exportColumnIds);
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
@@ -349,16 +563,17 @@ export const GradingExcelButton = ({
         error instanceof Error ? error.message : 'Unknown error occurred';
       window.alert(`Failed to generate Excel: ${message}`);
     } finally {
+      generatingExcelRef.current = false;
       setIsGeneratingExcel(false);
     }
-  }, [coldStorageName, isGeneratingExcel, table]);
+  }, [coldStorageName]);
 
   return (
     <Button
       type="button"
       variant="default"
-      className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingExcel}
+      className="font-custom h-9 rounded-lg px-4 text-sm leading-none shadow-sm"
+      disabled={isGeneratingExcel || !table}
       onClick={handleGenerate}
     >
       {isGeneratingExcel ? (

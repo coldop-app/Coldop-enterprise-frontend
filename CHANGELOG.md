@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8] - 2026-05-05
+
+### Added
+- Accounting report variety grouping helpers (`accounting-variety-grouped.ts`, `accounting-report-variety-sections.ts`) to structure People accounting exports and tables by variety.
+
+### Changed
+- Expanded Excel export pipelines for analytics reports (farmer seed, grading, incoming, storage) with richer workbook layout and column coverage aligned to on-screen tables.
+- People report tables (farmer seed, grading, incoming, summary) and the accounting report table/Excel button updated for consistency with grouped variety sections and export preparation.
+- Grading analytics report column metadata, grading report table wiring, and advanced view-filters constants adjusted to stay in sync with Excel output.
+- Shared helpers (`src/lib/helpers.ts`) and grading report preparation (`grading-prepare.ts`) extended to support the updated report flows.
+- Grading gate pass edit route consolidates incoming selection into the main edit/create flow; the standalone `-IncomingSelectionStep.tsx` module was removed in favor of `-IncomingSelectionCreateStep` / `-GradingEditForm` integration.
+- Gate pass edit-history cards and related types/services (incoming, storage, nikasi, farmer seed, grading) trimmed for simpler history presentation and tighter typings.
+- Project version updated to `0.5.8` for this reporting and gate-pass polish release.
+
 ## [0.5.7] - 2026-05-03
 
 ### Changed

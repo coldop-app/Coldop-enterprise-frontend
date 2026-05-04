@@ -17,6 +17,14 @@ export const GRADING_BAG_SIZE_COLUMN_ORDER = [
 
 export type CanonBagSize = (typeof GRADING_BAG_SIZE_COLUMN_ORDER)[number];
 
+/** Header label for a bag-size column — must match the grading report table. */
+export function gradingBagSizeColumnHeaderText(
+  sizeLabel: CanonBagSize
+): string {
+  if (sizeLabel === 'Cut') return sizeLabel;
+  return `${sizeLabel} (mm)`;
+}
+
 /** Bag-size column IDs must match {@link GRADING_BAG_SIZE_COLUMN_ORDER}. */
 export function getGradingBagSizeColumnId(sizeLabel: CanonBagSize): string {
   return `bagSize__${sizeLabel.replace(/[^a-zA-Z0-9]+/g, '_')}`;

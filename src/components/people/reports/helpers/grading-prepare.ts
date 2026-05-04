@@ -4,7 +4,10 @@ import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 export type GradingSizeCell = {
   bags: number;
+  /** Line gross kg (bags × weight per bag); used for gate-pass totals. */
   weightKg: number;
+  /** Displayed in the Weight (Kg) column: kg per bag (line average when bucket merges lines). */
+  weightPerBagKg: number;
   bagType: string;
 };
 
@@ -124,7 +127,7 @@ function formatGradingDate(isoDate: string): string {
 }
 
 function emptySizeBucket(): GradingSizeCell {
-  return { bags: 0, weightKg: 0, bagType: '' };
+  return { bags: 0, weightKg: 0, weightPerBagKg: 0, bagType: '' };
 }
 
 function incomingManualGatePassNumbers(gp: GradingGatePass): string {
@@ -173,11 +176,17 @@ function linesSortedForSize(
   byBag: Map<string, { bags: number; weightKg: number }>
 ): GradingSizeCell[] {
   return [...byBag.entries()]
-    .map(([bagTypeKey, v]) => ({
-      bags: Number(v.bags) || 0,
-      weightKg: roundMax2(v.weightKg),
-      bagType: bagTypeKey !== 'UNKNOWN' ? bagTypeKey : '',
-    }))
+    .map(([bagTypeKey, v]) => {
+      const bags = Number(v.bags) || 0;
+      const weightKg = roundMax2(v.weightKg);
+      const weightPerBagKg = bags > 0 ? roundMax2(weightKg / bags) : 0;
+      return {
+        bags,
+        weightKg,
+        weightPerBagKg,
+        bagType: bagTypeKey !== 'UNKNOWN' ? bagTypeKey : '',
+      };
+    })
     .sort((a, b) => compareBagTypeKeys(a.bagType, b.bagType));
 }
 
@@ -237,6 +246,32 @@ export function computeGradingTableTotals(
     totalBags,
     totalKg: roundMax2(totalKgSum),
   };
+}
+
+/** Weight (Kg) footer/subtotal: weighted-average kg per bag for that size column. */
+export function gradingTotalsAverageWeightPerBagKg(
+  totals: GradingTableTotals,
+  label: string
+): number {
+  const t = totals.bySize[label];
+  if (t == null) return 0;
+  const bags = Number(t.bags) || 0;
+  if (bags === 0) return 0;
+  return roundMax2(Number(t.weightKg) / bags);
+}
+
+/** Same rule as the accounting grading table: show a size column only if total bags or weight is non-zero. */
+export function sizeLabelsWithAnyQuantity(
+  allLabelsOrdered: readonly string[],
+  totals: GradingTableTotals
+): string[] {
+  return allLabelsOrdered.filter((label) => {
+    const t = totals.bySize[label];
+    if (t == null) return false;
+    const bags = Number(t.bags) || 0;
+    const kg = Number(t.weightKg) || 0;
+    return bags !== 0 || kg !== 0;
+  });
 }
 
 /** Bags shown on one grading stripe row: sum every size column (JUTE/LENO/other lines honour all non-blank qty cells). */

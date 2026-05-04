@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { AccountingVarietyGroup } from '@/components/people/reports/accounting-report/accounting-variety-grouped';
 
 /** Reserve space for native scrollbar over sticky footer (matches analytics incoming report). */
 const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
@@ -222,12 +223,264 @@ const columns = [
   }),
 ];
 
+const MDASH = '\u2014';
+
 export interface IncomingTableProps {
   /** When omitted, demo rows are shown (e.g. accounting report placeholder). */
   rows?: AccountingIncomingRow[];
+  /**
+   * When set, renders one table with a full-width “Variety: …” row per group,
+   * data rows, then a per-variety subtotal row (grand footer omitted).
+   */
+  varietyGroups?: AccountingVarietyGroup<AccountingIncomingRow>[] | null;
 }
 
-const IncomingTable = ({ rows }: IncomingTableProps = {}) => {
+const INCOMING_TABLE_COLUMN_COUNT = 12;
+
+function IncomingVarietyGroupedTable({
+  groups,
+}: {
+  groups: AccountingVarietyGroup<AccountingIncomingRow>[];
+}) {
+  const colCount = INCOMING_TABLE_COLUMN_COUNT;
+
+  const renderDataRow = (row: AccountingIncomingRow, zebra: number) => (
+    <TableRow
+      key={row.id}
+      className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
+        zebra % 2 === 0 ? 'bg-background' : 'bg-muted/25'
+      }`}
+    >
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        <span className="font-custom font-medium">
+          {row.manualIncomingGatePassNumber}
+        </span>
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        {row.incomingDate}
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        {row.store}
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        {row.truckNumber}
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        {row.variety}
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        <div className="w-full text-right tabular-nums">
+          {formatIndianNumber(Number(row.bags), 0)}
+        </div>
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        {row.weightSlipNumber}
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        <div className="w-full text-right tabular-nums">
+          {formatIndianWeightKg(Number(row.grossKg))}
+        </div>
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        <div className="w-full text-right tabular-nums">
+          {formatIndianWeightKg(Number(row.tareKg))}
+        </div>
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        <div className="w-full text-right font-medium tabular-nums">
+          {formatIndianWeightKg(Number(row.netKg))}
+        </div>
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+        <div className="w-full text-right tabular-nums">
+          {formatIndianWeightKg(Number(row.bardanaWeight))}
+        </div>
+      </TableCell>
+      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0">
+        <div className="w-full text-right font-medium tabular-nums">
+          {formatIndianWeightKg(Number(row.actualKg))}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+
+  const renderSubtotalRow = (
+    varietyKey: string,
+    sectionRows: AccountingIncomingRow[]
+  ) => {
+    const bagsSum = sectionRows.reduce((s, r) => s + (Number(r.bags) || 0), 0);
+    const grossSum = sumRoundedKg(sectionRows, 'grossKg');
+    const tareSum = sumRoundedKg(sectionRows, 'tareKg');
+    const netSum = sumRoundedKg(sectionRows, 'netKg');
+    const bardSum = sumRoundedKg(sectionRows, 'bardanaWeight');
+    const actSum = sumRoundedKg(sectionRows, 'actualKg');
+
+    return (
+      <TableRow
+        key={`ft-${varietyKey}`}
+        className="bg-secondary/70 border-border/50 border-b hover:bg-transparent"
+      >
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 align-middle text-sm font-semibold whitespace-nowrap">
+          Total
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+          {MDASH}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+          {MDASH}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+          {MDASH}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+          {MDASH}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
+          {bagsSum === 0 ? '' : formatIndianNumber(bagsSum, 0)}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+          {MDASH}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
+          {grossSum === 0 ? (
+            ''
+          ) : (
+            <div className="w-full text-right">
+              {formatIndianWeightKg(grossSum)}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
+          {tareSum === 0 ? (
+            ''
+          ) : (
+            <div className="w-full text-right">
+              {formatIndianWeightKg(tareSum)}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
+          {netSum === 0 ? (
+            ''
+          ) : (
+            <div className="w-full text-right">
+              {formatIndianWeightKg(netSum)}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
+          {bardSum === 0 ? (
+            ''
+          ) : (
+            <div className="w-full text-right">
+              {formatIndianWeightKg(bardSum)}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums last:border-r-0">
+          {actSum === 0 ? (
+            ''
+          ) : (
+            <div className="w-full text-right">
+              {formatIndianWeightKg(actSum)}
+            </div>
+          )}
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const hasAnyRows = groups.some((g) => g.rows.length > 0);
+
+  return (
+    <div className="w-full">
+      <div
+        className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative max-h-[560px] overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1"
+        style={{ position: 'relative' }}
+      >
+        <table className="font-custom w-full min-w-max border-collapse text-sm">
+          <TableHeader className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Manual Incoming Gate Pass Number
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Incoming Date
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Store
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Truck Number
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Variety
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Bags
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Weight Slip Number
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Gross (Kg)
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Tare (Kg)
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Net (Kg)
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Bardana Weight (Kg)
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0">
+                Actual (Kg)
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!hasAnyRows ? (
+              <TableRow>
+                <TableCell
+                  colSpan={colCount}
+                  className="font-custom text-muted-foreground px-3 py-8 text-center"
+                >
+                  No incoming rows to show.
+                </TableCell>
+              </TableRow>
+            ) : (
+              groups.flatMap((group) => {
+                const block: ReactNode[] = [
+                  <TableRow
+                    key={`vh-${group.varietyKey}`}
+                    className="bg-muted/60 border-border/50 border-b hover:bg-transparent"
+                  >
+                    <TableCell
+                      colSpan={colCount}
+                      className="font-custom text-foreground border-border/40 border-r px-3 py-2.5 text-sm font-semibold tracking-wide last:border-r-0"
+                    >
+                      Variety: {group.varietyLabel}
+                    </TableCell>
+                  </TableRow>,
+                ];
+                let zebra = 0;
+                for (const row of group.rows) {
+                  block.push(renderDataRow(row, zebra));
+                  zebra += 1;
+                }
+                block.push(renderSubtotalRow(group.varietyKey, group.rows));
+                return block;
+              })
+            )}
+          </TableBody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const IncomingTable = ({ rows, varietyGroups }: IncomingTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const data = useMemo(() => rows ?? MOCK_ROWS, [rows]);
@@ -251,6 +504,10 @@ const IncomingTable = ({ rows }: IncomingTableProps = {}) => {
     getSortedRowModel: getSortedRowModel(),
     getRowId: (row) => row.id,
   });
+
+  if (varietyGroups != null) {
+    return <IncomingVarietyGroupedTable groups={varietyGroups} />;
+  }
 
   return (
     <div className="w-full">

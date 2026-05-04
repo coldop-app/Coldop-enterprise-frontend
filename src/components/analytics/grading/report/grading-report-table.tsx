@@ -64,6 +64,7 @@ import {
   GRADING_BAG_SIZE_COLUMN_ORDER,
   defaultGradingColumnOrder,
   getGradingBagSizeColumnId,
+  gradingBagSizeColumnHeaderText,
   type CanonBagSize,
 } from './column-meta';
 import type {
@@ -92,11 +93,6 @@ const gradingReportGetGroupedRowModel =
   getGroupedRowModel<GradingReportTableRow>();
 const gradingReportGetExpandedRowModel =
   getExpandedRowModel<GradingReportTableRow>();
-
-function gradingBagSizeColumnHeaderText(sizeLabel: CanonBagSize): string {
-  if (sizeLabel === 'Cut') return sizeLabel;
-  return `${sizeLabel} (mm)`;
-}
 
 const gradingRightAlignedColumnIds = new Set<string>([
   'gradedBags',

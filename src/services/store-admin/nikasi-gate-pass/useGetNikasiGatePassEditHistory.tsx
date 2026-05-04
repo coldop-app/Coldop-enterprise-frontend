@@ -62,7 +62,6 @@ export interface NikasiGatePassAuditItem {
   editedById?: NikasiGatePassAuditUser | string;
   previousState?: NikasiGatePassAuditState;
   updatedState?: NikasiGatePassAuditState;
-  reason?: string;
   ipAddress?: string;
   userAgent?: string;
   createdAt?: string;

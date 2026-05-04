@@ -266,7 +266,6 @@ function EditIncomingFormComponent() {
         },
         status: search.status ?? 'NOT_GRADED',
         remarks: remarks.trim() || undefined,
-        reason: remarks.trim() || undefined,
       },
       {
         onSuccess: (data) => {

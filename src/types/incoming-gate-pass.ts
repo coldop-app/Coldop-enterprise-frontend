@@ -102,7 +102,6 @@ export interface EditIncomingGatePassInput {
   };
   status?: GatePassStatus;
   remarks?: string;
-  reason?: string;
 }
 
 export interface EditIncomingGatePassApiResponse {
@@ -111,10 +110,7 @@ export interface EditIncomingGatePassApiResponse {
   data?: Record<string, never>;
 }
 
-export type CreateIncomingGatePassInput = Omit<
-  EditIncomingGatePassInput,
-  'reason'
->;
+export type CreateIncomingGatePassInput = EditIncomingGatePassInput;
 
 export interface CreateIncomingGatePassApiResponse {
   success: boolean;
@@ -128,7 +124,6 @@ export interface IncomingGatePassAuditItem {
   editedById: User;
   previousState: IncomingGatePass;
   updatedState: IncomingGatePass;
-  reason?: string;
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;

@@ -9,6 +9,7 @@ import {
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import {
+  aggregateSummaryBagsTotals,
   prepareAccountingGradingSummary,
   visibleSummarySizeLabels,
   type GradingBagTypeQtySummaryRow,
@@ -57,6 +58,14 @@ function sizeColumnSlug(label: string): string {
 
 export interface SummaryTableProps {
   gradingGatePasses?: GradingGatePass[] | null;
+  /** Single table with per-variety blocks (grand footer omitted). */
+  varietyGroups?:
+    | {
+        varietyKey: string;
+        varietyLabel: string;
+        gradingGatePasses: GradingGatePass[];
+      }[]
+    | null;
 }
 
 const columnHelper = createColumnHelper<GradingBagTypeQtySummaryRow>();
@@ -88,7 +97,14 @@ function useSummaryColumns(visibleSizes: readonly string[]) {
       base.push(
         columnHelper.accessor((row) => qtyForSize(row, label), {
           id: `size_${slug}_bags`,
-          header: () => <div className="w-full text-right">{label}</div>,
+          header: () => (
+            <div className="w-full text-right">
+              {label}{' '}
+              <span className="font-custom tracking-normal normal-case">
+                (mm)
+              </span>
+            </div>
+          ),
           cell: (info) => {
             const v = info.getValue() as number | null;
             if (v === null || v === undefined) {
@@ -271,16 +287,39 @@ function useNumericColumnIds(
   }, [columns]);
 }
 
-const SummaryTable = ({ gradingGatePasses }: SummaryTableProps) => {
+const SummaryTable = ({
+  gradingGatePasses,
+  varietyGroups,
+}: SummaryTableProps) => {
   const preferences = usePreferencesStore((s) => s.preferences);
+
+  const allPassesForPrep = useMemo(() => {
+    if (varietyGroups != null && varietyGroups.length > 0) {
+      return varietyGroups.flatMap((g) => g.gradingGatePasses);
+    }
+    return gradingGatePasses ?? [];
+  }, [gradingGatePasses, varietyGroups]);
+
   const {
     rows: summaryRows,
     columnTotals,
     orderedSizeLabels,
   } = useMemo(
-    () => prepareAccountingGradingSummary(gradingGatePasses, preferences),
-    [gradingGatePasses, preferences]
+    () => prepareAccountingGradingSummary(allPassesForPrep, preferences),
+    [allPassesForPrep, preferences]
   );
+
+  const showVarietyGroups = varietyGroups != null && varietyGroups.length > 0;
+
+  const tableModelRows = useMemo(() => {
+    if (!showVarietyGroups) return summaryRows;
+    return varietyGroups!.flatMap((g) =>
+      prepareAccountingGradingSummary(
+        g.gradingGatePasses,
+        preferences
+      ).rows.map((r) => ({ ...r, id: `${g.varietyKey}::${r.id}` }))
+    );
+  }, [showVarietyGroups, varietyGroups, preferences, summaryRows]);
 
   const visibleSizes = useMemo(
     () => visibleSummarySizeLabels(orderedSizeLabels, columnTotals),
@@ -331,7 +370,7 @@ const SummaryTable = ({ gradingGatePasses }: SummaryTableProps) => {
   );
 
   const table = useReactTable({
-    data: summaryRows,
+    data: showVarietyGroups ? tableModelRows : summaryRows,
     columns,
     enableSorting: false,
     getCoreRowModel: getCoreRowModel(),
@@ -339,11 +378,11 @@ const SummaryTable = ({ gradingGatePasses }: SummaryTableProps) => {
   });
 
   const showEmpty =
-    !gradingGatePasses?.length ||
+    !allPassesForPrep?.length ||
     visibleSizes.length === 0 ||
     summaryRows.length === 0;
 
-  const emptyMessage = !gradingGatePasses?.length
+  const emptyMessage = !allPassesForPrep?.length
     ? 'No grading gate passes.'
     : 'No nonzero bag quantities in grading data.';
 
@@ -393,6 +432,193 @@ const SummaryTable = ({ gradingGatePasses }: SummaryTableProps) => {
                   {emptyMessage}
                 </TableCell>
               </TableRow>
+            ) : showVarietyGroups ? (
+              varietyGroups!.flatMap((group) => {
+                const prep = prepareAccountingGradingSummary(
+                  group.gradingGatePasses,
+                  preferences
+                );
+                const out: ReactNode[] = [
+                  <TableRow
+                    key={`vh-${group.varietyKey}`}
+                    className="bg-muted/60 border-border/50 border-b hover:bg-transparent"
+                  >
+                    <TableCell
+                      colSpan={columns.length}
+                      className="font-custom text-foreground border-border/40 border-r px-3 py-2.5 text-sm font-semibold tracking-wide last:border-r-0"
+                    >
+                      Variety: {group.varietyLabel}
+                    </TableCell>
+                  </TableRow>,
+                ];
+                let zebra = 0;
+                for (const dataRow of prep.rows) {
+                  const rid = `${group.varietyKey}::${dataRow.id}`;
+                  const tRow = table.getRow(rid);
+                  if (!tRow) continue;
+                  const stripeClass =
+                    zebra % 2 === 0 ? 'bg-background' : 'bg-muted/25';
+                  zebra += 1;
+                  out.push(
+                    <TableRow
+                      key={rid}
+                      className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${stripeClass}`}
+                    >
+                      {tRow.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                }
+                const secTotals = aggregateSummaryBagsTotals(
+                  prep.rows,
+                  visibleSizes
+                );
+                const tw = prep.rows.reduce(
+                  (s, r) => s + (Number(r.weightReceivedKg) || 0),
+                  0
+                );
+                const tb = prep.rows.reduce(
+                  (s, r) => s + (Number(r.bardanaWeightKg) || 0),
+                  0
+                );
+                const ta = prep.rows.reduce(
+                  (s, r) => s + (Number(r.actualWeightKg) || 0),
+                  0
+                );
+                const tap = prep.rows.reduce(
+                  (s, r) => s + (Number(r.amountPayable) || 0),
+                  0
+                );
+                const tgp = prep.rows.reduce(
+                  (s, r) => s + (Number(r.gradedSizesPercent) || 0),
+                  0
+                );
+                out.push(
+                  <TableRow
+                    key={`ft-${group.varietyKey}`}
+                    className="bg-secondary/70 border-border/50 border-b hover:bg-transparent"
+                  >
+                    {table
+                      .getVisibleLeafColumns()
+                      .map((column, columnIndex) => {
+                        const columnId = column.id;
+                        const isNumeric = numericColumnIds.has(columnId);
+                        const footerCenterMutedDash =
+                          columnId === 'weightPerBagKg' || columnId === 'rate';
+                        const footerRightNumeric =
+                          isNumeric &&
+                          columnIndex !== 0 &&
+                          !footerCenterMutedDash;
+
+                        const labelForSlug = (slug: string) =>
+                          visibleSizes.find((l) => sizeColumnSlug(l) === slug);
+
+                        let content: ReactNode = '';
+                        if (columnId === 'type') {
+                          content = (
+                            <span className="font-custom font-semibold">
+                              Total
+                            </span>
+                          );
+                        } else if (
+                          columnId === 'weightPerBagKg' ||
+                          columnId === 'rate'
+                        ) {
+                          content = (
+                            <span className="font-custom text-muted-foreground">
+                              —
+                            </span>
+                          );
+                        } else if (columnId === 'weightReceivedKg') {
+                          content =
+                            tw === 0 ? (
+                              ''
+                            ) : (
+                              <div className="w-full text-right tabular-nums">
+                                {formatIndianWeightKg(tw)}
+                              </div>
+                            );
+                        } else if (columnId === 'bardanaWeightKg') {
+                          content =
+                            tb === 0 ? (
+                              ''
+                            ) : (
+                              <div className="w-full text-right tabular-nums">
+                                {formatIndianWeightKg(tb)}
+                              </div>
+                            );
+                        } else if (columnId === 'actualWeightKg') {
+                          content =
+                            ta === 0 ? (
+                              ''
+                            ) : (
+                              <div className="w-full text-right tabular-nums">
+                                {formatIndianWeightKg(ta)}
+                              </div>
+                            );
+                        } else if (columnId === 'amountPayable') {
+                          content =
+                            tap === 0 ? (
+                              ''
+                            ) : (
+                              <div className="w-full text-right tabular-nums">
+                                {formatIndianNumber(tap, 2)}
+                              </div>
+                            );
+                        } else if (columnId === 'gradedSizesPercent') {
+                          content =
+                            tgp === 0 ? (
+                              ''
+                            ) : (
+                              <div className="w-full text-right tabular-nums">
+                                {formatIndianNumber(tgp, 2)}%
+                              </div>
+                            );
+                        } else {
+                          const bagMatch = /^size_(.+)_bags$/.exec(columnId);
+                          if (bagMatch) {
+                            const label = labelForSlug(bagMatch[1]);
+                            const n =
+                              label != null ? (secTotals[label] ?? 0) : 0;
+                            content =
+                              n === 0 ? (
+                                ''
+                              ) : (
+                                <div className="w-full text-right tabular-nums">
+                                  {formatIndianNumber(n, 0)}
+                                </div>
+                              );
+                          }
+                        }
+
+                        return (
+                          <TableCell
+                            key={`sub-${group.varietyKey}-${column.id}`}
+                            className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 align-middle text-sm font-semibold whitespace-nowrap last:border-r-0 ${
+                              footerCenterMutedDash
+                                ? 'text-center'
+                                : footerRightNumeric
+                                  ? 'text-right tabular-nums'
+                                  : ''
+                            }`}
+                          >
+                            {content}
+                          </TableCell>
+                        );
+                      })}
+                  </TableRow>
+                );
+                return out;
+              })
             ) : (
               table.getRowModel().rows.map((row, index) => (
                 <TableRow
@@ -416,7 +642,7 @@ const SummaryTable = ({ gradingGatePasses }: SummaryTableProps) => {
               ))
             )}
           </TableBody>
-          {!showEmpty ? (
+          {!showEmpty && !showVarietyGroups ? (
             <TableFooter
               className="bg-secondary border-border/70 text-secondary-foreground sticky bottom-0 border-t backdrop-blur-sm [&>tr]:border-b-0"
               style={{

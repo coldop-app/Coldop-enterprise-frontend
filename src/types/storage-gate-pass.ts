@@ -247,7 +247,6 @@ export interface StorageGatePassAuditItem {
   coldStorageId?: string;
   editedBy?: StorageGatePassAuditEditedBy;
   editedById?: StorageGatePassAuditEditedBy;
-  reason: string;
   action?: string;
   changes?: StorageGatePassAuditChanges;
   previousState?: StorageGatePassAuditStateSnapshot;
@@ -318,7 +317,6 @@ export interface EditStorageGatePassInput {
   bagSizes?: CreateStorageGatePassBagSize[];
   remarks?: string;
   manualGatePassNumber?: number;
-  reason?: string;
   isMarkedAsNull?: boolean;
 }
 

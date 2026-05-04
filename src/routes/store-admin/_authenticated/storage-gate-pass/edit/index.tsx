@@ -350,7 +350,6 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
         variety: value.variety || undefined,
         bagSizes: [...fixedBagSizes, ...extraBagSizes],
         remarks: value.remarks?.trim() || undefined,
-        reason: value.remarks?.trim() || 'Updated from storage gate pass edit',
         isMarkedAsNull: value.isMarkedAsNull || undefined,
       };
 

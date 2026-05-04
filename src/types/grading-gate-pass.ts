@@ -158,7 +158,6 @@ export interface GradingGatePassAuditItem {
   gradingGatePassId: string;
   coldStorageId: string;
   editedBy: GradingGatePassAuditEditedBy;
-  reason: string;
   action: string;
   changes: GradingGatePassAuditChanges;
   createdAt: string;

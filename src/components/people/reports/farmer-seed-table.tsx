@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { type ReactNode, memo, useMemo, useState } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -17,8 +17,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { AccountingVarietyGroup } from '@/components/people/reports/accounting-report/accounting-variety-grouped';
 
 const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
+const MDASH = '\u2014';
+const FARMER_SEED_COLUMN_COUNT = 6;
 
 function formatIndianNumber(value: number, precision = 0): string {
   return value.toLocaleString('en-IN', {
@@ -38,7 +41,12 @@ const columns = [
     ),
   }),
   columnHelper.accessor('seedSize', {
-    header: 'Seed Size',
+    header: () => (
+      <>
+        Seed Size{' '}
+        <span className="font-custom tracking-normal normal-case">(mm)</span>
+      </>
+    ),
     sortingFn: 'text',
   }),
   columnHelper.accessor('totalBagsGiven', {
@@ -91,9 +99,161 @@ const numericColumnIds = new Set([
 
 export interface FarmerSeedTableProps {
   rows?: FarmerSeedRow[];
+  varietyGroups?: AccountingVarietyGroup<FarmerSeedRow>[] | null;
 }
 
-const FarmerSeedTable = ({ rows = [] }: FarmerSeedTableProps) => {
+function FarmerSeedVarietyGroupedTable({
+  groups,
+}: {
+  groups: AccountingVarietyGroup<FarmerSeedRow>[];
+}) {
+  const hasAnyRows = groups.some((g) => g.rows.length > 0);
+
+  return (
+    <div className="w-full">
+      <div
+        className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative max-h-[560px] overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1"
+        style={{ position: 'relative' }}
+      >
+        <table className="font-custom w-full min-w-max border-collapse text-sm">
+          <TableHeader className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Date
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Seed Size{' '}
+                <span className="font-custom tracking-normal normal-case">
+                  (mm)
+                </span>
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Total Bags given
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Bags/Acre
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none">
+                Seed Rate/Bag (Rs)
+              </TableHead>
+              <TableHead className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-right text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0">
+                Total Seed Amount (Rs)
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!hasAnyRows ? (
+              <TableRow>
+                <TableCell
+                  colSpan={FARMER_SEED_COLUMN_COUNT}
+                  className="font-custom text-muted-foreground px-3 py-8 text-center"
+                >
+                  No farmer seed rows to show.
+                </TableCell>
+              </TableRow>
+            ) : (
+              groups.flatMap((group) => {
+                const block: ReactNode[] = [
+                  <TableRow
+                    key={`vh-${group.varietyKey}`}
+                    className="bg-muted/60 border-border/50 border-b hover:bg-transparent"
+                  >
+                    <TableCell
+                      colSpan={FARMER_SEED_COLUMN_COUNT}
+                      className="font-custom text-foreground border-border/40 border-r px-3 py-2.5 text-sm font-semibold tracking-wide last:border-r-0"
+                    >
+                      Variety: {group.varietyLabel}
+                    </TableCell>
+                  </TableRow>,
+                ];
+                let zebra = 0;
+                for (const row of group.rows) {
+                  const stripe =
+                    zebra % 2 === 0 ? 'bg-background' : 'bg-muted/25';
+                  zebra += 1;
+                  block.push(
+                    <TableRow
+                      key={row.id}
+                      className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${stripe}`}
+                    >
+                      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+                        <span className="font-custom font-medium">
+                          {row.date}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+                        {row.seedSize}
+                      </TableCell>
+                      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+                        <div className="w-full text-right tabular-nums">
+                          {formatIndianNumber(Number(row.totalBagsGiven), 0)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+                        <div className="w-full text-right tabular-nums">
+                          {formatIndianNumber(Number(row.bagsPerAcre), 2)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap">
+                        <div className="w-full text-right tabular-nums">
+                          {formatIndianNumber(Number(row.seedRatePerBag), 2)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0">
+                        <div className="w-full text-right font-medium tabular-nums">
+                          {formatIndianNumber(Number(row.totalSeedAmount), 2)}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                const bagSum = group.rows.reduce(
+                  (s, r) => s + (Number(r.totalBagsGiven) || 0),
+                  0
+                );
+                const amtSum = group.rows.reduce(
+                  (s, r) => s + (Number(r.totalSeedAmount) || 0),
+                  0
+                );
+                block.push(
+                  <TableRow
+                    key={`ft-${group.varietyKey}`}
+                    className="bg-secondary/70 border-border/50 border-b hover:bg-transparent"
+                  >
+                    <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold whitespace-nowrap">
+                      Total
+                    </TableCell>
+                    <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+                      {MDASH}
+                    </TableCell>
+                    <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
+                      {bagSum === 0 ? '' : formatIndianNumber(bagSum, 0)}
+                    </TableCell>
+                    <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+                      {MDASH}
+                    </TableCell>
+                    <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
+                      {MDASH}
+                    </TableCell>
+                    <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums last:border-r-0">
+                      {amtSum === 0 ? '' : formatIndianNumber(amtSum, 2)}
+                    </TableCell>
+                  </TableRow>
+                );
+                return block;
+              })
+            )}
+          </TableBody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const FarmerSeedTable = ({
+  rows = [],
+  varietyGroups,
+}: FarmerSeedTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const totalSeedAmount = useMemo(() => {
@@ -119,6 +279,10 @@ const FarmerSeedTable = ({ rows = [] }: FarmerSeedTableProps) => {
     getSortedRowModel: getSortedRowModel(),
     getRowId: (row) => row.id,
   });
+
+  if (varietyGroups != null) {
+    return <FarmerSeedVarietyGroupedTable groups={varietyGroups} />;
+  }
 
   return (
     <div className="w-full">

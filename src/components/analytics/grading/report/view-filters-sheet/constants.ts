@@ -4,13 +4,8 @@ import {
   GRADING_BAG_SIZE_COLUMN_ORDER,
   defaultGradingColumnOrder,
   getGradingBagSizeColumnId,
-  type CanonBagSize,
+  gradingBagSizeColumnHeaderText,
 } from '../column-meta';
-
-function gradingBagSizeColumnHeaderText(sizeLabel: CanonBagSize): string {
-  if (sizeLabel === 'Cut') return sizeLabel;
-  return `${sizeLabel} (mm)`;
-}
 
 export const stringOperators: GradingFilterOperator[] = [
   'contains',

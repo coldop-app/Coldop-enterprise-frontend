@@ -35,7 +35,7 @@ export type EditIncomingGatePassParams = EditIncomingGatePassInput & {
  *
  * API: PUT /incoming-gate-pass/:id
  * Body: supports full edit payload (farmer, gate pass, date, variety, location,
- * truck, bags, weightSlip, status, remarks, reason, etc.)
+ * truck, bags, weightSlip, status, remarks, etc.)
  */
 export function useEditIncomingGatePass() {
   return useMutation<

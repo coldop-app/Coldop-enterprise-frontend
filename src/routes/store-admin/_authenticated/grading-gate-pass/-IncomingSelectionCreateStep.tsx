@@ -79,7 +79,9 @@ export const IncomingSelectionCreateStep = memo(
     const varietyOptions: Option<string>[] = useMemo(() => {
       const uniqueVarieties = new Set<string>();
       for (const incoming of farmerIncoming) {
-        if (incoming.variety) uniqueVarieties.add(incoming.variety);
+        if (incoming.variety && getBagsFromPass(incoming) > 0) {
+          uniqueVarieties.add(incoming.variety);
+        }
       }
       return [...uniqueVarieties]
         .sort((a, b) => a.localeCompare(b))
@@ -92,7 +94,10 @@ export const IncomingSelectionCreateStep = memo(
 
     const filteredPasses = useMemo(() => {
       if (!variety) return [];
-      return farmerIncoming.filter((incoming) => incoming.variety === variety);
+      return farmerIncoming.filter(
+        (incoming) =>
+          incoming.variety === variety && getBagsFromPass(incoming) > 0
+      );
     }, [farmerIncoming, variety]);
 
     const toggleId = (id: string) => {
@@ -239,7 +244,7 @@ export const IncomingSelectionCreateStep = memo(
                 ) : null}
               </div>
               <p className="text-muted-foreground font-custom text-sm">
-                Only incoming passes with status NOT_GRADED are listed for this
+                Only NOT_GRADED passes with at least one bag are listed for this
                 farmer and variety.
               </p>
             </CardHeader>

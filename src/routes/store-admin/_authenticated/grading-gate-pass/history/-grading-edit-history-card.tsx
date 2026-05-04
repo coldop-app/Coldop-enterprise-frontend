@@ -121,15 +121,6 @@ export function GradingEditHistoryCard({ audit }: GradingEditHistoryCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4">
-        <div className="bg-muted/50 rounded-lg border px-3 py-2.5">
-          <p className="font-custom text-foreground text-sm">
-            <span className="font-semibold">Reason: </span>
-            <span className="text-muted-foreground">
-              {audit.reason || 'N/A'}
-            </span>
-          </p>
-        </div>
-
         {changedFields.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
             <div className="overflow-hidden rounded-lg border">

@@ -29,13 +29,10 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
-import { prepareDataForGradingTable } from '../helpers/grading-prepare';
-import { prepareDataForIncomingTable } from '../helpers/incoming-prepare';
-import { prepareDataForFarmerSeedTable } from '../helpers/seed-prepare';
 import { useStore } from '@/stores/store';
 import { usePreferencesStore } from '@/stores/store';
-import { prepareAccountingGradingSummary } from '@/components/people/reports/helpers/summary-prepare';
 import { AccountingReportExcelButton } from './accounting-report-excel-button';
+import { buildAccountingReportVarietySections } from './accounting-report-variety-sections';
 
 export interface AccountingReportTableProps {
   farmerStorageLinkId: string;
@@ -129,24 +126,17 @@ const AccountingReportTable = ({
     [incomingList, selectedIncomingIds]
   );
 
-  const incomingTableData = useMemo(
-    () => prepareDataForIncomingTable(filteredIncomingPasses),
-    [filteredIncomingPasses]
+  const varietySections = useMemo(
+    () =>
+      buildAccountingReportVarietySections(
+        filteredGradingPasses,
+        filteredIncomingPasses,
+        farmerSeedList,
+        preferences
+      ),
+    [filteredGradingPasses, filteredIncomingPasses, farmerSeedList, preferences]
   );
 
-  const gradingTableData = useMemo(
-    () => prepareDataForGradingTable(filteredGradingPasses),
-    [filteredGradingPasses]
-  );
-  const farmerSeedTableData = useMemo(
-    () => prepareDataForFarmerSeedTable(farmerSeedList),
-    [farmerSeedList]
-  );
-  const summaryRows = useMemo(
-    () =>
-      prepareAccountingGradingSummary(filteredGradingPasses, preferences).rows,
-    [filteredGradingPasses, preferences]
-  );
   const reportGeneratedOn = useMemo(() => formatDisplayDate(new Date()), []);
   const reportPeriodLabel = useMemo(
     () =>
@@ -156,13 +146,60 @@ const AccountingReportTable = ({
       ]),
     [filteredIncomingPasses, filteredGradingPasses]
   );
-  const totalIncomingRows = incomingTableData.length;
-  const totalGradingRows = gradingTableData.length;
-  const totalSeedRows = farmerSeedTableData.length;
+
+  const rowStats = useMemo(
+    () => ({
+      incoming: filteredIncomingPasses.length,
+      grading: filteredGradingPasses.length,
+      summary: varietySections.reduce((a, s) => a + s.summaryRows.length, 0),
+      seed: varietySections.reduce((a, s) => a + s.farmerSeedRows.length, 0),
+    }),
+    [filteredIncomingPasses, filteredGradingPasses, varietySections]
+  );
 
   const incomingFetchErrorDescription = useMemo(
     () => incomingErrorMessage(error),
     [error]
+  );
+
+  const varietyGroupedIncoming = useMemo(
+    () =>
+      varietySections.map((s) => ({
+        varietyKey: s.varietyKey,
+        varietyLabel: s.varietyLabel,
+        rows: s.incomingRows,
+      })),
+    [varietySections]
+  );
+
+  const varietyGroupedGrading = useMemo(
+    () =>
+      varietySections.map((s) => ({
+        varietyKey: s.varietyKey,
+        varietyLabel: s.varietyLabel,
+        rows: s.gradingRows,
+      })),
+    [varietySections]
+  );
+
+  const varietyGroupedSummary = useMemo(
+    () =>
+      varietySections.map((s) => ({
+        varietyKey: s.varietyKey,
+        varietyLabel: s.varietyLabel,
+        gradingGatePasses: s.gradingGatePassesForSummary,
+      })),
+    [varietySections]
+  );
+
+  const varietyGroupedFarmerSeed = useMemo(
+    () =>
+      varietySections.map((s) => ({
+        varietyKey: s.varietyKey,
+        varietyLabel: s.varietyLabel,
+        rows: s.farmerSeedRows,
+      })),
+    [varietySections]
   );
 
   const handleCustomSelectClick = () => {
@@ -263,8 +300,8 @@ const AccountingReportTable = ({
                   Rows Snapshot
                 </p>
                 <p className="font-custom text-sm font-semibold text-[#333]">
-                  In: {totalIncomingRows} | Gr: {totalGradingRows} | Seed:{' '}
-                  {totalSeedRows}
+                  In: {rowStats.incoming} | Gr: {rowStats.grading} | Summary:{' '}
+                  {rowStats.summary} | Seed: {rowStats.seed}
                 </p>
               </div>
             </div>
@@ -326,11 +363,9 @@ const AccountingReportTable = ({
           <AccountingReportExcelButton
             coldStorageName={coldStorageName}
             farmerDetails={farmerStorageLink}
-            incomingRows={incomingTableData}
-            gradingRows={gradingTableData}
-            summaryRows={summaryRows}
-            farmerSeedRows={farmerSeedTableData}
+            varietySections={varietySections}
             reportPeriodLabel={reportPeriodLabel}
+            rowStats={rowStats}
           />
           <Button
             type="button"
@@ -348,7 +383,7 @@ const AccountingReportTable = ({
             </CardTitle>
             <CardDescription className="font-custom leading-relaxed text-gray-600">
               Manual gate passes, store, truck, variety, bags, weight slip,
-              gross, tare, net, bardana, and actual weight.
+              gross, tare, net, bardana, and actual weight — grouped by variety.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -371,7 +406,7 @@ const AccountingReportTable = ({
               </div>
             ) : (
               <div className="w-full">
-                <IncomingTable rows={incomingTableData} />
+                <IncomingTable varietyGroups={varietyGroupedIncoming} />
               </div>
             )}
           </CardContent>
@@ -383,9 +418,8 @@ const AccountingReportTable = ({
               Grading
             </CardTitle>
             <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Grading gate passes: incoming reference, manual numbers, variety,
-              date, all bag-size lines (bags, gross weight, bag type), and total
-              kg.
+              Grading gate passes with bag sizes by variety — one table, blocks
+              per variety.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -408,7 +442,7 @@ const AccountingReportTable = ({
               </div>
             ) : (
               <div className="w-full">
-                <GradingTable rows={gradingTableData} />
+                <GradingTable varietyGroups={varietyGroupedGrading} />
               </div>
             )}
           </CardContent>
@@ -420,10 +454,7 @@ const AccountingReportTable = ({
               Summary
             </CardTitle>
             <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Rows follow bag-size column order (like the PDF summary): lines
-              that share a size are grouped together; different weights stay on
-              separate lines. Wt/Bag shows the bucket weight; size totals are in
-              the footer.
+              Bag-type and size summary lines grouped by variety in one table.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -446,7 +477,7 @@ const AccountingReportTable = ({
               </div>
             ) : (
               <div className="w-full">
-                <SummaryTable gradingGatePasses={filteredGradingPasses} />
+                <SummaryTable varietyGroups={varietyGroupedSummary} />
               </div>
             )}
           </CardContent>
@@ -458,13 +489,12 @@ const AccountingReportTable = ({
               Farmer seed
             </CardTitle>
             <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Seed dispatch dates, size issued, bags per acre, rate per bag, and
-              total seed amount.
+              Seed dispatch lines grouped by variety in one table.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="w-full">
-              <FarmerSeedTable rows={farmerSeedTableData} />
+              <FarmerSeedTable varietyGroups={varietyGroupedFarmerSeed} />
             </div>
           </CardContent>
         </Card>

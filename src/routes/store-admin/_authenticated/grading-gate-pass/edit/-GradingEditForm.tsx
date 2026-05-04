@@ -4,7 +4,6 @@ import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 import {
   ArrowLeft,
-  Check,
   ChevronRight,
   ClipboardList,
   Plus,
@@ -183,7 +182,7 @@ export const GradingEditForm = memo(function GradingEditForm({
 }: GradingEditFormProps) {
   const { mutate: editGradingGatePass, isPending } = useEditGradingGatePass();
   const setDaybookTab = useStore((s) => s.setDaybookActiveTab);
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<0 | 1>(1);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const confirmSaveRef = useRef(false);
 
@@ -397,46 +396,10 @@ export const GradingEditForm = memo(function GradingEditForm({
       </div>
 
       <Card className="border-primary/15 mb-10 shadow-lg">
-        <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-start gap-3">
-            <div
-              className={`flex size-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
-                step === 0
-                  ? 'border-primary bg-primary text-primary-foreground shadow-md'
-                  : 'border-primary/40 bg-background text-primary'
-              }`}
-            >
-              {step === 0 ? (
-                <span>1</span>
-              ) : (
-                <Check className="size-5 stroke-[3]" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="font-custom text-foreground font-semibold">
-                Pass & context
-              </p>
-              <p className="text-muted-foreground font-custom text-xs leading-snug">
-                Farmer context, voucher date, variety, and grader
-              </p>
-            </div>
-          </div>
-
-          <Separator
-            orientation="vertical"
-            className="bg-border hidden min-h-[3.5rem] sm:block sm:self-stretch"
-          />
-          <Separator className="sm:hidden" />
-
-          <div className="flex flex-1 items-start gap-3 opacity-90">
-            <div
-              className={`flex size-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
-                step === 1
-                  ? 'border-primary bg-primary text-primary-foreground shadow-md'
-                  : 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
-              }`}
-            >
-              2
+        <CardContent className="p-6">
+          <div className="flex items-start gap-3">
+            <div className="border-primary bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold shadow-md transition-colors">
+              1
             </div>
             <div className="min-w-0">
               <p className="font-custom text-foreground font-semibold">
@@ -1189,9 +1152,14 @@ export const GradingEditForm = memo(function GradingEditForm({
                   type="button"
                   variant="outline"
                   className="font-custom focus-visible:ring-primary font-medium"
-                  onClick={() => setStep(0)}
+                  asChild
                 >
-                  Back
+                  <Link
+                    to="/store-admin/daybook"
+                    onClick={() => setDaybookTab('grading')}
+                  >
+                    Back
+                  </Link>
                 </Button>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Button

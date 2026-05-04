@@ -4,6 +4,7 @@ import {
   flexRender,
   getCoreRowModel,
   type ColumnDef,
+  type Table,
   useReactTable,
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
@@ -11,6 +12,8 @@ import {
   ACCOUNTING_GRADING_BAG_SIZE_ORDER,
   computeGradingTableTotals,
   extraGradingSizeLabelsFromRows,
+  gradingTotalsAverageWeightPerBagKg,
+  sizeLabelsWithAnyQuantity,
   totalBagsForAccountingGradingRow,
   type AccountingGradingRow,
 } from '@/components/people/reports/helpers/grading-prepare';
@@ -22,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { AccountingVarietyGroup } from '@/components/people/reports/accounting-report/accounting-variety-grouped';
 
 /** Reserve space for native scrollbar over sticky footer (matches accounting incoming table). */
 const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
@@ -63,6 +67,8 @@ function sizeColumnSlug(label: string): string {
 export interface GradingTableProps {
   /** When omitted or empty, the table body shows no rows. */
   rows?: AccountingGradingRow[];
+  /** Single table with per-variety blocks (grand footer omitted). */
+  varietyGroups?: AccountingVarietyGroup<AccountingGradingRow>[] | null;
 }
 
 function useGradingColumns(
@@ -110,7 +116,14 @@ function useGradingColumns(
         return [
           columnHelper.accessor((row) => row.sizes[label]?.bags ?? null, {
             id: `size_${slug}_bags`,
-            header: () => <div className="w-full text-right">{label}</div>,
+            header: () => (
+              <div className="w-full text-right">
+                {label}{' '}
+                <span className="font-custom tracking-normal normal-case">
+                  (mm)
+                </span>
+              </div>
+            ),
             cell: (info) => {
               const v = info.row.original.sizes[label];
               if (v === undefined) {
@@ -127,25 +140,30 @@ function useGradingColumns(
               );
             },
           }),
-          columnHelper.accessor((row) => row.sizes[label]?.weightKg ?? null, {
-            id: `size_${slug}_weightKg`,
-            header: () => <div className="w-full text-right">Weight (Kg)</div>,
-            cell: (info) => {
-              const v = info.row.original.sizes[label];
-              if (v === undefined) {
-                return null;
-              }
-              const kg = Number(v.weightKg);
-              if (!Number.isFinite(kg) || kg === 0) {
-                return '';
-              }
-              return (
-                <div className="w-full text-right tabular-nums">
-                  {formatIndianWeightKg(kg)}
-                </div>
-              );
-            },
-          }),
+          columnHelper.accessor(
+            (row) => row.sizes[label]?.weightPerBagKg ?? null,
+            {
+              id: `size_${slug}_weightKg`,
+              header: () => (
+                <div className="w-full text-right">Weight (Kg)</div>
+              ),
+              cell: (info) => {
+                const v = info.row.original.sizes[label];
+                if (v === undefined) {
+                  return null;
+                }
+                const kg = Number(v.weightPerBagKg);
+                if (!Number.isFinite(kg) || kg === 0) {
+                  return '';
+                }
+                return (
+                  <div className="w-full text-right tabular-nums">
+                    {formatIndianWeightKg(kg)}
+                  </div>
+                );
+              },
+            }
+          ),
           columnHelper.accessor((row) => row.sizes[label]?.bagType ?? null, {
             id: `size_${slug}_bagType`,
             header: 'Bag Type',
@@ -206,21 +224,83 @@ function useNumericColumnIds(columns: ColumnDef<AccountingGradingRow, any>[]) {
   }, [columns]);
 }
 
-function sizeLabelsWithAnyQuantity(
-  allLabelsOrdered: readonly string[],
-  totals: ReturnType<typeof computeGradingTableTotals>
-): string[] {
-  return allLabelsOrdered.filter((label) => {
-    const t = totals.bySize[label];
-    if (t == null) return false;
-    const bags = Number(t.bags) || 0;
-    const kg = Number(t.weightKg) || 0;
-    return bags !== 0 || kg !== 0;
+function GradingSubtotalCells({
+  totals,
+  table,
+  sizeLabelsOrdered,
+}: {
+  totals: ReturnType<typeof computeGradingTableTotals>;
+  table: Table<AccountingGradingRow>;
+  sizeLabelsOrdered: readonly string[];
+}) {
+  return table.getVisibleLeafColumns().map((column, columnIndex) => {
+    const columnId = column.id;
+    const isNumeric =
+      /^size_.+_(bags|weightKg)$/.test(columnId) || columnId === 'totalBags';
+    const bagMatch = /^size_(.+)_bags$/.exec(columnId);
+    const weightMatch = /^size_(.+)_weightKg$/.exec(columnId);
+
+    const labelForSlug = (slug: string) =>
+      sizeLabelsOrdered.find((l) => sizeColumnSlug(l) === slug);
+
+    let content: ReactNode = '';
+    if (columnIndex === 0) {
+      content = 'Total';
+    } else if (bagMatch) {
+      const label = labelForSlug(bagMatch[1]);
+      const n = label != null ? (totals.bySize[label]?.bags ?? 0) : 0;
+      content =
+        n === 0 ? (
+          ''
+        ) : (
+          <div className="w-full text-right tabular-nums">
+            {formatIndianNumber(n, 0)}
+          </div>
+        );
+    } else if (weightMatch) {
+      const label = labelForSlug(weightMatch[1]);
+      const kg =
+        label != null ? gradingTotalsAverageWeightPerBagKg(totals, label) : 0;
+      content =
+        kg === 0 ? (
+          ''
+        ) : (
+          <div className="w-full text-right tabular-nums">
+            {formatIndianWeightKg(kg)}
+          </div>
+        );
+    } else if (columnId === 'totalBags') {
+      content =
+        totals.totalBags === 0 ? (
+          ''
+        ) : (
+          <div className="w-full text-right font-medium tabular-nums">
+            {formatIndianNumber(totals.totalBags, 0)}
+          </div>
+        );
+    }
+
+    return (
+      <TableCell
+        key={`sub-${column.id}`}
+        className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 align-middle text-sm font-semibold whitespace-nowrap last:border-r-0 ${
+          isNumeric && columnIndex !== 0 ? 'text-right tabular-nums' : ''
+        }`}
+      >
+        {content}
+      </TableCell>
+    );
   });
 }
 
-const GradingTable = ({ rows }: GradingTableProps) => {
-  const data = rows ?? [];
+const GradingTable = ({ rows, varietyGroups }: GradingTableProps) => {
+  const data = useMemo(
+    () =>
+      varietyGroups != null
+        ? varietyGroups.flatMap((g) => g.rows)
+        : (rows ?? []),
+    [rows, varietyGroups]
+  );
 
   const sizeLabelsOrdered = useMemo(() => {
     const extras = extraGradingSizeLabelsFromRows(data);
@@ -247,6 +327,8 @@ const GradingTable = ({ rows }: GradingTableProps) => {
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
   });
+
+  const showVarietyGroups = varietyGroups != null && varietyGroups.length > 0;
 
   return (
     <div className="w-full">
@@ -314,6 +396,65 @@ const GradingTable = ({ rows }: GradingTableProps) => {
                   No grading gate passes to show.
                 </TableCell>
               </TableRow>
+            ) : showVarietyGroups ? (
+              varietyGroups!.flatMap((group) => {
+                const out: ReactNode[] = [
+                  <TableRow
+                    key={`vh-${group.varietyKey}`}
+                    className="bg-muted/60 border-border/50 border-b hover:bg-transparent"
+                  >
+                    <TableCell
+                      colSpan={columns.length}
+                      className="font-custom text-foreground border-border/40 border-r px-3 py-2.5 text-sm font-semibold tracking-wide last:border-r-0"
+                    >
+                      Variety: {group.varietyLabel}
+                    </TableCell>
+                  </TableRow>,
+                ];
+                let zebra = 0;
+                for (const dataRow of group.rows) {
+                  const tRow = table.getRow(dataRow.id);
+                  if (!tRow) continue;
+                  const stripeClass =
+                    zebra % 2 === 0 ? 'bg-background' : 'bg-muted/25';
+                  zebra += 1;
+                  out.push(
+                    <TableRow
+                      key={dataRow.id}
+                      className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${stripeClass}`}
+                    >
+                      {tRow.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                }
+                const secTotals = computeGradingTableTotals(
+                  group.rows,
+                  sizeLabelsOrdered
+                );
+                out.push(
+                  <TableRow
+                    key={`ft-${group.varietyKey}`}
+                    className="bg-secondary/70 border-border/50 border-b hover:bg-transparent"
+                  >
+                    {GradingSubtotalCells({
+                      totals: secTotals,
+                      table,
+                      sizeLabelsOrdered,
+                    })}
+                  </TableRow>
+                );
+                return out;
+              })
             ) : (
               table.getRowModel().rows.map((row, index) => (
                 <TableRow
@@ -337,7 +478,7 @@ const GradingTable = ({ rows }: GradingTableProps) => {
               ))
             )}
           </TableBody>
-          {data.length > 0 ? (
+          {data.length > 0 && !showVarietyGroups ? (
             <TableFooter
               className="bg-secondary border-border/70 text-secondary-foreground sticky bottom-0 border-t backdrop-blur-sm [&>tr]:border-b-0"
               style={{
@@ -373,7 +514,9 @@ const GradingTable = ({ rows }: GradingTableProps) => {
                   } else if (weightMatch) {
                     const label = labelForSlug(weightMatch[1]);
                     const kg =
-                      label != null ? (totals.bySize[label]?.weightKg ?? 0) : 0;
+                      label != null
+                        ? gradingTotalsAverageWeightPerBagKg(totals, label)
+                        : 0;
                     content =
                       kg === 0 ? (
                         ''

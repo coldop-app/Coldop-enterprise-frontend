@@ -265,7 +265,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
       <div className="mb-8 space-y-4">
         <h1 className="font-custom text-foreground text-3xl font-bold sm:text-4xl">
-          Create Nikasi Gate Pass
+          Create Dispatch (Pre Storage) Pass
         </h1>
         {isLoadingVoucher ? (
           <div className="bg-primary/20 inline-block rounded-full px-4 py-1.5">
