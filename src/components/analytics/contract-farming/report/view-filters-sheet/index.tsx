@@ -170,8 +170,7 @@ export function ContractFarmingViewFiltersSheet({
   defaultColumnOrder,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
-  rowSpanGrouping,
-  onRowSpanGroupingChange,
+  onGroupingChange,
 }: ContractFarmingViewFiltersSheetProps) {
   const [activeTab, setActiveTab] = React.useState('filters');
   const [searchQueries, setSearchQueries] = React.useState<
@@ -355,7 +354,8 @@ export function ContractFarmingViewFiltersSheet({
       {
         value: 'grouping',
         label: 'Grouping',
-        description: 'Merge farmer and variety cells with row spans.',
+        description:
+          'Group rows by address, farmer, variety, or stage; expand or collapse sections.',
         icon: <Rows3 className="h-3.5 w-3.5" />,
         badge: draftGrouping.length > 0 ? draftGrouping.length : undefined,
       },
@@ -406,9 +406,7 @@ export function ContractFarmingViewFiltersSheet({
 
     setDraftColumnVisibility(visibility);
     setDraftColumnOrder([...validOrder, ...missing]);
-    setDraftGrouping(
-      rowSpanGrouping.filter((id) => id === 'farmer' || id === 'variety')
-    );
+    setDraftGrouping([...table.getState().grouping]);
     setDraftValueFilters(nextValueFilters);
     const activeGlobalFilter = table.getState().globalFilter;
     setDraftLogicFilter(
@@ -422,7 +420,6 @@ export function ContractFarmingViewFiltersSheet({
     filterableColumns,
     hidableColumnIds,
     hidableColumns,
-    rowSpanGrouping,
     table,
   ]);
 
@@ -445,14 +442,14 @@ export function ContractFarmingViewFiltersSheet({
     table.resetColumnSizing();
     onColumnResizeModeChange('onChange');
     onColumnResizeDirectionChange('ltr');
-    onRowSpanGroupingChange(['farmer', 'variety']);
+    onGroupingChange(['farmer', 'variety']);
     syncDraftFromTable();
     resetFilterUiState();
   }, [
     defaultColumnOrder,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
-    onRowSpanGroupingChange,
+    onGroupingChange,
     resetFilterUiState,
     syncDraftFromTable,
     table,
@@ -470,7 +467,7 @@ export function ContractFarmingViewFiltersSheet({
   const handleApplyView = React.useCallback(() => {
     table.setColumnVisibility(draftColumnVisibility);
     table.setColumnOrder(draftColumnOrder);
-    onRowSpanGroupingChange(draftGrouping);
+    onGroupingChange(draftGrouping);
 
     filterableColumns.forEach(({ id }) => {
       const allValues = availableFilterOptions[id] ?? [];
@@ -497,7 +494,7 @@ export function ContractFarmingViewFiltersSheet({
     filterableColumns,
     getEffectiveDraftValues,
     onOpenChange,
-    onRowSpanGroupingChange,
+    onGroupingChange,
     table,
   ]);
 
@@ -978,7 +975,7 @@ export function ContractFarmingViewFiltersSheet({
                       <EmptyState
                         icon={<Rows3 className="h-8 w-8" />}
                         title="No groups yet"
-                        description="Add farmer and/or variety grouping from below"
+                        description="Add grouping columns from below (address, farmer, variety, stage)."
                       />
                     ) : (
                       <DndContext

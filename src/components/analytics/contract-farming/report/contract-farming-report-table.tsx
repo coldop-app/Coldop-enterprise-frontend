@@ -1,18 +1,21 @@
 import * as React from 'react';
 import {
-  type Column,
   type ColumnFiltersState,
   type ColumnResizeDirection,
   type ColumnResizeMode,
+  type ExpandedState,
   type GroupingState,
   type Row as TanStackRow,
   type SortingState,
   type VisibilityState,
   type Updater,
+  flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
+  getGroupedRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
@@ -38,20 +41,7 @@ import {
 import {
   buildGradeHeaders,
   flattenRows,
-  formatNumber,
-  getAverageQuintalPerAcre,
-  getBuyBackAmountFromGradeData,
-  getGradeBagCount,
-  getGradeWeightPercent,
-  getNetAmountPerAcreRupee,
-  getNetAmountRupee,
-  getOutputPercentage,
-  getTotalGradeBags,
-  getTotalGradeNetWeightKg,
-  getWastageKg,
   normalizeReportData,
-  recomputeRowSpans,
-  type RenderRow,
 } from './contract-farming-report-calculations';
 import {
   AVG_QUINTAL_PER_ACRE_COLUMN_ID,
@@ -69,7 +59,6 @@ import {
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   TRAILING_TWO_ROW_HEADER_COLUMN_IDS,
   TRAILING_TWO_ROW_HEADER_ID_SET,
-  VARIETY_LEVEL_COLUMN_IDS,
   VARIETY_LEVEL_COLUMN_PREFIX,
   VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
   WASTAGE_KG_COLUMN_ID,
@@ -89,6 +78,8 @@ type GlobalFilterValue = string | FilterGroupNode;
 const CF_GET_CORE_ROW_MODEL = getCoreRowModel();
 const CF_GET_FILTERED_ROW_MODEL = getFilteredRowModel();
 const CF_GET_SORTED_ROW_MODEL = getSortedRowModel();
+const CF_GET_GROUPED_ROW_MODEL = getGroupedRowModel();
+const CF_GET_EXPANDED_ROW_MODEL = getExpandedRowModel();
 
 const CF_TABLE_DEFAULT_COLUMN = {
   size: 130,
@@ -109,6 +100,47 @@ function cfGetRowId(row: FlattenedRow): string {
   return row.rowId;
 }
 
+/**
+ * Pairs (base, decimal) where both accounts exist (e.g. 68 and 68.1 shown as (#68) / (#68.1)).
+ */
+function cfFindAccountFamilyPairs(
+  accountNumbers: ReadonlyArray<number>
+): Array<{ base: number; decimal: number }> {
+  const unique = [...new Set(accountNumbers)];
+  const set = new Set(unique);
+  const pairs: Array<{ base: number; decimal: number }> = [];
+  for (const acct of unique) {
+    if (Number.isInteger(acct)) continue;
+    const base = Math.trunc(acct);
+    if (set.has(base)) {
+      pairs.push({ base, decimal: acct });
+    }
+  }
+  pairs.sort((a, b) => a.base - b.base || a.decimal - b.decimal);
+  return pairs;
+}
+
+function cfBuildAccountFamilies(
+  accountNumbers: ReadonlyArray<number>
+): Record<number, number[]> {
+  const pairs = cfFindAccountFamilyPairs(accountNumbers);
+  const grouped = pairs.reduce<Record<number, number[]>>((acc, pair) => {
+    const existing = acc[pair.base];
+    if (existing) {
+      existing.push(pair.decimal);
+    } else {
+      acc[pair.base] = [pair.decimal];
+    }
+    return acc;
+  }, {});
+
+  for (const base of Object.keys(grouped)) {
+    grouped[Number(base)].sort((a, b) => a - b);
+  }
+
+  return grouped;
+}
+
 function cfGlobalFilterFn(
   row: TanStackRow<FlattenedRow>,
   _columnId: string,
@@ -125,354 +157,20 @@ function cfGlobalFilterFn(
   const o = row.original;
   const values = [
     o.farmerName,
-    o.farmerAddress,
-    o.farmerMobile,
+    o.address,
+    o.mobileNumber,
     o.varietyName,
     o.generation,
     o.sizeName,
-    String(o.farmerAccount),
+    String(o.accountNumber),
   ];
   return values.some((value) => value.toLowerCase().includes(query));
 }
 
-function renderCfBodyCellContent(
-  row: RenderRow,
-  columnId: string,
-  columnWidth: number
-): React.ReactNode {
-  if (columnId === 'farmer') {
-    if (!row.isFirstFarmerRow) return null;
-    return (
-      <td
-        rowSpan={row.farmerRowSpan}
-        className={`${CF_BODY_CELL_CLASS} max-w-56 align-top`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        <div className="font-medium">
-          {row.farmerName}
-          <span className="text-muted-foreground ml-1 text-sm font-normal">
-            (#{row.farmerAccount})
-          </span>
-        </div>
-      </td>
-    );
-  }
-
-  if (columnId === 'farmerMobile') {
-    if (!row.isFirstFarmerRow) return null;
-    return (
-      <td
-        rowSpan={row.farmerRowSpan}
-        className={`${CF_BODY_CELL_CLASS} align-top tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {row.farmerMobile}
-      </td>
-    );
-  }
-
-  if (columnId === 'address') {
-    if (!row.isFirstFarmerRow) return null;
-    return (
-      <td
-        rowSpan={row.farmerRowSpan}
-        className={`${CF_BODY_CELL_CLASS} align-top`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {row.farmerAddress}
-      </td>
-    );
-  }
-
-  if (columnId === 'variety') {
-    if (!row.isFirstVarietyRow) return null;
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className={`${CF_BODY_CELL_CLASS} align-top`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-          {row.varietyName}
-        </span>
-      </td>
-    );
-  }
-
-  if (columnId === 'generation') {
-    return (
-      <td
-        className={CF_BODY_CELL_CLASS}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        <span className="inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-          {row.generation}
-        </span>
-      </td>
-    );
-  }
-
-  if (columnId === 'size') {
-    return (
-      <td
-        className={CF_BODY_CELL_CLASS}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {row.sizeName}
-      </td>
-    );
-  }
-
-  if (columnId === 'qty') {
-    return (
-      <td
-        className={`${CF_BODY_CELL_CLASS} text-right tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {formatNumber(row.sizeQuantity, 0)}
-      </td>
-    );
-  }
-
-  if (columnId === 'acres') {
-    return (
-      <td
-        className={`${CF_BODY_CELL_CLASS} text-right tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {formatNumber(row.sizeAcres)}
-      </td>
-    );
-  }
-
-  if (columnId === SEED_AMOUNT_COLUMN_ID) {
-    return (
-      <td
-        className={`${CF_BODY_CELL_CLASS} text-right tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {row.sizeAmount > 0 ? `₹${formatNumber(row.sizeAmount)}` : '-'}
-      </td>
-    );
-  }
-
-  const isVarietyLevelColumn =
-    VARIETY_LEVEL_COLUMN_IDS.has(columnId) ||
-    columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
-    columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX) ||
-    columnId === NET_AMOUNT_COLUMN_ID ||
-    columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID ||
-    columnId === 'noGrades';
-
-  if (isVarietyLevelColumn && !row.isFirstVarietyRow) {
-    return null;
-  }
-
-  if (columnId === 'bbBags') {
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {formatNumber(row.buyBackBags, 0)}
-      </td>
-    );
-  }
-
-  if (columnId === 'bbNetWeight') {
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className="font-custom border-border/40 border-r bg-green-50 px-3 py-2.5 text-right align-top tabular-nums"
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {formatNumber(row.buyBackNetWeightKg)}
-      </td>
-    );
-  }
-
-  if (columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) {
-    if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
-      const totalBags = getTotalGradeBags(row);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {totalBags !== null ? formatNumber(totalBags, 0) : '-'}
-        </td>
-      );
-    }
-    if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
-      const totalNetWeightKg = getTotalGradeNetWeightKg(row);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {totalNetWeightKg !== null ? formatNumber(totalNetWeightKg) : '-'}
-        </td>
-      );
-    }
-    if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
-      const avg = getAverageQuintalPerAcre(row);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {avg !== null ? formatNumber(avg) : '-'}
-        </td>
-      );
-    }
-    if (columnId === WASTAGE_KG_COLUMN_ID) {
-      const wastage = getWastageKg(row);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {wastage !== null ? formatNumber(wastage) : '-'}
-        </td>
-      );
-    }
-    if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
-      const outputPct = getOutputPercentage(row);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {outputPct !== null ? `${formatNumber(outputPct, 2)}%` : '-'}
-        </td>
-      );
-    }
-    if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
-      const buyBackAmt = getBuyBackAmountFromGradeData(row);
-      return (
-        <td
-          rowSpan={row.varietyRowSpan}
-          className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-          style={{ width: columnWidth, minWidth: columnWidth }}
-        >
-          {buyBackAmt !== null ? `₹${formatNumber(buyBackAmt)}` : '-'}
-        </td>
-      );
-    }
-    const grade = columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
-    const bags = getGradeBagCount(row, grade);
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {bags !== null ? formatNumber(bags, 0) : '-'}
-      </td>
-    );
-  }
-
-  if (columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) {
-    const grade = columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '');
-    const weightPercent = getGradeWeightPercent(row, grade);
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {weightPercent !== null ? `${formatNumber(weightPercent, 2)}%` : '-'}
-      </td>
-    );
-  }
-
-  if (columnId === NET_AMOUNT_COLUMN_ID) {
-    const net = getNetAmountRupee(row);
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {net !== null ? `₹${formatNumber(net)}` : '-'}
-      </td>
-    );
-  }
-
-  if (columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID) {
-    const perAcre = getNetAmountPerAcreRupee(row);
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className={`${CF_BODY_CELL_CLASS} text-right align-top tabular-nums`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        {perAcre !== null ? `₹${formatNumber(perAcre)}` : '-'}
-      </td>
-    );
-  }
-
-  if (columnId === 'noGrades') {
-    return (
-      <td
-        rowSpan={row.varietyRowSpan}
-        className={`${CF_BODY_CELL_CLASS} text-center align-top`}
-        style={{ width: columnWidth, minWidth: columnWidth }}
-      >
-        -
-      </td>
-    );
-  }
-
-  return null;
-}
-
-type CfBodyRowProps = {
-  row: RenderRow;
-  rowIndex: number;
-  visibleColumnIds: readonly string[];
-  visibleColumnById: Map<string, Column<FlattenedRow, unknown>>;
-};
-
-const ContractFarmingReportBodyRow = React.memo(
-  function ContractFarmingReportBodyRow({
-    row,
-    rowIndex,
-    visibleColumnIds,
-    visibleColumnById,
-  }: CfBodyRowProps) {
-    const rowClass = row.isFarmerBlockStart
-      ? 'border-border/70 border-t-2'
-      : row.isVarietyBlockStart
-        ? 'border-border/60 border-t'
-        : 'border-border/40 border-t border-dashed';
-    const stripingClass = rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25';
-
-    return (
-      <tr className={`hover:bg-accent/40 ${rowClass} ${stripingClass}`}>
-        {visibleColumnIds.map((columnId) => {
-          const column = visibleColumnById.get(columnId);
-          if (!column) return null;
-          return (
-            <React.Fragment key={`${row.rowId}-${columnId}`}>
-              {renderCfBodyCellContent(row, columnId, column.getSize())}
-            </React.Fragment>
-          );
-        })}
-      </tr>
-    );
-  }
-);
-
 const ContractFarmingReportTable = () => {
   const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
+  const [isClubFamiliesMode, setIsClubFamiliesMode] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -480,11 +178,11 @@ const ContractFarmingReportTable = () => {
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({ farmerMobile: false });
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  // rowspan grouping is UI-only — keep it out of TanStack `grouping` so leaf columns stay sortable
-  const [rowSpanGrouping, setRowSpanGrouping] = React.useState<GroupingState>([
+  const [grouping, setGrouping] = React.useState<GroupingState>([
     'farmer',
     'variety',
   ]);
+  const [expanded, setExpanded] = React.useState<ExpandedState>(true);
   const [columnResizeMode, setColumnResizeMode] =
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
@@ -502,9 +200,67 @@ const ContractFarmingReportTable = () => {
     [report.meta.allGrades]
   );
   const flattenedRows = React.useMemo(
-    () => flattenRows(report.farmers),
-    [report.farmers]
+    () => flattenRows(report.farmers, gradeHeaders),
+    [report.farmers, gradeHeaders]
   );
+  const clubFamilyBaseSet = React.useMemo(() => {
+    const families = cfBuildAccountFamilies(
+      flattenedRows.map((row) => row.accountNumber)
+    );
+    return new Set(
+      Object.keys(families)
+        .map(Number)
+        .filter((base) => families[base].length > 0)
+    );
+  }, [flattenedRows]);
+  const clubFamilyNamesByBase = React.useMemo(() => {
+    const map: Record<number, string[]> = {};
+    flattenedRows.forEach((row) => {
+      const base = Math.trunc(row.accountNumber);
+      if (!clubFamilyBaseSet.has(base)) return;
+      const existing = map[base];
+      if (!existing) {
+        map[base] = [row.farmerName];
+        return;
+      }
+      if (!existing.includes(row.farmerName)) {
+        existing.push(row.farmerName);
+      }
+    });
+    return map;
+  }, [clubFamilyBaseSet, flattenedRows]);
+  const clubbedRows = React.useMemo(() => {
+    if (!isClubFamiliesMode) return flattenedRows;
+
+    const families = cfBuildAccountFamilies(
+      flattenedRows.map((row) => row.accountNumber)
+    );
+    if (clubFamilyBaseSet.size === 0) return flattenedRows;
+
+    return flattenedRows.map((row) => {
+      const base = Math.trunc(row.accountNumber);
+      if (!clubFamilyBaseSet.has(base)) {
+        return row;
+      }
+
+      const familyAccounts = [base, ...families[base]]
+        .filter((account, idx, arr) => arr.indexOf(account) === idx)
+        .sort((a, b) => a - b);
+
+      return {
+        ...row,
+        farmerName: `Family ${base} (${familyAccounts.join(', ')})`,
+        clubbedFarmerNames: clubFamilyNamesByBase[base] ?? [],
+        accountNumber: base,
+        farmerAccount: base,
+      };
+    });
+  }, [
+    clubFamilyBaseSet,
+    clubFamilyNamesByBase,
+    flattenedRows,
+    isClubFamiliesMode,
+  ]);
   const columns = React.useMemo(
     () => buildColumns(gradeHeaders),
     // buyBackCostPrefsKey: accessors read prefs from store; rebuilding columns busts table when rates change
@@ -572,8 +328,9 @@ const ContractFarmingReportTable = () => {
     });
   }, [defaultColumnOrder]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table
   const table = useReactTable<FlattenedRow>({
-    data: flattenedRows,
+    data: clubbedRows,
     columns,
     initialState: CF_TABLE_INITIAL_STATE,
     defaultColumn: CF_TABLE_DEFAULT_COLUMN,
@@ -583,12 +340,16 @@ const ContractFarmingReportTable = () => {
       columnFilters,
       columnVisibility,
       columnOrder: effectiveColumnOrder,
+      grouping,
+      expanded,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange,
+    onGroupingChange: setGrouping,
+    onExpandedChange: setExpanded,
     enableColumnResizing: true,
     columnResizeMode,
     columnResizeDirection,
@@ -600,6 +361,8 @@ const ContractFarmingReportTable = () => {
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getSortedRowModel: CF_GET_SORTED_ROW_MODEL,
+    getGroupedRowModel: CF_GET_GROUPED_ROW_MODEL,
+    getExpandedRowModel: CF_GET_EXPANDED_ROW_MODEL,
   });
 
   const { columnSizing } = table.getState();
@@ -676,30 +439,31 @@ const ContractFarmingReportTable = () => {
     return visibleBaseColumnIds.some((id) => BUY_BACK_COLUMN_IDS.has(id));
   }, [visibleBaseColumnIds]);
 
-  const rowSpanOptions = React.useMemo(
-    () => ({
-      groupByFarmer: rowSpanGrouping.includes('farmer'),
-      groupByVariety: rowSpanGrouping.includes('variety'),
-    }),
-    [rowSpanGrouping]
-  );
+  const handleClubFamiliesClick = React.useCallback(() => {
+    setIsClubFamiliesMode((prev) => !prev);
+  }, []);
 
-  const sortedRowModel = table.getSortedRowModel();
-  const dataRows = React.useMemo(
-    () => sortedRowModel.rows.map((row) => row.original),
-    [sortedRowModel.rows]
-  );
-  const renderedRows = React.useMemo(
-    () => recomputeRowSpans(dataRows, rowSpanOptions),
-    [dataRows, rowSpanOptions]
-  );
-  const footerCells = React.useMemo(
-    () =>
-      dataRows.length > 0
-        ? formatContractFarmingFooterRow(dataRows, visibleColumnIds)
-        : null,
-    [dataRows, visibleColumnIds]
-  );
+  React.useEffect(() => {
+    if (isClubFamiliesMode) {
+      setGrouping(['farmer', 'variety']);
+      setExpanded({});
+      return;
+    }
+
+    setExpanded(true);
+  }, [isClubFamiliesMode]);
+
+  const tableRows = table.getRowModel().rows;
+
+  const footerLeafOriginals = table
+    .getFilteredRowModel()
+    .flatRows.filter((r) => !r.getIsGrouped())
+    .map((r) => r.original);
+
+  const footerCells =
+    footerLeafOriginals.length > 0
+      ? formatContractFarmingFooterRow(footerLeafOriginals, visibleColumnIds)
+      : null;
   const totalColumns = Math.max(visibleColumnIds.length, 1);
 
   const renderLeafSortHeader = React.useCallback(
@@ -843,6 +607,17 @@ const ContractFarmingReportTable = () => {
                 View Filters
               </Button>
               <Button
+                variant="outline"
+                className={`h-8 rounded-lg px-4 text-sm leading-none ${
+                  isClubFamiliesMode
+                    ? 'border-yellow-300 bg-yellow-100/70 text-yellow-900 hover:bg-yellow-100'
+                    : ''
+                }`}
+                onClick={handleClubFamiliesClick}
+              >
+                {isClubFamiliesMode ? 'Unclub Families' : 'Club Families'}
+              </Button>
+              <Button
                 variant="default"
                 className="h-8 rounded-lg px-4 text-sm leading-none"
               >
@@ -935,7 +710,7 @@ const ContractFarmingReportTable = () => {
                   {hasVisibleBuyBack ? (
                     <th
                       colSpan={visibleBuyBackColumnIds.length}
-                      className={`${CF_HEADER_CELL_CLASS} bg-green-50`}
+                      className={CF_HEADER_CELL_CLASS}
                     >
                       Buy back
                     </th>
@@ -979,7 +754,7 @@ const ContractFarmingReportTable = () => {
                     return (
                       <th
                         key={columnId}
-                        className={`${CF_HEADER_CELL_CLASS} relative bg-green-50`}
+                        className={`${CF_HEADER_CELL_CLASS} relative`}
                         style={{
                           width: column.getSize(),
                           minWidth: column.getSize(),
@@ -1144,16 +919,102 @@ const ContractFarmingReportTable = () => {
                 </tr>
               </thead>
               <tbody>
-                {renderedRows.length > 0 ? (
-                  renderedRows.map((row, rowIndex) => (
-                    <ContractFarmingReportBodyRow
-                      key={row.rowId}
-                      row={row}
-                      rowIndex={rowIndex}
-                      visibleColumnIds={visibleColumnIds}
-                      visibleColumnById={visibleColumnById}
-                    />
-                  ))
+                {tableRows.length > 0 ? (
+                  tableRows.map((row, rowIndex) => {
+                    const isGroupedRow = row.getIsGrouped();
+                    const firstSubRowAccount =
+                      row.subRows[0]?.original?.accountNumber;
+                    const isClubbedFamilyGroupRow =
+                      isClubFamiliesMode &&
+                      row.depth === 0 &&
+                      typeof firstSubRowAccount === 'number' &&
+                      clubFamilyBaseSet.has(Math.trunc(firstSubRowAccount));
+                    const stripingClass =
+                      rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25';
+                    const groupedDepthTint = isClubbedFamilyGroupRow
+                      ? 'bg-yellow-100/70 hover:bg-yellow-100'
+                      : row.depth <= 0
+                        ? 'bg-primary/[0.09] hover:bg-primary/[0.13]'
+                        : row.depth === 1
+                          ? 'bg-primary/[0.05] hover:bg-primary/[0.09]'
+                          : 'bg-muted/50 hover:bg-muted/60';
+                    return (
+                      <tr
+                        key={row.id}
+                        className={`border-border/40 border-t ${
+                          isGroupedRow
+                            ? `border-t-primary/30 border-l-primary/55 border-l-[3px] border-solid ${groupedDepthTint}`
+                            : `hover:bg-accent/40 border-l border-dashed border-l-transparent ${stripingClass}`
+                        }`}
+                      >
+                        {row.getVisibleCells().map((cell) => {
+                          const columnId = cell.column.id;
+                          const isGroupedCell = cell.getIsGrouped();
+                          const isAggregatedCell = cell.getIsAggregated();
+                          const isPlaceholderCell = cell.getIsPlaceholder();
+                          const shouldSuppressAggregation =
+                            isAggregatedCell && columnId === 'noGrades';
+                          const alignRight = isNumericSortColumnId(columnId);
+                          const w = cell.column.getSize();
+                          return (
+                            <td
+                              key={cell.id}
+                              style={{ width: w, minWidth: w }}
+                              className={`${CF_BODY_CELL_CLASS} ${
+                                alignRight ? 'text-right tabular-nums' : ''
+                              } ${
+                                columnId === 'farmer' && !isGroupedRow
+                                  ? 'max-w-56'
+                                  : ''
+                              } ${
+                                columnId === 'noGrades' ? 'text-center' : ''
+                              }`}
+                            >
+                              {isGroupedCell ? (
+                                <button
+                                  type="button"
+                                  onClick={row.getToggleExpandedHandler()}
+                                  className={`font-custom focus-visible:ring-primary inline-flex items-center gap-1 rounded text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                                    row.getCanExpand()
+                                      ? 'hover:text-primary cursor-pointer'
+                                      : 'cursor-default'
+                                  }`}
+                                >
+                                  <span className="text-xs">
+                                    {row.getIsExpanded() ? '▼' : '▶'}
+                                  </span>
+                                  {flexRender(
+                                    cell.column.columnDef.cell,
+                                    cell.getContext()
+                                  )}
+                                  <span className="text-muted-foreground text-xs">
+                                    ({row.subRows.length})
+                                  </span>
+                                </button>
+                              ) : isAggregatedCell ? (
+                                shouldSuppressAggregation ? (
+                                  <span className="text-muted-foreground/50 font-custom text-sm">
+                                    -
+                                  </span>
+                                ) : (
+                                  flexRender(
+                                    cell.column.columnDef.aggregatedCell ??
+                                      cell.column.columnDef.cell,
+                                    cell.getContext()
+                                  )
+                                )
+                              ) : isPlaceholderCell ? null : (
+                                flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
@@ -1172,13 +1033,12 @@ const ContractFarmingReportTable = () => {
                       const w = column.getSize();
                       const text = footerCells[columnId] ?? '';
                       const alignRight = isNumericSortColumnId(columnId);
-                      const buyBackCell = BUY_BACK_COLUMN_IDS.has(columnId);
                       return (
                         <td
                           key={`cf-footer-${columnId}`}
                           className={`${CF_BODY_CELL_CLASS} text-foreground font-custom font-semibold ${
                             alignRight ? 'text-right tabular-nums' : ''
-                          } ${buyBackCell ? 'bg-green-50' : ''} ${
+                          } ${
                             columnId === 'noGrades'
                               ? 'text-center font-medium'
                               : ''
@@ -1206,8 +1066,7 @@ const ContractFarmingReportTable = () => {
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}
         onColumnResizeDirectionChange={setColumnResizeDirection}
-        rowSpanGrouping={rowSpanGrouping}
-        onRowSpanGroupingChange={setRowSpanGrouping}
+        onGroupingChange={setGrouping}
       />
     </main>
   );

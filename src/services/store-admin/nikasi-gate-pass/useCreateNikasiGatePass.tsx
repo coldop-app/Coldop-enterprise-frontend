@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
@@ -54,7 +55,9 @@ const STATUS_ERROR_MESSAGES: Record<number, string> = {
   409: 'Nikasi gate pass number already exists',
 };
 
-function isSuccessResponse(data: CreateNikasiGatePassApiResponse): boolean {
+export function isCreateNikasiGatePassSuccess(
+  data: CreateNikasiGatePassApiResponse
+): boolean {
   if (typeof data.success === 'boolean') return data.success;
   return data.status?.toLowerCase() === 'success';
 }
@@ -114,6 +117,8 @@ function normalizeCreateNikasiGatePassPayload(
 
 /** Hook to create a nikasi gate pass. POST /nikasi-gate-pass */
 export function useCreateNikasiGatePass() {
+  const router = useRouter();
+
   return useMutation<
     CreateNikasiGatePassApiResponse,
     AxiosError<NikasiGatePassApiError>,
@@ -131,11 +136,12 @@ export function useCreateNikasiGatePass() {
       return data;
     },
     onSuccess: async (data) => {
-      if (isSuccessResponse(data)) {
+      if (isCreateNikasiGatePassSuccess(data)) {
         toast.success(data.message ?? 'Nikasi gate pass created successfully');
         await queryClient.invalidateQueries({
           queryKey: nikasiGatePassKeys.all,
         });
+        await router.navigate({ to: '/store-admin/daybook' });
       } else {
         toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
       }

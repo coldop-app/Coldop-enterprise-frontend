@@ -27,7 +27,7 @@ function dedupeByFarmerVariety(rows: FlattenedRow[]): FlattenedRow[] {
   const seen = new Set<string>();
   const out: FlattenedRow[] = [];
   for (const row of rows) {
-    const key = `${row.farmerAccount}\x00${row.varietyName}`;
+    const key = `${row.accountNumber}\x00${row.varietyName}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);
@@ -69,7 +69,7 @@ export function buildContractFarmingRollupCellMap(
   for (const r of rows) {
     sumQty += r.sizeQuantity;
     sumAcres += r.sizeAcres;
-    sumSeed += r.sizeAmount;
+    sumSeed += r.sizeAmountPayable;
   }
 
   let sumBuyBackBags = 0;

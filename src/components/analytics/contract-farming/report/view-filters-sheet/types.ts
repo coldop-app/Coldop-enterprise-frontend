@@ -15,6 +15,5 @@ export type ContractFarmingViewFiltersSheetProps = {
   columnResizeDirection: ColumnResizeDirection;
   onColumnResizeModeChange: (mode: ColumnResizeMode) => void;
   onColumnResizeDirectionChange: (direction: ColumnResizeDirection) => void;
-  rowSpanGrouping: GroupingState;
-  onRowSpanGroupingChange: (next: GroupingState) => void;
+  onGroupingChange: (next: GroupingState) => void;
 };

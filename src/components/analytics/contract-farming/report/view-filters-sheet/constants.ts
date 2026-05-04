@@ -1,6 +1,8 @@
 import type { FilterField } from '@/lib/advanced-filters';
 
-export const FILTER_VARIETY_LEVEL_PREFIX = 'grade_bags_' as const;
+import { GRADE_BAG_COLUMN_KEY_PREFIX } from '../types';
+
+export const FILTER_VARIETY_LEVEL_PREFIX = GRADE_BAG_COLUMN_KEY_PREFIX;
 
 /** Grading columns: Cut is shown alone; bag-size ranges include (MM). */
 export function isContractFarmingCutGrade(grade: string): boolean {

@@ -1,3 +1,4 @@
+import type { AggregationFn } from '@tanstack/react-table';
 import { roundMax2 } from '@/components/daybook/grading-calculations';
 import { resolveBuyBackRateFromPreferences } from '@/components/people/reports/helpers/summary-prepare';
 import {
@@ -7,19 +8,36 @@ import {
 import { usePreferencesStore } from '@/stores/store';
 
 import type { FlattenedRow } from './types';
+import { GRADE_BAG_COLUMN_KEY_PREFIX } from './types';
 
-export type RenderRow = FlattenedRow & {
-  isFirstFarmerRow: boolean;
-  isFirstVarietyRow: boolean;
-  isFarmerBlockStart: boolean;
-  isVarietyBlockStart: boolean;
-  farmerRowSpan: number;
-  varietyRowSpan: number;
-};
+/** Dedupe key for variety-level metrics (must match footer rollup). */
+export function varietyMetricDedupeKey(row: FlattenedRow): string {
+  return `${String(row.accountNumber)}\x00${row.varietyName}`;
+}
 
-export type GroupingOptions = {
-  groupByFarmer: boolean;
-  groupByVariety: boolean;
+/**
+ * Sums a column once per farmer×variety when the same variety-level value is repeated
+ * on every size row (prevents double-counting under TanStack `sum`).
+ */
+export const sumVarietyMetrics: AggregationFn<FlattenedRow> = (
+  columnId,
+  leafRows
+) => {
+  const seen = new Set<string>();
+  let sum = 0;
+  let any = false;
+  for (const leaf of leafRows) {
+    const key = varietyMetricDedupeKey(leaf.original);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const raw = leaf.getValue(columnId);
+    const num = typeof raw === 'number' ? raw : Number(raw);
+    if (raw != null && raw !== '' && Number.isFinite(num)) {
+      sum += num;
+      any = true;
+    }
+  }
+  return any ? sum : null;
 };
 
 const BAG_SIZE_DISPLAY_ORDER = [
@@ -293,6 +311,52 @@ export function getAverageQuintalPerAcre(row: FlattenedRow): number | null {
   return netKg / 100 / acres;
 }
 
+/** Matches footer: total deduped net ₹ ÷ sum of size acres on all leaf rows. */
+export const aggregateNetAmountPerAcre: AggregationFn<FlattenedRow> = (
+  _columnId,
+  leafRows
+) => {
+  const seen = new Set<string>();
+  let sumNet = 0;
+  let sumAcres = 0;
+  for (const leaf of leafRows) {
+    sumAcres += leaf.original.sizeAcres;
+  }
+  for (const leaf of leafRows) {
+    const o = leaf.original;
+    const key = varietyMetricDedupeKey(o);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const n = getNetAmountRupee(o);
+    if (n != null) sumNet += n;
+  }
+  if (sumAcres <= 0) return null;
+  return roundMax2(sumNet / sumAcres);
+};
+
+/** Matches footer weighted average quintal / acre across deduped farmer×variety rows. */
+export const aggregateAvgQuintalPerAcre: AggregationFn<FlattenedRow> = (
+  _columnId,
+  leafRows
+) => {
+  const seen = new Set<string>();
+  let weighted = 0;
+  let sumVarietyAcres = 0;
+  for (const leaf of leafRows) {
+    const o = leaf.original;
+    const key = varietyMetricDedupeKey(o);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const q = getAverageQuintalPerAcre(o);
+    const ac = o.varietyTotalAcres;
+    if (q != null && ac > 0) {
+      weighted += q * ac;
+      sumVarietyAcres += ac;
+    }
+  }
+  return sumVarietyAcres > 0 ? weighted / sumVarietyAcres : null;
+};
+
 export function formatNumber(value: number | null | undefined, decimals = 2) {
   if (value === null || value === undefined || Number.isNaN(value)) return '-';
   return Number(value).toLocaleString('en-IN', {
@@ -313,7 +377,8 @@ export function normalizeReportData(
 }
 
 export function flattenRows(
-  farmers: ContractFarmingReportFarmer[]
+  farmers: ContractFarmingReportFarmer[],
+  gradeHeaders: readonly string[]
 ): FlattenedRow[] {
   const rows: FlattenedRow[] = [];
 
@@ -348,97 +413,43 @@ export function flattenRows(
       );
       const varietyTotalSeedAmountPayable =
         variety.seed?.totalAmountPayable ?? amountSum;
+      const gradeData = variety.grading ?? {};
 
       normalizedSizes.forEach((size, sizeIndex) => {
-        rows.push({
+        const base: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${sizeIndex}-${farmerIndex}-${varietyIndex}`,
           farmerName: farmer.name,
+          mobileNumber: farmer.mobileNumber,
           farmerMobile: farmer.mobileNumber,
+          accountNumber: farmer.accountNumber,
           farmerAccount: farmer.accountNumber,
+          address: farmer.address,
           farmerAddress: farmer.address,
           varietyName: variety.name,
           generation: variety.seed?.generation ?? '-',
           sizeName: size.name,
           sizeQuantity: size.quantity,
           sizeAcres: size.acres,
+          sizeAmountPayable: size.amountPayable,
           sizeAmount: size.amountPayable,
           buyBackBags: variety.buyBack?.bags ?? null,
           buyBackNetWeightKg: variety.buyBack?.netWeightKg ?? null,
           incomingNetWeightKg: variety.incomingNetWeightKg ?? null,
-          gradeData: variety.grading ?? {},
+          gradeData,
           varietyTotalAcres,
           varietyTotalSeedAmountPayable,
-        });
+        };
+
+        for (const grade of gradeHeaders) {
+          const k = `${GRADE_BAG_COLUMN_KEY_PREFIX}${grade}`;
+          (base as unknown as Record<string, number | null>)[k] =
+            getGradeBagCount(base, grade);
+        }
+
+        rows.push(base);
       });
     });
   });
 
   return rows;
-}
-
-export function recomputeRowSpans(
-  rows: FlattenedRow[],
-  options: GroupingOptions
-) {
-  const { groupByFarmer, groupByVariety } = options;
-  const nextRows: RenderRow[] = rows.map((row) => ({
-    ...row,
-    isFirstFarmerRow: false,
-    isFirstVarietyRow: false,
-    isFarmerBlockStart: false,
-    isVarietyBlockStart: false,
-    farmerRowSpan: 1,
-    varietyRowSpan: 1,
-  }));
-
-  if (nextRows.length === 0) return nextRows;
-
-  if (groupByFarmer) {
-    let farmerStart = 0;
-    for (let i = 1; i <= nextRows.length; i += 1) {
-      const isBoundary =
-        i === nextRows.length ||
-        nextRows[i].farmerName !== nextRows[farmerStart].farmerName;
-      if (isBoundary) {
-        const span = i - farmerStart;
-        nextRows[farmerStart].isFirstFarmerRow = true;
-        nextRows[farmerStart].isFarmerBlockStart = true;
-        nextRows[farmerStart].farmerRowSpan = span;
-        farmerStart = i;
-      }
-    }
-  } else {
-    nextRows.forEach((row, index) => {
-      row.isFirstFarmerRow = true;
-      row.isFarmerBlockStart = index === 0;
-      row.farmerRowSpan = 1;
-    });
-  }
-
-  if (groupByVariety) {
-    let varietyStart = 0;
-    for (let i = 1; i <= nextRows.length; i += 1) {
-      const isBoundary =
-        i === nextRows.length ||
-        nextRows[i].farmerName !== nextRows[varietyStart].farmerName ||
-        nextRows[i].varietyName !== nextRows[varietyStart].varietyName;
-      if (isBoundary) {
-        const span = i - varietyStart;
-        nextRows[varietyStart].isFirstVarietyRow = true;
-        nextRows[varietyStart].varietyRowSpan = span;
-        if (!nextRows[varietyStart].isFirstFarmerRow) {
-          nextRows[varietyStart].isVarietyBlockStart = true;
-        }
-        varietyStart = i;
-      }
-    }
-  } else {
-    nextRows.forEach((row) => {
-      row.isFirstVarietyRow = true;
-      row.varietyRowSpan = 1;
-      row.isVarietyBlockStart = false;
-    });
-  }
-
-  return nextRows;
 }

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { memo, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,7 +21,10 @@ import {
 import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-modal';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
-import { useCreateNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useCreateNikasiGatePass';
+import {
+  isCreateNikasiGatePassSuccess,
+  useCreateNikasiGatePass,
+} from '@/services/store-admin/nikasi-gate-pass/useCreateNikasiGatePass';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/general/useGetVoucherNumber';
 import {
   blurTargetOnNumberWheel,
@@ -57,7 +60,6 @@ const defaultSizeVarieties = Object.fromEntries(
 ) as Record<string, string>;
 
 const NikasiCreateForm = memo(function NikasiCreateForm() {
-  const navigate = useNavigate();
   const { mutate: createNikasiGatePass, isPending } = useCreateNikasiGatePass();
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('nikasi-gate-pass');
@@ -252,9 +254,8 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
       },
       {
         onSuccess: (data) => {
-          if (!data.success && data.status !== 'success') return;
+          if (!isCreateNikasiGatePassSuccess(data)) return;
           setIsSummarySheetOpen(false);
-          navigate({ to: '/store-admin/daybook' });
         },
       }
     );

@@ -3,6 +3,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { createColumnHelper } from '@tanstack/react-table';
 
 import {
+  aggregateAvgQuintalPerAcre,
+  aggregateNetAmountPerAcre,
+  formatNumber,
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
   getGradeBagCount,
@@ -13,6 +16,7 @@ import {
   getTotalGradeBags,
   getTotalGradeNetWeightKg,
   getWastageKg,
+  sumVarietyMetrics,
 } from './contract-farming-report-calculations';
 import type { FlattenedRow } from './types';
 import {
@@ -49,7 +53,7 @@ export const WASTAGE_KG_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__wastageKg`;
 export const OUTPUT_PERCENTAGE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__outputPercentage`;
 export const BUY_BACK_AMOUNT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__buyBackAmount`;
 
-/** Seed amount column (`sizeAmount`), rendered after grading / buy-back amount in column order */
+/** Seed amount column (`sizeAmountPayable`), rendered after grading / buy-back amount in column order */
 export const SEED_AMOUNT_COLUMN_ID = 'amount';
 
 /** ₹ net after seed: Buy Back Amount − total seed amt for farmer × variety (variety rowspan). */
@@ -100,6 +104,46 @@ export const VARIETY_LEVEL_COLUMN_IDS = new Set([
 ]);
 export const BUY_BACK_COLUMN_IDS = new Set(['bbBags', 'bbNetWeight']);
 
+function StrongNum({
+  value,
+  decimals,
+}: {
+  value: number | null | undefined;
+  decimals: number;
+}) {
+  return (
+    <strong className="font-custom font-semibold tabular-nums">
+      {formatNumber(value ?? null, decimals)}
+    </strong>
+  );
+}
+
+function StrongPct({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return (
+      <strong className="font-custom font-semibold tabular-nums">-</strong>
+    );
+  }
+  return (
+    <strong className="font-custom font-semibold tabular-nums">
+      {formatNumber(value, 2)}%
+    </strong>
+  );
+}
+
+function StrongRupee({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return (
+      <strong className="font-custom font-semibold tabular-nums">-</strong>
+    );
+  }
+  return (
+    <strong className="font-custom font-semibold tabular-nums">
+      ₹{formatNumber(value)}
+    </strong>
+  );
+}
+
 export function isNumericSortColumnId(columnId: string) {
   return (
     columnId === 'qty' ||
@@ -126,8 +170,27 @@ export function buildColumns(
       maxSize: 550,
       enableGrouping: true,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => null,
+      cell: ({ row }) => {
+        const groupedNames = row.original.clubbedFarmerNames ?? [];
+        const hasGroupedNames = groupedNames.length > 0;
+        return (
+          <div className="font-custom font-medium">
+            {row.original.farmerName}
+            <span className="text-muted-foreground ml-1 text-sm font-normal">
+              (#{row.original.accountNumber})
+            </span>
+            {hasGroupedNames ? (
+              <p className="text-muted-foreground mt-0.5 text-xs font-normal">
+                {groupedNames.join(', ')}
+              </p>
+            ) : null}
+          </div>
+        );
+      },
     }),
-    columnHelper.accessor('farmerMobile', {
+    columnHelper.accessor('mobileNumber', {
       id: 'farmerMobile',
       header: 'Mobile',
       sortingFn: 'text',
@@ -136,16 +199,24 @@ export function buildColumns(
       maxSize: 320,
       enableGrouping: false,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => (
+        <span className="text-muted-foreground/50 font-custom text-sm">-</span>
+      ),
     }),
-    columnHelper.accessor('farmerAddress', {
+    columnHelper.accessor('address', {
       id: 'address',
       header: 'Address',
       sortingFn: 'text',
       size: 230,
       minSize: 160,
       maxSize: 550,
-      enableGrouping: false,
+      enableGrouping: true,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => (
+        <span className="text-muted-foreground/50 font-custom text-sm">-</span>
+      ),
     }),
     columnHelper.accessor('varietyName', {
       id: 'variety',
@@ -156,6 +227,13 @@ export function buildColumns(
       maxSize: 260,
       enableGrouping: true,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => null,
+      cell: ({ row }) => (
+        <span className="font-custom inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+          {row.original.varietyName}
+        </span>
+      ),
     }),
     columnHelper.accessor('generation', {
       id: 'generation',
@@ -164,8 +242,17 @@ export function buildColumns(
       size: 110,
       minSize: 90,
       maxSize: 180,
-      enableGrouping: false,
+      enableGrouping: true,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => (
+        <span className="text-muted-foreground/50 font-custom text-sm">-</span>
+      ),
+      cell: ({ row }) => (
+        <span className="font-custom inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+          {row.original.generation}
+        </span>
+      ),
     }),
     columnHelper.accessor('sizeName', {
       id: 'size',
@@ -176,6 +263,10 @@ export function buildColumns(
       maxSize: 220,
       enableGrouping: false,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => (
+        <span className="text-muted-foreground/50 font-custom text-sm">-</span>
+      ),
     }),
     columnHelper.accessor('sizeQuantity', {
       id: 'qty',
@@ -186,6 +277,15 @@ export function buildColumns(
       maxSize: 220,
       enableGrouping: false,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'sum',
+      aggregatedCell: ({ getValue }) => (
+        <StrongNum decimals={0} value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => (
+        <span className="font-custom text-right tabular-nums">
+          {formatNumber(getValue() as number, 0)}
+        </span>
+      ),
     }),
     columnHelper.accessor('sizeAcres', {
       id: 'acres',
@@ -196,6 +296,15 @@ export function buildColumns(
       maxSize: 220,
       enableGrouping: false,
       filterFn: multiValueFilterFn,
+      aggregationFn: 'sum',
+      aggregatedCell: ({ getValue }) => (
+        <StrongNum decimals={2} value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => (
+        <span className="font-custom text-right tabular-nums">
+          {formatNumber(getValue() as number)}
+        </span>
+      ),
     }),
     columnHelper.group({
       id: 'buyBackGroup',
@@ -210,6 +319,15 @@ export function buildColumns(
           maxSize: 220,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => (
+            <StrongNum decimals={0} value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => (
+            <span className="font-custom text-right tabular-nums">
+              {formatNumber(getValue() as number | null, 0)}
+            </span>
+          ),
         }),
         columnHelper.accessor('buyBackNetWeightKg', {
           id: 'bbNetWeight',
@@ -220,12 +338,21 @@ export function buildColumns(
           maxSize: 260,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => (
+            <StrongNum decimals={2} value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => (
+            <span className="font-custom text-right tabular-nums">
+              {formatNumber(getValue() as number | null)}
+            </span>
+          ),
         }),
       ],
     }),
   ];
 
-  const seedAmountColumn = columnHelper.accessor('sizeAmount', {
+  const seedAmountColumn = columnHelper.accessor('sizeAmountPayable', {
     id: SEED_AMOUNT_COLUMN_ID,
     header: 'Seed amt (₹)',
     sortingFn: 'basic',
@@ -234,6 +361,28 @@ export function buildColumns(
     maxSize: 260,
     enableGrouping: false,
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
+    aggregatedCell: ({ getValue }) => {
+      const v = getValue() as number;
+      if (!v || v <= 0) {
+        return (
+          <strong className="font-custom font-semibold tabular-nums">-</strong>
+        );
+      }
+      return (
+        <strong className="font-custom font-semibold tabular-nums">
+          ₹{formatNumber(v)}
+        </strong>
+      );
+    },
+    cell: ({ getValue }) => {
+      const v = getValue() as number;
+      return (
+        <span className="font-custom text-right tabular-nums">
+          {v > 0 ? `₹${formatNumber(v)}` : '-'}
+        </span>
+      );
+    },
   });
 
   const netAmountColumn = columnHelper.accessor(
@@ -247,6 +396,18 @@ export function buildColumns(
       maxSize: 280,
       enableGrouping: false,
       filterFn: multiValueFilterFn,
+      aggregationFn: sumVarietyMetrics,
+      aggregatedCell: ({ getValue }) => (
+        <StrongRupee value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        return (
+          <span className="font-custom text-right tabular-nums">
+            {v !== null ? `₹${formatNumber(v)}` : '-'}
+          </span>
+        );
+      },
     }
   );
 
@@ -261,6 +422,18 @@ export function buildColumns(
       maxSize: 300,
       enableGrouping: false,
       filterFn: multiValueFilterFn,
+      aggregationFn: aggregateNetAmountPerAcre,
+      aggregatedCell: ({ getValue }) => (
+        <StrongRupee value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        return (
+          <span className="font-custom text-right tabular-nums">
+            {v !== null ? `₹${formatNumber(v)}` : '-'}
+          </span>
+        );
+      },
     }
   );
 
@@ -276,6 +449,23 @@ export function buildColumns(
             maxSize: 260,
             enableGrouping: false,
             filterFn: multiValueFilterFn,
+            aggregationFn: sumVarietyMetrics,
+            aggregatedCell: ({ getValue }) => {
+              const v = getValue() as number | null;
+              return (
+                <strong className="font-custom font-semibold tabular-nums">
+                  {v !== null ? formatNumber(v, 0) : '-'}
+                </strong>
+              );
+            },
+            cell: ({ getValue }) => {
+              const v = getValue() as number | null;
+              return (
+                <span className="font-custom text-right tabular-nums">
+                  {v !== null ? formatNumber(v, 0) : '-'}
+                </span>
+              );
+            },
           })
         ),
         ...gradeHeaders.map((grade) =>
@@ -288,6 +478,18 @@ export function buildColumns(
             maxSize: 260,
             enableGrouping: false,
             filterFn: multiValueFilterFn,
+            aggregationFn: sumVarietyMetrics,
+            aggregatedCell: ({ getValue }) => (
+              <StrongPct value={getValue() as number | null} />
+            ),
+            cell: ({ getValue }) => {
+              const v = getValue() as number | null;
+              return (
+                <span className="font-custom text-right tabular-nums">
+                  {v !== null ? `${formatNumber(v, 2)}%` : '-'}
+                </span>
+              );
+            },
           })
         ),
         columnHelper.accessor((row) => getTotalGradeBags(row), {
@@ -299,6 +501,23 @@ export function buildColumns(
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <strong className="font-custom font-semibold tabular-nums">
+                {v !== null ? formatNumber(v, 0) : '-'}
+              </strong>
+            );
+          },
+          cell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <span className="font-custom text-right tabular-nums">
+                {v !== null ? formatNumber(v, 0) : '-'}
+              </span>
+            );
+          },
         }),
         columnHelper.accessor((row) => getTotalGradeNetWeightKg(row), {
           id: TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
@@ -309,6 +528,18 @@ export function buildColumns(
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => (
+            <StrongNum decimals={2} value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <span className="font-custom text-right tabular-nums">
+                {v !== null ? formatNumber(v) : '-'}
+              </span>
+            );
+          },
         }),
         columnHelper.accessor((row) => getAverageQuintalPerAcre(row), {
           id: AVG_QUINTAL_PER_ACRE_COLUMN_ID,
@@ -319,6 +550,18 @@ export function buildColumns(
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: aggregateAvgQuintalPerAcre,
+          aggregatedCell: ({ getValue }) => (
+            <StrongNum decimals={2} value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <span className="font-custom text-right tabular-nums">
+                {v !== null ? formatNumber(v) : '-'}
+              </span>
+            );
+          },
         }),
         columnHelper.accessor((row) => getWastageKg(row), {
           id: WASTAGE_KG_COLUMN_ID,
@@ -329,6 +572,18 @@ export function buildColumns(
           maxSize: 260,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => (
+            <StrongNum decimals={2} value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <span className="font-custom text-right tabular-nums">
+                {v !== null ? formatNumber(v) : '-'}
+              </span>
+            );
+          },
         }),
         columnHelper.accessor((row) => getOutputPercentage(row), {
           id: OUTPUT_PERCENTAGE_COLUMN_ID,
@@ -339,6 +594,18 @@ export function buildColumns(
           maxSize: 260,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => (
+            <StrongPct value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <span className="font-custom text-right tabular-nums">
+                {v !== null ? `${formatNumber(v, 2)}%` : '-'}
+              </span>
+            );
+          },
         }),
         columnHelper.accessor((row) => getBuyBackAmountFromGradeData(row), {
           id: BUY_BACK_AMOUNT_COLUMN_ID,
@@ -349,6 +616,18 @@ export function buildColumns(
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
+          aggregationFn: sumVarietyMetrics,
+          aggregatedCell: ({ getValue }) => (
+            <StrongRupee value={getValue() as number | null} />
+          ),
+          cell: ({ getValue }) => {
+            const v = getValue() as number | null;
+            return (
+              <span className="font-custom text-right tabular-nums">
+                {v !== null ? `₹${formatNumber(v)}` : '-'}
+              </span>
+            );
+          },
         }),
       ]
     : [
@@ -360,6 +639,11 @@ export function buildColumns(
           size: 130,
           minSize: 110,
           maxSize: 260,
+          cell: () => (
+            <span className="font-custom text-muted-foreground text-center text-sm">
+              -
+            </span>
+          ),
         }),
       ];
 
