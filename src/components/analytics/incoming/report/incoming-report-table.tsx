@@ -7,7 +7,6 @@ import {
   type GroupingState,
   type Row,
   type SortingState,
-  type Table,
   type VisibilityState,
   createColumnHelper,
   flexRender,
@@ -25,13 +24,11 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  FileSpreadsheet,
   RefreshCw,
   FileText,
   SlidersHorizontal,
   Search,
 } from 'lucide-react';
-import { utils, writeFileXLSX } from 'xlsx';
 import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,6 +58,7 @@ import type {
   IncomingPdfWorkerRequest,
   IncomingPdfWorkerResponse,
 } from './pdf.worker';
+import { IncomingExcelButton } from './incoming-excel-button';
 
 function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   if (
@@ -473,11 +471,6 @@ type IncomingPdfButtonProps = {
   buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
 };
 
-type IncomingExcelButtonProps = {
-  table: Table<IncomingReportRow>;
-  coldStorageName: string;
-};
-
 type IncomingReportTableProps = {
   enforcedStatus?: string;
 };
@@ -661,167 +654,6 @@ const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
         <FileText className="h-3.5 w-3.5" />
       )}
       {isGeneratingPdf ? 'Generating...' : 'Pdf'}
-    </Button>
-  );
-};
-
-function getColumnHeaderLabel(
-  column: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>[number]
-): string {
-  const headerDefinition = column.columnDef.header;
-  if (typeof headerDefinition === 'string') return headerDefinition;
-  if (typeof column.columnDef.meta === 'string') return column.columnDef.meta;
-  return column.id;
-}
-
-function getDayOrdinal(day: number): string {
-  const mod10 = day % 10;
-  const mod100 = day % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${day}st`;
-  if (mod10 === 2 && mod100 !== 12) return `${day}nd`;
-  if (mod10 === 3 && mod100 !== 13) return `${day}rd`;
-  return `${day}th`;
-}
-
-function getIncomingReportExportDateLabel(date: Date): string {
-  const day = getDayOrdinal(date.getDate());
-  const month = date.toLocaleString('en-IN', { month: 'long' });
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-}
-
-function getExcelBodyRowsFromTableState(
-  rows: Row<IncomingReportRow>[],
-  visibleColumns: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>
-): Array<Array<string | number>> {
-  const columnIndexById = new Map(
-    visibleColumns.map((column, index) => [column.id, index])
-  );
-
-  const bodyRows: Array<Array<string | number>> = [];
-
-  const appendRows = (tableRows: Row<IncomingReportRow>[]) => {
-    for (const row of tableRows) {
-      const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
-        ''
-      );
-
-      for (const cell of row.getVisibleCells()) {
-        const columnId = cell.column.id;
-        const columnIndex = columnIndexById.get(columnId);
-        if (columnIndex == null) continue;
-
-        const isGroupedCell = cell.getIsGrouped();
-        const isAggregatedCell = cell.getIsAggregated();
-        const isPlaceholderCell = cell.getIsPlaceholder();
-        const shouldSuppressAggregation =
-          isAggregatedCell &&
-          (columnId === 'gatePassNo' || columnId === 'manualGatePassNumber');
-
-        if (isGroupedCell) {
-          const groupedValue = row.getValue(columnId);
-          nextRow[columnIndex] = `${'  '.repeat(row.depth)}${String(
-            groupedValue ?? ''
-          )} (${row.subRows.length})`;
-          continue;
-        }
-
-        if (isAggregatedCell) {
-          if (shouldSuppressAggregation) {
-            nextRow[columnIndex] = '-';
-            continue;
-          }
-          const aggregatedValue = row.getValue(columnId);
-          nextRow[columnIndex] =
-            aggregatedValue == null ? '' : (aggregatedValue as string | number);
-          continue;
-        }
-
-        if (isPlaceholderCell) {
-          nextRow[columnIndex] = '';
-          continue;
-        }
-
-        const value = row.getValue(columnId);
-        nextRow[columnIndex] = value == null ? '' : (value as string | number);
-      }
-
-      bodyRows.push(nextRow);
-
-      // Export all subgroup rows even if they are collapsed in the UI.
-      if (row.getIsGrouped() && row.subRows.length > 0) {
-        appendRows(row.subRows);
-      }
-    }
-  };
-
-  appendRows(rows);
-  return bodyRows;
-}
-
-const IncomingExcelButton = ({
-  table,
-  coldStorageName,
-}: IncomingExcelButtonProps) => {
-  const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
-
-  const handleGenerate = React.useCallback(() => {
-    if (isGeneratingExcel) return;
-
-    try {
-      setIsGeneratingExcel(true);
-
-      const visibleColumns = table.getVisibleLeafColumns();
-      const headerRow = visibleColumns.map((column) =>
-        getColumnHeaderLabel(column)
-      );
-      const sourceRows =
-        table.getState().grouping.length > 0
-          ? table.getGroupedRowModel().rows
-          : table.getRowModel().rows;
-      const bodyRows = getExcelBodyRowsFromTableState(
-        sourceRows,
-        visibleColumns
-      );
-
-      const worksheet = utils.aoa_to_sheet([headerRow, ...bodyRows]);
-      worksheet['!cols'] = visibleColumns.map((column) => ({
-        wch: Math.max(12, Math.round(column.getSize() / 8)),
-      }));
-
-      const workbook = utils.book_new();
-      utils.book_append_sheet(workbook, worksheet, 'Incoming Report');
-
-      const fileDateLabel = getIncomingReportExportDateLabel(new Date());
-      const safeColdStorageName = coldStorageName
-        .trim()
-        .replace(/[\\/:*?"<>|]/g, '')
-        .replace(/\s+/g, ' ');
-      const fileName = `${safeColdStorageName || 'Cold Storage'} Incoming Report ${fileDateLabel}.xlsx`;
-
-      writeFileXLSX(workbook, fileName);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
-    } finally {
-      setIsGeneratingExcel(false);
-    }
-  }, [coldStorageName, isGeneratingExcel, table]);
-
-  return (
-    <Button
-      variant="default"
-      className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingExcel}
-      onClick={handleGenerate}
-    >
-      {isGeneratingExcel ? (
-        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <FileSpreadsheet className="h-3.5 w-3.5" />
-      )}
-      {isGeneratingExcel ? 'Generating...' : 'Excel'}
     </Button>
   );
 };
