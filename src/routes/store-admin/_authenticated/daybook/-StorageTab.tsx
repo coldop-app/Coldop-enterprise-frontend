@@ -269,6 +269,9 @@ const StorageTab = ({ isActive = true }: StorageTabProps) => {
             <Button
               variant="secondary"
               className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={() =>
+                navigate({ to: '/store-admin/storage-gate-pass/history' })
+              }
             >
               Storage History
             </Button>

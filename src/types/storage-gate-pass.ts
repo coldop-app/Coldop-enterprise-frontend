@@ -201,6 +201,81 @@ export interface GetGroupedStorageGatePassesApiResponse {
   data: GroupedStorageGatePassGroup[];
 }
 
+/** Admin user information captured in storage gate pass audit entries */
+export interface StorageGatePassAuditEditedBy {
+  _id: string;
+  name: string;
+  email?: string;
+  mobileNumber?: string;
+}
+
+/** Changed value pair captured in storage gate pass audit entry */
+export interface StorageGatePassAuditChangeValue {
+  old: unknown;
+  new: unknown;
+}
+
+/** Field-by-field changes object for storage gate pass audit entries */
+export type StorageGatePassAuditChanges = Record<
+  string,
+  StorageGatePassAuditChangeValue
+>;
+
+/** Single storage gate pass audit row from GET /storage-gate-pass/audit */
+export interface StorageGatePassAuditGatePassRef {
+  _id: string;
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  variety?: string;
+  date?: string;
+}
+
+export interface StorageGatePassAuditStateSnapshot {
+  _id?: string;
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  date?: string;
+  variety?: string;
+  bagSizes?: StorageGatePassBagSize[];
+  remarks?: string;
+  [key: string]: unknown;
+}
+
+export interface StorageGatePassAuditItem {
+  _id: string;
+  storageGatePassId: string | StorageGatePassAuditGatePassRef;
+  coldStorageId?: string;
+  editedBy?: StorageGatePassAuditEditedBy;
+  editedById?: StorageGatePassAuditEditedBy;
+  reason: string;
+  action?: string;
+  changes?: StorageGatePassAuditChanges;
+  previousState?: StorageGatePassAuditStateSnapshot;
+  updatedState?: StorageGatePassAuditStateSnapshot;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Pagination shape from GET /storage-gate-pass/audit */
+export interface StorageGatePassAuditPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+/** API response for GET /storage-gate-pass/audit */
+export interface GetStorageGatePassAuditApiResponse {
+  success: boolean;
+  data: StorageGatePassAuditItem[];
+  pagination?: StorageGatePassAuditPagination;
+  message?: string;
+}
+
 /** Bag size as returned in created storage gate pass */
 export interface CreatedStorageGatePassBagSize {
   size: string;

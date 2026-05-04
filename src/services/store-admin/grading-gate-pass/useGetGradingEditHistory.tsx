@@ -7,25 +7,25 @@ import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  GetStorageGatePassAuditApiResponse,
-  StorageGatePassAuditItem,
-  StorageGatePassAuditPagination,
-} from '@/types/storage-gate-pass';
-import { storageGatePassKeys } from './useGetStorageGatePasses';
+  GetGradingGatePassAuditApiResponse,
+  GradingGatePassAuditItem,
+  GradingGatePassPagination,
+} from '@/types/grading-gate-pass';
+import { gradingGatePassKeys } from './useGetGradingGatePasses';
 
-export interface GetStorageEditHistoryParams {
+export interface GetGradingEditHistoryParams {
   page?: number;
   limit?: number;
 }
 
-export interface GetStorageEditHistoryResult {
-  data: StorageGatePassAuditItem[];
-  pagination?: StorageGatePassAuditPagination;
+export interface GetGradingEditHistoryResult {
+  data: GradingGatePassAuditItem[];
+  pagination?: GradingGatePassPagination;
 }
 
 function sanitizeParams(
-  params: GetStorageEditHistoryParams
-): GetStorageEditHistoryParams {
+  params: GetGradingEditHistoryParams
+): GetGradingEditHistoryParams {
   return {
     page:
       typeof params.page === 'number' && params.page > 0
@@ -38,17 +38,17 @@ function sanitizeParams(
   };
 }
 
-function getStorageEditHistoryErrorMessage(error: unknown): string {
+function getGradingEditHistoryErrorMessage(error: unknown): string {
   if (isAxiosError<{ message?: string }>(error)) {
     const apiMessage = error.response?.data?.message;
     if (apiMessage) return apiMessage;
 
     if (error.code === 'ECONNABORTED') {
-      return 'Request timed out while fetching storage gate pass audit history';
+      return 'Request timed out while fetching grading gate pass audit history';
     }
 
     if (!error.response) {
-      return 'Network error while fetching storage gate pass audit history';
+      return 'Network error while fetching grading gate pass audit history';
     }
   }
 
@@ -56,23 +56,23 @@ function getStorageEditHistoryErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return 'Failed to fetch storage gate pass audit history';
+  return 'Failed to fetch grading gate pass audit history';
 }
 
-async function fetchStorageEditHistory(
-  params: GetStorageEditHistoryParams
-): Promise<GetStorageEditHistoryResult> {
+async function fetchGradingEditHistory(
+  params: GetGradingEditHistoryParams
+): Promise<GetGradingEditHistoryResult> {
   try {
     const safeParams = sanitizeParams(params);
     const { data } =
-      await storeAdminAxiosClient.get<GetStorageGatePassAuditApiResponse>(
-        '/storage-gate-pass/audit',
+      await storeAdminAxiosClient.get<GetGradingGatePassAuditApiResponse>(
+        '/grading-gate-pass/audit',
         { params: safeParams }
       );
 
     if (!data.success) {
       throw new Error(
-        data.message ?? 'Failed to fetch storage gate pass audit history'
+        data.message ?? 'Failed to fetch grading gate pass audit history'
       );
     }
 
@@ -81,45 +81,45 @@ async function fetchStorageEditHistory(
       pagination: data.pagination,
     };
   } catch (error) {
-    throw new Error(getStorageEditHistoryErrorMessage(error), {
+    throw new Error(getGradingEditHistoryErrorMessage(error), {
       cause: error,
     });
   }
 }
 
-export const storageGatePassEditHistoryQueryOptions = (
-  params: GetStorageEditHistoryParams = {}
+export const gradingGatePassEditHistoryQueryOptions = (
+  params: GetGradingEditHistoryParams = {}
 ) => {
   const safeParams = sanitizeParams(params);
 
   return queryOptions({
     queryKey: [
-      ...storageGatePassKeys.all,
+      ...gradingGatePassKeys.all,
       'audit-history',
       {
         page: safeParams.page,
         limit: safeParams.limit,
       },
     ],
-    queryFn: () => fetchStorageEditHistory(safeParams),
+    queryFn: () => fetchGradingEditHistory(safeParams),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
   });
 };
 
-export function useGetStorageEditHistory(
-  params: GetStorageEditHistoryParams = {}
+export function useGetGradingEditHistory(
+  params: GetGradingEditHistoryParams = {}
 ) {
   return useQuery({
-    ...storageGatePassEditHistoryQueryOptions(params),
+    ...gradingGatePassEditHistoryQueryOptions(params),
     placeholderData: keepPreviousData,
   });
 }
 
-export function prefetchStorageEditHistory(
-  params: GetStorageEditHistoryParams = {}
+export function prefetchGradingEditHistory(
+  params: GetGradingEditHistoryParams = {}
 ) {
   return queryClient.prefetchQuery(
-    storageGatePassEditHistoryQueryOptions(params)
+    gradingGatePassEditHistoryQueryOptions(params)
   );
 }

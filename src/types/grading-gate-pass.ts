@@ -133,6 +133,46 @@ export interface GradingGatePassPagination {
   hasPreviousPage: boolean;
 }
 
+/** Edited-by user metadata inside grading audit response */
+export interface GradingGatePassAuditEditedBy {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+/** Generic old/new pair for audit change values */
+export interface GradingGatePassAuditChangeValue {
+  old: unknown;
+  new: unknown;
+}
+
+/** Field-level changes map in grading gate pass audit */
+export type GradingGatePassAuditChanges = Record<
+  string,
+  GradingGatePassAuditChangeValue
+>;
+
+/** Single audit record from GET /grading-gate-pass/audit */
+export interface GradingGatePassAuditItem {
+  _id: string;
+  gradingGatePassId: string;
+  coldStorageId: string;
+  editedBy: GradingGatePassAuditEditedBy;
+  reason: string;
+  action: string;
+  changes: GradingGatePassAuditChanges;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** API response for GET /grading-gate-pass/audit */
+export interface GetGradingGatePassAuditApiResponse {
+  success: boolean;
+  data: GradingGatePassAuditItem[];
+  pagination: GradingGatePassPagination;
+  message?: string;
+}
+
 /** API response for GET /grading-gate-pass */
 export interface GetGradingGatePassesApiResponse {
   success: boolean;
