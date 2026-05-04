@@ -50,7 +50,7 @@ import {
   useGetGradingGatePassReport,
   type GetGradingGatePassReportParams,
 } from '@/services/store-admin/grading-gate-pass/analytics/useGetGradingGatePassReport';
-import { usePreferencesStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import type {
   GradingGatePass,
   GradingGatePassFarmerStorageLink,
@@ -76,6 +76,7 @@ import {
   type GradingFilterGroupNode,
 } from './view-filters-sheet/advanced-filters';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
+import { GradingExcelButton } from './grading-excel-button';
 
 /** Stable row-model factories — TanStack Table compares these by reference. */
 const gradingReportGetCoreRowModel = getCoreRowModel<GradingReportTableRow>();
@@ -1107,6 +1108,9 @@ const TABLE_SKELETON_COLUMNS = 13;
 const TABLE_SKELETON_ROWS = 10;
 
 const GradingReportTable = () => {
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const [appliedFromDate, setAppliedFromDate] = React.useState('');
@@ -1283,6 +1287,10 @@ const GradingReportTable = () => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
+                <GradingExcelButton
+                  table={table}
+                  coldStorageName={coldStorageName}
+                />
                 <Button
                   type="button"
                   variant="ghost"

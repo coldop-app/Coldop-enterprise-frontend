@@ -58,6 +58,7 @@ import type {
   IncomingPdfWorkerRequest,
   IncomingPdfWorkerResponse,
 } from './pdf-worker.types';
+import { StorageExcelButton } from './storage-excel-button';
 
 function getLeafRowsForPdf(
   rows: Row<IncomingReportRow>[]
@@ -845,6 +846,10 @@ const StorageReportTable = (_props: IncomingReportTableProps) => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
+                <StorageExcelButton
+                  table={table}
+                  coldStorageName={coldStorageName}
+                />
                 <IncomingPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"

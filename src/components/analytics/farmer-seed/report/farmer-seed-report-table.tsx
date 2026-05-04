@@ -57,6 +57,7 @@ import type {
   FarmerSeedPdfWorkerRequest,
   FarmerSeedPdfWorkerResponse,
 } from '@/components/analytics/farmer-seed/report/pdf.worker';
+import { FarmerSeedExcelButton } from './farmer-seed-excel-button';
 
 function toDisplayDate(value?: string): string {
   if (!value) return '-';
@@ -766,7 +767,7 @@ const FarmerSeedReportTable = () => {
             size="sm"
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
-            <div className="flex w-full flex-wrap items-end gap-3 lg:flex-nowrap">
+            <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="analytics-seed-from-date"
@@ -808,8 +809,8 @@ const FarmerSeedReportTable = () => {
 
               <div className="bg-border/40 hidden h-7 w-px lg:block" />
 
-              <div className="ml-auto flex items-center gap-2 self-end">
-                <div className="relative min-w-[160px] lg:w-[220px]">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2 self-end">
+                <div className="relative w-[140px] sm:w-[170px]">
                   <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
                   <Input
                     value={typeof globalFilter === 'string' ? globalFilter : ''}
@@ -826,10 +827,14 @@ const FarmerSeedReportTable = () => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
+                <FarmerSeedExcelButton
+                  table={table}
+                  coldStorageName={coldStorageName}
+                />
                 <FarmerSeedPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"
-                  className="text-muted-foreground h-8 rounded-lg px-2 leading-none"
+                  className="text-muted-foreground h-8 w-8 rounded-lg p-0 leading-none"
                   disabled={isFetching}
                   onClick={() => refetch()}
                   aria-label="Refresh"
