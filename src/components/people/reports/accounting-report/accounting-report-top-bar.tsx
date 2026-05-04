@@ -9,7 +9,15 @@ const AccountingReportTopBar = () => {
       size="sm"
       className="border-border/30 bg-background pointer-events-none rounded-2xl border p-3 shadow-sm select-none"
     >
-      <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
+        <div>
+          <p className="font-custom text-muted-foreground text-xs font-medium tracking-widest uppercase">
+            Report Actions
+          </p>
+          <p className="font-custom text-sm font-semibold text-[#333]">
+            Accounting Statement Tools
+          </p>
+        </div>
         <Button
           type="button"
           variant="outline"
