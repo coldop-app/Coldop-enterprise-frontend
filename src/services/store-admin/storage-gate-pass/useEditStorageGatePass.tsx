@@ -14,8 +14,6 @@ type StorageGatePassApiError = {
   error?: { code?: string; message?: string };
 };
 
-const DAYBOOK_ROUTE = '/store-admin/daybook';
-
 function getEditErrorMessage(
   data: StorageGatePassApiError | undefined
 ): string {
@@ -59,8 +57,6 @@ export function useEditStorageGatePass() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: storageGatePassKeys.all }),
       ]);
-
-      window.location.href = DAYBOOK_ROUTE;
     },
 
     onError: (error) => {

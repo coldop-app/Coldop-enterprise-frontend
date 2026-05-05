@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 import {
@@ -52,10 +52,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  formatNumber,
+  getBagWeightsFromPreferences,
+} from '@/components/daybook/grading-calculations';
 import { BAG_TYPES, GRADER_OPTIONS, GRADING_SIZES } from '@/lib/constants';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 import { useEditGradingGatePass } from '@/services/store-admin/grading-gate-pass/useEditGradingGatePass';
-import { useStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 import {
@@ -129,7 +133,7 @@ const orderRowSchema = z.object({
   size: z.string().trim().min(1, 'Size is required'),
   bagType: z.string().trim().min(1, 'Bag type is required'),
   quantity: z.number().nonnegative(),
-  weightPerBagKg: z.number().positive('Weight per bag must be positive'),
+  weightPerBagKg: z.number().nonnegative(),
 });
 
 const fullFormSchema = z.object({
@@ -180,8 +184,14 @@ export const GradingEditForm = memo(function GradingEditForm({
   selectedIncomingGatePassIds,
   selectedVariety,
 }: GradingEditFormProps) {
+  const navigate = useNavigate();
   const { mutate: editGradingGatePass, isPending } = useEditGradingGatePass();
   const setDaybookTab = useStore((s) => s.setDaybookActiveTab);
+  const preferences = usePreferencesStore((s) => s.preferences);
+  const bagWeights = useMemo(
+    () => getBagWeightsFromPreferences(preferences),
+    [preferences]
+  );
   const [step, setStep] = useState<0 | 1>(1);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const confirmSaveRef = useRef(false);
@@ -227,7 +237,7 @@ export const GradingEditForm = memo(function GradingEditForm({
           size: r.size,
           bagType: r.bagType,
           quantity: Number(r.currentQuantity ?? r.initialQuantity ?? 0),
-          weightPerBagKg: r.weightPerBagKg,
+          weightPerBagKg: Number(r.weightPerBagKg) || 0,
         }))
       : [
           {
@@ -236,7 +246,7 @@ export const GradingEditForm = memo(function GradingEditForm({
               : (GRADING_SIZES[0] ?? ''),
             bagType: 'LENO',
             quantity: 0,
-            weightPerBagKg: 56,
+            weightPerBagKg: 0,
           },
         ];
 
@@ -280,6 +290,15 @@ export const GradingEditForm = memo(function GradingEditForm({
         return;
       }
 
+      const hasRowMissingWeight = body.some(
+        (r) => (r.quantity || 0) > 0 && (r.weightPerBagKg || 0) <= 0
+      );
+      if (hasRowMissingWeight) {
+        toast.error('Enter kg per bag for every size row that has a quantity.');
+        setStep(1);
+        return;
+      }
+
       if (!confirmSaveRef.current) {
         setSummaryOpen(true);
         return;
@@ -311,6 +330,7 @@ export const GradingEditForm = memo(function GradingEditForm({
               data.status?.toLowerCase() === 'success';
             if (!ok) return;
             setSummaryOpen(false);
+            navigate({ to: '/store-admin/daybook' });
           },
         }
       );
@@ -727,7 +747,7 @@ export const GradingEditForm = memo(function GradingEditForm({
                           size: GRADING_SIZES[4] ?? '30–40',
                           bagType: 'JUTE',
                           quantity: 0,
-                          weightPerBagKg: 50.5,
+                          weightPerBagKg: 0,
                         },
                       ])
                     }
@@ -1127,18 +1147,36 @@ export const GradingEditForm = memo(function GradingEditForm({
                         (s, r) => s + (Number(r.quantity) || 0),
                         0
                       );
+                      const totalNetWeightKg = (orderDetails ?? []).reduce(
+                        (sum, r) => {
+                          const q = Number(r.quantity) || 0;
+                          const wpb = Number(r.weightPerBagKg) || 0;
+                          const bagType = (r.bagType ?? '').toUpperCase();
+                          const bagWt = bagWeights[bagType] ?? 0;
+                          const netPerBag = Math.max(0, wpb - bagWt);
+                          return sum + q * netPerBag;
+                        },
+                        0
+                      );
                       return (
                         <Card className="bg-muted/15 border-none shadow-inner">
-                          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4 font-medium">
-                            <span className="text-muted-foreground font-custom text-sm">
-                              Total bags across sizes
-                            </span>
-                            <Badge
-                              variant="default"
-                              className="font-custom h-10 min-w-[3.75rem] justify-center px-4 text-lg font-bold shadow-sm"
-                            >
-                              {totalBags}
-                            </Badge>
+                          <CardContent className="space-y-3 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-muted-foreground font-custom text-sm">
+                                Total bags across sizes
+                              </span>
+                              <span className="font-custom text-foreground/80 text-sm font-medium tabular-nums">
+                                {totalBags}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-muted-foreground font-custom text-sm">
+                                Total net weight
+                              </span>
+                              <span className="font-custom text-foreground/80 text-sm font-medium tabular-nums">
+                                {formatNumber(totalNetWeightKg)} kg
+                              </span>
+                            </div>
                           </CardContent>
                         </Card>
                       );

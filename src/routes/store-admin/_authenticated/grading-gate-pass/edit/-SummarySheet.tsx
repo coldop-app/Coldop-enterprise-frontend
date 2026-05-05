@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import {
-  BadgeCheck,
   Calendar,
   ClipboardList,
   FileText,
@@ -169,13 +168,6 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
                   Manual #{summary.manualGatePassNumber}
                 </Badge>
               ) : null}
-              <Badge
-                variant="outline"
-                className="font-custom text-muted-foreground ml-auto h-8 gap-1 border-dashed px-3 text-xs font-medium"
-              >
-                <BadgeCheck className="size-3.5" />
-                {summary.allocationStatus}
-              </Badge>
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

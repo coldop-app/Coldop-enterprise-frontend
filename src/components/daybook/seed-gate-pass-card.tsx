@@ -450,9 +450,6 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                           <th className="px-3 py-2.5 text-right">Rate (₹)</th>
                           <th className="px-3 py-2.5 text-right">Acres</th>
                           <th className="px-3 py-2.5 text-right">Amount (₹)</th>
-                          <th className="px-3 py-2.5 text-right">
-                            Received (₹)
-                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-border/50 divide-y">
@@ -476,11 +473,6 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                             <td className="px-3 py-2.5 text-right">
                               {row.amount.toLocaleString('en-IN')}
                             </td>
-                            <td className="text-primary px-3 py-2.5 text-right font-semibold">
-                              {row.received === null
-                                ? FALLBACK_TEXT
-                                : row.received.toLocaleString('en-IN')}
-                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -496,11 +488,6 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             {seedData.totals.totalAmount.toLocaleString(
-                              'en-IN'
-                            )}
-                          </td>
-                          <td className="text-primary px-3 py-2.5 text-right">
-                            {seedData.totals.totalReceived.toLocaleString(
                               'en-IN'
                             )}
                           </td>

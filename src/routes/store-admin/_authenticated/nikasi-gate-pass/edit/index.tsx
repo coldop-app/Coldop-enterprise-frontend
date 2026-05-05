@@ -27,7 +27,10 @@ import {
 import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-modal';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
-import { useEditNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useEditNikasiGatePass';
+import {
+  isEditNikasiGatePassSuccess,
+  useEditNikasiGatePass,
+} from '@/services/store-admin/nikasi-gate-pass/useEditNikasiGatePass';
 import { useGetIncomingGatePassesOfFarmer } from '@/services/store-admin/general/useGetIncomingGatePassesOfFarmer';
 import type { NikasiGatePassEditState } from '@/components/daybook/nikasi-gate-pass-card';
 import {
@@ -250,7 +253,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         },
         {
           onSuccess: (data) => {
-            if (!data.success && data.status !== 'success') return;
+            if (!isEditNikasiGatePassSuccess(data)) return;
             setIsSummarySheetOpen(false);
             navigate({ to: '/store-admin/daybook' });
           },

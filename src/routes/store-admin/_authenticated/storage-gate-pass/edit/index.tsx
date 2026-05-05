@@ -1,5 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createFileRoute, useLocation } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  useLocation,
+  useNavigate,
+} from '@tanstack/react-router';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { Plus, Trash2 } from 'lucide-react';
@@ -201,6 +205,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
   farmerStorageLinkId: initialFarmerStorageLinkId,
   locationState,
 }: StorageGatePassFormProps) {
+  const navigate = useNavigate();
   const { mutate: editStorageGatePass, isPending } = useEditStorageGatePass();
   const coldStorageId = useStore(
     (s) => s.coldStorage?._id ?? s.admin?.coldStorageId
@@ -357,6 +362,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
         onSuccess: (data) => {
           if (!data.success) return;
           setSummaryOpen(false);
+          navigate({ to: '/store-admin/daybook' });
         },
       });
 

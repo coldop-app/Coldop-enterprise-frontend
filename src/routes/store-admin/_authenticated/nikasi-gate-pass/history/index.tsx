@@ -70,7 +70,7 @@ function RouteComponent() {
               </div>
               <div className="space-y-0.5">
                 <CardTitle className="font-custom text-foreground text-lg font-semibold">
-                  Nikasi Edit History
+                  Dispatch (Pre Storage) History
                 </CardTitle>
                 <CardDescription className="font-custom text-muted-foreground text-xs">
                   {isLoading
