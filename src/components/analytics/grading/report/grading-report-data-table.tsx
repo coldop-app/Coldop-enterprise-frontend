@@ -247,6 +247,10 @@ export function GradingReportDataTable({
             ).map((row, rowIndex) => {
               if (isGroupedView) {
                 const virtualRow = virtualRows[rowIndex];
+                const isMultiIncomingBlock = row.original.mergedRowSpan > 1;
+                const multiIncomingRowClass = row.original.isFirstOfMergedBlock
+                  ? 'bg-primary/[0.055] hover:bg-primary/[0.085]'
+                  : 'bg-primary/[0.035] hover:bg-primary/[0.065]';
                 return (
                   <TableRow
                     key={row.id}
@@ -254,7 +258,11 @@ export function GradingReportDataTable({
                     ref={(node) => rowVirtualizer.measureElement(node)}
                     className={cn(
                       'border-border/50 hover:bg-accent/40 border-b transition-colors',
-                      row.index % 2 === 0 ? 'bg-background' : 'bg-muted/25'
+                      isMultiIncomingBlock
+                        ? multiIncomingRowClass
+                        : row.index % 2 === 0
+                          ? 'bg-background'
+                          : 'bg-muted/25'
                     )}
                     style={
                       virtualRow
@@ -274,6 +282,12 @@ export function GradingReportDataTable({
                       const isGroupedCell = cell.getIsGrouped();
                       const isAggregatedCell = cell.getIsAggregated();
                       const isPlaceholderCell = cell.getIsPlaceholder();
+                      const hideRepeatedMergedCell =
+                        !isGroupedCell &&
+                        !isAggregatedCell &&
+                        !isPlaceholderCell &&
+                        !isGradingSplitSpanColumn(cell.column) &&
+                        !row.original.isFirstOfMergedBlock;
 
                       return (
                         <TableCell
@@ -290,7 +304,7 @@ export function GradingReportDataTable({
                             isRightAligned && 'text-right'
                           )}
                         >
-                          {isGroupedCell ? (
+                          {hideRepeatedMergedCell ? null : isGroupedCell ? (
                             <button
                               type="button"
                               onClick={row.getToggleExpandedHandler()}
