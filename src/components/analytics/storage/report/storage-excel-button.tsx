@@ -120,6 +120,8 @@ type StorageExcelButtonProps = {
 const EXCEL_HEADER_LABEL_OVERRIDES: Partial<
   Record<keyof IncomingReportRow, string>
 > = {
+  gatePassNo: 'System Generated Gate Pass No',
+  totalBags: 'Total Bags',
   bagBelow25: 'Below 25 (mm)',
   bag25to30: '25-30 (mm)',
   bagBelow30: 'Below 30 (mm)',

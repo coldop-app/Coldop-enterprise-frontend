@@ -283,7 +283,7 @@ const globalManualGatePassFilterFn: FilterFn<IncomingReportRow> = (
 
 const columns = [
   columnHelper.accessor('gatePassNo', {
-    header: 'System Generated Gate Pass No',
+    header: 'Gate Pass No',
     sortingFn: 'alphanumeric',
     filterFn: multiValueFilterFn,
     cell: (info) => (

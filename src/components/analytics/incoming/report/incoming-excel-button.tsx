@@ -82,9 +82,36 @@ type IncomingExcelButtonProps = {
   coldStorageName: string;
 };
 
+const INCOMING_COLUMN_HEADER_LABELS: Partial<
+  Record<keyof IncomingReportRow, string>
+> = {
+  gatePassNo: 'Gate Pass No',
+  manualGatePassNumber: 'Manual Gate Pass No',
+  date: 'Date',
+  farmerName: 'Farmer',
+  farmerAddress: 'Address',
+  farmerMobileNumber: 'Mobile Number',
+  createdByName: 'Created By',
+  variety: 'Variety',
+  location: 'Location',
+  truckNumber: 'Truck No.',
+  bagsReceived: 'Bags',
+  grossWeightKg: 'Gross (kg)',
+  tareWeightKg: 'Tare (kg)',
+  netWeightKg: 'Net (kg)',
+  status: 'Status',
+  remarks: 'Remarks',
+};
+
 function getColumnHeaderLabel(
   column: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>[number]
 ): string {
+  const mappedLabel =
+    INCOMING_COLUMN_HEADER_LABELS[
+      column.id as keyof typeof INCOMING_COLUMN_HEADER_LABELS
+    ];
+  if (mappedLabel) return mappedLabel;
+
   const headerDefinition = column.columnDef.header;
   if (typeof headerDefinition === 'string') return headerDefinition;
   if (typeof column.columnDef.meta === 'string') return column.columnDef.meta;

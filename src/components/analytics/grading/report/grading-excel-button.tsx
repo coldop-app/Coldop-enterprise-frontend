@@ -245,6 +245,9 @@ function getColumnHeaderLabel(
     return gradingBagSizeColumnHeaderText(bagSizeCanonLabel);
   }
 
+  const mappedLabel = gradingColumnLabels[column.id];
+  if (mappedLabel) return mappedLabel;
+
   const headerDefinition = column.columnDef.header;
   if (typeof headerDefinition === 'string') return headerDefinition;
   if (typeof column.columnDef.meta === 'string') return column.columnDef.meta;

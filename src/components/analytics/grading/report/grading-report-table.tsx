@@ -647,7 +647,6 @@ const bagSizeColumns = GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => {
       ),
       minSize: 90,
       maxSize: 180,
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <GradedBagSizeCell
@@ -665,7 +664,6 @@ const columns = [
       id: 'incomingGatePassIds',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming Manual Gate Pass No',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">{row.original.incomingDisplay}</span>
@@ -678,7 +676,6 @@ const columns = [
       id: 'incomingSystemGatePassNo',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming System Generated Gate Pass Number',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => {
         const v = row.original.incomingRef?.gatePassNo;
@@ -696,7 +693,6 @@ const columns = [
       id: 'incomingFarmerName',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Farmer',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span
@@ -714,7 +710,6 @@ const columns = [
       id: 'incomingFarmerAddress',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Farmer address',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       minSize: 200,
       maxSize: 360,
@@ -737,7 +732,6 @@ const columns = [
       id: 'incomingFarmerStorageAccountNo',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Account No',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -750,7 +744,6 @@ const columns = [
     id: 'incomingDate',
     meta: { gradingReportRowSpan: 'split' },
     header: 'Incoming date',
-    enableSorting: false,
     filterFn: multiValueFilterFn,
     cell: ({ row }) => (
       <span className="font-custom">
@@ -764,7 +757,6 @@ const columns = [
       id: 'incomingLocation',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Location',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span
@@ -782,7 +774,6 @@ const columns = [
       id: 'incomingTruckNumber',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Truck No.',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -797,7 +788,6 @@ const columns = [
       id: 'incomingBagsReceived',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Bags received',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => {
         const b = row.original.incomingRef?.bagsReceived;
@@ -815,7 +805,6 @@ const columns = [
       id: 'incomingSlipNumber',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Slip No.',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -830,7 +819,6 @@ const columns = [
       id: 'incomingGrossKg',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Gross (kg)',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -845,7 +833,6 @@ const columns = [
       id: 'incomingTareKg',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Tare (kg)',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -860,7 +847,6 @@ const columns = [
       id: 'incomingNetKg',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Net (kg)',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -875,7 +861,6 @@ const columns = [
       id: 'incomingBardanaWeightKg',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming bardana weight',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -890,7 +875,6 @@ const columns = [
       id: 'incomingNetWeightWithoutBardana',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming Net Weight (w/o Bardana)',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -905,7 +889,6 @@ const columns = [
       id: 'incomingStatus',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming status',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -920,7 +903,6 @@ const columns = [
       id: 'incomingRemarks',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming remarks',
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span
@@ -939,7 +921,6 @@ const columns = [
       gradingReportGradingSectionStart: true,
     },
     header: 'Created By',
-    enableSorting: false,
     filterFn: multiValueFilterFn,
     cell: ({ row }) => (
       <span className="font-custom">
@@ -1008,7 +989,6 @@ const columns = [
     header: () => (
       <div className="font-custom w-full text-right">Graded bags</div>
     ),
-    enableSorting: false,
     filterFn: multiValueFilterFn,
     cell: ({ row }) => (
       <div className="w-full text-right font-medium tabular-nums">
@@ -1030,7 +1010,6 @@ const columns = [
           Grading bardana weight
         </div>
       ),
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -1050,7 +1029,6 @@ const columns = [
           Net Weight After Grading (w/o Bardana)
         </div>
       ),
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -1069,7 +1047,6 @@ const columns = [
       header: () => (
         <div className="font-custom w-full text-right">Wastage (%)</div>
       ),
-      enableSorting: false,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
