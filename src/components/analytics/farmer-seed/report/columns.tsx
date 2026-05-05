@@ -1,4 +1,3 @@
-import * as React from 'react';
 import {
   type FilterFn,
   type VisibilityState,
@@ -19,6 +18,7 @@ export type FarmerSeedReportRow = {
   gatePassNo: number;
   invoiceNumber: string;
   date: string;
+  dateSortValue: number;
   variety: string;
   generation: string;
   bag35to40: number;
@@ -137,7 +137,9 @@ export const reportColumns = [
   }),
   columnHelper.accessor('date', {
     header: 'Date',
-    sortingFn: 'alphanumeric',
+    sortingFn: (rowA, rowB) =>
+      Number(rowA.original.dateSortValue || 0) -
+      Number(rowB.original.dateSortValue || 0),
     filterFn: multiValueFilterFn,
   }),
   columnHelper.accessor('variety', {

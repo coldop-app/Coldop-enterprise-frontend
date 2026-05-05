@@ -38,13 +38,6 @@ export const filterOperatorLabels: Record<GradingFilterOperator, string> = {
 
 const columnLabelEntries: [GradingFilterableColumnId, string][] = [
   ['incomingGatePassIds', 'Incoming Manual Gate Pass No'],
-  ['incomingSystemGatePassNo', 'Incoming System Generated Gate Pass Number'],
-  ['incomingFarmerName', 'Farmer'],
-  ['incomingFarmerAddress', 'Farmer address'],
-  ['incomingFarmerStorageAccountNo', 'Account No'],
-  ['incomingDate', 'Incoming date'],
-  ['incomingLocation', 'Location'],
-  ['incomingTruckNumber', 'Truck No.'],
   ['incomingBagsReceived', 'Bags received'],
   ['incomingSlipNumber', 'Slip No.'],
   ['incomingGrossKg', 'Gross (kg)'],
@@ -52,12 +45,12 @@ const columnLabelEntries: [GradingFilterableColumnId, string][] = [
   ['incomingNetKg', 'Net (kg)'],
   ['incomingBardanaWeightKg', 'Incoming bardana weight'],
   ['incomingNetWeightWithoutBardana', 'Incoming Net Weight (w/o Bardana)'],
-  ['incomingStatus', 'Incoming status'],
-  ['incomingRemarks', 'Incoming remarks'],
   ['createdBy', 'Created By'],
   ['gatePassNo', 'System Generated Gate Pass No'],
   ['manualGatePassNumber', 'Manual Gate Pass No'],
   ['date', 'Date'],
+  ['farmerName', 'Farmer'],
+  ['farmerAddress', 'Address'],
   ['variety', 'Variety'],
   ['gradedBags', 'Graded bags'],
   ...GRADING_BAG_SIZE_COLUMN_ORDER.map(

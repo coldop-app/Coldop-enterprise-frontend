@@ -63,7 +63,7 @@ export interface GradingGatePassIncomingRefLink {
 export interface GradingGatePassIncomingReportFarmerStorageLink {
   _id: string;
   farmerId: Farmer;
-  accountNumber: number;
+  accountNumber?: number;
   linkedById?: GradingGatePassLinkedBy;
 }
 
@@ -74,9 +74,9 @@ export interface GradingGatePassIncomingRef {
     | GradingGatePassIncomingRefLink
     | GradingGatePassFarmerStorageLink
     | GradingGatePassIncomingReportFarmerStorageLink;
-  gatePassNo: number;
+  gatePassNo?: number;
   manualGatePassNumber?: number;
-  date: string;
+  date?: string;
   variety?: string;
   location?: string;
   truckNumber?: string;

@@ -243,6 +243,122 @@ State in `incoming-report-table.tsx`:
 
 Both are controlled via `ViewFiltersSheet`, so users can switch behavior and direction.
 
+## Pagination
+
+TanStack Table supports both client-side and server-side pagination. For this project, start with client-side pagination unless data size or API constraints require server-side pagination.
+
+### Client-side pagination (recommended default)
+
+Client-side pagination means the table receives all rows, and TanStack handles page slicing in the UI layer.
+
+To enable it in `useReactTable`:
+
+- add `getPaginationRowModel()` to the row-model pipeline
+- control pagination state with `pagination` + `onPaginationChange`
+
+```tsx
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+} from '@tanstack/react-table'
+
+const [pagination, setPagination] = useState({
+  pageIndex: 0,
+  pageSize: 10,
+})
+
+const table = useReactTable({
+  data: filteredIncomingReportData,
+  columns: incomingReportColumns,
+  state: {
+    sorting,
+    columnVisibility,
+    columnOrder,
+    columnFilters,
+    grouping,
+    globalFilter,
+    pagination,
+  },
+  onPaginationChange: setPagination,
+  getCoreRowModel: getCoreRowModel(),
+  getFilteredRowModel: getFilteredRowModel(),
+  getSortedRowModel: getSortedRowModel(),
+  getPaginationRowModel: getPaginationRowModel(),
+})
+```
+
+If you only need custom defaults and do not need controlled state, use `initialState.pagination` instead.
+
+Important: do not pass pagination in both `state` and `initialState`; controlled `state` overrides `initialState`.
+
+### Pagination UI APIs
+
+Useful TanStack APIs for pagination controls:
+
+- `table.getCanPreviousPage()`, `table.getCanNextPage()`
+- `table.firstPage()`, `table.previousPage()`, `table.nextPage()`, `table.lastPage()`
+- `table.setPageIndex(index)`, `table.resetPageIndex()`
+- `table.setPageSize(size)`, `table.resetPageSize()`
+- `table.getPageCount()`, `table.getRowCount()`
+
+Example controls:
+
+```tsx
+<Button onClick={() => table.firstPage()} disabled={!table.getCanPreviousPage()}>
+  {'<<'}
+</Button>
+<Button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+  {'<'}
+</Button>
+<Button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+  {'>'}
+</Button>
+<Button onClick={() => table.lastPage()} disabled={!table.getCanNextPage()}>
+  {'>>'}
+</Button>
+<select
+  value={table.getState().pagination.pageSize}
+  onChange={(e) => table.setPageSize(Number(e.target.value))}
+>
+  {[10, 20, 30, 40, 50].map((size) => (
+    <option key={size} value={size}>
+      {size}
+    </option>
+  ))}
+</select>
+```
+
+### Auto reset behavior
+
+By default, `pageIndex` resets to `0` when page-altering state changes (data/filter/sort/group changes). You can override with:
+
+- `autoResetPageIndex: false`
+
+If disabled, add your own guard logic to avoid landing on empty pages after filters or data updates.
+
+### Server-side pagination (when needed)
+
+Use server-side pagination when datasets become too large or API constraints require backend paging.
+
+Key setup:
+
+- set `manualPagination: true`
+- do not use `getPaginationRowModel()` for server paging
+- pass `rowCount` (or `pageCount`) so TanStack can compute total pages
+
+```tsx
+const table = useReactTable({
+  data, // already paginated page from API
+  columns,
+  getCoreRowModel: getCoreRowModel(),
+  manualPagination: true,
+  rowCount: dataQuery.data?.rowCount,
+})
+```
+
 ## Row Virtualization (Performance Feature)
 
 Implemented with `@tanstack/react-virtual` in `incoming-report-data-table.tsx`:
@@ -286,6 +402,7 @@ All major table feature states are controlled (not uncontrolled):
 - `columnFilters`
 - `grouping`
 - `globalFilter`
+- `pagination`
 - `columnResizeMode`
 - `columnResizeDirection`
 
@@ -302,6 +419,7 @@ This is important because controlled state makes integration with custom UI pane
 - Column ordering: yes (default order + runtime reordering)
 - Column resizing: yes (drag handles, reset, mode/direction controls)
 - Row expansion: yes (for grouped rows)
+- Pagination: ready to add with TanStack pagination row model + controls
 - Row virtualization: yes (react-virtual integration)
 - Custom totals footer: yes (filter-aware, resize-aware)
 

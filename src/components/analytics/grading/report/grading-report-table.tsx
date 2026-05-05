@@ -4,6 +4,7 @@ import {
   type ColumnResizeDirection,
   type ColumnResizeMode,
   type GroupingState,
+  type PaginationState,
   type SortingState,
   getCoreRowModel,
   getExpandedRowModel,
@@ -11,6 +12,7 @@ import {
   getFacetedUniqueValues,
   getFilteredRowModel,
   getGroupedRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
@@ -40,6 +42,10 @@ import {
   type GradingReportTableRow,
   type GlobalFilterValue,
 } from './columns';
+import {
+  GRADING_BAG_SIZE_COLUMN_ORDER,
+  getGradingBagSizeColumnId,
+} from './column-meta';
 import { GradingExcelButton } from './grading-excel-button';
 import { GradingReportDataTable } from './grading-report-data-table';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
@@ -75,6 +81,10 @@ const GradingReportTable = () => {
     []
   );
   const [grouping, setGrouping] = React.useState<GroupingState>([]);
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 100,
+  });
   const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
   const [columnResizeMode, setColumnResizeMode] =
     React.useState<ColumnResizeMode>('onChange');
@@ -106,6 +116,48 @@ const GradingReportTable = () => {
     () => expandGradingReportRows(data ?? []),
     [data]
   );
+  const gradingBagSizeColumnIds = React.useMemo(
+    () => GRADING_BAG_SIZE_COLUMN_ORDER.map(getGradingBagSizeColumnId),
+    []
+  );
+  const emptyBagSizeColumnIds = React.useMemo(() => {
+    const emptyColumns = new Set<string>();
+    gradingBagSizeColumnIds.forEach((columnId) => {
+      const hasAnyValue = tableData.some((row) => {
+        const value = getGradingNumericValue(row, columnId);
+        return Number(value ?? 0) > 0;
+      });
+      if (!hasAnyValue) emptyColumns.add(columnId);
+    });
+    return emptyColumns;
+  }, [gradingBagSizeColumnIds, tableData]);
+
+  React.useEffect(() => {
+    setColumnVisibility((current) => {
+      const next = { ...current };
+      let changed = false;
+      gradingBagSizeColumnIds.forEach((columnId) => {
+        if (emptyBagSizeColumnIds.has(columnId)) {
+          if (next[columnId] !== false) {
+            next[columnId] = false;
+            changed = true;
+          }
+        } else if (next[columnId] === false) {
+          delete next[columnId];
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [emptyBagSizeColumnIds, gradingBagSizeColumnIds]);
+
+  const effectiveColumnVisibility = React.useMemo(() => {
+    const next = { ...columnVisibility };
+    gradingBagSizeColumnIds.forEach((columnId) => {
+      if (emptyBagSizeColumnIds.has(columnId)) next[columnId] = false;
+    });
+    return next;
+  }, [columnVisibility, emptyBagSizeColumnIds, gradingBagSizeColumnIds]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<GradingReportTableRow>({
@@ -118,10 +170,11 @@ const GradingReportTable = () => {
     },
     state: {
       sorting,
-      columnVisibility,
+      columnVisibility: effectiveColumnVisibility,
       columnOrder,
       columnFilters,
       grouping,
+      pagination,
       globalFilter,
     },
     onSortingChange: setSorting,
@@ -129,6 +182,7 @@ const GradingReportTable = () => {
     onColumnOrderChange: setColumnOrder,
     onColumnFiltersChange: setColumnFilters,
     onGroupingChange: setGrouping,
+    onPaginationChange: setPagination,
     onGlobalFilterChange: setGlobalFilter,
     columnResizeMode,
     columnResizeDirection,
@@ -140,6 +194,7 @@ const GradingReportTable = () => {
     getSortedRowModel: getSortedRowModel(),
     getGroupedRowModel: getGroupedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     getRowId: (row) => `${row.gradingGatePass._id}_${row.incomingSubIndex}`,
   });
 
@@ -161,6 +216,15 @@ const GradingReportTable = () => {
 
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
+  const totalFilteredEntries = filteredRows.length;
+  const currentPageSize = table.getState().pagination.pageSize;
+  const currentPageIndex = table.getState().pagination.pageIndex;
+  const currentPageStartEntry =
+    totalFilteredEntries === 0 ? 0 : currentPageIndex * currentPageSize + 1;
+  const currentPageEndEntry = Math.min(
+    (currentPageIndex + 1) * currentPageSize,
+    totalFilteredEntries
+  );
   const visibleColumns = table.getVisibleLeafColumns();
   const visibleColumnIds = React.useMemo(
     () => visibleColumns.map((column) => column.id),
@@ -299,6 +363,83 @@ const GradingReportTable = () => {
               isLoading={isLoading}
               key={bagWeightsRevision}
             />
+            <div className="border-border/50 bg-background/70 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label
+                  htmlFor="grading-report-page-size"
+                  className="font-custom text-muted-foreground text-sm"
+                >
+                  Rows per page
+                </label>
+                <select
+                  id="grading-report-page-size"
+                  value={currentPageSize}
+                  onChange={(event) =>
+                    table.setPageSize(Number(event.target.value))
+                  }
+                  className="font-custom border-input bg-background text-foreground h-8 rounded-md border px-2 text-sm"
+                >
+                  {[50, 100, 200].map((size) => (
+                    <option key={size} value={size}>
+                      {size} per page
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-custom text-muted-foreground text-sm">
+                  Showing{' '}
+                  <span className="text-foreground font-semibold">
+                    {currentPageStartEntry}-{currentPageEndEntry}
+                  </span>{' '}
+                  of{' '}
+                  <span className="text-foreground font-semibold">
+                    {totalFilteredEntries}
+                  </span>{' '}
+                  entries
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => table.firstPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  {'<<'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  {'<'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  {'>'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => table.lastPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  {'>>'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </main>

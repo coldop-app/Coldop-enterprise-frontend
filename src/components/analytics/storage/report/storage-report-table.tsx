@@ -4,6 +4,7 @@ import {
   type ColumnResizeDirection,
   type ColumnResizeMode,
   type GroupingState,
+  type PaginationState,
   type Row,
   type SortingState,
   type VisibilityState,
@@ -13,6 +14,7 @@ import {
   getFacetedUniqueValues,
   getFilteredRowModel,
   getGroupedRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
@@ -170,6 +172,13 @@ function toDisplayDate(value?: string): string {
   return parsed.toLocaleDateString('en-GB');
 }
 
+function toSortableDateValue(value?: string): number {
+  if (!value) return 0;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 0;
+  return parsed.getTime();
+}
+
 function toApiDate(value: string): string | undefined {
   const [day, month, year] = value.split('.');
   if (!day || !month || !year) return undefined;
@@ -258,6 +267,10 @@ const StorageReportTable = () => {
     []
   );
   const [grouping, setGrouping] = React.useState<GroupingState>([]);
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 100,
+  });
   const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
   const [columnResizeMode, setColumnResizeMode] =
     React.useState<ColumnResizeMode>('onChange');
@@ -287,6 +300,7 @@ const StorageReportTable = () => {
         totalBags: getTotalBags(item),
         remarks: item.remarks ?? '-',
         date: toDisplayDate(item.date),
+        dateSortValue: toSortableDateValue(item.date),
         createdAt: toDisplayDate(item.createdAt),
         updatedAt: toDisplayDate(item.updatedAt),
       })),
@@ -342,6 +356,7 @@ const StorageReportTable = () => {
       columnOrder,
       columnFilters,
       grouping,
+      pagination,
       globalFilter,
     },
     onSortingChange: setSorting,
@@ -349,6 +364,7 @@ const StorageReportTable = () => {
     onColumnOrderChange: setColumnOrder,
     onColumnFiltersChange: setColumnFilters,
     onGroupingChange: setGrouping,
+    onPaginationChange: setPagination,
     onGlobalFilterChange: setGlobalFilter,
     columnResizeMode,
     columnResizeDirection,
@@ -360,11 +376,21 @@ const StorageReportTable = () => {
     getSortedRowModel: getSortedRowModel(),
     getGroupedRowModel: getGroupedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     getRowId: (row) => row.id,
   });
 
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
+  const totalFilteredEntries = filteredRows.length;
+  const currentPageSize = table.getState().pagination.pageSize;
+  const currentPageIndex = table.getState().pagination.pageIndex;
+  const currentPageStartEntry =
+    totalFilteredEntries === 0 ? 0 : currentPageIndex * currentPageSize + 1;
+  const currentPageEndEntry = Math.min(
+    (currentPageIndex + 1) * currentPageSize,
+    totalFilteredEntries
+  );
   const visibleColumnIds = React.useMemo(
     () => table.getVisibleLeafColumns().map((column) => column.id),
     [table]
@@ -514,6 +540,83 @@ const StorageReportTable = () => {
             totalsByColumn={totalsByColumn}
             isLoading={isLoading}
           />
+          <div className="border-border/50 bg-background/70 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label
+                htmlFor="storage-report-page-size"
+                className="font-custom text-muted-foreground text-sm"
+              >
+                Rows per page
+              </label>
+              <select
+                id="storage-report-page-size"
+                value={currentPageSize}
+                onChange={(event) =>
+                  table.setPageSize(Number(event.target.value))
+                }
+                className="font-custom border-input bg-background text-foreground h-8 rounded-md border px-2 text-sm"
+              >
+                {[50, 100, 200].map((size) => (
+                  <option key={size} value={size}>
+                    {size} per page
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-custom text-muted-foreground text-sm">
+                Showing{' '}
+                <span className="text-foreground font-semibold">
+                  {currentPageStartEntry}-{currentPageEndEntry}
+                </span>{' '}
+                of{' '}
+                <span className="text-foreground font-semibold">
+                  {totalFilteredEntries}
+                </span>{' '}
+                entries
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => table.firstPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                {'<<'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                {'<'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                {'>'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => table.lastPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                {'>>'}
+              </Button>
+            </div>
+          </div>
         </div>
       </main>
 

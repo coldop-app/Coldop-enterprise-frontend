@@ -21,6 +21,7 @@ export type IncomingReportRow = {
   gatePassNo: number;
   manualGatePassNumber: number;
   date: string;
+  dateSortValue: number;
   variety: string;
   truckNumber: string;
   bagsReceived: number;
@@ -130,7 +131,9 @@ export const incomingReportColumns = [
   }),
   columnHelper.accessor('date', {
     header: 'Date',
-    sortingFn: 'alphanumeric',
+    sortingFn: (rowA, rowB) =>
+      Number(rowA.original.dateSortValue || 0) -
+      Number(rowB.original.dateSortValue || 0),
     filterFn: multiValueFilterFn,
   }),
   columnHelper.accessor('farmerName', {

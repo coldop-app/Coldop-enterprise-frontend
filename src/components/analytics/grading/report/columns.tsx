@@ -4,6 +4,7 @@ import {
   createColumnHelper,
   type Column,
   type FilterFn,
+  type SortingFn,
   type VisibilityState,
 } from '@tanstack/react-table';
 import {
@@ -14,10 +15,7 @@ import {
 } from '@/components/daybook/grading-calculations';
 import type {
   GradingGatePass,
-  GradingGatePassFarmerStorageLink,
   GradingGatePassIncomingRef,
-  GradingGatePassIncomingRefLink,
-  GradingGatePassIncomingReportFarmerStorageLink,
   GradingGatePassOrderDetail,
 } from '@/types/grading-gate-pass';
 import {
@@ -69,8 +67,6 @@ export const GRADING_SECTION_START_BORDER_CLASSES =
 
 export const gradingRightAlignedColumnIds = new Set<string>([
   'gradedBags',
-  'incomingSystemGatePassNo',
-  'incomingFarmerStorageAccountNo',
   'incomingBagsReceived',
   'incomingGrossKg',
   'incomingTareKg',
@@ -85,8 +81,6 @@ export const gradingRightAlignedColumnIds = new Set<string>([
 
 export const gradingNumericColumnIds = new Set<string>([
   'gradedBags',
-  'incomingSystemGatePassNo',
-  'incomingFarmerStorageAccountNo',
   'incomingBagsReceived',
   'incomingGrossKg',
   'incomingTareKg',
@@ -304,38 +298,29 @@ function incomingRefDisplayLabel(ref: GradingGatePassIncomingRef): string {
     : String(ref.gatePassNo);
 }
 
-function incomingRefFarmerStorageLink(
+function getIncomingRefFarmerNameWithAccount(
   ref: GradingGatePassIncomingRef | undefined
-):
-  | GradingGatePassIncomingRefLink
-  | GradingGatePassFarmerStorageLink
-  | GradingGatePassIncomingReportFarmerStorageLink
-  | undefined {
-  const value = ref?.farmerStorageLinkId;
-  if (!value || typeof value !== 'object') return undefined;
-  return value;
-}
-
-function incomingRefFarmerName(ref: GradingGatePassIncomingRef | undefined) {
-  const link = incomingRefFarmerStorageLink(ref);
-  return link?.farmerId?.name?.trim() || '-';
-}
-
-function incomingRefFarmerAddress(ref: GradingGatePassIncomingRef | undefined) {
-  const link = incomingRefFarmerStorageLink(ref);
-  const farmer = link?.farmerId;
-  if (farmer && typeof farmer !== 'string') {
-    return farmer.address?.trim() || '-';
+): string {
+  const link = ref?.farmerStorageLinkId;
+  if (!link || typeof link === 'string') return '-';
+  const farmer = link.farmerId;
+  if (!farmer || typeof farmer === 'string') return '-';
+  const farmerName = farmer.name?.trim();
+  if (!farmerName) return '-';
+  if (typeof link.accountNumber === 'number') {
+    return `${farmerName} (#${link.accountNumber})`;
   }
-  return '-';
+  return farmerName;
 }
 
-function incomingFarmerAccountNumber(
+function getIncomingRefFarmerAddress(
   ref: GradingGatePassIncomingRef | undefined
-) {
-  const link = incomingRefFarmerStorageLink(ref);
-  if (typeof link?.accountNumber !== 'number') return '-';
-  return formatIndianNumber(link.accountNumber, 0);
+): string {
+  const link = ref?.farmerStorageLinkId;
+  if (!link || typeof link === 'string') return '-';
+  const farmer = link.farmerId;
+  if (!farmer || typeof farmer === 'string') return '-';
+  return farmer.address?.trim() || '-';
 }
 
 function formatIncomingWeightKg(
@@ -473,22 +458,6 @@ function getGradingColumnFilterValue(
   switch (columnId) {
     case 'incomingGatePassIds':
       return row.incomingDisplay ?? '-';
-    case 'incomingSystemGatePassNo': {
-      const value = ref?.gatePassNo;
-      return value != null && Number.isFinite(value) ? value : undefined;
-    }
-    case 'incomingFarmerName':
-      return incomingRefFarmerName(ref);
-    case 'incomingFarmerAddress':
-      return incomingRefFarmerAddress(ref);
-    case 'incomingFarmerStorageAccountNo':
-      return incomingFarmerAccountNumber(ref);
-    case 'incomingDate':
-      return toDisplayDate(ref?.date);
-    case 'incomingLocation':
-      return ref?.location?.trim() || '-';
-    case 'incomingTruckNumber':
-      return ref?.truckNumber?.trim() || '-';
     case 'incomingBagsReceived': {
       const value = ref?.bagsReceived;
       return value != null && Number.isFinite(value) ? value : undefined;
@@ -505,10 +474,6 @@ function getGradingColumnFilterValue(
       return formatIncomingBardanaWeightKg(ref);
     case 'incomingNetWeightWithoutBardana':
       return formatIncomingNetWeightWithoutBardana(ref);
-    case 'incomingStatus':
-      return ref?.status?.trim() || '-';
-    case 'incomingRemarks':
-      return ref?.remarks?.trim() || '-';
     case 'createdBy':
       return formatCreatedBy(gp);
     case 'gatePassNo': {
@@ -523,6 +488,10 @@ function getGradingColumnFilterValue(
         : '';
     case 'date':
       return toDisplayDate(gp.date);
+    case 'farmerName':
+      return getIncomingRefFarmerNameWithAccount(ref);
+    case 'farmerAddress':
+      return getIncomingRefFarmerAddress(ref);
     case 'variety':
       return gp.variety?.trim() || '-';
     case 'gradedBags':
@@ -556,15 +525,6 @@ export function getGradingNumericValue(
   const gp = row.gradingGatePass;
 
   switch (columnId) {
-    case 'incomingSystemGatePassNo': {
-      const value = ref?.gatePassNo;
-      return typeof value === 'number' && Number.isFinite(value) ? value : null;
-    }
-    case 'incomingFarmerStorageAccountNo': {
-      const link = incomingRefFarmerStorageLink(ref);
-      const value = link?.accountNumber;
-      return typeof value === 'number' && Number.isFinite(value) ? value : null;
-    }
     case 'incomingBagsReceived': {
       const value = ref?.bagsReceived;
       return typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -648,6 +608,30 @@ const multiValueFilterFn: FilterFn<GradingReportTableRow> = (
   return filterValue.map(String).includes(cellValue);
 };
 
+const numericColumnSortingFn: SortingFn<GradingReportTableRow> = (
+  rowA,
+  rowB,
+  columnId
+) => {
+  const a = getGradingNumericValue(rowA.original, columnId);
+  const b = getGradingNumericValue(rowB.original, columnId);
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return a - b;
+};
+
+const gradingDateSortingFn: SortingFn<GradingReportTableRow> = (rowA, rowB) => {
+  const a = Date.parse(rowA.original.gradingGatePass.date ?? '');
+  const b = Date.parse(rowB.original.gradingGatePass.date ?? '');
+  const aValid = Number.isFinite(a);
+  const bValid = Number.isFinite(b);
+  if (!aValid && !bValid) return 0;
+  if (!aValid) return 1;
+  if (!bValid) return -1;
+  return a - b;
+};
+
 export type GlobalFilterValue = string | GradingFilterGroupNode;
 
 export const globalGradingFilterFn: FilterFn<GradingReportTableRow> = (
@@ -720,121 +704,6 @@ export const gradingReportColumns = [
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">{row.original.incomingDisplay}</span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingSystemGatePassNo'),
-    {
-      id: 'incomingSystemGatePassNo',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Incoming System Generated Gate Pass Number',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => {
-        const value = row.original.incomingRef?.gatePassNo;
-        return (
-          <span className="font-custom">
-            {value != null ? formatIndianNumber(value, 0) : '-'}
-          </span>
-        );
-      },
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingFarmerName'),
-    {
-      id: 'incomingFarmerName',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Farmer',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span
-          className="font-custom block max-w-56 truncate"
-          title={incomingRefFarmerName(row.original.incomingRef)}
-        >
-          {incomingRefFarmerName(row.original.incomingRef)}
-        </span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingFarmerAddress'),
-    {
-      id: 'incomingFarmerAddress',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Farmer address',
-      filterFn: multiValueFilterFn,
-      minSize: 200,
-      maxSize: 360,
-      cell: ({ row }) => {
-        const text = incomingRefFarmerAddress(row.original.incomingRef);
-        return (
-          <span
-            className="font-custom block max-w-64 truncate"
-            title={text !== '-' ? text : undefined}
-          >
-            {text}
-          </span>
-        );
-      },
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingFarmerStorageAccountNo'),
-    {
-      id: 'incomingFarmerStorageAccountNo',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Account No',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span className="font-custom">
-          {incomingFarmerAccountNumber(row.original.incomingRef)}
-        </span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingDate'),
-    {
-      id: 'incomingDate',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Incoming date',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span className="font-custom">
-          {toDisplayDate(row.original.incomingRef?.date)}
-        </span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingLocation'),
-    {
-      id: 'incomingLocation',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Location',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span
-          className="font-custom block max-w-48 truncate"
-          title={row.original.incomingRef?.location ?? undefined}
-        >
-          {row.original.incomingRef?.location?.trim() || '-'}
-        </span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingTruckNumber'),
-    {
-      id: 'incomingTruckNumber',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Truck No.',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span className="font-custom">
-          {row.original.incomingRef?.truckNumber?.trim() || '-'}
-        </span>
       ),
     }
   ),
@@ -934,41 +803,11 @@ export const gradingReportColumns = [
       id: 'incomingNetWeightWithoutBardana',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming Net Weight (w/o Bardana)',
+      sortingFn: numericColumnSortingFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
           {formatIncomingNetWeightWithoutBardana(row.original.incomingRef)}
-        </span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingStatus'),
-    {
-      id: 'incomingStatus',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Incoming status',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span className="font-custom">
-          {row.original.incomingRef?.status?.trim() || '-'}
-        </span>
-      ),
-    }
-  ),
-  columnHelper.accessor(
-    (row) => getGradingColumnFilterValue(row, 'incomingRemarks'),
-    {
-      id: 'incomingRemarks',
-      meta: { gradingReportRowSpan: 'split' },
-      header: 'Incoming remarks',
-      filterFn: multiValueFilterFn,
-      cell: ({ row }) => (
-        <span
-          className="font-custom block max-w-56 truncate"
-          title={row.original.incomingRef?.remarks ?? undefined}
-        >
-          {row.original.incomingRef?.remarks?.trim() || '-'}
         </span>
       ),
     }
@@ -1032,12 +871,46 @@ export const gradingReportColumns = [
     id: 'date',
     meta: { gradingReportRowSpan: 'merge' },
     header: 'Date',
-    sortingFn: 'alphanumeric',
+    sortingFn: gradingDateSortingFn,
     filterFn: multiValueFilterFn,
     cell: (info) => (
       <span className="font-custom">{String(info.getValue() ?? '-')}</span>
     ),
   }),
+  columnHelper.accessor(
+    (row) => getGradingColumnFilterValue(row, 'farmerName'),
+    {
+      id: 'farmerName',
+      meta: { gradingReportRowSpan: 'split' },
+      header: 'Farmer',
+      sortingFn: 'text',
+      filterFn: multiValueFilterFn,
+      minSize: 320,
+      maxSize: 520,
+      cell: ({ row }) => (
+        <span className="font-custom">
+          {getIncomingRefFarmerNameWithAccount(row.original.incomingRef)}
+        </span>
+      ),
+    }
+  ),
+  columnHelper.accessor(
+    (row) => getGradingColumnFilterValue(row, 'farmerAddress'),
+    {
+      id: 'farmerAddress',
+      meta: { gradingReportRowSpan: 'split' },
+      header: 'Address',
+      sortingFn: 'text',
+      filterFn: multiValueFilterFn,
+      minSize: 200,
+      maxSize: 320,
+      cell: ({ row }) => (
+        <span className="font-custom">
+          {getIncomingRefFarmerAddress(row.original.incomingRef)}
+        </span>
+      ),
+    }
+  ),
   columnHelper.accessor((row) => getGradingColumnFilterValue(row, 'variety'), {
     id: 'variety',
     meta: { gradingReportRowSpan: 'merge' },
@@ -1056,6 +929,7 @@ export const gradingReportColumns = [
       header: () => (
         <div className="font-custom w-full text-right">Graded bags</div>
       ),
+      sortingFn: numericColumnSortingFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <div className="w-full text-right font-medium tabular-nums">
@@ -1097,6 +971,7 @@ export const gradingReportColumns = [
           Net Weight After Grading (w/o Bardana)
         </div>
       ),
+      sortingFn: numericColumnSortingFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">

@@ -38,7 +38,6 @@ export type GradingFilterNode =
 
 export const numericGradingFilterFields: GradingFilterField[] = [
   'gatePassNo',
-  'incomingSystemGatePassNo',
   'incomingBagsReceived',
   'gradedBags',
   ...GRADING_BAG_SIZE_COLUMN_ORDER.map((s) => getGradingBagSizeColumnId(s)),
