@@ -1,7 +1,17 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { BarChart3, RefreshCw } from 'lucide-react';
+import {
+  ArrowRightFromLine,
+  ArrowRightLeft,
+  BarChart3,
+  Inbox,
+  PackageCheck,
+  RefreshCw,
+  Scale,
+  Sprout,
+} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
@@ -13,18 +23,42 @@ import {
   ItemTitle,
 } from '@/components/ui/item';
 import Overview from './-Overview';
+import AnalyticsSeedTab from './seed-tab/-AnalyticsSeedTab';
+import AnalyticsIncomingTab from './incoming-tab/-AnalyticsIncomingTab';
+import AnalyticsStorageTab from './storage-tab/-AnalyticsStorageTab';
+import AnalayticsGradingTab from './grading-tab/-AnalayticsGradingTab';
+import AnalyticsNikasiTab from './nikasi-tab/-AnalyticsNikasiTab';
+import AnalyticsOutgoingTab from './outgoing-tab/-AnalyticsOutgoingTab';
 
 export const Route = createFileRoute('/store-admin/_authenticated/analytics/')({
   component: RouteComponent,
 });
 
+const ANALYTICS_TABS = [
+  'seed',
+  'incoming',
+  'grading',
+  'storage',
+  'dispatch-pre-outgoing',
+  'dispatch-outgoing',
+] as const;
+
+type AnalyticsTab = (typeof ANALYTICS_TABS)[number];
+
 function RouteComponent() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('seed');
 
   const handleResetFilters = () => {
     setFromDate('');
     setToDate('');
+  };
+
+  const handleValueChange = (value: string) => {
+    if ((ANALYTICS_TABS as readonly string[]).includes(value)) {
+      setActiveTab(value as AnalyticsTab);
+    }
   };
 
   return (
@@ -98,6 +132,63 @@ function RouteComponent() {
         </Item>
 
         <Overview />
+        <Tabs
+          value={activeTab}
+          onValueChange={handleValueChange}
+          className="w-full space-y-4"
+        >
+          <TabsList className="w-full">
+            <TabsTrigger className="flex-1" value="seed">
+              <Sprout aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Seed</span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="incoming">
+              <Inbox aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Incoming</span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="grading">
+              <Scale aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Grading</span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="storage">
+              <PackageCheck aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Storage</span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="dispatch-pre-outgoing">
+              <ArrowRightLeft aria-hidden="true" className="size-4 sm:hidden" />
+              <span className="sr-only sm:not-sr-only">
+                Dispatch (Pre Storage)
+              </span>
+            </TabsTrigger>
+            <TabsTrigger className="flex-1" value="dispatch-outgoing">
+              <ArrowRightFromLine
+                aria-hidden="true"
+                className="size-4 sm:hidden"
+              />
+              <span className="sr-only sm:not-sr-only">
+                Dispatch (Post Storage)
+              </span>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="seed">
+            <AnalyticsSeedTab />
+          </TabsContent>
+          <TabsContent value="incoming">
+            <AnalyticsIncomingTab />
+          </TabsContent>
+          <TabsContent value="grading">
+            <AnalayticsGradingTab />
+          </TabsContent>
+          <TabsContent value="storage">
+            <AnalyticsStorageTab />
+          </TabsContent>
+          <TabsContent value="dispatch-pre-outgoing">
+            <AnalyticsNikasiTab />
+          </TabsContent>
+          <TabsContent value="dispatch-outgoing">
+            <AnalyticsOutgoingTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );

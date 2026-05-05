@@ -21,15 +21,10 @@ import {
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import {
-  FARMER_SEED_GENERATIONS,
-  GRADING_SIZES,
-  POTATO_VARIETIES,
-} from '@/lib/constants';
 import { formatDate, formatDateToISO } from '@/lib/helpers';
+import { usePreferencesStore } from '@/stores/store';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useCreateFarmerSeedEntry } from '@/services/store-admin/farmer-seed/useCreateFarmerSeedEntry';
-import { useGetPreferences } from '@/services/store-admin/preferences/useGetPreferences';
 import {
   FarmerSeedSummarySheet,
   type FarmerSeedSummaryBagSize,
@@ -98,7 +93,7 @@ function FarmerSeedCreateForm() {
   } = useGetAllFarmers();
   const { mutate: createFarmerSeedEntry, isPending } =
     useCreateFarmerSeedEntry();
-  const { data: preferences } = useGetPreferences();
+  const preferences = usePreferencesStore((state) => state.preferences);
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
 
   const [farmerStorageLinkId, setFarmerStorageLinkId] = useState('');
@@ -128,6 +123,19 @@ function FarmerSeedCreateForm() {
     if (!farmerStorageLinkId) return null;
     return farmerLinks.find((link) => link._id === farmerStorageLinkId) ?? null;
   }, [farmerLinks, farmerStorageLinkId]);
+
+  const potatoVarietyOptions = useMemo<Option<string>[]>(() => {
+    return preferences?.custom.potatoVarieties ?? [];
+  }, [preferences?.custom.potatoVarieties]);
+
+  const farmerSeedGenerationOptions = useMemo<Option<string>[]>(() => {
+    return preferences?.custom.farmerSeedGenerations ?? [];
+  }, [preferences?.custom.farmerSeedGenerations]);
+
+  const gradingSizes = useMemo(() => {
+    const sizes = preferences?.bagSizes ?? [];
+    return sizes.length > 0 ? sizes : [...FARMER_SEED_DEFAULT_SIZES];
+  }, [preferences?.bagSizes]);
 
   const selectedVarietyStandardBagsPerAcre = useMemo(() => {
     const standardBagsPerAcre = preferences?.custom.standardBagsPerAcre ?? {};
@@ -178,7 +186,7 @@ function FarmerSeedCreateForm() {
   const canSubmit = totalQty > 0 && Boolean(variety) && Boolean(generation);
 
   const addExtraRow = () => {
-    const defaultExtraName = GRADING_SIZES[0] ?? '';
+    const defaultExtraName = gradingSizes[0] ?? '';
     setExtraBagSizeRows((prev) => [
       ...prev,
       {
@@ -329,7 +337,7 @@ function FarmerSeedCreateForm() {
               Select Variety
             </FieldLabel>
             <SearchSelector
-              options={POTATO_VARIETIES}
+              options={potatoVarietyOptions}
               placeholder="Select a variety"
               searchPlaceholder="Search variety..."
               onSelect={(value) => setVariety(value ?? '')}
@@ -344,7 +352,7 @@ function FarmerSeedCreateForm() {
             </FieldLabel>
             <SearchSelector
               id="farmer-seed-generation"
-              options={FARMER_SEED_GENERATIONS}
+              options={farmerSeedGenerationOptions}
               placeholder="Select generation"
               searchPlaceholder="Search generation..."
               onSelect={(value) => setGeneration(value ?? '')}
@@ -450,7 +458,7 @@ function FarmerSeedCreateForm() {
                       }
                       className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 min-w-0 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
-                      {GRADING_SIZES.map((size) => (
+                      {gradingSizes.map((size) => (
                         <option key={size} value={size}>
                           {size}
                         </option>

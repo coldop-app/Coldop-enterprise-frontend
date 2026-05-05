@@ -3,17 +3,9 @@ import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { Button } from '@/components/ui/button';
 import type { AccountingReportVarietySection } from './accounting-report-variety-sections';
-import type { AccountingGradingRow } from '@/components/people/reports/grading-table';
 import type { AccountingIncomingRow } from '@/components/people/reports/incoming-table';
 import type { GradingBagTypeQtySummaryRow } from '@/components/people/reports/summary-table';
 import type { FarmerSeedRow } from '@/components/people/reports/helpers/seed-prepare';
-import {
-  ACCOUNTING_GRADING_BAG_SIZE_ORDER,
-  computeGradingTableTotals,
-  extraGradingSizeLabelsFromRows,
-  gradingTotalsAverageWeightPerBagKg,
-  sizeLabelsWithAnyQuantity,
-} from '../helpers/grading-prepare';
 import type { FarmerStorageLinkInPassesPayload } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 
 const COLORS = {
@@ -83,33 +75,6 @@ const SEED_EXCEL_HEADERS: string[] = [
   'Seed Rate/Bag (Rs)',
   'Total Seed Amount (Rs)',
 ];
-
-function computeGradingExcelHeaders(gradingRows: AccountingGradingRow[]): {
-  gradingHeaders: string[];
-  gradingSizeLabels: string[];
-} {
-  const gradingSizeLabelsOrdered = [
-    ...ACCOUNTING_GRADING_BAG_SIZE_ORDER,
-    ...extraGradingSizeLabelsFromRows(gradingRows),
-  ];
-  const gradingSizeLabels = sizeLabelsWithAnyQuantity(
-    gradingSizeLabelsOrdered,
-    computeGradingTableTotals(gradingRows, gradingSizeLabelsOrdered)
-  );
-  const gradingHeaders = [
-    'Incoming Manual Gate Pass Number',
-    'Grading Manual Gate Pass Number',
-    'Variety',
-    'Grading Date',
-    ...gradingSizeLabels.flatMap((label) => [
-      `${label} (mm)`,
-      'Weight (Kg)',
-      'Bag Type',
-    ]),
-    'Total bags',
-  ];
-  return { gradingHeaders, gradingSizeLabels };
-}
 
 function computeSummaryExcelHeaders(
   summaryRows: GradingBagTypeQtySummaryRow[]
@@ -184,65 +149,6 @@ function buildIncomingTotalsRow(
       incomingRows.reduce((s, r) => s + (Number(r.actualKg) || 0), 0)
     ),
   ];
-}
-
-function buildGradingRawRows(
-  gradingRows: AccountingGradingRow[],
-  gradingSizeLabels: string[]
-): Array<Array<string | number>> {
-  return coerceRows(
-    gradingRows.map((row) => [
-      row.isContinuation ? '' : row.incomingManualGatePassNumber,
-      row.isContinuation ? '' : row.gradingManualGatePassNumber,
-      row.isContinuation ? '' : row.variety,
-      row.isContinuation ? '' : row.gradingDate,
-      ...gradingSizeLabels.flatMap((label) => {
-        const size = row.sizes[label];
-        return [
-          formatZeroAsDash(size?.bags ?? ''),
-          formatZeroAsDash(size?.weightPerBagKg ?? ''),
-          size?.bagType ?? '',
-        ];
-      }),
-      formatZeroAsDash(
-        gradingSizeLabels.reduce((sum, label) => {
-          const bags = Number(row.sizes[label]?.bags) || 0;
-          return sum + bags;
-        }, 0)
-      ),
-    ])
-  );
-}
-
-function buildGradingTotalsRow(
-  gradingRows: AccountingGradingRow[],
-  gradingSizeLabels: string[]
-): Array<string | number> {
-  const gradingTotalsRow: Array<string | number> = ['Total', '', '', ''];
-  const totals = computeGradingTableTotals(gradingRows, gradingSizeLabels);
-  for (const label of gradingSizeLabels) {
-    const bagSum = totals.bySize[label]?.bags ?? 0;
-    const avgWtPerBag = gradingTotalsAverageWeightPerBagKg(totals, label);
-    gradingTotalsRow.push(
-      formatZeroAsDash(bagSum),
-      formatZeroAsDash(avgWtPerBag),
-      ''
-    );
-  }
-  gradingTotalsRow.push(
-    formatZeroAsDash(
-      gradingRows.reduce(
-        (s, row) =>
-          s +
-          gradingSizeLabels.reduce(
-            (ss, l) => ss + (Number(row.sizes[l]?.bags) || 0),
-            0
-          ),
-        0
-      )
-    )
-  );
-  return gradingTotalsRow;
 }
 
 function buildSummaryRawRows(
@@ -682,17 +588,13 @@ export const AccountingReportExcelButton = ({
       const wb = new ExcelJS.Workbook();
       wb.creator = safeName;
 
-      const allGradingRows = varietySections.flatMap((s) => s.gradingRows);
       const allSummaryRows = varietySections.flatMap((s) => s.summaryRows);
-      const { gradingHeaders, gradingSizeLabels } =
-        computeGradingExcelHeaders(allGradingRows);
       const { summaryHeaders, summarySizeLabels } =
         computeSummaryExcelHeaders(allSummaryRows);
 
       const maxColumns = Math.max(
         INCOMING_EXCEL_HEADERS.length,
         SEED_EXCEL_HEADERS.length,
-        gradingHeaders.length,
         summaryHeaders.length,
         2
       );
@@ -702,7 +604,6 @@ export const AccountingReportExcelButton = ({
       const allHeaders = mergeHeaderRowForWidth(maxColumns, [
         INCOMING_EXCEL_HEADERS,
         SEED_EXCEL_HEADERS,
-        gradingHeaders,
         summaryHeaders,
       ]);
 
@@ -723,29 +624,6 @@ export const AccountingReportExcelButton = ({
         allBodyRowsForWidth.push(
           padRowToMaxColumns(
             buildIncomingTotalsRow(section.incomingRows),
-            maxColumns
-          )
-        );
-      }
-      for (const section of varietySections) {
-        allBodyRowsForWidth.push(
-          padRowToMaxColumns(
-            [
-              `Variety: ${section.varietyLabel}`,
-              ...Array(gradingHeaders.length - 1).fill(''),
-            ],
-            maxColumns
-          )
-        );
-        for (const r of buildGradingRawRows(
-          section.gradingRows,
-          gradingSizeLabels
-        )) {
-          allBodyRowsForWidth.push(padRowToMaxColumns(r, maxColumns));
-        }
-        allBodyRowsForWidth.push(
-          padRowToMaxColumns(
-            buildGradingTotalsRow(section.gradingRows, gradingSizeLabels),
             maxColumns
           )
         );
@@ -828,26 +706,6 @@ export const AccountingReportExcelButton = ({
           0
         );
         addTotalsRow(reportSheet, buildIncomingTotalsRow(section.incomingRows));
-      }
-
-      reportSheet.addRow([]);
-      addSectionTitle(reportSheet, 'Grading', maxColumns);
-      addColumnHeaderRow(reportSheet, gradingHeaders);
-      for (const section of varietySections) {
-        addVarietyBandRow(
-          reportSheet,
-          gradingHeaders.length,
-          section.varietyLabel
-        );
-        addDataRowsStriped(
-          reportSheet,
-          buildGradingRawRows(section.gradingRows, gradingSizeLabels),
-          0
-        );
-        addTotalsRow(
-          reportSheet,
-          buildGradingTotalsRow(section.gradingRows, gradingSizeLabels)
-        );
       }
 
       reportSheet.addRow([]);

@@ -24,12 +24,11 @@ import type {
   User as IncomingUser,
 } from '@/types/incoming-gate-pass';
 import { cn } from '@/lib/utils';
-import { JUTE_BAG_WEIGHT } from '@/lib/constants';
+import { usePreferencesStore } from '@/stores/store';
 
 const STATUS_LABELS = {
   NOT_GRADED: 'Not Graded',
   GRADED: 'Graded',
-  PARTIALLY_GRADED: 'Partially Graded',
 } as const;
 
 // --- Helper Component for consistent data display ---
@@ -89,6 +88,10 @@ function formatDateTime(value: string) {
 export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const juteBagWeight =
+    usePreferencesStore(
+      (s) => s.preferences?.custom?.bagConfig?.juteBagWeight
+    ) ?? 0;
 
   const farmerStorageLink = isFarmerStorageLink(gatePass.farmerStorageLinkId)
     ? gatePass.farmerStorageLinkId
@@ -97,12 +100,15 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
   const createdBy = isUserObject(gatePass.createdBy)
     ? gatePass.createdBy.name
     : 'Unknown user';
-  const statusLabel = STATUS_LABELS[gatePass.status] ?? gatePass.status;
+  const statusLabel =
+    gatePass.status === 'NOT_GRADED' || gatePass.status === 'GRADED'
+      ? STATUS_LABELS[gatePass.status]
+      : gatePass.status;
   const isNotGraded = gatePass.status === 'NOT_GRADED';
   const gross = gatePass.weightSlip?.grossWeightKg ?? 0;
   const tare = gatePass.weightSlip?.tareWeightKg ?? 0;
   const netKg = gross - tare;
-  const bardanaKg = gatePass.bagsReceived * JUTE_BAG_WEIGHT;
+  const bardanaKg = gatePass.bagsReceived * juteBagWeight;
   const netProductKg = netKg - bardanaKg;
   const isCancelledGatePass = gatePass.bagsReceived === 0 && !isNotGraded;
 
@@ -359,7 +365,7 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
                     </div>
                     <div className="font-custom flex items-center justify-between gap-3 text-xs">
                       <span className="text-muted-foreground">
-                        Bardana ({gatePass.bagsReceived} x {JUTE_BAG_WEIGHT}kg)
+                        Bardana ({gatePass.bagsReceived} x {juteBagWeight}kg)
                       </span>
                       <span className="text-right font-medium text-red-500/90">
                         - {bardanaKg.toLocaleString('en-IN')} kg

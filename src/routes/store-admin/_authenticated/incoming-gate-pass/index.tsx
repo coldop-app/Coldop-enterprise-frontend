@@ -11,7 +11,7 @@ import {
   type Option,
 } from '@/components/forms/search-selector';
 import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
-import { POTATO_VARIETIES } from '@/lib/constants';
+import { usePreferencesStore } from '@/stores/store';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/general/useGetVoucherNumber';
 import { useCreateIncomingGatePass } from '@/services/store-admin/incoming-gate-pass/useCreateIncomingGatePass';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
@@ -60,6 +60,7 @@ function AddIncomingGatePassComponent() {
   const navigate = useNavigate();
   const { mutate: createGatePass, isPending } = useCreateIncomingGatePass();
   const { data: farmerLinks = [] } = useGetAllFarmers();
+  const preferences = usePreferencesStore((state) => state.preferences);
   const { data: gatePassNo, isFetching: isFetchingVoucherNumber } =
     useGetReceiptVoucherNumber('incoming-gate-pass');
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
@@ -122,16 +123,20 @@ function AddIncomingGatePassComponent() {
   const voucherNumberDisplay =
     typeof gatePassNo === 'number' ? `#${gatePassNo}` : undefined;
 
+  const potatoVarietyOptions = useMemo<Option<string>[]>(() => {
+    return preferences?.custom.potatoVarieties ?? [];
+  }, [preferences?.custom.potatoVarieties]);
+
   const varietyOptions = useMemo<Option<string>[]>(() => {
-    const exists = POTATO_VARIETIES.some(
+    const exists = potatoVarietyOptions.some(
       (opt) => opt.value === selectedVariety
     );
-    if (!selectedVariety || exists) return POTATO_VARIETIES;
+    if (!selectedVariety || exists) return potatoVarietyOptions;
     return [
-      ...POTATO_VARIETIES,
+      ...potatoVarietyOptions,
       { label: selectedVariety, value: selectedVariety },
     ];
-  }, [selectedVariety]);
+  }, [potatoVarietyOptions, selectedVariety]);
 
   const locationOptions = useMemo<Option<string>[]>(() => {
     const exists = DEFAULT_INCOMING_LOCATIONS.some(

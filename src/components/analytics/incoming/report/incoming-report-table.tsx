@@ -3,13 +3,10 @@ import {
   type ColumnFiltersState,
   type ColumnResizeDirection,
   type ColumnResizeMode,
-  type FilterFn,
   type GroupingState,
   type Row,
   type SortingState,
   type VisibilityState,
-  createColumnHelper,
-  flexRender,
   getCoreRowModel,
   getExpandedRowModel,
   getFacetedRowModel,
@@ -19,46 +16,45 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  RefreshCw,
-  FileText,
-  SlidersHorizontal,
-  Search,
-} from 'lucide-react';
+import { FileText, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
-import { Badge } from '@/components/ui/badge';
+import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Item } from '@/components/ui/item';
 import { useGetIncomingGatePassReport } from '@/services/store-admin/incoming-gate-pass/analytics/useGetIncomingGatePassReport';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
-import { ViewFiltersSheet } from './view-filters-sheet/index';
-import {
-  evaluateFilterGroup,
-  isAdvancedFilterGroup,
-  type FilterGroupNode,
-} from '@/lib/advanced-filters';
-import type { IncomingReportRow } from './columns';
 import { useStore } from '@/stores/store';
+import { IncomingExcelButton } from './incoming-excel-button';
+import { ViewFiltersSheet } from './view-filters-sheet';
 import PdfWorker from './pdf.worker?worker';
 import type {
   IncomingPdfWorkerRequest,
   IncomingPdfWorkerResponse,
 } from './pdf.worker';
-import { IncomingExcelButton } from './incoming-excel-button';
+import {
+  defaultColumnOrder,
+  defaultIncomingReportColumnVisibility,
+  formatIndianNumber,
+  getDecimalPlaces,
+  globalManualGatePassFilterFn,
+  incomingReportColumns,
+  numericColumnIds,
+  type GlobalFilterValue,
+  type IncomingReportRow,
+} from './columns';
+import { IncomingReportDataTable } from './incoming-report-data-table';
+
+const DEFAULT_COLUMN_SIZE = 170;
+const DEFAULT_COLUMN_MIN_SIZE = 120;
+const DEFAULT_COLUMN_MAX_SIZE = 550;
+
+type IncomingPdfButtonProps = {
+  buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
+};
+
+type IncomingReportTableProps = {
+  enforcedStatus?: string;
+};
 
 function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   if (
@@ -164,24 +160,6 @@ function toApiDate(value: string): string | undefined {
   return `${year}-${normalizedMonth}-${normalizedDay}`;
 }
 
-function getDecimalPlaces(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  const asString = value.toString().toLowerCase();
-  if (!asString.includes('e')) {
-    return asString.includes('.') ? (asString.split('.')[1]?.length ?? 0) : 0;
-  }
-
-  const [base, exponentPart] = asString.split('e');
-  const exponent = Number(exponentPart);
-  const baseDecimals = base.includes('.')
-    ? (base.split('.')[1]?.length ?? 0)
-    : 0;
-
-  if (!Number.isFinite(exponent)) return baseDecimals;
-  if (exponent >= 0) return Math.max(0, baseDecimals - exponent);
-  return baseDecimals + Math.abs(exponent);
-}
-
 function subtractWithPrecision(
   grossWeightKg: number,
   tareWeightKg: number
@@ -197,283 +175,6 @@ function subtractWithPrecision(
 
   return { value, precision };
 }
-
-function formatIndianNumber(value: number, precision = 0): string {
-  return value.toLocaleString('en-IN', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
-}
-
-const columnHelper = createColumnHelper<IncomingReportRow>();
-const isFirefoxBrowser =
-  typeof window !== 'undefined' &&
-  window.navigator.userAgent.includes('Firefox');
-const DEFAULT_COLUMN_SIZE = 170;
-const DEFAULT_COLUMN_MIN_SIZE = 120;
-const DEFAULT_COLUMN_MAX_SIZE = 550;
-
-const defaultColumnOrder: string[] = [
-  'farmerName',
-  'farmerAddress',
-  'farmerMobileNumber',
-  'createdByName',
-  'location',
-  'gatePassNo',
-  'manualGatePassNumber',
-  'date',
-  'variety',
-  'truckNumber',
-  'bagsReceived',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-  'status',
-  'remarks',
-];
-
-/** Matches initial `columnVisibility` state — used by View Filters "Reset all". */
-const defaultIncomingReportColumnVisibility: VisibilityState = {
-  farmerMobileNumber: false,
-  createdByName: false,
-  location: false,
-  gatePassNo: false,
-  grossWeightKg: false,
-  tareWeightKg: false,
-};
-const numericColumnIds = new Set([
-  'bagsReceived',
-  'grossWeightKg',
-  'tareWeightKg',
-  'netWeightKg',
-]);
-const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
-
-const multiValueFilterFn = (
-  row: { getValue: (columnId: string) => unknown },
-  columnId: string,
-  filterValue: string[] | string
-) => {
-  const cellValue = String(row.getValue(columnId));
-  if (typeof filterValue === 'string') {
-    const normalized = filterValue.trim().toLowerCase();
-    if (!normalized) return true;
-    return cellValue.toLowerCase().includes(normalized);
-  }
-  if (!Array.isArray(filterValue)) return true;
-  if (filterValue.length === 0) return true;
-  return filterValue.includes(cellValue);
-};
-
-type GlobalFilterValue = string | FilterGroupNode;
-const globalManualGatePassFilterFn: FilterFn<IncomingReportRow> = (
-  row,
-  _columnId,
-  filterValue: GlobalFilterValue
-) => {
-  if (isAdvancedFilterGroup(filterValue)) {
-    return evaluateFilterGroup(row.original, filterValue);
-  }
-  const normalized = String(filterValue).trim().toLowerCase();
-  if (!normalized) return true;
-  return String(row.original.manualGatePassNumber ?? '-')
-    .toLowerCase()
-    .includes(normalized);
-};
-
-const columns = [
-  columnHelper.accessor('gatePassNo', {
-    header: 'Gate Pass No',
-    sortingFn: 'alphanumeric',
-    filterFn: multiValueFilterFn,
-    cell: (info) => (
-      <span className="font-custom font-medium">{info.getValue()}</span>
-    ),
-  }),
-  columnHelper.accessor('manualGatePassNumber', {
-    header: 'Manual Gate Pass No',
-    sortingFn: 'alphanumeric',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('date', {
-    header: 'Date',
-    sortingFn: 'alphanumeric',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('farmerName', {
-    header: 'Farmer',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-    size: 550,
-    maxSize: 550,
-    minSize: 500,
-  }),
-  columnHelper.accessor('farmerAddress', {
-    header: 'Address',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-    minSize: 200,
-    maxSize: 300,
-  }),
-  columnHelper.accessor('farmerMobileNumber', {
-    header: 'Mobile Number',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('createdByName', {
-    header: 'Created By',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('variety', {
-    header: 'Variety',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('location', {
-    header: 'Location',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('truckNumber', {
-    header: 'Truck No.',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('bagsReceived', {
-    header: () => <div className="w-full text-right">Bags</div>,
-    sortingFn: 'basic',
-    filterFn: multiValueFilterFn,
-    minSize: 90,
-    maxSize: 180,
-    cell: (info) => (
-      <div className="w-full text-right tabular-nums">
-        {formatIndianNumber(Number(info.getValue()), 0)}
-      </div>
-    ),
-  }),
-  columnHelper.accessor('grossWeightKg', {
-    header: () => <div className="w-full text-right">Gross (kg)</div>,
-    sortingFn: 'basic',
-    filterFn: multiValueFilterFn,
-    minSize: 120,
-    maxSize: 220,
-    cell: (info) => {
-      const value = info.row.original.grossWeightKg;
-      const precision = getDecimalPlaces(value);
-      return (
-        <div className="w-full text-right tabular-nums">
-          {formatIndianNumber(value, precision)}
-        </div>
-      );
-    },
-  }),
-  columnHelper.accessor('tareWeightKg', {
-    header: () => <div className="w-full text-right">Tare (kg)</div>,
-    sortingFn: 'basic',
-    filterFn: multiValueFilterFn,
-    minSize: 120,
-    maxSize: 220,
-    cell: (info) => {
-      const value = info.row.original.tareWeightKg;
-      const precision = getDecimalPlaces(value);
-      return (
-        <div className="w-full text-right tabular-nums">
-          {formatIndianNumber(value, precision)}
-        </div>
-      );
-    },
-  }),
-  columnHelper.accessor('netWeightKg', {
-    header: () => <div className="w-full text-right">Net (kg)</div>,
-    sortingFn: 'basic',
-    filterFn: multiValueFilterFn,
-    aggregationFn: (_columnId, leafRows) => {
-      const maxPrecision = leafRows.reduce((max, row) => {
-        const precision = Number(row.original.netWeightPrecision ?? 0);
-        return Math.max(max, precision);
-      }, 0);
-      const factor = 10 ** maxPrecision;
-      const scaledSum = leafRows.reduce((sum, row) => {
-        const value = Number(row.original.netWeightKg ?? 0);
-        return sum + Math.round(value * factor);
-      }, 0);
-      return scaledSum / factor;
-    },
-    aggregatedCell: (info) => {
-      const groupedRows = info.row.getLeafRows();
-      const maxPrecision = groupedRows.reduce((max, row) => {
-        const precision = Number(row.original.netWeightPrecision ?? 0);
-        return Math.max(max, precision);
-      }, 0);
-      const factor = 10 ** maxPrecision;
-      const scaledSum = groupedRows.reduce((sum, row) => {
-        const value = Number(row.original.netWeightKg ?? 0);
-        return sum + Math.round(value * factor);
-      }, 0);
-      const safeTotal = scaledSum / factor;
-      return (
-        <div className="w-full text-right font-medium tabular-nums">
-          {formatIndianNumber(safeTotal, maxPrecision)}
-        </div>
-      );
-    },
-    minSize: 110,
-    maxSize: 200,
-    cell: (info) => {
-      const { netWeightKg, netWeightPrecision } = info.row.original;
-      return (
-        <div className="w-full text-right font-medium tabular-nums">
-          {formatIndianNumber(netWeightKg, netWeightPrecision)}
-        </div>
-      );
-    },
-  }),
-  columnHelper.accessor('status', {
-    header: 'Status',
-    sortingFn: 'text',
-    filterFn: (row, columnId, filterValue: string[]) => {
-      const statusValue = row.getValue(columnId) as string;
-      if (!Array.isArray(filterValue)) return true;
-      if (filterValue.length === 0) return true;
-      return filterValue.includes(statusValue);
-    },
-    cell: (info) => {
-      const value = info.getValue();
-      const isGraded = value === 'GRADED';
-      return (
-        <Badge
-          variant={isGraded ? 'default' : 'secondary'}
-          className={`font-custom rounded-md border px-2 py-0.5 text-[11px] tracking-wide uppercase ${
-            isGraded
-              ? 'border-primary/40 bg-primary/15 text-primary'
-              : 'border-muted-foreground/20 bg-muted text-muted-foreground'
-          }`}
-        >
-          {String(value).replace('_', ' ')}
-        </Badge>
-      );
-    },
-  }),
-  columnHelper.accessor('remarks', {
-    header: 'Remarks',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-    size: 550,
-    maxSize: 550,
-  }),
-];
-
-const TABLE_SKELETON_COLUMNS = 8;
-const TABLE_SKELETON_ROWS = 10;
-
-type IncomingPdfButtonProps = {
-  buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
-};
-
-type IncomingReportTableProps = {
-  enforcedStatus?: string;
-};
 
 function normalizeStatusValue(value: string): string {
   return value.trim().replace(/_/g, ' ').toUpperCase();
@@ -507,56 +208,14 @@ const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
       return;
     }
     previewTab.opener = null;
-    previewTab.document.write(`<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Generating PDF...</title>
-    <style>
-      :root { color-scheme: light; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: #f8fafc;
-        color: #0f172a;
-      }
-      .wrap {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-      }
-      .spinner {
-        width: 24px;
-        height: 24px;
-        border-radius: 9999px;
-        border: 3px solid #d1d5db;
-        border-top-color: #16a34a;
-        animation: spin 0.8s linear infinite;
-      }
-      .label {
-        font-size: 14px;
-        font-weight: 500;
-      }
-      @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="spinner"></div>
-      <div class="label">Generating PDF...</div>
-    </div>
-  </body>
-</html>`);
+    previewTab.document.write(
+      `<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>`
+    );
     previewTab.document.close();
 
     setIsGeneratingPdf(true);
 
     try {
-      // Let the new tab paint the loading UI before heavy PDF generation starts.
       await new Promise((resolve) => setTimeout(resolve, 50));
       const generatedAt = new Date().toLocaleString('en-IN');
       const payload = buildPayload(generatedAt);
@@ -598,37 +257,6 @@ const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';
-      if (!previewTab.closed) {
-        previewTab.document.open();
-        previewTab.document.write(`<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>PDF generation failed</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: #fff7ed;
-        color: #7c2d12;
-      }
-      .wrap { max-width: 680px; padding: 20px; text-align: center; }
-      .title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-      .msg { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="title">Failed to generate PDF</div>
-      <div class="msg">${message}</div>
-    </div>
-  </body>
-</html>`);
-        previewTab.document.close();
-      }
       window.alert(`Failed to generate PDF: ${message}`);
     } finally {
       if (workerRef.current) {
@@ -639,14 +267,12 @@ const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
     }
   };
 
-  const handleClick = () => void handleGenerate();
-
   return (
     <Button
       variant="default"
       className="h-8 rounded-lg px-4 text-sm leading-none"
       disabled={isGeneratingPdf}
-      onClick={handleClick}
+      onClick={() => void handleGenerate()}
     >
       {isGeneratingPdf ? (
         <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -662,11 +288,13 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
+
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const [appliedFromDate, setAppliedFromDate] = React.useState('');
   const [appliedToDate, setAppliedToDate] = React.useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
+
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(defaultIncomingReportColumnVisibility);
@@ -681,7 +309,6 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
-  const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
   const hasDateFilters = Boolean(fromDate && toDate);
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
@@ -737,7 +364,6 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
 
   const filteredIncomingReportData = React.useMemo(() => {
     if (!enforcedStatus) return incomingReportData;
-
     const normalizedEnforcedStatus = normalizeStatusValue(enforcedStatus);
     return incomingReportData.filter(
       (row) =>
@@ -745,9 +371,10 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
     );
   }, [enforcedStatus, incomingReportData]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<IncomingReportRow>({
     data: filteredIncomingReportData,
-    columns,
+    columns: incomingReportColumns,
     defaultColumn: {
       size: DEFAULT_COLUMN_SIZE,
       minSize: DEFAULT_COLUMN_MIN_SIZE,
@@ -788,6 +415,7 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
     () => visibleColumns.map((column) => column.id),
     [visibleColumns]
   );
+
   const totalsByColumn = React.useMemo(() => {
     const totals = {
       bagsReceived: 0,
@@ -821,54 +449,21 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
 
     return totals;
   }, [filteredRows]);
+
   const hasVisibleNumericTotals = React.useMemo(
     () => visibleColumnIds.some((columnId) => numericColumnIds.has(columnId)),
     [visibleColumnIds]
   );
 
-  const formatTotal = (value: number, precision = 0): string =>
-    formatIndianNumber(value, precision);
-
-  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
-    count: rows.length,
-    estimateSize: () => 42,
-    getScrollElement: () => tableContainerRef.current,
-    measureElement: isFirefoxBrowser
-      ? undefined
-      : (element) => element?.getBoundingClientRect().height,
-    overscan: 8,
-  });
-  const virtualRows = rowVirtualizer.getVirtualItems();
-
-  const handleApply = () => {
-    if (hasDateFilters) {
-      const nextFromDate = toApiDate(fromDate);
-      const nextToDate = toApiDate(toDate);
-
-      if (!nextFromDate || !nextToDate) return;
-
-      setAppliedFromDate(nextFromDate);
-      setAppliedToDate(nextToDate);
-    }
-  };
-
-  const handleResetFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setAppliedFromDate('');
-    setAppliedToDate('');
-  };
-
   const buildPdfWorkerPayload = React.useCallback(
-    (generatedAt: string) => {
-      return {
+    (generatedAt: string) =>
+      ({
         rows: getLeafRowsForPdf(sortedRows),
         visibleColumnIds,
         grouping,
         coldStorageName,
         generatedAt,
-      } satisfies IncomingPdfWorkerRequest;
-    },
+      }) satisfies IncomingPdfWorkerRequest,
     [coldStorageName, grouping, sortedRows, visibleColumnIds]
   );
 
@@ -882,7 +477,6 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
-              {/* Date range */}
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="analytics-from-date"
@@ -903,31 +497,39 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
                 />
               </div>
 
-              {/* Divider */}
               <div className="bg-border/40 hidden h-7 w-px lg:block" />
 
-              {/* Apply / Reset */}
               <div className="flex items-center gap-2 self-end">
                 <Button
                   className="h-8 rounded-lg px-4 text-sm shadow-none"
                   disabled={!canApply}
-                  onClick={handleApply}
+                  onClick={() => {
+                    if (!hasDateFilters) return;
+                    const nextFromDate = toApiDate(fromDate);
+                    const nextToDate = toApiDate(toDate);
+                    if (!nextFromDate || !nextToDate) return;
+                    setAppliedFromDate(nextFromDate);
+                    setAppliedToDate(nextToDate);
+                  }}
                 >
                   Apply
                 </Button>
                 <Button
                   variant="outline"
                   className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                  onClick={handleResetFilters}
+                  onClick={() => {
+                    setFromDate('');
+                    setToDate('');
+                    setAppliedFromDate('');
+                    setAppliedToDate('');
+                  }}
                 >
                   Reset
                 </Button>
               </div>
 
-              {/* Divider */}
               <div className="bg-border/40 hidden h-7 w-px lg:block" />
 
-              {/* Search + Right actions */}
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2 self-end">
                 <div className="relative w-[140px] sm:w-[170px]">
                   <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
@@ -966,305 +568,27 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
             </div>
           </Item>
 
-          <div className="w-full">
-            {isError && (
-              <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error instanceof Error
-                  ? error.message
-                  : 'Failed to load incoming report'}
-              </p>
-            )}
-            <div
-              ref={tableContainerRef}
-              className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1"
-              style={{
-                direction: table.options.columnResizeDirection,
-                height: '560px',
-                position: 'relative',
-              }}
-            >
-              {isLoading ? (
-                <div className="space-y-4 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <Skeleton className="h-8 w-44 rounded-lg" />
-                    <Skeleton className="h-8 w-24 rounded-lg" />
-                  </div>
-                  <div className="grid grid-cols-8 gap-2">
-                    {Array.from({ length: TABLE_SKELETON_COLUMNS }).map(
-                      (_, index) => (
-                        <Skeleton
-                          key={`incoming-report-header-skeleton-${index}`}
-                          className="h-8 w-full rounded-md"
-                        />
-                      )
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {Array.from({ length: TABLE_SKELETON_ROWS }).map(
-                      (_, rowIndex) => (
-                        <div
-                          key={`incoming-report-row-skeleton-${rowIndex}`}
-                          className="grid grid-cols-8 gap-2"
-                        >
-                          {Array.from({ length: TABLE_SKELETON_COLUMNS }).map(
-                            (_, columnIndex) => (
-                              <Skeleton
-                                key={`incoming-report-cell-skeleton-${rowIndex}-${columnIndex}`}
-                                className="h-7 w-full rounded-md"
-                              />
-                            )
-                          )}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              ) : rows.length === 0 ? (
-                <div className="text-muted-foreground flex h-24 items-center justify-center">
-                  No records found.
-                </div>
-              ) : (
-                <table
-                  style={{ display: 'grid', width: table.getTotalSize() }}
-                  className="font-custom text-sm"
-                >
-                  <TableHeader
-                    className="bg-secondary border-border/60 text-secondary-foreground border-b backdrop-blur-sm"
-                    style={{
-                      display: 'grid',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 10,
-                    }}
-                  >
-                    {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow
-                        key={headerGroup.id}
-                        style={{ display: 'flex', width: '100%' }}
-                        className="hover:bg-transparent"
-                      >
-                        {headerGroup.headers.map((header) => {
-                          if (header.isPlaceholder) return null;
-                          const isRightAligned = numericColumnIds.has(
-                            header.id
-                          );
-                          return (
-                            <TableHead
-                              key={header.id}
-                              style={{
-                                display: 'flex',
-                                width: header.getSize(),
-                                position: 'relative',
-                              }}
-                              className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
-                            >
-                              <div
-                                className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors ${
-                                  isRightAligned
-                                    ? 'justify-end'
-                                    : 'justify-between'
-                                }`}
-                                onClick={header.column.getToggleSortingHandler()}
-                              >
-                                <span className="truncate">
-                                  {flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                  )}
-                                </span>
-                                <span className={isRightAligned ? 'ml-2' : ''}>
-                                  {{
-                                    asc: (
-                                      <ArrowUp className="ml-1 h-3.5 w-3.5" />
-                                    ),
-                                    desc: (
-                                      <ArrowDown className="ml-1 h-3.5 w-3.5" />
-                                    ),
-                                  }[header.column.getIsSorted() as string] ?? (
-                                    <ArrowUpDown className="text-muted-foreground ml-1 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-                                  )}
-                                </span>
-                              </div>
-                              <div
-                                onDoubleClick={() => header.column.resetSize()}
-                                onMouseDown={header.getResizeHandler()}
-                                onTouchStart={header.getResizeHandler()}
-                                onClick={(event) => event.stopPropagation()}
-                                className="hover:bg-primary/25 absolute top-0 right-0 h-full w-1 cursor-col-resize bg-transparent transition-colors"
-                                style={{
-                                  transform:
-                                    table.options.columnResizeMode ===
-                                      'onEnd' && header.column.getIsResizing()
-                                      ? `translateX(${
-                                          (table.options
-                                            .columnResizeDirection === 'rtl'
-                                            ? -1
-                                            : 1) *
-                                          (table.getState().columnSizingInfo
-                                            .deltaOffset ?? 0)
-                                        }px)`
-                                      : '',
-                                }}
-                              />
-                            </TableHead>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody
-                    style={{
-                      display: 'grid',
-                      height: `${rowVirtualizer.getTotalSize()}px`,
-                      position: 'relative',
-                    }}
-                  >
-                    {virtualRows.map((virtualRow) => {
-                      const row = rows[
-                        virtualRow.index
-                      ] as Row<IncomingReportRow>;
-                      return (
-                        <TableRow
-                          key={row.id}
-                          data-index={virtualRow.index}
-                          ref={(node) => rowVirtualizer.measureElement(node)}
-                          className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
-                            virtualRow.index % 2 === 0
-                              ? 'bg-background'
-                              : 'bg-muted/25'
-                          }`}
-                          style={{
-                            display: 'flex',
-                            position: 'absolute',
-                            transform: `translateY(${virtualRow.start}px)`,
-                            width: '100%',
-                          }}
-                        >
-                          {row.getVisibleCells().map((cell) => {
-                            const isGroupedCell = cell.getIsGrouped();
-                            const isAggregatedCell = cell.getIsAggregated();
-                            const isPlaceholderCell = cell.getIsPlaceholder();
-                            const shouldSuppressAggregation =
-                              isAggregatedCell &&
-                              (cell.column.id === 'gatePassNo' ||
-                                cell.column.id === 'manualGatePassNumber');
-                            return (
-                              <TableCell
-                                key={cell.id}
-                                style={{
-                                  display: 'flex',
-                                  width: cell.column.getSize(),
-                                }}
-                                className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
-                              >
-                                {isGroupedCell ? (
-                                  <button
-                                    type="button"
-                                    onClick={row.getToggleExpandedHandler()}
-                                    className={`inline-flex items-center gap-1 text-left transition-colors ${
-                                      row.getCanExpand()
-                                        ? 'hover:text-primary cursor-pointer'
-                                        : 'cursor-default'
-                                    }`}
-                                  >
-                                    <span className="text-xs">
-                                      {row.getIsExpanded() ? '▼' : '▶'}
-                                    </span>
-                                    {flexRender(
-                                      cell.column.columnDef.cell,
-                                      cell.getContext()
-                                    )}
-                                    <span className="text-muted-foreground text-xs">
-                                      ({row.subRows.length})
-                                    </span>
-                                  </button>
-                                ) : isAggregatedCell ? (
-                                  shouldSuppressAggregation ? (
-                                    <span className="text-muted-foreground/50">
-                                      -
-                                    </span>
-                                  ) : (
-                                    flexRender(
-                                      cell.column.columnDef.aggregatedCell ??
-                                        cell.column.columnDef.cell,
-                                      cell.getContext()
-                                    )
-                                  )
-                                ) : isPlaceholderCell ? null : (
-                                  flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext()
-                                  )
-                                )}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                  {rows.length > 0 && hasVisibleNumericTotals ? (
-                    <TableFooter
-                      className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
-                      style={{
-                        display: 'grid',
-                        position: 'sticky',
-                        bottom: 0,
-                        // Reserve space for the native scrollbar so it doesn't overlap totals values.
-                        paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
-                        zIndex: 9,
-                      }}
-                    >
-                      <TableRow
-                        style={{ display: 'flex', width: '100%' }}
-                        className="hover:bg-transparent"
-                      >
-                        {visibleColumnIds.map((columnId, columnIndex) => {
-                          const cellValue =
-                            columnId === 'bagsReceived'
-                              ? formatTotal(totalsByColumn.bagsReceived, 0)
-                              : columnId === 'grossWeightKg'
-                                ? formatTotal(
-                                    totalsByColumn.grossWeightKg,
-                                    totalsByColumn.grossPrecision
-                                  )
-                                : columnId === 'tareWeightKg'
-                                  ? formatTotal(
-                                      totalsByColumn.tareWeightKg,
-                                      totalsByColumn.tarePrecision
-                                    )
-                                  : columnId === 'netWeightKg'
-                                    ? formatTotal(
-                                        totalsByColumn.netWeightKg,
-                                        totalsByColumn.netPrecision
-                                      )
-                                    : '';
-                          const isRightAligned = numericColumnIds.has(columnId);
+          {isError && (
+            <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error instanceof Error
+                ? error.message
+                : 'Failed to load incoming report'}
+            </p>
+          )}
 
-                          return (
-                            <TableCell
-                              key={`totals-${columnId}`}
-                              style={{
-                                display: 'flex',
-                                width: table.getColumn(columnId)?.getSize(),
-                              }}
-                              className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
-                                isRightAligned ? 'justify-end tabular-nums' : ''
-                              }`}
-                            >
-                              {columnIndex === 0 ? 'Total' : cellValue}
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    </TableFooter>
-                  ) : null}
-                </table>
-              )}
-            </div>
-          </div>
+          <IncomingReportDataTable
+            table={table}
+            rows={rows}
+            visibleColumnIds={visibleColumnIds}
+            numericColumnIds={numericColumnIds}
+            hasVisibleNumericTotals={hasVisibleNumericTotals}
+            totalsByColumn={totalsByColumn}
+            formatTotal={formatIndianNumber}
+            isLoading={isLoading}
+          />
         </div>
       </main>
+
       <ViewFiltersSheet
         open={isViewFiltersOpen}
         onOpenChange={setIsViewFiltersOpen}

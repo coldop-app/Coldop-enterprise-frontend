@@ -15,13 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -341,6 +334,9 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   const resetToServer = usePreferencesStore((s) => s.resetToServer);
   const { mutateAsync, isPending } = useUpdatePreferences();
   const [dirty, setDirty] = useState(false);
+  const [standardBagsDialogOpen, setStandardBagsDialogOpen] = useState(false);
+  const [standardBagSizeKey, setStandardBagSizeKey] = useState('');
+  const [standardBagCount, setStandardBagCount] = useState('');
 
   if (!data) return null;
 
@@ -353,14 +349,16 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addBagSize = (size: string) => {
-    updatePreferences((p) => ({ ...p, bagSizes: [...p.bagSizes, size] }));
+    updatePreferences((p) => ({
+      ...p,
+      bagSizes: [...p.bagSizes, size],
+    }));
     setDirty(true);
   };
 
   // Varieties
   const removeVariety = (val: string) => {
     updatePreferences((p) => {
-      const { [val]: _removed, ...restBags } = p.custom.standardBagsPerAcre;
       return {
         ...p,
         custom: {
@@ -368,7 +366,6 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
           potatoVarieties: p.custom.potatoVarieties.filter(
             (v) => v.value !== val
           ),
-          standardBagsPerAcre: restBags,
           buyBackCost: p.custom.buyBackCost.filter((e) => e.variety !== val),
         },
       };
@@ -381,10 +378,6 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
       custom: {
         ...p.custom,
         potatoVarieties: [...p.custom.potatoVarieties, item],
-        standardBagsPerAcre: {
-          ...p.custom.standardBagsPerAcre,
-          [item.value]: p.custom.standardBagsPerAcre[item.value] ?? 0,
-        },
         buyBackCost: p.custom.buyBackCost.some((e) => e.variety === item.value)
           ? p.custom.buyBackCost
           : [...p.custom.buyBackCost, { variety: item.value, sizeRates: {} }],
@@ -472,18 +465,52 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   };
 
   // Standard bags per acre
-  const updateBagsPerAcre = (variety: string, val: number) => {
+  const updateBagsPerAcre = (size: string, val: number) => {
     updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
         standardBagsPerAcre: {
           ...p.custom.standardBagsPerAcre,
-          [variety]: val,
+          [size]: val,
         },
       },
     }));
     setDirty(true);
+  };
+  const removeBagsPerAcreSize = (size: string) => {
+    updatePreferences((p) => {
+      const { [size]: _removed, ...rest } = p.custom.standardBagsPerAcre;
+      return {
+        ...p,
+        custom: {
+          ...p.custom,
+          standardBagsPerAcre: rest,
+        },
+      };
+    });
+    setDirty(true);
+  };
+  const addBagsPerAcreSize = () => {
+    const sizeKey = standardBagSizeKey.trim();
+    if (!sizeKey) return;
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        standardBagsPerAcre: {
+          ...p.custom.standardBagsPerAcre,
+          [sizeKey]:
+            standardBagCount.trim() === ''
+              ? 0
+              : parseInt(standardBagCount, 10) || 0,
+        },
+      },
+    }));
+    setDirty(true);
+    setStandardBagSizeKey('');
+    setStandardBagCount('');
+    setStandardBagsDialogOpen(false);
   };
 
   const handleSave = async () => {
@@ -601,9 +628,128 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 <p className="text-muted-foreground mt-3 font-mono text-xs">
                   {data.bagSizes.length} sizes configured
                 </p>
+
+                <Separator className="my-6" />
+
+                <div>
+                  <SectionHeader
+                    icon={Scale}
+                    title="Standard Bags per Acre"
+                    description="Benchmark yield used for reporting"
+                  />
+                  <div className="mb-3">
+                    <Dialog
+                      open={standardBagsDialogOpen}
+                      onOpenChange={setStandardBagsDialogOpen}
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
+                        >
+                          <Plus size={12} className="mr-1" /> Add size
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="font-custom sm:max-w-xs">
+                        <DialogHeader>
+                          <DialogTitle className="text-sm">
+                            Add Standard Bags Entry
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="mt-2 space-y-3">
+                          <div>
+                            <Label className="text-muted-foreground mb-1.5 block text-xs">
+                              Size Range
+                            </Label>
+                            <Input
+                              value={standardBagSizeKey}
+                              onChange={(e) =>
+                                setStandardBagSizeKey(e.target.value)
+                              }
+                              placeholder="e.g. 55-65"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground mb-1.5 block text-xs">
+                              Bags Per Acre
+                            </Label>
+                            <Input
+                              type="number"
+                              value={standardBagCount}
+                              onChange={(e) =>
+                                setStandardBagCount(e.target.value)
+                              }
+                              placeholder="e.g. 42"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter className="mt-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setStandardBagsDialogOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={addBagsPerAcreSize}
+                            disabled={!standardBagSizeKey.trim()}
+                          >
+                            Add
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="flex flex-wrap gap-6">
+                    {Object.entries(data.custom.standardBagsPerAcre).map(
+                      ([size, count]) => {
+                        return (
+                          <div key={size}>
+                            <div className="mb-2 flex items-center gap-2">
+                              <Label className="text-muted-foreground block font-mono text-xs">
+                                {size}
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => removeBagsPerAcreSize(size)}
+                                className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 rounded-full p-0 transition-colors duration-200"
+                                aria-label={`Remove standard bags size ${size}`}
+                              >
+                                <X size={12} />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                defaultValue={count ?? 0}
+                                onChange={(e) =>
+                                  updateBagsPerAcre(
+                                    size,
+                                    parseInt(e.target.value, 10)
+                                  )
+                                }
+                                className="bg-background h-9 w-24 font-mono text-sm"
+                              />
+                              <span className="text-muted-foreground text-xs">
+                                bags/acre
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
+            {/* Temporarily hidden: report format configuration */}
+            {/*
             <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
               <CardHeader className="pb-2">
                 <SectionHeader
@@ -631,6 +777,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 </Select>
               </CardContent>
             </Card>
+            */}
           </TabsContent>
 
           {/* ── Varieties & Rates Tab ── */}
@@ -666,54 +813,6 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 </CardContent>
               </Card>
             </div>
-
-            {/* Standard Bags Per Acre */}
-            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
-              <CardHeader className="pb-2">
-                <SectionHeader
-                  icon={Scale}
-                  title="Standard Bags per Acre"
-                  description="Benchmark yield used for reporting"
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-6">
-                  {data.custom.potatoVarieties.map((v) => {
-                    const count = data.custom.standardBagsPerAcre[v.value] ?? 0;
-                    const display = v.label;
-                    return (
-                      <div key={v.value}>
-                        <Label
-                          className={cn(
-                            'mb-2 block w-fit rounded border px-2 py-0.5 text-xs font-semibold',
-                            VARIETY_COLORS[display] ??
-                              'border-border bg-muted text-foreground'
-                          )}
-                        >
-                          {display}
-                        </Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            defaultValue={count}
-                            onChange={(e) =>
-                              updateBagsPerAcre(
-                                v.value,
-                                parseInt(e.target.value, 10)
-                              )
-                            }
-                            className="bg-background h-9 w-24 font-mono text-sm"
-                          />
-                          <span className="text-muted-foreground text-xs">
-                            bags/acre
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Buy-Back Cost Tables */}
             <div>
