@@ -112,12 +112,25 @@ export function GradingReportDataTable({
         </div>
       ) : (
         <table
-          className="font-custom w-max min-w-full text-sm"
-          style={{ width: table.getTotalSize() }}
+          className="font-custom text-sm"
+          style={
+            isGroupedView
+              ? { display: 'grid', width: table.getTotalSize() }
+              : { width: table.getTotalSize() }
+          }
         >
-          <TableHeader className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm">
+          <TableHeader
+            className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm"
+            style={isGroupedView ? { display: 'grid' } : undefined}
+          >
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              <TableRow
+                key={headerGroup.id}
+                className="hover:bg-transparent"
+                style={
+                  isGroupedView ? { display: 'flex', width: '100%' } : undefined
+                }
+              >
                 {headerGroup.headers.map((header) => {
                   if (header.isPlaceholder) return null;
 
@@ -131,8 +144,8 @@ export function GradingReportDataTable({
                       key={header.id}
                       colSpan={header.colSpan}
                       style={{
+                        display: isGroupedView ? 'flex' : undefined,
                         width: header.getSize(),
-                        minWidth: header.getSize(),
                         position: 'relative',
                       }}
                       className={cn(
@@ -246,6 +259,7 @@ export function GradingReportDataTable({
                     style={
                       virtualRow
                         ? {
+                            display: 'flex',
                             position: 'absolute',
                             transform: `translateY(${virtualRow.start}px)`,
                             width: '100%',
@@ -265,8 +279,8 @@ export function GradingReportDataTable({
                         <TableCell
                           key={cell.id}
                           style={{
+                            display: 'flex',
                             width: cell.column.getSize(),
-                            minWidth: cell.column.getSize(),
                           }}
                           className={cn(
                             'font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap',

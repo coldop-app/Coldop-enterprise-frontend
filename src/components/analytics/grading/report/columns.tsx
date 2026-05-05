@@ -2,6 +2,7 @@
 import * as React from 'react';
 import {
   createColumnHelper,
+  type AggregationFn,
   type Column,
   type FilterFn,
   type SortingFn,
@@ -58,8 +59,8 @@ export type GradingReportTableRow = {
 const UNICODE_DASH_CHARS = /[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g;
 
 export const DEFAULT_COLUMN_SIZE = 170;
-export const DEFAULT_COLUMN_MIN_SIZE = 120;
-export const DEFAULT_COLUMN_MAX_SIZE = 550;
+export const DEFAULT_COLUMN_MIN_SIZE = 110;
+export const DEFAULT_COLUMN_MAX_SIZE = 560;
 
 /** Primary vertical rule between nested incoming refs and grading gate pass fields. */
 export const GRADING_SECTION_START_BORDER_CLASSES =
@@ -87,6 +88,14 @@ export const gradingNumericColumnIds = new Set<string>([
   'incomingNetKg',
   'incomingBardanaWeightKg',
   'incomingNetWeightWithoutBardana',
+  ...GRADING_BAG_SIZE_COLUMN_ORDER.map(getGradingBagSizeColumnId),
+  'gradingBardanaWeightKg',
+  'netWeightAfterGradingWithoutBardana',
+  'wastagePercent',
+]);
+
+export const gradingMergedNumericColumnIds = new Set<string>([
+  'gradedBags',
   ...GRADING_BAG_SIZE_COLUMN_ORDER.map(getGradingBagSizeColumnId),
   'gradingBardanaWeightKg',
   'netWeightAfterGradingWithoutBardana',
@@ -668,6 +677,25 @@ export function shouldSuppressGradingAggregatedCell(columnId: string) {
   return true;
 }
 
+const dedupGradingNumericAggregationFn: AggregationFn<GradingReportTableRow> = (
+  columnId,
+  leafRows
+) => {
+  const seenGatePassIds = new Set<string>();
+  let total = 0;
+
+  for (const row of leafRows) {
+    const gatePassId = row.original.gradingGatePass._id;
+    if (!gatePassId || seenGatePassIds.has(gatePassId)) continue;
+    seenGatePassIds.add(gatePassId);
+    const value = getGradingNumericValue(row.original, columnId);
+    if (value == null || !Number.isFinite(value)) continue;
+    total += value;
+  }
+
+  return total;
+};
+
 const columnHelper = createColumnHelper<GradingReportTableRow>();
 
 const bagSizeColumns = GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => {
@@ -684,6 +712,7 @@ const bagSizeColumns = GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => {
       ),
       minSize: 90,
       maxSize: 180,
+      aggregationFn: dedupGradingNumericAggregationFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <GradedBagSizeCell
@@ -930,6 +959,7 @@ export const gradingReportColumns = [
         <div className="font-custom w-full text-right">Graded bags</div>
       ),
       sortingFn: numericColumnSortingFn,
+      aggregationFn: dedupGradingNumericAggregationFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <div className="w-full text-right font-medium tabular-nums">
@@ -952,6 +982,7 @@ export const gradingReportColumns = [
           Grading bardana weight
         </div>
       ),
+      aggregationFn: dedupGradingNumericAggregationFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -972,6 +1003,7 @@ export const gradingReportColumns = [
         </div>
       ),
       sortingFn: numericColumnSortingFn,
+      aggregationFn: dedupGradingNumericAggregationFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -990,6 +1022,7 @@ export const gradingReportColumns = [
       header: () => (
         <div className="font-custom w-full text-right">Wastage (%)</div>
       ),
+      aggregationFn: dedupGradingNumericAggregationFn,
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">

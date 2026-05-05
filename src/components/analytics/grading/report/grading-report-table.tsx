@@ -37,6 +37,7 @@ import {
   formatIndianNumber,
   getGradingNumericValue,
   globalGradingFilterFn,
+  gradingMergedNumericColumnIds,
   gradingNumericColumnIds,
   gradingReportColumns,
   type GradingReportTableRow,
@@ -239,8 +240,19 @@ const GradingReportTable = () => {
   );
   const totalsByColumn = React.useMemo(() => {
     const totals = new Map<string, number>();
+    const seenGatePassIdsByColumn = new Map<string, Set<string>>();
     for (const row of filteredRows) {
       for (const columnId of gradingNumericColumnIds) {
+        if (gradingMergedNumericColumnIds.has(columnId)) {
+          const gatePassId = row.original.gradingGatePass._id;
+          if (gatePassId) {
+            const seenGatePassIds =
+              seenGatePassIdsByColumn.get(columnId) ?? new Set<string>();
+            if (seenGatePassIds.has(gatePassId)) continue;
+            seenGatePassIds.add(gatePassId);
+            seenGatePassIdsByColumn.set(columnId, seenGatePassIds);
+          }
+        }
         const value = getGradingNumericValue(row.original, columnId);
         if (value == null) continue;
         totals.set(columnId, (totals.get(columnId) ?? 0) + value);
