@@ -5,6 +5,7 @@ import {
   type ColumnResizeMode,
   type ExpandedState,
   type GroupingState,
+  type PaginationState,
   type Row as TanStackRow,
   type SortingState,
   type VisibilityState,
@@ -15,6 +16,7 @@ import {
   getFacetedUniqueValues,
   getFilteredRowModel,
   getGroupedRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
@@ -34,13 +36,11 @@ import {
   normalizeReportData,
 } from './contract-farming-report-calculations';
 import {
+  buildDefaultContractFarmingColumnOrder,
   buildColumns,
-  buildContractFarmingGradingLeafColumnIds,
   BUY_BACK_COLUMN_IDS,
   CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION,
-  NET_AMOUNT_COLUMN_ID,
-  NET_AMOUNT_PER_ACRE_COLUMN_ID,
-  SEED_AMOUNT_COLUMN_ID,
+  defaultContractFarmingColumnVisibility,
   TRAILING_TWO_ROW_HEADER_ID_SET,
   VARIETY_LEVEL_COLUMN_PREFIX,
   VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
@@ -67,7 +67,7 @@ const CF_TABLE_DEFAULT_COLUMN = {
 } as const;
 
 const CF_TABLE_INITIAL_STATE = {
-  columnVisibility: { farmerMobile: false },
+  columnVisibility: defaultContractFarmingColumnVisibility,
 } as const;
 
 function cfGetRowId(row: FlattenedRow): string {
@@ -150,12 +150,13 @@ const ContractFarmingReportTable = () => {
     []
   );
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({ farmerMobile: false });
+    React.useState<VisibilityState>(defaultContractFarmingColumnVisibility);
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [grouping, setGrouping] = React.useState<GroupingState>([
-    'farmer',
-    'variety',
-  ]);
+  const [grouping, setGrouping] = React.useState<GroupingState>([]);
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 100,
+  });
   const [expanded, setExpanded] = React.useState<ExpandedState>(true);
   const [columnResizeMode, setColumnResizeMode] =
     React.useState<ColumnResizeMode>('onChange');
@@ -242,22 +243,7 @@ const ContractFarmingReportTable = () => {
     [gradeHeaders, buyBackCostPrefsKey]
   );
   const defaultColumnOrder = React.useMemo(
-    () => [
-      'farmer',
-      'farmerMobile',
-      'address',
-      'variety',
-      'generation',
-      'size',
-      'qty',
-      'acres',
-      'bbBags',
-      'bbNetWeight',
-      ...buildContractFarmingGradingLeafColumnIds(gradeHeaders),
-      SEED_AMOUNT_COLUMN_ID,
-      NET_AMOUNT_COLUMN_ID,
-      NET_AMOUNT_PER_ACRE_COLUMN_ID,
-    ],
+    () => buildDefaultContractFarmingColumnOrder(gradeHeaders),
     // CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION busts cache when grading tail order changes (same gradeHeaders / HMR).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional invalidate key, not a reactive prop
     [gradeHeaders, CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION]
@@ -283,6 +269,15 @@ const ContractFarmingReportTable = () => {
       });
     },
     [defaultColumnOrder]
+  );
+
+  const onGroupingChange = React.useCallback(
+    (updater: Updater<GroupingState>) => {
+      setGrouping(updater);
+      // Keep grouped tables fully expanded after any grouping change.
+      setExpanded(true);
+    },
+    []
   );
 
   React.useEffect(() => {
@@ -315,6 +310,7 @@ const ContractFarmingReportTable = () => {
       columnVisibility,
       columnOrder: effectiveColumnOrder,
       grouping,
+      pagination,
       expanded,
     },
     onSortingChange: setSorting,
@@ -322,7 +318,8 @@ const ContractFarmingReportTable = () => {
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange,
-    onGroupingChange: setGrouping,
+    onGroupingChange,
+    onPaginationChange: setPagination,
     onExpandedChange: setExpanded,
     enableColumnResizing: true,
     columnResizeMode,
@@ -337,6 +334,7 @@ const ContractFarmingReportTable = () => {
     getSortedRowModel: CF_GET_SORTED_ROW_MODEL,
     getGroupedRowModel: CF_GET_GROUPED_ROW_MODEL,
     getExpandedRowModel: CF_GET_EXPANDED_ROW_MODEL,
+    getPaginationRowModel: getPaginationRowModel(),
   });
 
   const { columnSizing } = table.getState();
@@ -437,6 +435,15 @@ const ContractFarmingReportTable = () => {
       ? formatContractFarmingFooterRow(footerLeafOriginals, visibleColumnIds)
       : null;
   const totalColumns = Math.max(visibleColumnIds.length, 1);
+  const totalFilteredEntries = table.getFilteredRowModel().rows.length;
+  const currentPageSize = table.getState().pagination.pageSize;
+  const currentPageIndex = table.getState().pagination.pageIndex;
+  const currentPageStartEntry =
+    totalFilteredEntries === 0 ? 0 : currentPageIndex * currentPageSize + 1;
+  const currentPageEndEntry = Math.min(
+    (currentPageIndex + 1) * currentPageSize,
+    totalFilteredEntries
+  );
 
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -529,6 +536,83 @@ const ContractFarmingReportTable = () => {
           columnResizeMode={columnResizeMode}
           columnResizeDirection={columnResizeDirection}
         />
+        <div className="border-border/50 bg-background/70 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="contract-farming-page-size"
+              className="font-custom text-muted-foreground text-sm"
+            >
+              Rows per page
+            </label>
+            <select
+              id="contract-farming-page-size"
+              value={currentPageSize}
+              onChange={(event) =>
+                table.setPageSize(Number(event.target.value))
+              }
+              className="font-custom border-input bg-background text-foreground h-8 rounded-md border px-2 text-sm"
+            >
+              {[50, 100, 200].map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-custom text-muted-foreground text-sm">
+              Showing{' '}
+              <span className="text-foreground font-semibold">
+                {currentPageStartEntry}-{currentPageEndEntry}
+              </span>{' '}
+              of{' '}
+              <span className="text-foreground font-semibold">
+                {totalFilteredEntries}
+              </span>{' '}
+              entries
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => table.firstPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              {'<<'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              {'<'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              {'>'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() => table.lastPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              {'>>'}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <ContractFarmingViewFiltersSheet
@@ -540,7 +624,7 @@ const ContractFarmingReportTable = () => {
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}
         onColumnResizeDirectionChange={setColumnResizeDirection}
-        onGroupingChange={setGrouping}
+        onGroupingChange={onGroupingChange}
       />
     </main>
   );

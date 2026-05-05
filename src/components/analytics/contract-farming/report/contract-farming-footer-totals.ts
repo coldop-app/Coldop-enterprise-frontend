@@ -3,7 +3,9 @@ import {
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
   getGradeBagCount,
+  getGradeWeightPercent,
   getNetAmountRupee,
+  getOutputPercentage,
   getTotalGradeBags,
   getTotalGradeNetWeightKg,
   getWastageKg,
@@ -41,6 +43,18 @@ function sumNullable(values: (number | null | undefined)[]): number {
     if (v != null && Number.isFinite(v)) s += v;
   }
   return s;
+}
+
+function averageNullable(values: (number | null | undefined)[]): number | null {
+  let s = 0;
+  let count = 0;
+  for (const v of values) {
+    if (v != null && Number.isFinite(v)) {
+      s += v;
+      count += 1;
+    }
+  }
+  return count > 0 ? s / count : null;
 }
 
 /**
@@ -152,7 +166,13 @@ export function buildContractFarmingRollupCellMap(
         cells[columnId] = sumWastage > 0 ? formatNumber(sumWastage) : '-';
         break;
       case OUTPUT_PERCENTAGE_COLUMN_ID:
-        cells[columnId] = '—';
+        {
+          const avgOutputPct = averageNullable(
+            deduped.map((r) => getOutputPercentage(r))
+          );
+          cells[columnId] =
+            avgOutputPct != null ? `${formatNumber(avgOutputPct, 2)}%` : '-';
+        }
         break;
       case BUY_BACK_AMOUNT_COLUMN_ID:
         cells[columnId] =
@@ -173,7 +193,15 @@ export function buildContractFarmingRollupCellMap(
           );
           cells[columnId] = bags > 0 ? formatNumber(bags, 0) : '-';
         } else if (columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) {
-          cells[columnId] = '—';
+          const grade = columnId.replace(
+            VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
+            ''
+          );
+          const avgPct = averageNullable(
+            deduped.map((r) => getGradeWeightPercent(r, grade))
+          );
+          cells[columnId] =
+            avgPct != null ? `${formatNumber(avgPct, 2)}%` : '-';
         } else {
           cells[columnId] = '';
         }

@@ -141,6 +141,56 @@ export function ContractFarmingReportDataTable({
     [table]
   );
 
+  const renderGradeHeaderContent = React.useCallback((columnId: string) => {
+    if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
+      return 'Total Bags After Grading';
+    }
+    if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
+      return 'Net Weight After Grading';
+    }
+    if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
+      return 'Average Quintal Per Acre';
+    }
+    if (columnId === WASTAGE_KG_COLUMN_ID) {
+      return 'Wastage (kg)';
+    }
+    if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
+      return (
+        <span className="block leading-tight">
+          Output Percentage
+          <br />
+          <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
+            (%)
+          </span>
+        </span>
+      );
+    }
+    if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
+      return 'Buy Back Amount';
+    }
+
+    const isPercentColumn = columnId.startsWith(
+      VARIETY_LEVEL_PERCENT_COLUMN_PREFIX
+    );
+    const grade = isPercentColumn
+      ? columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '')
+      : columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
+
+    if (isContractFarmingCutGrade(grade)) {
+      return <span className="block leading-tight">Cut</span>;
+    }
+
+    return (
+      <span className="block leading-tight">
+        {grade}
+        <br />
+        <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
+          {isPercentColumn ? '(%)' : '(MM)'}
+        </span>
+      </span>
+    );
+  }, []);
+
   const renderLeafResizeHandle = React.useCallback(
     (columnId: string) => {
       const column =
@@ -181,6 +231,27 @@ export function ContractFarmingReportDataTable({
       table,
       visibleColumnById,
     ]
+  );
+
+  const renderLeafHeaderCell = React.useCallback(
+    (columnId: string, label: React.ReactNode) => {
+      const column = visibleColumnById.get(columnId);
+      if (!column) return null;
+      return (
+        <th
+          key={columnId}
+          className={`${CF_HEADER_CELL_CLASS} relative`}
+          style={{
+            width: column.getSize(),
+            minWidth: column.getSize(),
+          }}
+        >
+          {renderLeafSortHeader(columnId, label)}
+          {renderLeafResizeHandle(columnId)}
+        </th>
+      );
+    },
+    [renderLeafResizeHandle, renderLeafSortHeader, visibleColumnById]
   );
 
   return (
@@ -278,162 +349,12 @@ export function ContractFarmingReportDataTable({
             </tr>
             <tr>
               {visibleBuyBackColumnIds.map((columnId) => {
-                const column = visibleColumnById.get(columnId);
-                if (!column) return null;
-                return (
-                  <th
-                    key={columnId}
-                    className={`${CF_HEADER_CELL_CLASS} relative`}
-                    style={{
-                      width: column.getSize(),
-                      minWidth: column.getSize(),
-                    }}
-                  >
-                    {renderLeafSortHeader(columnId, getColumnLabel(columnId))}
-                    {renderLeafResizeHandle(columnId)}
-                  </th>
-                );
+                return renderLeafHeaderCell(columnId, getColumnLabel(columnId));
               })}
               {visibleGradeColumnIds.map((columnId) => {
-                const column = visibleColumnById.get(columnId);
-                if (!column) return null;
-                if (columnId === TOTAL_GRADED_BAGS_COLUMN_ID) {
-                  return (
-                    <th
-                      key={columnId}
-                      className={`${CF_HEADER_CELL_CLASS} relative`}
-                      style={{
-                        width: column.getSize(),
-                        minWidth: column.getSize(),
-                      }}
-                    >
-                      {renderLeafSortHeader(
-                        columnId,
-                        'Total Bags After Grading'
-                      )}
-                      {renderLeafResizeHandle(columnId)}
-                    </th>
-                  );
-                }
-                if (columnId === TOTAL_GRADED_NET_WEIGHT_COLUMN_ID) {
-                  return (
-                    <th
-                      key={columnId}
-                      className={`${CF_HEADER_CELL_CLASS} relative`}
-                      style={{
-                        width: column.getSize(),
-                        minWidth: column.getSize(),
-                      }}
-                    >
-                      {renderLeafSortHeader(
-                        columnId,
-                        'Net Weight After Grading'
-                      )}
-                      {renderLeafResizeHandle(columnId)}
-                    </th>
-                  );
-                }
-                if (columnId === AVG_QUINTAL_PER_ACRE_COLUMN_ID) {
-                  return (
-                    <th
-                      key={columnId}
-                      className={`${CF_HEADER_CELL_CLASS} relative`}
-                      style={{
-                        width: column.getSize(),
-                        minWidth: column.getSize(),
-                      }}
-                    >
-                      {renderLeafSortHeader(
-                        columnId,
-                        'Average Quintal Per Acre'
-                      )}
-                      {renderLeafResizeHandle(columnId)}
-                    </th>
-                  );
-                }
-                if (columnId === WASTAGE_KG_COLUMN_ID) {
-                  return (
-                    <th
-                      key={columnId}
-                      className={`${CF_HEADER_CELL_CLASS} relative`}
-                      style={{
-                        width: column.getSize(),
-                        minWidth: column.getSize(),
-                      }}
-                    >
-                      {renderLeafSortHeader(columnId, 'Wastage (kg)')}
-                      {renderLeafResizeHandle(columnId)}
-                    </th>
-                  );
-                }
-                if (columnId === OUTPUT_PERCENTAGE_COLUMN_ID) {
-                  return (
-                    <th
-                      key={columnId}
-                      className={`${CF_HEADER_CELL_CLASS} relative`}
-                      style={{
-                        width: column.getSize(),
-                        minWidth: column.getSize(),
-                      }}
-                    >
-                      {renderLeafSortHeader(
-                        columnId,
-                        <span className="block leading-tight">
-                          Output Percentage
-                          <br />
-                          <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
-                            (%)
-                          </span>
-                        </span>
-                      )}
-                      {renderLeafResizeHandle(columnId)}
-                    </th>
-                  );
-                }
-                if (columnId === BUY_BACK_AMOUNT_COLUMN_ID) {
-                  return (
-                    <th
-                      key={columnId}
-                      className={`${CF_HEADER_CELL_CLASS} relative`}
-                      style={{
-                        width: column.getSize(),
-                        minWidth: column.getSize(),
-                      }}
-                    >
-                      {renderLeafSortHeader(columnId, 'Buy Back Amount')}
-                      {renderLeafResizeHandle(columnId)}
-                    </th>
-                  );
-                }
-                const isPercentColumn = columnId.startsWith(
-                  VARIETY_LEVEL_PERCENT_COLUMN_PREFIX
-                );
-                const grade = isPercentColumn
-                  ? columnId.replace(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX, '')
-                  : columnId.replace(VARIETY_LEVEL_COLUMN_PREFIX, '');
-                const headerContent = isContractFarmingCutGrade(grade) ? (
-                  <span className="block leading-tight">Cut</span>
-                ) : (
-                  <span className="block leading-tight">
-                    {grade}
-                    <br />
-                    <span className="text-muted-foreground text-[10px] font-normal tracking-normal normal-case">
-                      {isPercentColumn ? '(%)' : '(MM)'}
-                    </span>
-                  </span>
-                );
-                return (
-                  <th
-                    key={columnId}
-                    className={`${CF_HEADER_CELL_CLASS} relative`}
-                    style={{
-                      width: column.getSize(),
-                      minWidth: column.getSize(),
-                    }}
-                  >
-                    {renderLeafSortHeader(columnId, headerContent)}
-                    {renderLeafResizeHandle(columnId)}
-                  </th>
+                return renderLeafHeaderCell(
+                  columnId,
+                  renderGradeHeaderContent(columnId)
                 );
               })}
               {hasNoGradesPlaceholder ? (

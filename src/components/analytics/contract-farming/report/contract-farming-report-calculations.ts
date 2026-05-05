@@ -40,6 +40,31 @@ export const sumVarietyMetrics: AggregationFn<FlattenedRow> = (
   return any ? sum : null;
 };
 
+/**
+ * Averages a column once per farmer×variety when the value repeats per size row.
+ * Intended for percentage metrics so grouped rows show mean %, not summed %.
+ */
+export const averageVarietyMetrics: AggregationFn<FlattenedRow> = (
+  columnId,
+  leafRows
+) => {
+  const seen = new Set<string>();
+  let sum = 0;
+  let count = 0;
+  for (const leaf of leafRows) {
+    const key = varietyMetricDedupeKey(leaf.original);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const raw = leaf.getValue(columnId);
+    const num = typeof raw === 'number' ? raw : Number(raw);
+    if (raw != null && raw !== '' && Number.isFinite(num)) {
+      sum += num;
+      count += 1;
+    }
+  }
+  return count > 0 ? sum / count : null;
+};
+
 const BAG_SIZE_DISPLAY_ORDER = [
   'Below 25',
   '25–30',

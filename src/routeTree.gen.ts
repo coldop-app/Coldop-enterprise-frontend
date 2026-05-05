@@ -21,6 +21,7 @@ import { Route as StoreAdminAuthenticatedIncomingGatePassIndexRouteImport } from
 import { Route as StoreAdminAuthenticatedGradingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/grading-gate-pass/index'
 import { Route as StoreAdminAuthenticatedFarmerSeedGatePassIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
+import { Route as StoreAdminAuthenticatedContractTestIndexRouteImport } from './routes/store-admin/_authenticated/contract-test/index'
 import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/index'
 import { Route as StoreAdminAuthenticatedStorageGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/history/index'
 import { Route as StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/edit/index'
@@ -110,6 +111,12 @@ const StoreAdminAuthenticatedDaybookIndexRoute =
   StoreAdminAuthenticatedDaybookIndexRouteImport.update({
     id: '/daybook/',
     path: '/daybook/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedContractTestIndexRoute =
+  StoreAdminAuthenticatedContractTestIndexRouteImport.update({
+    id: '/contract-test/',
+    path: '/contract-test/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsIndexRoute =
@@ -257,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/zustand/': typeof ZustandIndexRoute
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
+  '/store-admin/contract-test/': typeof StoreAdminAuthenticatedContractTestIndexRoute
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/farmer-seed-gate-pass/': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
   '/store-admin/grading-gate-pass/': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
@@ -293,6 +301,7 @@ export interface FileRoutesByTo {
   '/zustand': typeof ZustandIndexRoute
   '/store-admin/login': typeof StoreAdminLoginIndexRoute
   '/store-admin/analytics': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
+  '/store-admin/contract-test': typeof StoreAdminAuthenticatedContractTestIndexRoute
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/farmer-seed-gate-pass': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
   '/store-admin/grading-gate-pass': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
@@ -330,6 +339,7 @@ export interface FileRoutesById {
   '/zustand/': typeof ZustandIndexRoute
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/_authenticated/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
+  '/store-admin/_authenticated/contract-test/': typeof StoreAdminAuthenticatedContractTestIndexRoute
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
   '/store-admin/_authenticated/farmer-seed-gate-pass/': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
   '/store-admin/_authenticated/grading-gate-pass/': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
@@ -368,6 +378,7 @@ export interface FileRouteTypes {
     | '/zustand/'
     | '/store-admin/login/'
     | '/store-admin/analytics/'
+    | '/store-admin/contract-test/'
     | '/store-admin/daybook/'
     | '/store-admin/farmer-seed-gate-pass/'
     | '/store-admin/grading-gate-pass/'
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
     | '/zustand'
     | '/store-admin/login'
     | '/store-admin/analytics'
+    | '/store-admin/contract-test'
     | '/store-admin/daybook'
     | '/store-admin/farmer-seed-gate-pass'
     | '/store-admin/grading-gate-pass'
@@ -440,6 +452,7 @@ export interface FileRouteTypes {
     | '/zustand/'
     | '/store-admin/login/'
     | '/store-admin/_authenticated/analytics/'
+    | '/store-admin/_authenticated/contract-test/'
     | '/store-admin/_authenticated/daybook/'
     | '/store-admin/_authenticated/farmer-seed-gate-pass/'
     | '/store-admin/_authenticated/grading-gate-pass/'
@@ -562,6 +575,13 @@ declare module '@tanstack/react-router' {
       path: '/daybook'
       fullPath: '/store-admin/daybook/'
       preLoaderRoute: typeof StoreAdminAuthenticatedDaybookIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/contract-test/': {
+      id: '/store-admin/_authenticated/contract-test/'
+      path: '/contract-test'
+      fullPath: '/store-admin/contract-test/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedContractTestIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/analytics/': {
@@ -723,6 +743,7 @@ declare module '@tanstack/react-router' {
 
 interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedAnalyticsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRoute
+  StoreAdminAuthenticatedContractTestIndexRoute: typeof StoreAdminAuthenticatedContractTestIndexRoute
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
   StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
   StoreAdminAuthenticatedGradingGatePassIndexRoute: typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
@@ -758,6 +779,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
   {
     StoreAdminAuthenticatedAnalyticsIndexRoute:
       StoreAdminAuthenticatedAnalyticsIndexRoute,
+    StoreAdminAuthenticatedContractTestIndexRoute:
+      StoreAdminAuthenticatedContractTestIndexRoute,
     StoreAdminAuthenticatedDaybookIndexRoute:
       StoreAdminAuthenticatedDaybookIndexRoute,
     StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute:

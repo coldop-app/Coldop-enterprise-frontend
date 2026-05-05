@@ -3,6 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { createColumnHelper } from '@tanstack/react-table';
 
 import {
+  averageVarietyMetrics,
   aggregateAvgQuintalPerAcre,
   aggregateNetAmountPerAcre,
   formatNumber,
@@ -23,6 +24,7 @@ import {
   FILTER_VARIETY_LEVEL_PREFIX,
   formatContractFarmingGradeColumnLabel,
 } from './view-filters-sheet/constants';
+import type { VisibilityState } from '@tanstack/react-table';
 
 /** Column filter — multi-select or substring match against stringified cell values. */
 const multiValueFilterFn = (
@@ -103,6 +105,9 @@ export const VARIETY_LEVEL_COLUMN_IDS = new Set([
   'bbNetWeight',
 ]);
 export const BUY_BACK_COLUMN_IDS = new Set(['bbBags', 'bbNetWeight']);
+export const defaultContractFarmingColumnVisibility: VisibilityState = {
+  farmerMobile: false,
+};
 
 function StrongNum({
   value,
@@ -155,6 +160,27 @@ export function isNumericSortColumnId(columnId: string) {
     columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
     columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
   );
+}
+
+export function buildDefaultContractFarmingColumnOrder(
+  gradeHeaders: readonly string[]
+): string[] {
+  return [
+    'farmer',
+    'farmerMobile',
+    'address',
+    'variety',
+    'generation',
+    'size',
+    'qty',
+    'acres',
+    'bbBags',
+    'bbNetWeight',
+    ...buildContractFarmingGradingLeafColumnIds(gradeHeaders),
+    SEED_AMOUNT_COLUMN_ID,
+    NET_AMOUNT_COLUMN_ID,
+    NET_AMOUNT_PER_ACRE_COLUMN_ID,
+  ];
 }
 
 export function buildColumns(
@@ -478,7 +504,7 @@ export function buildColumns(
             maxSize: 260,
             enableGrouping: false,
             filterFn: multiValueFilterFn,
-            aggregationFn: sumVarietyMetrics,
+            aggregationFn: averageVarietyMetrics,
             aggregatedCell: ({ getValue }) => (
               <StrongPct value={getValue() as number | null} />
             ),
@@ -594,7 +620,7 @@ export function buildColumns(
           maxSize: 260,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
-          aggregationFn: sumVarietyMetrics,
+          aggregationFn: averageVarietyMetrics,
           aggregatedCell: ({ getValue }) => (
             <StrongPct value={getValue() as number | null} />
           ),

@@ -30,3 +30,6 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Local analytics experiments
+src/components/analytics/contract-farming/report-2/
