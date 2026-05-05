@@ -3,7 +3,10 @@ import { flexRender, type Row, type Table } from '@tanstack/react-table';
 import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { GradingReportTableRow } from './columns';
+import {
+  isGradingSplitSpanColumn,
+  type GradingReportTableRow,
+} from './columns';
 import {
   GRADING_BAG_SIZE_COLUMN_ID_TO_CANON,
   GRADING_BAG_SIZE_COLUMN_ORDER,
@@ -116,6 +119,16 @@ const GRADING_SUM_COLUMN_IDS = new Set<string>([
   ),
 ]);
 
+const GRADING_DEDUP_SUM_COLUMN_IDS = new Set<string>([
+  'gradedBags',
+  'gradingBardanaWeightKg',
+  'netWeightAfterGradingWithoutBardana',
+  'wastagePercent',
+  ...GRADING_BAG_SIZE_COLUMN_ORDER.map((label) =>
+    getGradingBagSizeColumnId(label)
+  ),
+]);
+
 /** Columns where Excel shows numbers (and '-' for zero) — used to right-align dash placeholder. */
 const EXCEL_NUMERIC_DISPLAY_COLUMN_IDS = new Set<string>([
   ...GRADING_SUM_COLUMN_IDS,
@@ -164,12 +177,35 @@ function collectGradingLeafColumnSums(
   rows: Row<GradingReportTableRow>[],
   sums: Record<string, number>
 ): void {
+  const seenGatePassIdsByColumn = new Map<string, Set<string>>();
+  collectGradingLeafColumnSumsInternal(rows, sums, seenGatePassIdsByColumn);
+}
+
+function collectGradingLeafColumnSumsInternal(
+  rows: Row<GradingReportTableRow>[],
+  sums: Record<string, number>,
+  seenGatePassIdsByColumn: Map<string, Set<string>>
+): void {
   for (const row of rows) {
     if (row.subRows.length > 0) {
-      collectGradingLeafColumnSums(row.subRows, sums);
+      collectGradingLeafColumnSumsInternal(
+        row.subRows,
+        sums,
+        seenGatePassIdsByColumn
+      );
       continue;
     }
     for (const id of GRADING_SUM_COLUMN_IDS) {
+      if (GRADING_DEDUP_SUM_COLUMN_IDS.has(id)) {
+        const gatePassId = row.original.gradingGatePass?._id;
+        if (gatePassId) {
+          const seenGatePassIds =
+            seenGatePassIdsByColumn.get(id) ?? new Set<string>();
+          if (seenGatePassIds.has(gatePassId)) continue;
+          seenGatePassIds.add(gatePassId);
+          seenGatePassIdsByColumn.set(id, seenGatePassIds);
+        }
+      }
       sums[id] = (sums[id] ?? 0) + toSumNumber(row.getValue(id));
     }
   }
@@ -327,7 +363,8 @@ function getExcelBodyRows(
   rows: Row<GradingReportTableRow>[],
   visibleColumns: ReturnType<
     Table<GradingReportTableRow>['getVisibleLeafColumns']
-  >
+  >,
+  hideGroupedAggregations: boolean
 ): Array<Array<string | number>> {
   const columnIndexById = new Map(
     visibleColumns.map((column, i) => [column.id, i])
@@ -344,17 +381,28 @@ function getExcelBodyRows(
         const columnId = cell.column.id;
         const columnIndex = columnIndexById.get(columnId);
         if (columnIndex == null) continue;
+        const isGroupedCell = cell.getIsGrouped();
+        const isAggregatedCell = cell.getIsAggregated();
+        const isPlaceholderCell = cell.getIsPlaceholder();
+        const hideRepeatedMergedCell =
+          hideGroupedAggregations &&
+          !isGroupedCell &&
+          !isAggregatedCell &&
+          !isPlaceholderCell &&
+          !isGradingSplitSpanColumn(cell.column) &&
+          !row.original.isFirstOfMergedBlock;
 
-        if (cell.getIsGrouped()) {
+        if (hideRepeatedMergedCell) {
+          nextRow[columnIndex] = '';
+        } else if (isGroupedCell) {
           const groupedValue = row.getValue(columnId);
           nextRow[columnIndex] =
             `${String(groupedValue ?? '')} (${row.subRows.length})`;
-        } else if (cell.getIsAggregated()) {
-          nextRow[columnIndex] = normalizeExcelValue(
-            row.getValue(columnId),
-            columnId
-          );
-        } else if (cell.getIsPlaceholder()) {
+        } else if (isAggregatedCell) {
+          nextRow[columnIndex] = hideGroupedAggregations
+            ? ''
+            : normalizeExcelValue(row.getValue(columnId), columnId);
+        } else if (isPlaceholderCell) {
           nextRow[columnIndex] = '';
         } else {
           nextRow[columnIndex] = normalizeExcelValue(
@@ -409,10 +457,11 @@ export const GradingExcelButton = ({
       setIsGeneratingExcel(true);
 
       const visibleColumns = t.getVisibleLeafColumns();
-      const sourceRows =
-        t.getState().grouping.length > 0
-          ? t.getGroupedRowModel().rows
-          : t.getRowModel().rows;
+      const isGroupedExport = t.getState().grouping.length > 0;
+      const sourceRows = isGroupedExport
+        ? t.getPrePaginationRowModel().rows
+        : t.getRowModel().rows;
+      const hideGroupedAggregations = isGroupedExport;
 
       const leafRows = collectLeafRows(sourceRows);
       const exportColumns = visibleColumns.filter((col) => {
@@ -425,7 +474,11 @@ export const GradingExcelButton = ({
       const headerLabels = exportColumns.map((column) =>
         getRenderedHeaderLabel(t, column)
       );
-      const bodyRows = getExcelBodyRows(sourceRows, exportColumns);
+      const bodyRows = getExcelBodyRows(
+        sourceRows,
+        exportColumns,
+        hideGroupedAggregations
+      );
 
       const sums: Record<string, number> = {};
       collectGradingLeafColumnSums(sourceRows, sums);
