@@ -50,7 +50,61 @@ export interface EditFarmerSeedApiResponse {
   data?: unknown;
 }
 
+export interface FarmerSeedAuditUser {
+  _id: string;
+  name: string;
+  mobileNumber?: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
+export interface FarmerSeedAuditFarmer {
+  _id: string;
+  name: string;
+  address: string;
+  accountNumber?: number;
+  [key: string]: unknown;
+}
+
+export interface FarmerSeedAuditFarmerStorageLink {
+  _id: string;
+  farmerId?: FarmerSeedAuditFarmer | string;
+  coldStorageId: string;
+  accountNumber?: number;
+  [key: string]: unknown;
+}
+
+export interface FarmerSeedAuditStateSnapshot {
+  _id?: string;
+  farmerStorageLinkId?: FarmerSeedAuditFarmerStorageLink | string;
+  gatePassNo?: number | null;
+  invoiceNumber?: string | null;
+  date?: string;
+  variety?: string;
+  generation?: string;
+  bagSizes?: FarmerSeedReportBagSize[];
+  remarks?: string | null;
+  [key: string]: unknown;
+}
+
+export interface FarmerSeedAuditFarmerSeedRef {
+  _id?: string;
+  farmerStorageLinkId?: FarmerSeedAuditFarmerStorageLink | string;
+  gatePassNo?: number | null;
+  [key: string]: unknown;
+}
+
 export interface FarmerSeedAuditEntry {
+  _id: string;
+  farmerSeedId?: FarmerSeedAuditFarmerSeedRef | string;
+  editedById?: FarmerSeedAuditUser | string;
+  previousState?: FarmerSeedAuditStateSnapshot;
+  updatedState?: FarmerSeedAuditStateSnapshot;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt?: string;
+  __v?: number;
   [key: string]: unknown;
 }
 

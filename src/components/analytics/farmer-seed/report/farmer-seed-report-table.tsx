@@ -57,7 +57,7 @@ import type {
   FarmerSeedPdfWorkerRequest,
   FarmerSeedPdfWorkerResponse,
 } from '@/components/analytics/farmer-seed/report/pdf.worker';
-import FarmerSeedExcelButton from './farmer-seed-excel-button';
+import { FarmerSeedExcelButton } from './farmer-seed-excel-button';
 
 function toDisplayDate(value?: string): string {
   if (!value) return '-';
@@ -827,7 +827,10 @@ const FarmerSeedReportTable = () => {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
-                <FarmerSeedExcelButton />
+                <FarmerSeedExcelButton
+                  table={table}
+                  coldStorageName={coldStorageName}
+                />
                 <FarmerSeedPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"

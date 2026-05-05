@@ -5,6 +5,7 @@ export interface Farmer {
   name: string;
   address: string;
   mobileNumber: string;
+  accountNumber?: number;
 }
 
 export interface User {

@@ -29,6 +29,7 @@ import {
 import { formatDate, formatDateToISO } from '@/lib/helpers';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useCreateFarmerSeedEntry } from '@/services/store-admin/farmer-seed/useCreateFarmerSeedEntry';
+import { useGetPreferences } from '@/services/store-admin/preferences/useGetPreferences';
 import {
   FarmerSeedSummarySheet,
   type FarmerSeedSummaryBagSize,
@@ -83,6 +84,11 @@ function formatSeedAmount(value: number) {
   return `Rs. ${Math.round(value).toLocaleString('en-IN')}`;
 }
 
+function calculateAcres(quantity: number, standardBagsPerAcre: number) {
+  if (standardBagsPerAcre <= 0) return 0;
+  return quantity / standardBagsPerAcre;
+}
+
 function FarmerSeedCreateForm() {
   const navigate = useNavigate();
   const {
@@ -92,6 +98,7 @@ function FarmerSeedCreateForm() {
   } = useGetAllFarmers();
   const { mutate: createFarmerSeedEntry, isPending } =
     useCreateFarmerSeedEntry();
+  const { data: preferences } = useGetPreferences();
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
 
   const [farmerStorageLinkId, setFarmerStorageLinkId] = useState('');
@@ -122,13 +129,34 @@ function FarmerSeedCreateForm() {
     return farmerLinks.find((link) => link._id === farmerStorageLinkId) ?? null;
   }, [farmerLinks, farmerStorageLinkId]);
 
-  const allBagSizes = useMemo(
-    () => [
+  const selectedVarietyStandardBagsPerAcre = useMemo(() => {
+    const standardBagsPerAcre = preferences?.custom.standardBagsPerAcre ?? {};
+    if (!variety) return 0;
+    return (
+      standardBagsPerAcre[variety] ??
+      standardBagsPerAcre[variety.trim()] ??
+      standardBagsPerAcre[
+        Object.keys(standardBagsPerAcre).find(
+          (key) => key.toLowerCase() === variety.trim().toLowerCase()
+        ) ?? ''
+      ] ??
+      0
+    );
+  }, [preferences?.custom.standardBagsPerAcre, variety]);
+
+  const allBagSizes = useMemo(() => {
+    const rows = [
       ...bagSizes,
       ...extraBagSizeRows.map(({ id: _id, ...rest }) => rest),
-    ],
-    [bagSizes, extraBagSizeRows]
-  );
+    ];
+    return rows.map((row) => ({
+      ...row,
+      acres: calculateAcres(
+        row.quantity ?? 0,
+        selectedVarietyStandardBagsPerAcre
+      ),
+    }));
+  }, [bagSizes, extraBagSizeRows, selectedVarietyStandardBagsPerAcre]);
 
   const totalQty = useMemo(
     () => allBagSizes.reduce((sum, row) => sum + (row.quantity ?? 0), 0),
@@ -344,8 +372,8 @@ function FarmerSeedCreateForm() {
                 Enter Bag Sizes
               </CardTitle>
               <CardDescription className="font-custom text-muted-foreground text-sm">
-                Add quantity and rate for each size. Use Add Size for additional
-                grading sizes.
+                Add quantity and rate for each size. Acres are auto-calculated
+                from quantity and standard bags/acre in preferences.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -397,24 +425,14 @@ function FarmerSeedCreateForm() {
                     onKeyDown={preventNumberInputArrowKeys}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="Acres"
-                    value={row.acres === 0 ? '' : String(row.acres)}
-                    onChange={(e) => {
-                      const next = [...bagSizes];
-                      next[index] = {
-                        ...next[index],
-                        acres: parsePositiveNumber(e.target.value),
-                      };
-                      setBagSizes(next);
-                    }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventNumberInputArrowKeys}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
+                  <div className="font-custom text-muted-foreground bg-muted/50 flex h-9 items-center rounded-md border px-3 text-sm">
+                    {formatAcresValue(
+                      calculateAcres(
+                        row.quantity ?? 0,
+                        selectedVarietyStandardBagsPerAcre
+                      )
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -479,21 +497,14 @@ function FarmerSeedCreateForm() {
                     onKeyDown={preventNumberInputArrowKeys}
                     className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="Acres"
-                    value={row.acres === 0 ? '' : String(row.acres)}
-                    onChange={(e) =>
-                      updateExtraRow(row.id, {
-                        acres: parsePositiveNumber(e.target.value),
-                      })
-                    }
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventNumberInputArrowKeys}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
+                  <div className="font-custom text-muted-foreground bg-muted/50 flex h-9 items-center rounded-md border px-3 text-sm">
+                    {formatAcresValue(
+                      calculateAcres(
+                        row.quantity ?? 0,
+                        selectedVarietyStandardBagsPerAcre
+                      )
+                    )}
+                  </div>
                 </div>
               ))}
 

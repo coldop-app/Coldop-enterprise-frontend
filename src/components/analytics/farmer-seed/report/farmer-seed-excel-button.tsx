@@ -116,11 +116,22 @@ type FarmerSeedExcelButtonProps = {
 const EXCEL_HEADER_LABEL_OVERRIDES: Partial<
   Record<keyof FarmerSeedReportRow, string>
 > = {
+  farmerName: 'Farmer',
+  totalAcres: 'Acres Planted',
+  gatePassNo: 'Gate Pass No',
+  invoiceNumber: 'Invoice Number',
+  date: 'Date',
+  variety: 'Variety',
+  generation: 'Stage',
   bag35to40: '35-40 (MM)',
   bag40to45: '40-45 (MM)',
   bag40to50: '40-50 (MM)',
   bag45to50: '45-50 (MM)',
   bag50to55: '50-55 (MM)',
+  totalBags: 'Total Bags',
+  averageRate: 'Rate per Bag',
+  totalAmount: 'Total Rate',
+  remarks: 'Remarks',
 };
 
 function getColumnHeaderLabel(

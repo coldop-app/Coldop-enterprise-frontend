@@ -1,13 +1,15 @@
 import { Clock3, Globe, Monitor, UserPen, GitCompare } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { FarmerSeedAuditEntry } from '@/types/farmer-seed';
+import type {
+  FarmerSeedAuditEntry,
+  FarmerSeedAuditFarmerStorageLink,
+  FarmerSeedAuditStateSnapshot,
+} from '@/types/farmer-seed';
 
 interface FarmerSeedEditHistoryCardProps {
   audit: FarmerSeedAuditEntry;
 }
-
-type StateSnapshot = Record<string, unknown> | undefined;
 
 function formatKeyLabel(rawKey: string): string {
   return rawKey
@@ -72,15 +74,41 @@ function parseUserAgent(ua: string): string {
   return `${browser} · ${os}`;
 }
 
+function getFarmerStorageLink(
+  source: FarmerSeedAuditStateSnapshot | undefined
+): FarmerSeedAuditFarmerStorageLink | undefined {
+  const link = source?.farmerStorageLinkId;
+  if (!link || typeof link === 'string') return undefined;
+  return link;
+}
+
 interface ChangedField {
   label: string;
   prev: string;
   updated: string;
 }
 
+function getFarmerDetails(source: FarmerSeedAuditStateSnapshot | undefined): {
+  name: unknown;
+  address: unknown;
+  accountNumber: unknown;
+} {
+  const link = getFarmerStorageLink(source);
+  const farmer =
+    link?.farmerId && typeof link.farmerId !== 'string'
+      ? link.farmerId
+      : undefined;
+
+  return {
+    name: farmer?.name,
+    address: farmer?.address,
+    accountNumber: farmer?.accountNumber ?? link?.accountNumber,
+  };
+}
+
 function getChangedFields(
-  prev: StateSnapshot,
-  updated: StateSnapshot
+  prev: FarmerSeedAuditStateSnapshot | undefined,
+  updated: FarmerSeedAuditStateSnapshot | undefined
 ): ChangedField[] {
   if (!prev || !updated) return [];
 
@@ -97,6 +125,7 @@ function getChangedFields(
     'updatedAt',
     'createdBy',
     'updatedBy',
+    'farmerStorageLinkId',
   ];
 
   for (const key of allKeys) {
@@ -124,20 +153,74 @@ function getChangedFields(
     }
   }
 
+  const prevFarmer = getFarmerDetails(prev);
+  const updatedFarmer = getFarmerDetails(updated);
+  const farmerFields: Array<{
+    label: string;
+    prevValue: unknown;
+    updatedValue: unknown;
+  }> = [
+    {
+      label: 'Farmer',
+      prevValue: prevFarmer.name,
+      updatedValue: updatedFarmer.name,
+    },
+    {
+      label: 'Address',
+      prevValue: prevFarmer.address,
+      updatedValue: updatedFarmer.address,
+    },
+    {
+      label: 'Account No.',
+      prevValue: prevFarmer.accountNumber,
+      updatedValue: updatedFarmer.accountNumber,
+    },
+  ];
+
+  for (const field of farmerFields) {
+    const prevStr = String(field.prevValue ?? '');
+    const updatedStr = String(field.updatedValue ?? '');
+    if (prevStr !== updatedStr) {
+      changes.push({
+        label: field.label,
+        prev: formatFieldValue(field.prevValue),
+        updated: formatFieldValue(field.updatedValue),
+      });
+    }
+  }
+
   return changes;
 }
 
 export function FarmerSeedEditHistoryCard({
   audit,
 }: FarmerSeedEditHistoryCardProps) {
-  const item = audit as Record<string, unknown>;
-  const previousState = item.previousState as StateSnapshot;
-  const updatedState = item.updatedState as StateSnapshot;
-
-  const editedBy = item.editedById as Record<string, unknown> | undefined;
-  const farmerSeed = item.farmerSeedId as Record<string, unknown> | undefined;
+  const previousState = audit.previousState;
+  const updatedState = audit.updatedState;
+  const editedBy =
+    audit.editedById && typeof audit.editedById !== 'string'
+      ? audit.editedById
+      : undefined;
+  const farmerSeed =
+    audit.farmerSeedId && typeof audit.farmerSeedId !== 'string'
+      ? audit.farmerSeedId
+      : undefined;
 
   const gatePassNumber = farmerSeed?.gatePassNo ?? updatedState?.gatePassNo;
+  const farmerStorageLink =
+    getFarmerStorageLink(updatedState) ??
+    getFarmerStorageLink(previousState) ??
+    (farmerSeed?.farmerStorageLinkId &&
+    typeof farmerSeed.farmerStorageLinkId !== 'string'
+      ? farmerSeed.farmerStorageLinkId
+      : undefined);
+  const farmer =
+    farmerStorageLink?.farmerId &&
+    typeof farmerStorageLink.farmerId !== 'string'
+      ? farmerStorageLink.farmerId
+      : undefined;
+  const farmerAccountNumber =
+    farmer?.accountNumber ?? farmerStorageLink?.accountNumber;
 
   const changedFields = getChangedFields(previousState, updatedState);
 
@@ -170,12 +253,41 @@ export function FarmerSeedEditHistoryCard({
           </span>
           <span className="font-custom text-muted-foreground inline-flex items-center gap-1.5 text-sm">
             <Clock3 className="h-3.5 w-3.5" />
-            {formatDateTime(item.createdAt)}
+            {formatDateTime(audit.createdAt)}
           </span>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4">
+        {(farmer?.name || farmer?.address || farmerAccountNumber != null) && (
+          <div className="bg-muted/40 grid grid-cols-1 gap-3 rounded-lg border p-3 text-sm sm:grid-cols-3">
+            <div>
+              <p className="font-custom text-muted-foreground text-[10px] tracking-wide uppercase">
+                Farmer
+              </p>
+              <p className="font-custom text-foreground">
+                {renderFieldValue(farmer?.name)}
+              </p>
+            </div>
+            <div>
+              <p className="font-custom text-muted-foreground text-[10px] tracking-wide uppercase">
+                Address
+              </p>
+              <p className="font-custom text-foreground">
+                {renderFieldValue(farmer?.address)}
+              </p>
+            </div>
+            <div>
+              <p className="font-custom text-muted-foreground text-[10px] tracking-wide uppercase">
+                Account No.
+              </p>
+              <p className="font-custom text-foreground">
+                {renderFieldValue(farmerAccountNumber)}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Changed fields diff */}
         {changedFields.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
@@ -229,14 +341,16 @@ export function FarmerSeedEditHistoryCard({
             <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               <span className="text-foreground font-semibold">IP: </span>
-              {renderFieldValue(item.ipAddress)}
+              {renderFieldValue(audit.ipAddress)}
             </span>
           </p>
           <p className="font-custom text-muted-foreground inline-flex w-full items-start gap-2 text-xs break-all">
             <Monitor className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               <span className="text-foreground font-semibold">Browser: </span>
-              {item.userAgent ? parseUserAgent(String(item.userAgent)) : 'N/A'}
+              {audit.userAgent
+                ? parseUserAgent(String(audit.userAgent))
+                : 'N/A'}
             </span>
           </p>
         </div>

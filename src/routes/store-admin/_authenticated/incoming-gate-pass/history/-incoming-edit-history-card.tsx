@@ -34,6 +34,28 @@ function getWeightSlipValue(state: StateSnapshot, key: string): unknown {
   return ws?.[key];
 }
 
+function getFarmerDetails(state: StateSnapshot): {
+  name: unknown;
+  address: unknown;
+  accountNumber: unknown;
+} {
+  const link = state.farmerStorageLinkId;
+  if (!link || typeof link === 'string') {
+    return { name: undefined, address: undefined, accountNumber: undefined };
+  }
+
+  const farmer =
+    link.farmerId && typeof link.farmerId !== 'string'
+      ? link.farmerId
+      : undefined;
+
+  return {
+    name: farmer?.name,
+    address: farmer?.address,
+    accountNumber: farmer?.accountNumber ?? link.accountNumber,
+  };
+}
+
 function formatFieldValue(value: unknown, key: string): string {
   if (value == null) return '—';
   if (key === 'date' && typeof value === 'string') {
@@ -68,6 +90,42 @@ function getChangedFields(
         label,
         prev: formatFieldValue(prevVal, key),
         updated: formatFieldValue(updVal, key),
+      });
+    }
+  }
+
+  const prevFarmer = getFarmerDetails(prev);
+  const updatedFarmer = getFarmerDetails(updated);
+  const farmerFields: Array<{
+    label: string;
+    prevValue: unknown;
+    updatedValue: unknown;
+  }> = [
+    {
+      label: 'Farmer',
+      prevValue: prevFarmer.name,
+      updatedValue: updatedFarmer.name,
+    },
+    {
+      label: 'Address',
+      prevValue: prevFarmer.address,
+      updatedValue: updatedFarmer.address,
+    },
+    {
+      label: 'Account No.',
+      prevValue: prevFarmer.accountNumber,
+      updatedValue: updatedFarmer.accountNumber,
+    },
+  ];
+
+  for (const field of farmerFields) {
+    const prevStr = String(field.prevValue ?? '');
+    const updStr = String(field.updatedValue ?? '');
+    if (prevStr !== updStr) {
+      changes.push({
+        label: field.label,
+        prev: formatFieldValue(field.prevValue, field.label),
+        updated: formatFieldValue(field.updatedValue, field.label),
       });
     }
   }
@@ -125,6 +183,11 @@ export function IncomingEditHistoryCard({
 
   const status = audit.incomingGatePassId?.status;
   const isGraded = status === 'GRADED';
+  const farmerDetails = updatedState
+    ? getFarmerDetails(updatedState)
+    : previousState
+      ? getFarmerDetails(previousState)
+      : { name: undefined, address: undefined, accountNumber: undefined };
 
   return (
     <Card className="overflow-hidden rounded-xl border shadow-sm">
@@ -171,6 +234,37 @@ export function IncomingEditHistoryCard({
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4">
+        {(farmerDetails.name ||
+          farmerDetails.address ||
+          farmerDetails.accountNumber != null) && (
+          <div className="bg-muted/40 grid grid-cols-1 gap-3 rounded-lg border p-3 text-sm sm:grid-cols-3">
+            <div>
+              <p className="font-custom text-muted-foreground text-[10px] tracking-wide uppercase">
+                Farmer
+              </p>
+              <p className="font-custom text-foreground">
+                {renderFieldValue(farmerDetails.name)}
+              </p>
+            </div>
+            <div>
+              <p className="font-custom text-muted-foreground text-[10px] tracking-wide uppercase">
+                Address
+              </p>
+              <p className="font-custom text-foreground">
+                {renderFieldValue(farmerDetails.address)}
+              </p>
+            </div>
+            <div>
+              <p className="font-custom text-muted-foreground text-[10px] tracking-wide uppercase">
+                Account No.
+              </p>
+              <p className="font-custom text-foreground">
+                {renderFieldValue(farmerDetails.accountNumber)}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Changed fields diff */}
         {changedFields.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">

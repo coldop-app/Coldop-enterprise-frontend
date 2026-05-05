@@ -522,6 +522,20 @@ function GradingVoucherCardComponent({
           totalGradedPct: grading.totals.totalGradedPct,
           wastagePct: grading.totals.wastagePct,
         }}
+        incomingTotals={{
+          totalBags: incoming.totals.totalBags,
+          totalGrossKg: incoming.totals.totalGrossKg,
+          totalTareKg: incoming.totals.totalTareKg,
+          totalBardanaKg: incoming.totals.totalBardanaKg,
+          totalNetProductKg: incoming.totals.totalNetProductKg,
+        }}
+        gradingRows={grading.rows}
+        gradingTotals={{
+          totalInitial: grading.totals.totalInitial,
+          totalGrossKg: grading.totals.totalGrossKg,
+          totalDeductionKg: grading.totals.totalDeductionKg,
+          totalNetKg: grading.totals.totalNetKg,
+        }}
       />
     </>
   );
