@@ -324,40 +324,7 @@ export function ViewFiltersSheet({
   const advancedFieldValueOptions = React.useMemo<
     Record<FilterField, string[]>
   >(() => {
-    const options: Record<FilterField, string[]> = {
-      gatePassNo: [],
-      manualGatePassNumber: [],
-      date: [],
-      farmerName: [],
-      variety: [],
-      totalBags: [],
-      bagsReceived: [],
-      netWeightKg: [],
-      status: [...statusFilterOptions],
-      location: [],
-      remarks: [],
-      truckNumber: [],
-      generation: [],
-      farmerMobile: [],
-      farmerAddress: [],
-      varietyName: [],
-      sizeName: [],
-      sizeQuantity: [],
-      sizeAcres: [],
-      sizeAmount: [],
-      buyBackBags: [],
-      buyBackNetWeightKg: [],
-      invoiceNumber: [],
-      totalAcres: [],
-      averageRate: [],
-      totalAmount: [],
-      bag35to40: [],
-      bag40to45: [],
-      bag40to50: [],
-      bag45to50: [],
-      bag50to55: [],
-    };
-
+    const options = {} as Record<FilterField, string[]>;
     advancedFilterFields.forEach(({ id }) => {
       options[id] =
         id === 'status' ? [...statusFilterOptions] : getUniqueColumnValues(id);
