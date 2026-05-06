@@ -127,6 +127,7 @@ export const reportColumns = [
     header: () => <div className="w-full text-right">Gate Pass No</div>,
     sortingFn: 'alphanumeric',
     filterFn: multiValueFilterFn,
+    aggregationFn: () => null,
     minSize: 110,
     maxSize: 200,
     cell: (info) => (
@@ -134,6 +135,7 @@ export const reportColumns = [
         {formatIndianNumber(Number(info.getValue() || 0), 0)}
       </div>
     ),
+    aggregatedCell: () => null,
   }),
   columnHelper.accessor('invoiceNumber', {
     header: 'Invoice Number',

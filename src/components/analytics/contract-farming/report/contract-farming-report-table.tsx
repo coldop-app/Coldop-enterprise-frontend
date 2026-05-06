@@ -58,6 +58,7 @@ import {
 } from './columns';
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
 import { GRADE_BAG_COLUMN_KEY_PREFIX, type FlattenedRow } from './types';
+import { ContractFarmingExcelButton } from './contract-farming-excel-button';
 import { ContractFarmingViewFiltersSheet } from './view-filters-sheet';
 
 const DEFAULT_COLUMN_SIZE = 170;
@@ -419,6 +420,10 @@ export default function ContractFarmingReportTable() {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   View Filters
                 </Button>
+                <ContractFarmingExcelButton
+                  table={table}
+                  coldStorageName={coldStorageName}
+                />
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 w-8 rounded-lg p-0 leading-none"

@@ -268,6 +268,7 @@ function addStyledTable(
   rows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
+    isGroupedOrAggregatedRow: boolean;
   }>
 ) {
   const headerRow = ws.addRow(headers);
@@ -283,10 +284,12 @@ function addStyledTable(
     };
   });
 
-  rows.forEach((dataRow, idx) => {
+  rows.forEach((dataRow) => {
     const exRow = ws.addRow(dataRow.values);
     exRow.height = 22;
-    const bgArgb = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
+    const bgArgb = dataRow.isGroupedOrAggregatedRow
+      ? COLORS.rowEven
+      : COLORS.rowOdd;
     exRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
       applyFill(cell, bgArgb);
       applyBorder(cell, COLORS.borderColor);
@@ -369,11 +372,13 @@ function getExcelBodyRows(
 ): Array<{
   values: Array<string | number>;
   boldByColumn: boolean[];
+  isGroupedOrAggregatedRow: boolean;
 }> {
   const columnIndexById = new Map(visibleColumns.map((col, i) => [col.id, i]));
   const bodyRows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
+    isGroupedOrAggregatedRow: boolean;
   }> = [];
 
   const appendRows = (tableRows: Row<IncomingReportRow>[]) => {
@@ -382,6 +387,7 @@ function getExcelBodyRows(
         ''
       );
       const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
+      let hasGroupedOrAggregatedCell = false;
 
       for (const cell of row.getVisibleCells()) {
         const colId = cell.column.id;
@@ -396,11 +402,13 @@ function getExcelBodyRows(
           (colId === 'gatePassNo' || colId === 'manualGatePassNumber');
 
         if (isGrouped) {
+          hasGroupedOrAggregatedCell = true;
           const v = row.getValue(colId);
           nextRow[colIdx] =
             `${'  '.repeat(row.depth)}${String(v ?? '')} (${row.subRows.length})`;
           boldByColumn[colIdx] = true;
         } else if (isAggregated) {
+          hasGroupedOrAggregatedCell = true;
           nextRow[colIdx] = suppressAgg
             ? '-'
             : ((row.getValue(colId) ?? '') as string | number);
@@ -413,7 +421,12 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push({ values: nextRow, boldByColumn });
+      bodyRows.push({
+        values: nextRow,
+        boldByColumn,
+        isGroupedOrAggregatedRow:
+          row.getIsGrouped() || hasGroupedOrAggregatedCell,
+      });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -456,6 +469,7 @@ export const IncomingExcelButton = ({
       const styledBodyRows = bodyRows.map((row) => ({
         values: coerceRows([row.values])[0],
         boldByColumn: row.boldByColumn,
+        isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
       }));
       const rawBodyRows = styledBodyRows.map((row) => row.values);
 

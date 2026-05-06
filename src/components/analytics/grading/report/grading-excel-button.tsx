@@ -364,10 +364,12 @@ function getExcelBodyRows(
   visibleColumns: ReturnType<
     Table<GradingReportTableRow>['getVisibleLeafColumns']
   >,
-  hideGroupedAggregations: boolean
+  hideGroupedAggregations: boolean,
+  suppressRepeatedMergedCells: boolean
 ): Array<{
   values: Array<string | number>;
   boldByColumn: boolean[];
+  isGroupedOrAggregatedRow: boolean;
 }> {
   const columnIndexById = new Map(
     visibleColumns.map((column, i) => [column.id, i])
@@ -375,6 +377,7 @@ function getExcelBodyRows(
   const bodyRows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
+    isGroupedOrAggregatedRow: boolean;
   }> = [];
 
   const appendRows = (tableRows: Row<GradingReportTableRow>[]) => {
@@ -383,6 +386,7 @@ function getExcelBodyRows(
         ''
       );
       const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
+      let hasGroupedOrAggregatedCell = false;
 
       for (const cell of row.getVisibleCells()) {
         const columnId = cell.column.id;
@@ -392,7 +396,7 @@ function getExcelBodyRows(
         const isAggregatedCell = cell.getIsAggregated();
         const isPlaceholderCell = cell.getIsPlaceholder();
         const hideRepeatedMergedCell =
-          hideGroupedAggregations &&
+          suppressRepeatedMergedCells &&
           !isGroupedCell &&
           !isAggregatedCell &&
           !isPlaceholderCell &&
@@ -402,11 +406,13 @@ function getExcelBodyRows(
         if (hideRepeatedMergedCell) {
           nextRow[columnIndex] = '';
         } else if (isGroupedCell) {
+          hasGroupedOrAggregatedCell = true;
           const groupedValue = row.getValue(columnId);
           nextRow[columnIndex] =
             `${String(groupedValue ?? '')} (${row.subRows.length})`;
           boldByColumn[columnIndex] = true;
         } else if (isAggregatedCell) {
+          hasGroupedOrAggregatedCell = true;
           nextRow[columnIndex] = hideGroupedAggregations
             ? ''
             : normalizeExcelValue(row.getValue(columnId), columnId);
@@ -423,7 +429,12 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push({ values: nextRow, boldByColumn });
+      bodyRows.push({
+        values: nextRow,
+        boldByColumn,
+        isGroupedOrAggregatedRow:
+          row.getIsGrouped() || hasGroupedOrAggregatedCell,
+      });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -474,6 +485,8 @@ export const GradingExcelButton = ({
         : t.getRowModel().rows;
       // Keep grouped aggregates visible in export, matching table behavior.
       const hideGroupedAggregations = false;
+      // Match digital table behavior for merged grading gate pass cells.
+      const suppressRepeatedMergedCells = true;
 
       const leafRows = collectLeafRows(sourceRows);
       const exportColumns = visibleColumns.filter((col) => {
@@ -489,7 +502,8 @@ export const GradingExcelButton = ({
       const bodyRows = getExcelBodyRows(
         sourceRows,
         exportColumns,
-        hideGroupedAggregations
+        hideGroupedAggregations,
+        suppressRepeatedMergedCells
       );
 
       const sums: Record<string, number> = {};
@@ -504,6 +518,7 @@ export const GradingExcelButton = ({
       const styledBodyRows = bodyRows.map((row) => ({
         values: replaceZerosWithDash(coerceRows([row.values]))[0],
         boldByColumn: row.boldByColumn,
+        isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
       }));
       const allRowsForWidth = [
         ...styledBodyRows.map((row) => row.values),
@@ -593,9 +608,11 @@ export const GradingExcelButton = ({
         };
       });
 
-      styledBodyRows.forEach((dataRow, rowIndex) => {
+      styledBodyRows.forEach((dataRow) => {
         const excelRow = worksheet.addRow(dataRow.values);
-        const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
+        const background = dataRow.isGroupedOrAggregatedRow
+          ? COLORS.rowEven
+          : COLORS.rowOdd;
         excelRow.height = 22;
 
         excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {

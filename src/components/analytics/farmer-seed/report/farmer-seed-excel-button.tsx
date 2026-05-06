@@ -229,6 +229,7 @@ function getExcelBodyRows(
 ): Array<{
   values: Array<string | number>;
   boldByColumn: boolean[];
+  isGroupedOrAggregatedRow: boolean;
 }> {
   const columnIndexById = new Map(
     visibleColumns.map((column, i) => [column.id, i])
@@ -236,6 +237,7 @@ function getExcelBodyRows(
   const bodyRows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
+    isGroupedOrAggregatedRow: boolean;
   }> = [];
 
   const appendRows = (tableRows: Row<FarmerSeedReportRow>[]) => {
@@ -244,6 +246,7 @@ function getExcelBodyRows(
         ''
       );
       const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
+      let hasGroupedOrAggregatedCell = false;
 
       for (const cell of row.getVisibleCells()) {
         const columnId = cell.column.id;
@@ -251,11 +254,13 @@ function getExcelBodyRows(
         if (columnIndex == null) continue;
 
         if (cell.getIsGrouped()) {
+          hasGroupedOrAggregatedCell = true;
           const value = row.getValue(columnId);
           nextRow[columnIndex] =
             `${'  '.repeat(row.depth)}${String(value ?? '')} (${row.subRows.length})`;
           boldByColumn[columnIndex] = true;
         } else if (cell.getIsAggregated()) {
+          hasGroupedOrAggregatedCell = true;
           const raw = (row.getValue(columnId) ?? '') as string | number;
           nextRow[columnIndex] = coerceToNumber(
             typeof raw === 'number' ? raw : String(raw)
@@ -275,7 +280,12 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push({ values: nextRow, boldByColumn });
+      bodyRows.push({
+        values: nextRow,
+        boldByColumn,
+        isGroupedOrAggregatedRow:
+          row.getIsGrouped() || hasGroupedOrAggregatedCell,
+      });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -486,9 +496,11 @@ export const FarmerSeedExcelButton = ({
       });
 
       // ── Body rows ────────────────────────────────────────────────────────────
-      bodyRows.forEach((dataRow, rowIndex) => {
+      bodyRows.forEach((dataRow) => {
         const excelRow = worksheet.addRow(dataRow.values);
-        const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
+        const background = dataRow.isGroupedOrAggregatedRow
+          ? COLORS.rowEven
+          : COLORS.rowOdd;
         excelRow.height = 22; // taller body rows
 
         excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
