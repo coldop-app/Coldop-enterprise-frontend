@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-05-06
+
+### Added
+- New contract farming report table modules with dedicated data-table wiring for analytics reporting.
+- Rebuilt storage summary table UI with interactive tabbed totals, stock filters, and responsive table rendering using TanStack Table primitives.
+
+### Changed
+- Contract farming report columns were refined for better tag readability, flattened grading/buy-back column grouping, and adjusted column sizing for report clarity.
+- Grading size distribution pie chart layout was tightened to improve centering and responsive rendering behavior.
+- Project version updated to `0.6.0` for this analytics report/table refinement release.
+
 ## [0.5.9] - 2026-05-06
 
 ### Added

@@ -274,7 +274,7 @@ export function buildColumns(
       aggregationFn: 'count',
       aggregatedCell: () => null,
       cell: ({ row }) => (
-        <span className="font-custom inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+        <span className="font-custom inline-flex h-7 items-center rounded-full bg-blue-50 px-3 text-[11px] leading-none font-semibold whitespace-nowrap text-blue-700">
           {row.original.varietyName}
         </span>
       ),
@@ -293,7 +293,7 @@ export function buildColumns(
         <span className="text-muted-foreground/50 font-custom text-sm">-</span>
       ),
       cell: ({ row }) => (
-        <span className="font-custom inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+        <span className="font-custom inline-flex h-7 items-center rounded-full bg-amber-50 px-3 text-[11px] leading-none font-semibold whitespace-nowrap text-amber-700">
           {row.original.generation}
         </span>
       ),
@@ -350,49 +350,43 @@ export function buildColumns(
         </span>
       ),
     }),
-    columnHelper.group({
-      id: 'buyBackGroup',
-      header: 'Buy back',
-      columns: [
-        columnHelper.accessor('buyBackBags', {
-          id: 'bbBags',
-          header: 'Bags',
-          sortingFn: 'basic',
-          size: 120,
-          minSize: 100,
-          maxSize: 220,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-          aggregationFn: sumVarietyMetrics,
-          aggregatedCell: ({ getValue }) => (
-            <StrongNum decimals={0} value={getValue() as number | null} />
-          ),
-          cell: ({ getValue }) => (
-            <span className="font-custom text-right tabular-nums">
-              {formatNumber(getValue() as number | null, 0)}
-            </span>
-          ),
-        }),
-        columnHelper.accessor('buyBackNetWeightKg', {
-          id: 'bbNetWeight',
-          header: 'Net wt (kg)',
-          sortingFn: 'basic',
-          size: 140,
-          minSize: 120,
-          maxSize: 260,
-          enableGrouping: false,
-          filterFn: multiValueFilterFn,
-          aggregationFn: sumVarietyMetrics,
-          aggregatedCell: ({ getValue }) => (
-            <StrongNum decimals={2} value={getValue() as number | null} />
-          ),
-          cell: ({ getValue }) => (
-            <span className="font-custom text-right tabular-nums">
-              {formatNumber(getValue() as number | null)}
-            </span>
-          ),
-        }),
-      ],
+    columnHelper.accessor('buyBackBags', {
+      id: 'bbBags',
+      header: 'Bags',
+      sortingFn: 'basic',
+      size: 120,
+      minSize: 100,
+      maxSize: 220,
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
+      aggregationFn: sumVarietyMetrics,
+      aggregatedCell: ({ getValue }) => (
+        <StrongNum decimals={0} value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => (
+        <span className="font-custom text-right tabular-nums">
+          {formatNumber(getValue() as number | null, 0)}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('buyBackNetWeightKg', {
+      id: 'bbNetWeight',
+      header: 'Net wt (kg)',
+      sortingFn: 'basic',
+      size: 140,
+      minSize: 120,
+      maxSize: 260,
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
+      aggregationFn: sumVarietyMetrics,
+      aggregatedCell: ({ getValue }) => (
+        <StrongNum decimals={2} value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => (
+        <span className="font-custom text-right tabular-nums">
+          {formatNumber(getValue() as number | null)}
+        </span>
+      ),
     }),
   ];
 
@@ -541,7 +535,7 @@ export function buildColumns(
           header: 'Total Bags After Grading',
           sortingFn: 'basic',
           size: 170,
-          minSize: 130,
+          minSize: 165,
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
@@ -568,7 +562,7 @@ export function buildColumns(
           header: 'Net Weight After Grading',
           sortingFn: 'basic',
           size: 170,
-          minSize: 130,
+          minSize: 170,
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
@@ -590,7 +584,7 @@ export function buildColumns(
           header: 'Average Quintal Per Acre',
           sortingFn: 'basic',
           size: 175,
-          minSize: 130,
+          minSize: 175,
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
@@ -634,7 +628,7 @@ export function buildColumns(
           header: 'Output Percentage',
           sortingFn: 'basic',
           size: 155,
-          minSize: 120,
+          minSize: 150,
           maxSize: 260,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
@@ -656,7 +650,7 @@ export function buildColumns(
           header: 'Buy Back Amount',
           sortingFn: 'basic',
           size: 160,
-          minSize: 120,
+          minSize: 155,
           maxSize: 280,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
@@ -693,11 +687,7 @@ export function buildColumns(
 
   return [
     ...baseColumns,
-    columnHelper.group({
-      id: 'gradingGroup',
-      header: 'Grading',
-      columns: gradingColumns,
-    }),
+    ...gradingColumns,
     seedAmountColumn,
     netAmountColumn,
     netAmountPerAcreColumn,

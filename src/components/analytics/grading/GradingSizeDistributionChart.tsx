@@ -277,21 +277,13 @@ const GradingSizeDistributionChart = memo(
                     </p>
                   ) : (
                     <>
-                      <div className="w-full min-w-0 md:mx-auto md:max-w-[420px]">
+                      <div className="w-full min-w-0">
                         <ChartContainer
                           config={chartConfig}
-                          className="min-h-[260px] w-full"
-                          initialDimension={{ width: 420, height: 320 }}
+                          className="mx-auto min-h-[260px] w-full max-w-[420px]"
+                          initialDimension={{ width: 420, height: 340 }}
                         >
-                          <PieChart
-                            accessibilityLayer
-                            margin={{
-                              top: 16,
-                              right: 110,
-                              bottom: 16,
-                              left: 60,
-                            }}
-                          >
+                          <PieChart accessibilityLayer>
                             <ChartTooltip
                               content={
                                 <ChartTooltipContent
@@ -308,8 +300,6 @@ const GradingSizeDistributionChart = memo(
                               data={pieData}
                               dataKey="weightKg"
                               nameKey="name"
-                              cx="55%"
-                              cy="50%"
                               innerRadius={0}
                               strokeWidth={0}
                               label={({ name, percent }) =>
