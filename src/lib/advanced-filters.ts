@@ -29,7 +29,19 @@ export type FilterField =
   | 'bag40to45'
   | 'bag40to50'
   | 'bag45to50'
-  | 'bag50to55';
+  | 'bag50to55'
+  | 'familyKey'
+  | 'accountNumber'
+  | 'totalGradeBags'
+  | 'totalGradeNetWeightKg'
+  | 'averageQuintalPerAcre'
+  | 'wastageKg'
+  | 'outputPercentage'
+  | 'buyBackAmount'
+  | 'netAmount'
+  | 'netAmountPerAcre'
+  | `grade_bags_${string}`
+  | `grade_weight_pct_${string}`;
 
 export type FilterOperator =
   | 'contains'
@@ -77,7 +89,26 @@ export const numericFilterFields: FilterField[] = [
   'sizeAmount',
   'buyBackBags',
   'buyBackNetWeightKg',
+  'familyKey',
+  'accountNumber',
+  'totalGradeBags',
+  'totalGradeNetWeightKg',
+  'averageQuintalPerAcre',
+  'wastageKg',
+  'outputPercentage',
+  'buyBackAmount',
+  'netAmount',
+  'netAmountPerAcre',
 ];
+
+const numericFilterFieldPrefixes: string[] = [
+  'grade_bags_',
+  'grade_weight_pct_',
+];
+
+export const isNumericFilterField = (field: FilterField): boolean =>
+  numericFilterFields.includes(field) ||
+  numericFilterFieldPrefixes.some((prefix) => field.startsWith(prefix));
 
 const generateId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -101,7 +132,7 @@ export const createDefaultFilterGroup = (): FilterGroupNode => ({
 
 export const getDefaultOperatorForField = (
   field: FilterField
-): FilterOperator => (numericFilterFields.includes(field) ? '=' : 'contains');
+): FilterOperator => (isNumericFilterField(field) ? '=' : 'contains');
 
 const hasConditionValue = (node: FilterConditionNode) =>
   node.value.trim().length > 0;
@@ -166,7 +197,7 @@ const evaluateCondition = <TRecord extends Record<string, unknown>>(
   const rawValue = row[node.field];
   const conditionValue = node.value.trim();
 
-  if (numericFilterFields.includes(node.field)) {
+  if (isNumericFilterField(node.field)) {
     const inputNumber = Number(rawValue);
     const targetNumber = Number(conditionValue);
     if (Number.isNaN(inputNumber) || Number.isNaN(targetNumber)) return false;

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-05-06
+
+### Added
+- New PDF composition modules for grading analytics reports (area-wise distribution, daily breakdown, and size distribution) and incoming daily breakdown reporting.
+
+### Changed
+- Contract farming analytics report table and advanced view-filters flow were refined with updated data-table rendering, filter sheet logic, and query-builder constant cleanup.
+- Grading, incoming, and storage analytics charts/tables were expanded to support improved breakdown rendering and export-ready data shaping across the dashboard.
+- Store-admin analytics route/store wiring and shared advanced-filter utilities were updated to align report filters with the refreshed analytics module behavior.
+- Project version updated to `0.6.1` for this analytics reporting and PDF export enhancement release.
+
 ## [0.6.0] - 2026-05-06
 
 ### Added

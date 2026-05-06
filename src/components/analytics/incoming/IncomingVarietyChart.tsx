@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { AlertCircle, Loader2, PieChartIcon } from 'lucide-react';
 import { Cell, Pie, PieChart } from 'recharts';
+import { useTheme } from '@/components/theme-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -17,12 +19,30 @@ interface IncomingVarietyChartProps {
   dateParams?: GetVarietyDistributionParams;
 }
 
-const PIE_COLORS = [
+const LIGHT_PIE_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
   'var(--chart-3)',
   'var(--chart-4)',
   'var(--chart-5)',
+  'oklch(0.64 0.19 250)',
+  'oklch(0.66 0.2 335)',
+  'oklch(0.68 0.18 70)',
+  'oklch(0.62 0.22 25)',
+  'oklch(0.7 0.18 140)',
+] as const;
+
+const DARK_PIE_COLORS = [
+  'oklch(0.78 0.16 220)',
+  'oklch(0.82 0.14 165)',
+  'oklch(0.8 0.16 290)',
+  'oklch(0.84 0.13 120)',
+  'oklch(0.79 0.18 30)',
+  'oklch(0.83 0.12 85)',
+  'oklch(0.77 0.15 260)',
+  'oklch(0.81 0.14 345)',
+  'oklch(0.8 0.15 190)',
+  'oklch(0.82 0.13 55)',
 ] as const;
 
 const toSafeKey = (value: string) =>
@@ -33,6 +53,14 @@ const toSafeKey = (value: string) =>
     .replace(/^-+|-+$/g, '') || 'variety';
 
 const IncomingVarietyChart = ({ dateParams }: IncomingVarietyChartProps) => {
+  const { theme } = useTheme();
+  const isDarkMode =
+    theme === 'dark' ||
+    (theme === 'system' &&
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const palette = isDarkMode ? DARK_PIE_COLORS : LIGHT_PIE_COLORS;
+
   const queryParams: GetVarietyDistributionParams = {
     ...(dateParams?.dateFrom ? { dateFrom: dateParams.dateFrom } : {}),
     ...(dateParams?.dateTo ? { dateTo: dateParams.dateTo } : {}),
@@ -40,17 +68,21 @@ const IncomingVarietyChart = ({ dateParams }: IncomingVarietyChartProps) => {
 
   const varietyBreakdownQuery = useGetIncomingVarietyBreakdown(queryParams);
   const chartData = varietyBreakdownQuery.data?.chartData ?? [];
-  const sanitizedChartData = chartData
-    .filter(
-      (item): item is VarietyDistributionChartItem =>
-        typeof item.name === 'string' && Number.isFinite(item.value)
-    )
-    .map((item, index) => ({
-      key: `${toSafeKey(item.name)}-${index}`,
-      color: PIE_COLORS[index % PIE_COLORS.length],
-      ...item,
-      value: Math.max(item.value, 0),
-    }));
+  const sanitizedChartData = useMemo(
+    () =>
+      chartData
+        .filter(
+          (item): item is VarietyDistributionChartItem =>
+            typeof item.name === 'string' && Number.isFinite(item.value)
+        )
+        .map((item, index) => ({
+          key: `${toSafeKey(item.name)}-${index}`,
+          color: palette[index % palette.length],
+          ...item,
+          value: Math.max(item.value, 0),
+        })),
+    [chartData, palette]
+  );
 
   const totalValue = sanitizedChartData.reduce(
     (sum, item) => sum + item.value,

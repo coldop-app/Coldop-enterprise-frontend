@@ -52,7 +52,6 @@ import {
   type FilterOperator,
 } from '@/lib/advanced-filters';
 import type { ContractFarmingViewFiltersSheetProps } from './types';
-import { advancedFieldToColumnId, advancedFilterFields } from './constants';
 import {
   mutateFilterNodeById,
   parseGroupingColumnId,
@@ -68,8 +67,36 @@ import {
 } from './primitives';
 import { LogicBuilder } from './logic-builder';
 
+function mapLegacyFieldToColumn(
+  field: FilterField,
+  legacyAdvancedFieldToColumnId: Partial<Record<FilterField, string>>
+): FilterField {
+  return (legacyAdvancedFieldToColumnId[field] ?? field) as FilterField;
+}
+
+function normalizeFilterGroupFields(
+  group: FilterGroupNode,
+  legacyAdvancedFieldToColumnId: Partial<Record<FilterField, string>>
+): FilterGroupNode {
+  return {
+    ...group,
+    conditions: group.conditions.map((condition) =>
+      condition.type === 'group'
+        ? normalizeFilterGroupFields(condition, legacyAdvancedFieldToColumnId)
+        : {
+            ...condition,
+            field: mapLegacyFieldToColumn(
+              condition.field,
+              legacyAdvancedFieldToColumnId
+            ),
+          }
+    ),
+  };
+}
+
 type AdvancedTabContentProps = {
   draftLogicFilter: FilterGroupNode;
+  advancedFilterFields: Array<{ id: FilterField; label: string }>;
   advancedFieldValueOptions: Record<FilterField, string[]>;
   onResetLogicBuilder: () => void;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
@@ -88,6 +115,7 @@ type AdvancedTabContentProps = {
 
 const AdvancedTabContent = React.memo(function AdvancedTabContent({
   draftLogicFilter,
+  advancedFilterFields,
   advancedFieldValueOptions,
   onResetLogicBuilder,
   onSetGroupOperator,
@@ -122,6 +150,7 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
           </p>
           <LogicBuilder
             group={draftLogicFilter}
+            advancedFilterFields={advancedFilterFields}
             advancedFieldValueOptions={advancedFieldValueOptions}
             onSetGroupOperator={onSetGroupOperator}
             onAddConditionToGroup={onAddConditionToGroup}
@@ -241,7 +270,10 @@ export function ContractFarmingViewFiltersSheet({
   );
   const [draftGrouping, setDraftGrouping] = React.useState<string[]>([]);
   const [draftLogicFilter, setDraftLogicFilter] =
-    React.useState<FilterGroupNode>(createDefaultFilterGroup());
+    React.useState<FilterGroupNode>(() => ({
+      ...createDefaultFilterGroup(),
+      conditions: [createDefaultCondition('farmer' as FilterField)],
+    }));
   const [draftValueFilters, setDraftValueFilters] = React.useState<
     Record<string, string[]>
   >({});
@@ -302,16 +334,60 @@ export function ContractFarmingViewFiltersSheet({
     return options;
   }, [filterableColumns, getUniqueColumnValues]);
 
+  const legacyAdvancedFieldToColumnId = React.useMemo<
+    Partial<Record<FilterField, string>>
+  >(
+    () => ({
+      farmerName: 'farmer',
+      farmerMobile: 'farmerMobile',
+      farmerAddress: 'address',
+      varietyName: 'variety',
+      generation: 'generation',
+      sizeName: 'size',
+      sizeQuantity: 'qty',
+      sizeAcres: 'acres',
+      sizeAmount: 'amount',
+      buyBackBags: 'bbBags',
+      buyBackNetWeightKg: 'bbNetWeight',
+      accountNumber: 'accountNumber',
+      familyKey: 'familyKey',
+      totalGradeBags: 'grade_bags___totalAfterGrading',
+      totalGradeNetWeightKg: 'grade_bags___netWeightAfterGrading',
+      averageQuintalPerAcre: 'grade_bags___avgQuintalPerAcre',
+      wastageKg: 'grade_bags___wastageKg',
+      outputPercentage: 'grade_bags___outputPercentage',
+      buyBackAmount: 'grade_bags___buyBackAmount',
+      netAmount: 'netAmount',
+      netAmountPerAcre: 'netAmountPerAcre',
+    }),
+    []
+  );
+
+  const advancedFilterFields = React.useMemo<
+    Array<{ id: FilterField; label: string }>
+  >(
+    () =>
+      filterableColumns.map(({ id, label }) => ({
+        id: id as FilterField,
+        label,
+      })),
+    [filterableColumns]
+  );
+
   const advancedFieldValueOptions = React.useMemo<
     Record<FilterField, string[]>
   >(() => {
     const options = {} as Record<FilterField, string[]>;
     advancedFilterFields.forEach(({ id }) => {
-      const colId = advancedFieldToColumnId[id];
-      options[id] = colId ? getUniqueColumnValues(colId) : [];
+      const colId = legacyAdvancedFieldToColumnId[id] ?? id;
+      options[id] = getUniqueColumnValues(colId);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [
+    advancedFilterFields,
+    getUniqueColumnValues,
+    legacyAdvancedFieldToColumnId,
+  ]);
 
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
@@ -411,8 +487,14 @@ export function ContractFarmingViewFiltersSheet({
     const activeGlobalFilter = table.getState().globalFilter;
     setDraftLogicFilter(
       isAdvancedFilterGroup(activeGlobalFilter)
-        ? activeGlobalFilter
-        : createDefaultFilterGroup()
+        ? normalizeFilterGroupFields(
+            activeGlobalFilter,
+            legacyAdvancedFieldToColumnId
+          )
+        : {
+            ...createDefaultFilterGroup(),
+            conditions: [createDefaultCondition('farmer' as FilterField)],
+          }
     );
   }, [
     availableFilterOptions,
@@ -420,6 +502,7 @@ export function ContractFarmingViewFiltersSheet({
     filterableColumns,
     hidableColumnIds,
     hidableColumns,
+    legacyAdvancedFieldToColumnId,
     table,
   ]);
 
@@ -698,7 +781,10 @@ export function ContractFarmingViewFiltersSheet({
     []
   );
   const handleResetLogicBuilder = React.useCallback(() => {
-    setDraftLogicFilter(createDefaultFilterGroup());
+    setDraftLogicFilter({
+      ...createDefaultFilterGroup(),
+      conditions: [createDefaultCondition('farmer' as FilterField)],
+    });
   }, []);
   const handleResetColumnResizing = React.useCallback(() => {
     onColumnResizeModeChange('onChange');
@@ -1063,6 +1149,7 @@ export function ContractFarmingViewFiltersSheet({
 
               <AdvancedTabContent
                 draftLogicFilter={draftLogicFilter}
+                advancedFilterFields={advancedFilterFields}
                 advancedFieldValueOptions={advancedFieldValueOptions}
                 onResetLogicBuilder={handleResetLogicBuilder}
                 onSetGroupOperator={setGroupOperator}

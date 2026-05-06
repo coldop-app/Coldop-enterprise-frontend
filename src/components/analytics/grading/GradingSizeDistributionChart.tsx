@@ -1,7 +1,8 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
-import { PieChart as PieChartIcon, RefreshCw } from 'lucide-react';
+import { FileText, PieChart as PieChartIcon, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTheme } from '@/components/theme-provider';
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ import {
   useGetGradingSizeDistribution,
   type GetGradingSizeDistributionParams,
 } from '@/services/store-admin/grading-gate-pass/analytics/useGetGradingSizeDistribution';
+import { useStore } from '@/stores/store';
 import type { SizeDistributionSizeItem } from '@/types/analytics';
 
 interface GradingSizeDistributionChartProps {
@@ -54,7 +56,7 @@ interface VarietyChartData {
   totalWeightKg: number;
 }
 
-const CHART_COLORS = [
+const LIGHT_CHART_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
   'var(--chart-3)',
@@ -66,6 +68,20 @@ const CHART_COLORS = [
   'oklch(0.72 0.19 145)',
   'oklch(0.69 0.2 330)',
   'oklch(0.74 0.17 95)',
+] as const;
+
+const DARK_CHART_COLORS = [
+  'oklch(0.78 0.16 220)',
+  'oklch(0.82 0.14 165)',
+  'oklch(0.8 0.16 290)',
+  'oklch(0.84 0.13 120)',
+  'oklch(0.79 0.18 30)',
+  'oklch(0.83 0.12 85)',
+  'oklch(0.77 0.15 260)',
+  'oklch(0.81 0.14 345)',
+  'oklch(0.8 0.15 190)',
+  'oklch(0.82 0.13 55)',
+  'oklch(0.79 0.16 150)',
 ] as const;
 
 function orderSizeSlices(
@@ -99,7 +115,8 @@ function orderSizeSlices(
 }
 
 function buildVarietyChartData(
-  chartData: { variety: string; sizes: SizeDistributionSizeItem[] }[]
+  chartData: { variety: string; sizes: SizeDistributionSizeItem[] }[],
+  palette: readonly string[]
 ): VarietyChartData[] {
   return chartData.map((item) => {
     const orderedSizes = orderSizeSlices(item.sizes ?? []);
@@ -118,7 +135,7 @@ function buildVarietyChartData(
         name: size.name,
         bags: Number(size.value ?? 0),
         weightKg,
-        fill: CHART_COLORS[index % CHART_COLORS.length],
+        fill: palette[index % palette.length],
         percentage: totalWeightKg > 0 ? (weightKg / totalWeightKg) * 100 : 0,
       };
     });
@@ -145,14 +162,30 @@ const GradingSizeDistributionChart = memo(
   function GradingSizeDistributionChart({
     dateParams,
   }: GradingSizeDistributionChartProps) {
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const objectUrlRef = useRef<string | null>(null);
+    const coldStorageName = useStore(
+      (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+    );
+    const { theme } = useTheme();
+    const isDarkMode =
+      theme === 'dark' ||
+      (theme === 'system' &&
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const palette = isDarkMode ? DARK_CHART_COLORS : LIGHT_CHART_COLORS;
     const queryParams: GetGradingSizeDistributionParams = {
       ...(dateParams?.dateFrom ? { dateFrom: dateParams.dateFrom } : {}),
       ...(dateParams?.dateTo ? { dateTo: dateParams.dateTo } : {}),
     };
     const sizeDistributionQuery = useGetGradingSizeDistribution(queryParams);
     const varietyCharts = useMemo(
-      () => buildVarietyChartData(sizeDistributionQuery.data?.chartData ?? []),
-      [sizeDistributionQuery.data?.chartData]
+      () =>
+        buildVarietyChartData(
+          sizeDistributionQuery.data?.chartData ?? [],
+          palette
+        ),
+      [palette, sizeDistributionQuery.data?.chartData]
     );
     const hasAnyData = varietyCharts.some((item) => item.pieData.length > 0);
     const defaultVarietyTab = varietyCharts[0]?.variety ?? '';
@@ -165,6 +198,80 @@ const GradingSizeDistributionChart = memo(
         return defaultVarietyTab;
       });
     }, [defaultVarietyTab, varietyCharts]);
+
+    useEffect(() => {
+      return () => {
+        if (objectUrlRef.current) {
+          URL.revokeObjectURL(objectUrlRef.current);
+          objectUrlRef.current = null;
+        }
+      };
+    }, []);
+
+    const handleShowPdf = async () => {
+      if (isGeneratingPdf) return;
+
+      const previewTab = window.open('', '_blank');
+      if (!previewTab) {
+        window.alert(
+          'Popup blocked by your browser. Please allow popups and try again.'
+        );
+        return;
+      }
+
+      previewTab.opener = null;
+      previewTab.document.write(
+        '<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>'
+      );
+      previewTab.document.close();
+      setIsGeneratingPdf(true);
+
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const generatedAt = new Date().toLocaleString('en-IN');
+        const dateRangeLabel =
+          dateParams?.dateFrom && dateParams?.dateTo
+            ? `${dateParams.dateFrom} - ${dateParams.dateTo}`
+            : undefined;
+        const chartData = sizeDistributionQuery.data?.chartData ?? [];
+
+        const [{ pdf }, ReactModule, { default: GradingSizeBreakdownPdf }] =
+          await Promise.all([
+            import('@react-pdf/renderer'),
+            import('react'),
+            import('./pdfs/grading-size-breakdown-pdf'),
+          ]);
+
+        const document = ReactModule.createElement(GradingSizeBreakdownPdf, {
+          generatedAt,
+          coldStorageName,
+          chartData,
+          dateRangeLabel,
+        });
+
+        const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
+        const nextUrl = URL.createObjectURL(blob);
+        if (objectUrlRef.current) {
+          URL.revokeObjectURL(objectUrlRef.current);
+        }
+        objectUrlRef.current = nextUrl;
+
+        if (!previewTab.closed) {
+          previewTab.location.replace(nextUrl);
+        } else {
+          window.open(nextUrl, '_blank');
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred';
+        window.alert(`Failed to generate PDF: ${message}`);
+        if (!previewTab.closed) {
+          previewTab.close();
+        }
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+    };
 
     if (sizeDistributionQuery.isLoading || sizeDistributionQuery.isFetching) {
       return (
@@ -238,10 +345,26 @@ const GradingSizeDistributionChart = memo(
     return (
       <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-            <PieChartIcon className="text-primary h-5 w-5 shrink-0" />
-            Size-wise Distribution
-          </CardTitle>
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
+              <PieChartIcon className="text-primary h-5 w-5 shrink-0" />
+              Size-wise Distribution
+            </CardTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleShowPdf}
+              aria-label="Show pdf"
+              disabled={isGeneratingPdf}
+            >
+              {isGeneratingPdf ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
           <CardDescription>
             Percentage breakdown by grading size per variety (Excluding Bardana)
           </CardDescription>

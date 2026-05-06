@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
+import { useStore } from '@/stores/store';
 import {
   Item,
   ItemActions,
@@ -71,7 +72,8 @@ function RouteComponent() {
     fromDate: '',
     toDate: '',
   });
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>('seed');
+  const activeTab = useStore((state) => state.analyticsActiveTab);
+  const setActiveTab = useStore((state) => state.setAnalyticsActiveTab);
 
   const handleResetFilters = () => {
     setFromDate('');

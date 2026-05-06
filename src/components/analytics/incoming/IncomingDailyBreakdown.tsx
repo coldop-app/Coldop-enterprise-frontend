@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Calendar, RefreshCw, TrendingUp } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Calendar, FileText, RefreshCw, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -24,6 +24,7 @@ import {
   type GetIncomingDailyBreakdownParams,
 } from '@/services/store-admin/incoming-gate-pass/analytics/useGetIncomingDailyBreakdown';
 import type { GetVarietyDistributionParams } from '@/services/store-admin/incoming-gate-pass/analytics/useGetIncomingVarietyBreakdown';
+import { useStore } from '@/stores/store';
 import type {
   DailyMonthlyTrendData,
   MonthlyTrendChartItem,
@@ -53,6 +54,11 @@ const IncomingDailyBreakdown = ({
   dateParams,
 }: IncomingDailyBreakdownProps) => {
   const [tab, setTab] = useState<TrendTab>('daily');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const queryParams: GetIncomingDailyBreakdownParams =
     dateParams.dateFrom && dateParams.dateTo
       ? { dateFrom: dateParams.dateFrom, dateTo: dateParams.dateTo }
@@ -152,6 +158,85 @@ const IncomingDailyBreakdown = ({
     return { perLocation, grandTotal };
   }, [monthlyLocations, monthlyRows]);
 
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleShowPdf = async () => {
+    if (isGeneratingPdf) return;
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      window.alert(
+        'Popup blocked by your browser. Please allow popups and try again.'
+      );
+      return;
+    }
+
+    previewTab.opener = null;
+    previewTab.document.write(
+      '<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>'
+    );
+    previewTab.document.close();
+
+    setIsGeneratingPdf(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const generatedAt = new Date().toLocaleString('en-IN');
+      const normalizedTrendData: DailyMonthlyTrendData = {
+        daily: { chartData: dailySeries },
+        monthly: { chartData: monthlySeries },
+      };
+      const dateRangeLabel =
+        dateParams.dateFrom && dateParams.dateTo
+          ? `${formatDateLabel(dateParams.dateFrom)} - ${formatDateLabel(dateParams.dateTo)}`
+          : undefined;
+
+      const [{ pdf }, ReactModule, { default: IncomingDailyBreakdownPdf }] =
+        await Promise.all([
+          import('@react-pdf/renderer'),
+          import('react'),
+          import('./pdfs/incoming-daily-breakdown-pdf'),
+        ]);
+
+      const document = ReactModule.createElement(IncomingDailyBreakdownPdf, {
+        generatedAt,
+        coldStorageName,
+        trendData: normalizedTrendData,
+        dateRangeLabel,
+      });
+
+      const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
+      const nextUrl = URL.createObjectURL(blob);
+
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = nextUrl;
+
+      if (!previewTab.closed) {
+        previewTab.location.replace(nextUrl);
+      } else {
+        window.open(nextUrl, '_blank');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      window.alert(`Failed to generate PDF: ${message}`);
+      if (!previewTab.closed) {
+        previewTab.close();
+      }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   if (dailyBreakdownQuery.isLoading || dailyBreakdownQuery.isFetching) {
     return (
       <Card className="font-custom">
@@ -203,10 +288,26 @@ const IncomingDailyBreakdown = ({
   return (
     <Card className="font-custom transition-shadow duration-200 hover:shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
-          <TrendingUp className="text-primary h-5 w-5 shrink-0" />
-          Incoming Daily Breakdown
-        </CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold sm:text-lg">
+            <TrendingUp className="text-primary h-5 w-5 shrink-0" />
+            Incoming Daily Breakdown
+          </CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleShowPdf}
+            aria-label="Show pdf"
+            disabled={isGeneratingPdf}
+          >
+            {isGeneratingPdf ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
         <CardDescription>
           Bags received over time (daily and monthly)
         </CardDescription>

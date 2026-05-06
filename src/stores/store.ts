@@ -16,6 +16,13 @@ interface StoreState {
     | 'storage'
     | 'dispatch-pre-outgoing'
     | 'dispatch-outgoing';
+  analyticsActiveTab:
+    | 'seed'
+    | 'incoming'
+    | 'grading'
+    | 'storage'
+    | 'dispatch-pre-outgoing'
+    | 'dispatch-outgoing';
   isLoading: boolean;
   _hasHydrated: boolean;
 
@@ -35,13 +42,22 @@ interface StoreState {
       | 'dispatch-pre-outgoing'
       | 'dispatch-outgoing'
   ) => void;
+  setAnalyticsActiveTab: (
+    tab:
+      | 'seed'
+      | 'incoming'
+      | 'grading'
+      | 'storage'
+      | 'dispatch-pre-outgoing'
+      | 'dispatch-outgoing'
+  ) => void;
   setLoading: (loading: boolean) => void;
   setHasHydrated: (state: boolean) => void;
 }
 
 type PersistedState = Pick<
   StoreState,
-  'admin' | 'coldStorage' | 'token' | 'daybookActiveTab'
+  'admin' | 'coldStorage' | 'token' | 'daybookActiveTab' | 'analyticsActiveTab'
 >;
 
 // ⏳ 1 week expiry in milliseconds
@@ -90,6 +106,7 @@ export const useStore = create(
       coldStorage: null,
       token: null,
       daybookActiveTab: 'seed',
+      analyticsActiveTab: 'seed',
       isLoading: false,
       _hasHydrated: false,
 
@@ -110,6 +127,7 @@ export const useStore = create(
         }),
 
       setDaybookActiveTab: (tab) => set({ daybookActiveTab: tab }),
+      setAnalyticsActiveTab: (tab) => set({ analyticsActiveTab: tab }),
 
       setLoading: (loading) => set({ isLoading: loading }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -124,6 +142,7 @@ export const useStore = create(
         coldStorage: state.coldStorage,
         token: state.token,
         daybookActiveTab: state.daybookActiveTab,
+        analyticsActiveTab: state.analyticsActiveTab,
       }),
 
       onRehydrateStorage: () => (state) => {

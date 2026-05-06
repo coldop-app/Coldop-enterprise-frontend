@@ -16,7 +16,6 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
-import { DatePicker } from '@/components/date-picker';
 import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +30,31 @@ import {
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
 import {
+  getAverageQuintalPerAcre,
+  getBuyBackAmountFromGradeData,
+  getGradeWeightPercent,
+  getNetAmountPerAcreRupee,
+  getNetAmountRupee,
+  getOutputPercentage,
+  getTotalGradeBags,
+  getTotalGradeNetWeightKg,
+  getWastageKg,
+} from './contract-farming-report-calculations';
+import {
+  AVG_QUINTAL_PER_ACRE_COLUMN_ID,
+  BUY_BACK_AMOUNT_COLUMN_ID,
+  NET_AMOUNT_COLUMN_ID,
+  NET_AMOUNT_PER_ACRE_COLUMN_ID,
+  OUTPUT_PERCENTAGE_COLUMN_ID,
+  TOTAL_GRADED_BAGS_COLUMN_ID,
+  TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
+  VARIETY_LEVEL_COLUMN_PREFIX,
+  VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
+  WASTAGE_KG_COLUMN_ID,
   buildColumns,
   buildDefaultContractFarmingColumnOrder,
   defaultContractFarmingColumnVisibility,
+  isNumericSortColumnId,
 } from './columns';
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
 import { GRADE_BAG_COLUMN_KEY_PREFIX, type FlattenedRow } from './types';
@@ -42,15 +63,13 @@ import { ContractFarmingViewFiltersSheet } from './view-filters-sheet';
 const DEFAULT_COLUMN_SIZE = 170;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
 const DEFAULT_COLUMN_MAX_SIZE = 550;
+const WHOLE_NUMBER_TOTAL_COLUMN_IDS = new Set<string>([
+  'qty',
+  'bbBags',
+  TOTAL_GRADED_BAGS_COLUMN_ID,
+]);
 
 type GlobalFilterValue = string | FilterGroupNode;
-
-function toApiDate(value: string): string | undefined {
-  const [day, month, year] = value.split('.');
-  if (!day || !month || !year) return undefined;
-  if (year.length !== 4) return undefined;
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-}
 
 function getGradeHeaders(farmers: ContractFarmingReportFarmer[]): string[] {
   const gradeSet = new Set<string>();
@@ -175,10 +194,39 @@ const globalContractFarmingFilterFn = (
   filterValue: GlobalFilterValue
 ) => {
   if (isAdvancedFilterGroup(filterValue)) {
-    return evaluateFilterGroup(
-      row.original as unknown as Record<string, unknown>,
-      filterValue
-    );
+    const rowRecord: Record<string, unknown> = {
+      ...row.original,
+      familyKey: row.original.familyKey ?? 0,
+      farmer: row.original.farmerName,
+      accountNumber: row.original.accountNumber,
+      address: row.original.address,
+      variety: row.original.varietyName,
+      size: row.original.sizeName,
+      qty: row.original.sizeQuantity,
+      acres: row.original.sizeAcres,
+      bbBags: row.original.buyBackBags,
+      bbNetWeight: row.original.buyBackNetWeightKg,
+      amount: row.original.sizeAmountPayable,
+      [TOTAL_GRADED_BAGS_COLUMN_ID]: getTotalGradeBags(row.original),
+      [TOTAL_GRADED_NET_WEIGHT_COLUMN_ID]: getTotalGradeNetWeightKg(
+        row.original
+      ),
+      [AVG_QUINTAL_PER_ACRE_COLUMN_ID]: getAverageQuintalPerAcre(row.original),
+      [WASTAGE_KG_COLUMN_ID]: getWastageKg(row.original),
+      [OUTPUT_PERCENTAGE_COLUMN_ID]: getOutputPercentage(row.original),
+      [BUY_BACK_AMOUNT_COLUMN_ID]: getBuyBackAmountFromGradeData(row.original),
+      [NET_AMOUNT_COLUMN_ID]: getNetAmountRupee(row.original),
+      [NET_AMOUNT_PER_ACRE_COLUMN_ID]: getNetAmountPerAcreRupee(row.original),
+    };
+
+    Object.entries(row.original.gradeData ?? {}).forEach(([grade, value]) => {
+      const bagsKey = `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`;
+      const pctKey = `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`;
+      rowRecord[bagsKey] = Number(value?.bags ?? 0);
+      rowRecord[pctKey] = getGradeWeightPercent(row.original, grade);
+    });
+
+    return evaluateFilterGroup(rowRecord, filterValue);
   }
   const term = String(filterValue ?? '')
     .trim()
@@ -196,10 +244,6 @@ export default function ContractFarmingReportTable() {
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
 
-  const [fromDate, setFromDate] = React.useState('');
-  const [toDate, setToDate] = React.useState('');
-  const [appliedFromDate, setAppliedFromDate] = React.useState('');
-  const [appliedToDate, setAppliedToDate] = React.useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -216,15 +260,8 @@ export default function ContractFarmingReportTable() {
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
 
-  const hasDateFilters = Boolean(fromDate && toDate);
-  const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
-  const canApply = Boolean(fromDate && toDate);
-
   const { data, isLoading, isFetching, isError, error, refetch } =
-    useGetContractFarmingReport({
-      fromDate: hasAppliedDateFilters ? appliedFromDate : undefined,
-      toDate: hasAppliedDateFilters ? appliedToDate : undefined,
-    });
+    useGetContractFarmingReport();
 
   const farmers = data?.farmers ?? [];
   const gradeHeaders = React.useMemo(() => {
@@ -292,6 +329,62 @@ export default function ContractFarmingReportTable() {
   });
 
   const rows = table.getRowModel().rows;
+  const filteredRows = table.getFilteredRowModel().rows;
+  const visibleColumnIds = React.useMemo(
+    () => table.getVisibleLeafColumns().map((column) => column.id),
+    [table]
+  );
+
+  const totalsByColumn = React.useMemo(() => {
+    const totals: Record<string, number> = {};
+    const numericVisibleColumnIds = visibleColumnIds.filter((columnId) =>
+      isNumericSortColumnId(columnId)
+    );
+
+    numericVisibleColumnIds.forEach((columnId) => {
+      totals[columnId] = 0;
+    });
+
+    for (const row of filteredRows) {
+      for (const columnId of numericVisibleColumnIds) {
+        const raw = row.getValue(columnId);
+        const value = typeof raw === 'number' ? raw : Number(raw);
+        if (Number.isFinite(value)) {
+          totals[columnId] += value;
+        }
+      }
+    }
+
+    return totals;
+  }, [filteredRows, visibleColumnIds]);
+
+  const hasVisibleNumericTotals = React.useMemo(
+    () => visibleColumnIds.some((columnId) => isNumericSortColumnId(columnId)),
+    [visibleColumnIds]
+  );
+
+  const formatTotal = React.useCallback((columnId: string, value: number) => {
+    const decimals = WHOLE_NUMBER_TOTAL_COLUMN_IDS.has(columnId) ? 0 : 2;
+    const formatted = value.toLocaleString('en-IN', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    if (
+      columnId === 'amount' ||
+      columnId === BUY_BACK_AMOUNT_COLUMN_ID ||
+      columnId === NET_AMOUNT_COLUMN_ID ||
+      columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID
+    ) {
+      return `₹${formatted}`;
+    }
+    if (
+      columnId === OUTPUT_PERCENTAGE_COLUMN_ID ||
+      columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
+    ) {
+      return `${formatted}%`;
+    }
+    return formatted;
+  }, []);
 
   return (
     <>
@@ -308,59 +401,6 @@ export default function ContractFarmingReportTable() {
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
-              <div className="flex items-end gap-2 self-end">
-                <DatePicker
-                  id="contract-farming-from-date"
-                  label=""
-                  compact
-                  value={fromDate}
-                  onChange={setFromDate}
-                />
-                <span className="text-muted-foreground mb-2 self-end text-sm">
-                  →
-                </span>
-                <DatePicker
-                  id="contract-farming-to-date"
-                  label=""
-                  compact
-                  value={toDate}
-                  onChange={setToDate}
-                />
-              </div>
-
-              <div className="bg-border/40 hidden h-7 w-px lg:block" />
-
-              <div className="flex items-center gap-2 self-end">
-                <Button
-                  className="h-8 rounded-lg px-4 text-sm shadow-none"
-                  disabled={!canApply}
-                  onClick={() => {
-                    if (!hasDateFilters) return;
-                    const nextFromDate = toApiDate(fromDate);
-                    const nextToDate = toApiDate(toDate);
-                    if (!nextFromDate || !nextToDate) return;
-                    setAppliedFromDate(nextFromDate);
-                    setAppliedToDate(nextToDate);
-                  }}
-                >
-                  Apply
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                  onClick={() => {
-                    setFromDate('');
-                    setToDate('');
-                    setAppliedFromDate('');
-                    setAppliedToDate('');
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
-
-              <div className="bg-border/40 hidden h-7 w-px lg:block" />
-
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2 self-end">
                 <div className="relative w-[170px] sm:w-[220px]">
                   <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
@@ -405,6 +445,10 @@ export default function ContractFarmingReportTable() {
           <ContractFarmingReportDataTable
             table={table}
             rows={rows}
+            visibleColumnIds={visibleColumnIds}
+            hasVisibleNumericTotals={hasVisibleNumericTotals}
+            totalsByColumn={totalsByColumn}
+            formatTotal={formatTotal}
             isLoading={isLoading}
           />
         </div>

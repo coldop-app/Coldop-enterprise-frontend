@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -14,6 +15,7 @@ import type { FlattenedRow } from './types';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
+const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
@@ -21,12 +23,20 @@ const isFirefoxBrowser =
 type ContractFarmingReportDataTableProps = {
   table: Table<FlattenedRow>;
   rows: Row<FlattenedRow>[];
+  visibleColumnIds: string[];
+  hasVisibleNumericTotals: boolean;
+  totalsByColumn: Record<string, number>;
+  formatTotal: (columnId: string, value: number) => string;
   isLoading: boolean;
 };
 
 export function ContractFarmingReportDataTable({
   table,
   rows,
+  visibleColumnIds,
+  hasVisibleNumericTotals,
+  totalsByColumn,
+  formatTotal,
   isLoading,
 }: ContractFarmingReportDataTableProps) {
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
@@ -268,6 +278,47 @@ export function ContractFarmingReportDataTable({
               );
             })}
           </TableBody>
+          {rows.length > 0 && hasVisibleNumericTotals ? (
+            <TableFooter
+              className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
+              style={{
+                display: 'grid',
+                position: 'sticky',
+                bottom: 0,
+                paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                zIndex: 9,
+              }}
+            >
+              <TableRow
+                style={{ display: 'flex', width: '100%' }}
+                className="hover:bg-transparent"
+              >
+                {visibleColumnIds.map((columnId, columnIndex) => {
+                  const totalValue = totalsByColumn[columnId];
+                  const hasTotal = Number.isFinite(totalValue);
+                  const isNumeric = hasTotal;
+                  return (
+                    <TableCell
+                      key={`totals-${columnId}`}
+                      style={{
+                        display: 'flex',
+                        width: table.getColumn(columnId)?.getSize(),
+                      }}
+                      className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
+                        isNumeric ? 'justify-end tabular-nums' : ''
+                      }`}
+                    >
+                      {columnIndex === 0
+                        ? 'Total'
+                        : hasTotal
+                          ? formatTotal(columnId, totalValue)
+                          : ''}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableFooter>
+          ) : null}
         </table>
       )}
     </div>
