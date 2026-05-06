@@ -39,6 +39,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { useGetOverview } from '@/services/store-admin/general/useGetOverview';
+import type { AnalyticsDateRange } from './index';
 interface GradingBags {
   initialQuantity: number;
   currentQuantity: number;
@@ -304,9 +305,16 @@ function OverviewSkeleton() {
   );
 }
 
-const Overview = memo(function Overview() {
+interface OverviewProps {
+  dateRange: AnalyticsDateRange;
+}
+
+const Overview = memo(function Overview({ dateRange }: OverviewProps) {
   const navigate = useNavigate();
-  const { data, isLoading, isError, error, refetch } = useGetOverview();
+  const { data, isLoading, isError, error, refetch } = useGetOverview({
+    dateFrom: dateRange.fromDate || undefined,
+    dateTo: dateRange.toDate || undefined,
+  });
   const normalized = normalizeOverviewData(data);
 
   if (isLoading) {

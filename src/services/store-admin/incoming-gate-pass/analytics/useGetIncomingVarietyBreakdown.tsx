@@ -3,12 +3,9 @@ import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  GetIncomingGatePassReportApiResponse,
-  IncomingGatePassReportData,
-  IncomingGatePassReportDataGroupedByVariety,
+  GetVarietyDistributionApiResponse,
   VarietyDistributionData,
 } from '@/types/analytics';
-import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 
 /** Query key prefix for variety distribution (incoming variety breakdown) */
 export const varietyDistributionKeys = {
@@ -21,14 +18,12 @@ export interface GetVarietyDistributionParams {
   dateTo?: string;
 }
 
-/** Trims whitespace and validates YYYY-MM-DD format for date ranges */
 function sanitizeParams(
   params: GetVarietyDistributionParams
 ): GetVarietyDistributionParams {
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-
-  const validateDate = (d?: string) => {
-    const trimmed = d?.trim();
+  const validateDate = (value?: string) => {
+    const trimmed = value?.trim();
     return trimmed && dateRegex.test(trimmed) ? trimmed : undefined;
   };
 
@@ -38,7 +33,6 @@ function sanitizeParams(
   };
 }
 
-/** Standardized error mapping for the variety distribution endpoint */
 function getVarietyDistributionErrorMessage(error: unknown): string {
   if (isAxiosError<{ message?: string }>(error)) {
     const apiMessage = error.response?.data?.message;
@@ -57,91 +51,23 @@ function getVarietyDistributionErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return 'Failed to fetch variety distribution data';
+  return 'Failed to fetch variety distribution';
 }
 
-// ============================================================================
-// Data Transformation Helpers
-// ============================================================================
-
-function isIncomingGroupedByVariety(
-  data: IncomingGatePassReportData
-): data is IncomingGatePassReportDataGroupedByVariety {
-  return (
-    Array.isArray(data) &&
-    data.length > 0 &&
-    'variety' in data[0] &&
-    'gatePasses' in data[0] &&
-    !('farmers' in data[0])
-  );
-}
-
-function getIncomingPassBags(pass: IncomingGatePassWithLink): number {
-  const bagsFromSizes = (pass.bagSizes ?? []).reduce(
-    (sum, b) => sum + (b.initialQuantity ?? 0),
-    0
-  );
-  return pass.bagsReceived ?? bagsFromSizes;
-}
-
-function getIncomingPassNetWeightKg(
-  pass: IncomingGatePassWithLink & {
-    weightSlip?: { grossWeightKg?: number; tareWeightKg?: number };
-    grossWeightKg?: number;
-    tareWeightKg?: number;
-    netWeightKg?: number;
-  }
-): number {
-  const gross = pass.weightSlip?.grossWeightKg ?? pass.grossWeightKg;
-  const tare = pass.weightSlip?.tareWeightKg ?? pass.tareWeightKg;
-  if (typeof gross === 'number' && typeof tare === 'number') {
-    return gross - tare;
-  }
-  return pass.netWeightKg ?? 0;
-}
-
-function computeVarietyDistributionByWeight(
-  data: IncomingGatePassReportData
-): VarietyDistributionData['chartData'] {
-  if (!isIncomingGroupedByVariety(data)) return [];
-
-  return data
-    .map((group) => {
-      const totalAdjustedNetWeightKg = group.gatePasses.reduce((sum, pass) => {
-        const bags = getIncomingPassBags(pass);
-        const netWeightKg = getIncomingPassNetWeightKg(pass);
-        const bardanaWeightKg = bags * JUTE_BAG_WEIGHT;
-        return sum + Math.max(netWeightKg - bardanaWeightKg, 0);
-      }, 0);
-
-      return {
-        name: group.variety?.trim() || 'Unknown',
-        value: totalAdjustedNetWeightKg,
-      };
-    })
-    .filter((item) => item.value > 0)
-    .sort((a, b) => b.value - a.value);
-}
-
-// ============================================================================
-// Fetcher & Hooks
-// ============================================================================
-
-/** Fetcher used by queryOptions and prefetch */
 async function fetchVarietyDistribution(
   params: GetVarietyDistributionParams
 ): Promise<VarietyDistributionData> {
   try {
+    const safeParams = sanitizeParams(params);
+    const requestParams: GetVarietyDistributionParams = {
+      ...(safeParams.dateFrom ? { dateFrom: safeParams.dateFrom } : {}),
+      ...(safeParams.dateTo ? { dateTo: safeParams.dateTo } : {}),
+    };
     const { data } =
-      await storeAdminAxiosClient.get<GetIncomingGatePassReportApiResponse>(
-        '/analytics/incoming-gate-pass-report',
+      await storeAdminAxiosClient.get<GetVarietyDistributionApiResponse>(
+        '/analytics/variety-distribution',
         {
-          params: {
-            dateFrom: params.dateFrom,
-            dateTo: params.dateTo,
-            groupByVariety: true,
-            groupByFarmer: false,
-          },
+          params: requestParams,
         }
       );
 
@@ -149,9 +75,8 @@ async function fetchVarietyDistribution(
       throw new Error(data.message ?? 'Failed to fetch variety distribution');
     }
 
-    return {
-      chartData: computeVarietyDistributionByWeight(data.data),
-    };
+    // API returns { success, data: { chartData: [...] } }
+    return data.data;
   } catch (error) {
     throw new Error(getVarietyDistributionErrorMessage(error), {
       cause: error,
@@ -168,40 +93,26 @@ export const varietyDistributionQueryOptions = (
   return queryOptions({
     queryKey: [...varietyDistributionKeys.all, safeParams] as const,
     queryFn: () => fetchVarietyDistribution(safeParams),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
   });
 };
 
-/** Hook to fetch incoming variety breakdown (variety distribution) for a date range */
+/** Hook to fetch incoming variety distribution for a date range */
 export function useGetIncomingVarietyBreakdown(
   params: GetVarietyDistributionParams = {}
 ) {
-  const options = varietyDistributionQueryOptions(params);
-
-  const hasValidDateRange = Boolean(
-    options.queryKey[3]?.dateFrom && options.queryKey[3]?.dateTo
-  );
+  const safeParams = sanitizeParams(params);
 
   return useQuery({
-    ...options,
-    enabled: hasValidDateRange,
+    ...varietyDistributionQueryOptions(safeParams),
   });
 }
 
-/** Prefetch variety distribution – e.g. on route hover or before navigation */
-export function prefetchVarietyDistribution(
+/** Prefetch incoming variety distribution – e.g. before navigation */
+export function prefetchIncomingVarietyBreakdown(
   params: GetVarietyDistributionParams = {}
 ) {
-  const options = varietyDistributionQueryOptions(params);
-
-  const hasValidDateRange = Boolean(
-    options.queryKey[3]?.dateFrom && options.queryKey[3]?.dateTo
-  );
-
-  if (!hasValidDateRange) {
-    return Promise.resolve();
-  }
-
-  return queryClient.prefetchQuery(options);
+  const safeParams = sanitizeParams(params);
+  return queryClient.prefetchQuery(varietyDistributionQueryOptions(safeParams));
 }

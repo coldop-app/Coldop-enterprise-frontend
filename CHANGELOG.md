@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] - 2026-05-06
+
+### Added
+- New analytics visualization components for grading, incoming, and storage dashboards, including daily breakdown views, area/size distribution charts, and storage summary widgets.
+- Supporting analytics service hooks for grading area/size distribution, storage daily breakdown/summary, and refreshed daily-breakdown query paths.
+
+### Changed
+- Store-admin analytics tab screens and overview wiring were updated to surface the new grading/incoming/storage analytics cards and chart modules.
+- Contract farming report modules were simplified by removing legacy table/footer components and keeping report column/types flow aligned with the current analytics architecture.
+- Shared chart primitives and UI alert composition were refined to support the expanded analytics presentation layer.
+- Project version updated to `0.5.9` for this analytics dashboard expansion and report cleanup release.
+
 ## [0.5.8] - 2026-05-05
 
 ### Added

@@ -3,34 +3,36 @@ import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  GetGradingDailyBreakdownApiResponse,
-  GradingDailyBreakdownData,
+  GetGradingTrendApiResponse,
+  GradingTrendData,
 } from '@/types/analytics';
 
-/** Query key prefix for grading daily breakdown (by calendar date) */
+/** Query key prefix for grading daily/monthly trend (grouped by grader) */
 export const gradingDailyBreakdownKeys = {
   all: ['store-admin', 'analytics', 'grading-daily-breakdown'] as const,
 };
 
-/** Params for GET /grading-gate-pass/grading-daily-breakdown (date in YYYY-MM-DD) */
+/** Params for GET /analytics/grading-daily-monthly-trend (date range in YYYY-MM-DD) */
 export interface GetGradingDailyBreakdownParams {
-  date?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
-/** Trims whitespace and validates YYYY-MM-DD format */
 function sanitizeParams(
   params: GetGradingDailyBreakdownParams
 ): GetGradingDailyBreakdownParams {
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  const trimmedDate = params.date?.trim();
-  const isValidDate = trimmedDate && dateRegex.test(trimmedDate);
+  const validateDate = (value?: string) => {
+    const trimmed = value?.trim();
+    return trimmed && dateRegex.test(trimmed) ? trimmed : undefined;
+  };
 
   return {
-    date: isValidDate ? trimmedDate : undefined,
+    dateFrom: validateDate(params.dateFrom),
+    dateTo: validateDate(params.dateTo),
   };
 }
 
-/** Standardized error mapping for the grading daily breakdown endpoint */
 function getGradingDailyBreakdownErrorMessage(error: unknown): string {
   if (isAxiosError<{ message?: string }>(error)) {
     const apiMessage = error.response?.data?.message;
@@ -52,16 +54,21 @@ function getGradingDailyBreakdownErrorMessage(error: unknown): string {
   return 'Failed to fetch grading daily breakdown';
 }
 
-/** Fetcher used by queryOptions and prefetch */
 async function fetchGradingDailyBreakdown(
   params: GetGradingDailyBreakdownParams
-): Promise<GradingDailyBreakdownData> {
+): Promise<GradingTrendData> {
   try {
+    const safeParams = sanitizeParams(params);
+    const requestParams: GetGradingDailyBreakdownParams = {
+      ...(safeParams.dateFrom ? { dateFrom: safeParams.dateFrom } : {}),
+      ...(safeParams.dateTo ? { dateTo: safeParams.dateTo } : {}),
+    };
+
     const { data } =
-      await storeAdminAxiosClient.get<GetGradingDailyBreakdownApiResponse>(
-        '/grading-gate-pass/grading-daily-breakdown',
+      await storeAdminAxiosClient.get<GetGradingTrendApiResponse>(
+        '/analytics/grading-daily-monthly-trend',
         {
-          params: { date: params.date },
+          params: requestParams,
         }
       );
 
@@ -88,34 +95,28 @@ export const gradingDailyBreakdownQueryOptions = (
   return queryOptions({
     queryKey: [...gradingDailyBreakdownKeys.all, safeParams] as const,
     queryFn: () => fetchGradingDailyBreakdown(safeParams),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
   });
 };
 
-/** Hook to fetch grading gate passes for a single day, grouped by grader */
+/** Hook to fetch grading daily/monthly trend for a date range */
 export function useGetGradingDailyBreakdown(
   params: GetGradingDailyBreakdownParams = {}
 ) {
-  const options = gradingDailyBreakdownQueryOptions(params);
-  const hasValidDate = Boolean(options.queryKey[3]?.date);
+  const safeParams = sanitizeParams(params);
 
   return useQuery({
-    ...options,
-    enabled: hasValidDate,
+    ...gradingDailyBreakdownQueryOptions(safeParams),
   });
 }
 
-/** Prefetch grading daily breakdown – e.g. before navigation from trend chart */
+/** Prefetch grading daily breakdown – e.g. before navigation */
 export function prefetchGradingDailyBreakdown(
   params: GetGradingDailyBreakdownParams = {}
 ) {
-  const options = gradingDailyBreakdownQueryOptions(params);
-  const hasValidDate = Boolean(options.queryKey[3]?.date);
-
-  if (!hasValidDate) {
-    return Promise.resolve();
-  }
-
-  return queryClient.prefetchQuery(options);
+  const safeParams = sanitizeParams(params);
+  return queryClient.prefetchQuery(
+    gradingDailyBreakdownQueryOptions(safeParams)
+  );
 }

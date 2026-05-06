@@ -166,6 +166,7 @@ export function buildDefaultContractFarmingColumnOrder(
   gradeHeaders: readonly string[]
 ): string[] {
   return [
+    'familyKey',
     'farmer',
     'farmerMobile',
     'address',
@@ -187,6 +188,23 @@ export function buildColumns(
   gradeHeaders: string[]
 ): ColumnDef<FlattenedRow, unknown>[] {
   const baseColumns = [
+    columnHelper.accessor('familyKey', {
+      id: 'familyKey',
+      header: 'Family Key',
+      sortingFn: 'basic',
+      size: 110,
+      minSize: 90,
+      maxSize: 160,
+      enableGrouping: true,
+      filterFn: multiValueFilterFn,
+      aggregationFn: 'count',
+      aggregatedCell: () => null,
+      cell: ({ getValue }) => (
+        <span className="font-custom text-right tabular-nums">
+          {formatNumber((getValue() as number | null) ?? 0, 0)}
+        </span>
+      ),
+    }),
     columnHelper.accessor('farmerName', {
       id: 'farmer',
       header: 'Farmer',
@@ -287,7 +305,7 @@ export function buildColumns(
       size: 120,
       minSize: 90,
       maxSize: 220,
-      enableGrouping: false,
+      enableGrouping: true,
       filterFn: multiValueFilterFn,
       aggregationFn: 'count',
       aggregatedCell: () => (
@@ -598,7 +616,7 @@ export function buildColumns(
           maxSize: 260,
           enableGrouping: false,
           filterFn: multiValueFilterFn,
-          aggregationFn: sumVarietyMetrics,
+          aggregationFn: averageVarietyMetrics,
           aggregatedCell: ({ getValue }) => (
             <StrongNum decimals={2} value={getValue() as number | null} />
           ),

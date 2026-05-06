@@ -11,6 +11,8 @@ export type GradeBagFlatKey = `${typeof GRADE_BAG_COLUMN_KEY_PREFIX}${string}`;
  */
 export type FlattenedRow = {
   rowId: string;
+  /** Group key by account-number family (base + decimal variants). */
+  familyKey?: number;
   farmerName: string;
   /** Present for clubbed-family display rows: unique farmer names grouped under one base account. */
   clubbedFarmerNames?: string[];

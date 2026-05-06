@@ -45,14 +45,45 @@ const ANALYTICS_TABS = [
 
 type AnalyticsTab = (typeof ANALYTICS_TABS)[number];
 
+export interface AnalyticsDateRange {
+  fromDate: string;
+  toDate: string;
+}
+
+function toApiDate(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+
+  const [day, month, year] = trimmed.split('.');
+  if (!day || !month || !year) return '';
+
+  const normalizedDay = day.padStart(2, '0');
+  const normalizedMonth = month.padStart(2, '0');
+  const normalizedYear = year.padStart(4, '0');
+
+  return `${normalizedYear}-${normalizedMonth}-${normalizedDay}`;
+}
+
 function RouteComponent() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [appliedDateRange, setAppliedDateRange] = useState<AnalyticsDateRange>({
+    fromDate: '',
+    toDate: '',
+  });
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('seed');
 
   const handleResetFilters = () => {
     setFromDate('');
     setToDate('');
+    setAppliedDateRange({ fromDate: '', toDate: '' });
+  };
+
+  const handleApplyFilters = () => {
+    setAppliedDateRange({
+      fromDate: toApiDate(fromDate),
+      toDate: toApiDate(toDate),
+    });
   };
 
   const handleValueChange = (value: string) => {
@@ -117,7 +148,7 @@ function RouteComponent() {
             <Button
               className="font-custom rounded-lg px-5 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md"
               disabled={!fromDate || !toDate}
-              onClick={() => undefined}
+              onClick={handleApplyFilters}
             >
               Apply
             </Button>
@@ -131,7 +162,7 @@ function RouteComponent() {
           </div>
         </Item>
 
-        <Overview />
+        <Overview dateRange={appliedDateRange} />
         <Tabs
           value={activeTab}
           onValueChange={handleValueChange}
@@ -174,10 +205,10 @@ function RouteComponent() {
             <AnalyticsSeedTab />
           </TabsContent>
           <TabsContent value="incoming">
-            <AnalyticsIncomingTab />
+            <AnalyticsIncomingTab dateRange={appliedDateRange} />
           </TabsContent>
           <TabsContent value="grading">
-            <AnalayticsGradingTab />
+            <AnalayticsGradingTab dateRange={appliedDateRange} />
           </TabsContent>
           <TabsContent value="storage">
             <AnalyticsStorageTab />

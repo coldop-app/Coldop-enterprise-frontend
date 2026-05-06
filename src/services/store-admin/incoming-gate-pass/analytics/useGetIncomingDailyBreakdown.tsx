@@ -12,16 +12,24 @@ export const incomingDailyBreakdownKeys = {
   all: ['store-admin', 'analytics', 'incoming-daily-breakdown'] as const,
 };
 
-/** Params for GET /incoming-gate-pass/incoming-daily-breakdown (date in YYYY-MM-DD) */
+/** Params for GET /incoming-gate-pass/incoming-daily-breakdown (date range in YYYY-MM-DD) */
 export interface GetIncomingDailyBreakdownParams {
-  date?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 function sanitizeParams(
   params: GetIncomingDailyBreakdownParams
 ): GetIncomingDailyBreakdownParams {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  const validateDate = (value?: string) => {
+    const trimmed = value?.trim();
+    return trimmed && dateRegex.test(trimmed) ? trimmed : undefined;
+  };
+
   return {
-    date: params.date?.trim() || undefined,
+    dateFrom: validateDate(params.dateFrom),
+    dateTo: validateDate(params.dateTo),
   };
 }
 
@@ -51,11 +59,15 @@ async function fetchIncomingDailyBreakdown(
 ): Promise<IncomingDailyBreakdownData> {
   try {
     const safeParams = sanitizeParams(params);
+    const requestParams: GetIncomingDailyBreakdownParams = {
+      ...(safeParams.dateFrom ? { dateFrom: safeParams.dateFrom } : {}),
+      ...(safeParams.dateTo ? { dateTo: safeParams.dateTo } : {}),
+    };
     const { data } =
       await storeAdminAxiosClient.get<GetIncomingDailyBreakdownApiResponse>(
-        '/incoming-gate-pass/incoming-daily-breakdown',
+        '/analytics/daily-monthly-trend',
         {
-          params: { date: safeParams.date },
+          params: requestParams,
         }
       );
 
@@ -92,11 +104,9 @@ export function useGetIncomingDailyBreakdown(
   params: GetIncomingDailyBreakdownParams = {}
 ) {
   const safeParams = sanitizeParams(params);
-  const hasDate = Boolean(safeParams.date);
 
   return useQuery({
     ...incomingDailyBreakdownQueryOptions(safeParams),
-    enabled: hasDate,
   });
 }
 
@@ -105,11 +115,6 @@ export function prefetchIncomingDailyBreakdown(
   params: GetIncomingDailyBreakdownParams = {}
 ) {
   const safeParams = sanitizeParams(params);
-
-  if (!safeParams.date) {
-    return Promise.resolve();
-  }
-
   return queryClient.prefetchQuery(
     incomingDailyBreakdownQueryOptions(safeParams)
   );
