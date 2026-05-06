@@ -124,8 +124,11 @@ function createEmptyBagSizeValues(): BagSizeValues {
 
 function normalizeBagSize(value: string): string {
   return value
-    .replace(/\s+/g, ' ')
+    .replace(/\bmm\b/gi, '')
+    .replace(/[()]/g, ' ')
     .replace(/[–—−-]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 }

@@ -344,7 +344,10 @@ function buildReportHeader(
 function addStyledTable(
   ws: ExcelJS.Worksheet,
   headers: string[],
-  rows: Array<Array<string | number>>
+  rows: Array<{
+    values: Array<string | number>;
+    boldByColumn: boolean[];
+  }>
 ) {
   const headerRow = ws.addRow(headers);
   headerRow.height = 36;
@@ -360,16 +363,20 @@ function addStyledTable(
   });
 
   rows.forEach((dataRow, idx) => {
-    const exRow = ws.addRow(dataRow);
+    const exRow = ws.addRow(dataRow.values);
     exRow.height = 22;
     const bgArgb = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
     exRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
       applyFill(cell, bgArgb);
       applyBorder(cell, COLORS.borderColor);
-      cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
+      cell.font = {
+        ...FONTS.body,
+        bold: dataRow.boldByColumn[colIndex - 1] === true,
+        color: { argb: 'FF1F2937' },
+      };
       cell.alignment = { horizontal: 'left', vertical: 'middle' };
 
-      if (typeof dataRow[colIndex - 1] === 'number') {
+      if (typeof dataRow.values[colIndex - 1] === 'number') {
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
         cell.numFmt = SMART_NUMBER_FORMAT;
       }
@@ -380,17 +387,24 @@ function addStyledTable(
 function getExcelBodyRows(
   rows: Row<IncomingReportRow>[],
   visibleColumns: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>
-): Array<Array<string | number>> {
+): Array<{
+  values: Array<string | number>;
+  boldByColumn: boolean[];
+}> {
   const columnIndexById = new Map(
     visibleColumns.map((column, i) => [column.id, i])
   );
-  const bodyRows: Array<Array<string | number>> = [];
+  const bodyRows: Array<{
+    values: Array<string | number>;
+    boldByColumn: boolean[];
+  }> = [];
 
   const appendRows = (tableRows: Row<IncomingReportRow>[]) => {
     for (const row of tableRows) {
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
+      const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
 
       for (const cell of row.getVisibleCells()) {
         const columnId = cell.column.id;
@@ -401,10 +415,12 @@ function getExcelBodyRows(
           const value = row.getValue(columnId);
           nextRow[columnIndex] =
             `${'  '.repeat(row.depth)}${String(value ?? '')} (${row.subRows.length})`;
+          boldByColumn[columnIndex] = true;
         } else if (cell.getIsAggregated()) {
           nextRow[columnIndex] = (row.getValue(columnId) ?? '') as
             | string
             | number;
+          boldByColumn[columnIndex] = true;
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
         } else {
@@ -414,7 +430,7 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push(nextRow);
+      bodyRows.push({ values: nextRow, boldByColumn });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -453,10 +469,13 @@ export const StorageExcelButton = ({
       );
       const sourceRows =
         t.getState().grouping.length > 0
-          ? t.getGroupedRowModel().rows
+          ? t.getPrePaginationRowModel().rows
           : t.getRowModel().rows;
       const rawBodyRows = getExcelBodyRows(sourceRows, visibleColumns);
-      const bodyRows = coerceRows(rawBodyRows);
+      const bodyRows = rawBodyRows.map((row) => ({
+        values: coerceRows([row.values])[0],
+        boldByColumn: row.boldByColumn,
+      }));
 
       const sums: Record<string, number> = {};
       collectStorageLeafColumnSums(sourceRows, sums);
@@ -470,7 +489,10 @@ export const StorageExcelButton = ({
       workbook.creator = safeName;
       const worksheet = workbook.addWorksheet('Storage Report');
 
-      const allBodyRowsForWidth = [...bodyRows, totalsRowValues];
+      const allBodyRowsForWidth = [
+        ...bodyRows.map((row) => row.values),
+        totalsRowValues,
+      ];
 
       applySmartColumnWidths(worksheet, headerLabels, allBodyRowsForWidth);
 

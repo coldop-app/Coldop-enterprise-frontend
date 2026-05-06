@@ -265,7 +265,10 @@ function buildReportHeader(
 function addStyledTable(
   ws: ExcelJS.Worksheet,
   headers: string[],
-  rows: Array<Array<string | number>>
+  rows: Array<{
+    values: Array<string | number>;
+    boldByColumn: boolean[];
+  }>
 ) {
   const headerRow = ws.addRow(headers);
   headerRow.height = 36;
@@ -281,16 +284,20 @@ function addStyledTable(
   });
 
   rows.forEach((dataRow, idx) => {
-    const exRow = ws.addRow(dataRow);
+    const exRow = ws.addRow(dataRow.values);
     exRow.height = 22;
     const bgArgb = idx % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
     exRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
       applyFill(cell, bgArgb);
       applyBorder(cell, COLORS.borderColor);
-      cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
+      cell.font = {
+        ...FONTS.body,
+        bold: dataRow.boldByColumn[colIndex - 1] === true,
+        color: { argb: 'FF1F2937' },
+      };
       cell.alignment = { horizontal: 'left', vertical: 'middle' };
 
-      if (typeof dataRow[colIndex - 1] === 'number') {
+      if (typeof dataRow.values[colIndex - 1] === 'number') {
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
         cell.numFmt = SMART_NUMBER_FORMAT;
       }
@@ -359,15 +366,22 @@ function applySmartColumnWidths(
 function getExcelBodyRows(
   rows: Row<IncomingReportRow>[],
   visibleColumns: ReturnType<Table<IncomingReportRow>['getVisibleLeafColumns']>
-): Array<Array<string | number>> {
+): Array<{
+  values: Array<string | number>;
+  boldByColumn: boolean[];
+}> {
   const columnIndexById = new Map(visibleColumns.map((col, i) => [col.id, i]));
-  const bodyRows: Array<Array<string | number>> = [];
+  const bodyRows: Array<{
+    values: Array<string | number>;
+    boldByColumn: boolean[];
+  }> = [];
 
   const appendRows = (tableRows: Row<IncomingReportRow>[]) => {
     for (const row of tableRows) {
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
+      const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
 
       for (const cell of row.getVisibleCells()) {
         const colId = cell.column.id;
@@ -385,10 +399,12 @@ function getExcelBodyRows(
           const v = row.getValue(colId);
           nextRow[colIdx] =
             `${'  '.repeat(row.depth)}${String(v ?? '')} (${row.subRows.length})`;
+          boldByColumn[colIdx] = true;
         } else if (isAggregated) {
           nextRow[colIdx] = suppressAgg
             ? '-'
             : ((row.getValue(colId) ?? '') as string | number);
+          boldByColumn[colIdx] = true;
         } else if (isPlaceholder) {
           nextRow[colIdx] = '';
         } else {
@@ -397,7 +413,7 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push(nextRow);
+      bodyRows.push({ values: nextRow, boldByColumn });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -434,10 +450,14 @@ export const IncomingExcelButton = ({
 
       const sourceRows =
         t.getState().grouping.length > 0
-          ? t.getGroupedRowModel().rows
+          ? t.getPrePaginationRowModel().rows
           : t.getRowModel().rows;
       const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
-      const rawBodyRows = coerceRows(bodyRows);
+      const styledBodyRows = bodyRows.map((row) => ({
+        values: coerceRows([row.values])[0],
+        boldByColumn: row.boldByColumn,
+      }));
+      const rawBodyRows = styledBodyRows.map((row) => row.values);
 
       const sums: Record<string, number> = {};
       collectIncomingLeafColumnSums(sourceRows, sums);
@@ -470,7 +490,7 @@ export const IncomingExcelButton = ({
       );
 
       addSectionTitle(ws, 'Incoming', colCount);
-      addStyledTable(ws, headerLabels, rawBodyRows);
+      addStyledTable(ws, headerLabels, styledBodyRows);
       addTotalsRow(ws, totalsRowValues);
 
       const buffer = await wb.xlsx.writeBuffer();

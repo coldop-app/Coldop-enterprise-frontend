@@ -194,6 +194,12 @@ export const storageReportColumns = [
       header: () => <div className="w-full text-right">{label} (mm)</div>,
       sortingFn: 'basic',
       filterFn: multiValueFilterFn,
+      aggregationFn: 'sum',
+      aggregatedCell: (info) => (
+        <div className="w-full text-right font-medium tabular-nums">
+          {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
+        </div>
+      ),
       minSize: 90,
       maxSize: 170,
       cell: (info) => (
@@ -207,6 +213,12 @@ export const storageReportColumns = [
     header: () => <div className="w-full text-right">Total Bags</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
+    aggregatedCell: (info) => (
+      <div className="w-full text-right font-medium tabular-nums">
+        {formatIndianNumber(Number(info.getValue() || 0), 0)}
+      </div>
+    ),
     minSize: 90,
     maxSize: 180,
     cell: (info) => (

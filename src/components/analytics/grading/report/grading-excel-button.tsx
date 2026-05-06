@@ -365,17 +365,24 @@ function getExcelBodyRows(
     Table<GradingReportTableRow>['getVisibleLeafColumns']
   >,
   hideGroupedAggregations: boolean
-): Array<Array<string | number>> {
+): Array<{
+  values: Array<string | number>;
+  boldByColumn: boolean[];
+}> {
   const columnIndexById = new Map(
     visibleColumns.map((column, i) => [column.id, i])
   );
-  const bodyRows: Array<Array<string | number>> = [];
+  const bodyRows: Array<{
+    values: Array<string | number>;
+    boldByColumn: boolean[];
+  }> = [];
 
   const appendRows = (tableRows: Row<GradingReportTableRow>[]) => {
     for (const row of tableRows) {
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
+      const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
 
       for (const cell of row.getVisibleCells()) {
         const columnId = cell.column.id;
@@ -398,10 +405,14 @@ function getExcelBodyRows(
           const groupedValue = row.getValue(columnId);
           nextRow[columnIndex] =
             `${String(groupedValue ?? '')} (${row.subRows.length})`;
+          boldByColumn[columnIndex] = true;
         } else if (isAggregatedCell) {
           nextRow[columnIndex] = hideGroupedAggregations
             ? ''
             : normalizeExcelValue(row.getValue(columnId), columnId);
+          if (!hideGroupedAggregations) {
+            boldByColumn[columnIndex] = true;
+          }
         } else if (isPlaceholderCell) {
           nextRow[columnIndex] = '';
         } else {
@@ -412,7 +423,7 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push(nextRow);
+      bodyRows.push({ values: nextRow, boldByColumn });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -489,8 +500,14 @@ export const GradingExcelButton = ({
       const dateLabel = getExportDateLabel(new Date());
       const fileName = `${safeName} Grading Report ${dateLabel}.xlsx`;
 
-      const coercedBodyRows = replaceZerosWithDash(coerceRows(bodyRows));
-      const allRowsForWidth = [...coercedBodyRows, totalsRowValues];
+      const styledBodyRows = bodyRows.map((row) => ({
+        values: replaceZerosWithDash(coerceRows([row.values]))[0],
+        boldByColumn: row.boldByColumn,
+      }));
+      const allRowsForWidth = [
+        ...styledBodyRows.map((row) => row.values),
+        totalsRowValues,
+      ];
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = safeName;
@@ -575,16 +592,20 @@ export const GradingExcelButton = ({
         };
       });
 
-      coercedBodyRows.forEach((dataRow, rowIndex) => {
-        const excelRow = worksheet.addRow(dataRow);
+      styledBodyRows.forEach((dataRow, rowIndex) => {
+        const excelRow = worksheet.addRow(dataRow.values);
         const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
         excelRow.height = 22;
 
         excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
           applyFill(cell, background);
           applyBorder(cell, COLORS.borderColor);
-          cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
-          const raw = dataRow[columnNumber - 1];
+          cell.font = {
+            ...FONTS.body,
+            bold: dataRow.boldByColumn[columnNumber - 1] === true,
+            color: { argb: 'FF1F2937' },
+          };
+          const raw = dataRow.values[columnNumber - 1];
           const colId = exportColumnIds[columnNumber - 1];
           const isNumber = typeof raw === 'number';
           const isDashNumeric =

@@ -226,17 +226,24 @@ function getExcelBodyRows(
   visibleColumns: ReturnType<
     Table<FarmerSeedReportRow>['getVisibleLeafColumns']
   >
-): Array<Array<string | number>> {
+): Array<{
+  values: Array<string | number>;
+  boldByColumn: boolean[];
+}> {
   const columnIndexById = new Map(
     visibleColumns.map((column, i) => [column.id, i])
   );
-  const bodyRows: Array<Array<string | number>> = [];
+  const bodyRows: Array<{
+    values: Array<string | number>;
+    boldByColumn: boolean[];
+  }> = [];
 
   const appendRows = (tableRows: Row<FarmerSeedReportRow>[]) => {
     for (const row of tableRows) {
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
+      const boldByColumn: boolean[] = Array(visibleColumns.length).fill(false);
 
       for (const cell of row.getVisibleCells()) {
         const columnId = cell.column.id;
@@ -247,11 +254,13 @@ function getExcelBodyRows(
           const value = row.getValue(columnId);
           nextRow[columnIndex] =
             `${'  '.repeat(row.depth)}${String(value ?? '')} (${row.subRows.length})`;
+          boldByColumn[columnIndex] = true;
         } else if (cell.getIsAggregated()) {
           const raw = (row.getValue(columnId) ?? '') as string | number;
           nextRow[columnIndex] = coerceToNumber(
             typeof raw === 'number' ? raw : String(raw)
           );
+          boldByColumn[columnIndex] = true;
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
         } else {
@@ -266,7 +275,7 @@ function getExcelBodyRows(
         }
       }
 
-      bodyRows.push(nextRow);
+      bodyRows.push({ values: nextRow, boldByColumn });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
   };
@@ -358,7 +367,7 @@ export const FarmerSeedExcelButton = ({
       );
       const sourceRows =
         t.getState().grouping.length > 0
-          ? t.getGroupedRowModel().rows
+          ? t.getPrePaginationRowModel().rows
           : t.getRowModel().rows;
       const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
 
@@ -388,7 +397,7 @@ export const FarmerSeedExcelButton = ({
         key: String(i),
         width: estimateColumnWidth(
           headerLabels[i],
-          [...bodyRows, totalsRowValues],
+          [...bodyRows.map((row) => row.values), totalsRowValues],
           i
         ),
       }));
@@ -478,17 +487,21 @@ export const FarmerSeedExcelButton = ({
 
       // ── Body rows ────────────────────────────────────────────────────────────
       bodyRows.forEach((dataRow, rowIndex) => {
-        const excelRow = worksheet.addRow(dataRow);
+        const excelRow = worksheet.addRow(dataRow.values);
         const background = rowIndex % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd;
         excelRow.height = 22; // taller body rows
 
         excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
           applyFill(cell, background);
           applyBorder(cell, COLORS.borderColor);
-          cell.font = { ...FONTS.body, color: { argb: 'FF1F2937' } };
+          cell.font = {
+            ...FONTS.body,
+            bold: dataRow.boldByColumn[columnNumber - 1] === true,
+            color: { argb: 'FF1F2937' },
+          };
           cell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
 
-          const cellValue = dataRow[columnNumber - 1];
+          const cellValue = dataRow.values[columnNumber - 1];
           if (typeof cellValue === 'number') {
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
             // Smart format: whole numbers show no decimal; decimals show up to 2 places
