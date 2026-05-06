@@ -279,6 +279,7 @@ const StorageReportTable = () => {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
+  const hasInitializedBagVisibilityRef = React.useRef(false);
 
   const { data, isFetching, isLoading, isError, error, refetch } =
     useGetStorageGatePassReport(
@@ -322,31 +323,21 @@ const StorageReportTable = () => {
   }, [incomingReportData]);
 
   React.useEffect(() => {
+    if (
+      hasInitializedBagVisibilityRef.current ||
+      incomingReportData.length === 0
+    )
+      return;
+
     setColumnVisibility((current) => {
       const next = { ...current };
-      let changed = false;
       BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
-        if (emptyBagSizeColumnIds.has(columnId)) {
-          if (next[columnId] !== false) {
-            next[columnId] = false;
-            changed = true;
-          }
-        } else if (next[columnId] === false) {
-          delete next[columnId];
-          changed = true;
-        }
+        next[columnId] = !emptyBagSizeColumnIds.has(columnId);
       });
-      return changed ? next : current;
+      return next;
     });
-  }, [emptyBagSizeColumnIds]);
-
-  const effectiveColumnVisibility = React.useMemo<VisibilityState>(() => {
-    const next = { ...columnVisibility };
-    BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
-      if (emptyBagSizeColumnIds.has(columnId)) next[columnId] = false;
-    });
-    return next;
-  }, [columnVisibility, emptyBagSizeColumnIds]);
+    hasInitializedBagVisibilityRef.current = true;
+  }, [emptyBagSizeColumnIds, incomingReportData.length]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<IncomingReportRow>({
@@ -355,7 +346,7 @@ const StorageReportTable = () => {
     defaultColumn: { size: 170, minSize: 120, maxSize: 550 },
     state: {
       sorting,
-      columnVisibility: effectiveColumnVisibility,
+      columnVisibility,
       columnOrder,
       columnFilters,
       grouping,
@@ -385,6 +376,30 @@ const StorageReportTable = () => {
 
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
+  const emptyGroupedBagSizeColumnIds = React.useMemo(() => {
+    if (grouping.length === 0) return new Set<string>();
+    const emptyColumns = new Set<string>();
+    BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+      const hasAnyValue = filteredRows.some(
+        (row) => Number(row.original[columnId] ?? 0) > 0
+      );
+      if (!hasAnyValue) emptyColumns.add(columnId);
+    });
+    return emptyColumns;
+  }, [filteredRows, grouping.length]);
+
+  React.useEffect(() => {
+    if (grouping.length === 0) return;
+    setColumnVisibility((current) => {
+      const next = { ...current };
+      BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+        if (current[columnId] === false) return;
+        next[columnId] = !emptyGroupedBagSizeColumnIds.has(columnId);
+      });
+      return next;
+    });
+  }, [emptyGroupedBagSizeColumnIds, grouping.length]);
+
   const totalFilteredEntries = filteredRows.length;
   const currentPageSize = table.getState().pagination.pageSize;
   const currentPageIndex = table.getState().pagination.pageIndex;
