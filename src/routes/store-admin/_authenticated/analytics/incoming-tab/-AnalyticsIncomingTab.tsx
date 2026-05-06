@@ -13,11 +13,10 @@ const AnalyticsIncomingTab = ({ dateRange }: AnalyticsIncomingTabProps) => {
   };
 
   return (
-    <>
+    <div className="space-y-6">
       <IncomingVarietyChart dateParams={dateParams} />
-      <h1 className="py-6">gap between the 2 components</h1>
       <IncomingDailyBreakdown dateParams={dateParams} />
-    </>
+    </div>
   );
 };
 

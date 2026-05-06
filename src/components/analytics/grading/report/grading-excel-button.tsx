@@ -472,7 +472,8 @@ export const GradingExcelButton = ({
       const sourceRows = isGroupedExport
         ? t.getPrePaginationRowModel().rows
         : t.getRowModel().rows;
-      const hideGroupedAggregations = isGroupedExport;
+      // Keep grouped aggregates visible in export, matching table behavior.
+      const hideGroupedAggregations = false;
 
       const leafRows = collectLeafRows(sourceRows);
       const exportColumns = visibleColumns.filter((col) => {

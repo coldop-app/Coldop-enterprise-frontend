@@ -52,6 +52,11 @@ export function formatIndianNumber(value: number, precision = 0): string {
   });
 }
 
+function formatRoundedIndianNumber(value: number, precision = 2): string {
+  const rounded = Number(Number(value || 0).toFixed(precision));
+  return formatIndianNumber(rounded, precision);
+}
+
 function renderBagQuantityCell(quantity: number) {
   if (Number(quantity || 0) === 0) return '';
   return (
@@ -208,11 +213,17 @@ export const reportColumns = [
     header: () => <div className="w-full text-right">Rate per Bag</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'mean',
     minSize: 100,
     maxSize: 160,
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
-        {formatIndianNumber(Number(info.getValue() || 0), 2)}
+        {formatRoundedIndianNumber(Number(info.getValue() || 0), 2)}
+      </div>
+    ),
+    aggregatedCell: (info) => (
+      <div className="w-full text-right tabular-nums">
+        {formatRoundedIndianNumber(Number(info.getValue() || 0), 2)}
       </div>
     ),
   }),
@@ -220,11 +231,17 @@ export const reportColumns = [
     header: () => <div className="w-full text-right">Total Rate</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 120,
     maxSize: 220,
     cell: (info) => (
       <div className="w-full text-right font-medium tabular-nums">
-        {formatIndianNumber(Number(info.getValue() || 0), 2)}
+        {formatRoundedIndianNumber(Number(info.getValue() || 0), 2)}
+      </div>
+    ),
+    aggregatedCell: (info) => (
+      <div className="w-full text-right font-medium tabular-nums">
+        {formatRoundedIndianNumber(Number(info.getValue() || 0), 2)}
       </div>
     ),
   }),

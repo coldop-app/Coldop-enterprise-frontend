@@ -269,7 +269,11 @@ export function FarmerSeedReportDataTable({
                             </span>
                           </button>
                         ) : isAggregatedCell ? (
-                          <span className="text-muted-foreground/50">-</span>
+                          flexRender(
+                            cell.column.columnDef.aggregatedCell ??
+                              cell.column.columnDef.cell,
+                            cell.getContext()
+                          )
                         ) : isPlaceholderCell ? null : (
                           flexRender(
                             cell.column.columnDef.cell,

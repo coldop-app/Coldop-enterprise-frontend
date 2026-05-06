@@ -671,7 +671,17 @@ export const defaultGradingReportColumnVisibility: VisibilityState = {
 };
 
 export function shouldSuppressGradingAggregatedCell(columnId: string) {
-  if (columnId === 'gradedBags' || columnId === 'incomingBagsReceived') {
+  if (
+    columnId === 'gradedBags' ||
+    columnId === 'incomingBagsReceived' ||
+    columnId === 'incomingNetKg' ||
+    columnId === 'incomingBardanaWeightKg' ||
+    columnId === 'incomingNetWeightWithoutBardana' ||
+    columnId === 'gradingBardanaWeightKg' ||
+    columnId === 'netWeightAfterGradingWithoutBardana' ||
+    columnId === 'wastagePercent' ||
+    columnId.startsWith('bagSize__')
+  ) {
     return false;
   }
   return true;
@@ -696,6 +706,39 @@ const dedupGradingNumericAggregationFn: AggregationFn<GradingReportTableRow> = (
   return total;
 };
 
+const gradingNumericAggregationFn: AggregationFn<GradingReportTableRow> = (
+  columnId,
+  leafRows
+) => {
+  let total = 0;
+  for (const row of leafRows) {
+    const value = getGradingNumericValue(row.original, columnId);
+    if (value == null || !Number.isFinite(value)) continue;
+    total += value;
+  }
+  return total;
+};
+
+const dedupGradingNumericAverageAggregationFn: AggregationFn<
+  GradingReportTableRow
+> = (columnId, leafRows) => {
+  const seenGatePassIds = new Set<string>();
+  let total = 0;
+  let count = 0;
+
+  for (const row of leafRows) {
+    const gatePassId = row.original.gradingGatePass._id;
+    if (!gatePassId || seenGatePassIds.has(gatePassId)) continue;
+    seenGatePassIds.add(gatePassId);
+    const value = getGradingNumericValue(row.original, columnId);
+    if (value == null || !Number.isFinite(value)) continue;
+    total += value;
+    count += 1;
+  }
+
+  return count > 0 ? total / count : null;
+};
+
 const columnHelper = createColumnHelper<GradingReportTableRow>();
 
 const bagSizeColumns = GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => {
@@ -713,6 +756,11 @@ const bagSizeColumns = GRADING_BAG_SIZE_COLUMN_ORDER.map((sizeLabel) => {
       minSize: 90,
       maxSize: 180,
       aggregationFn: dedupGradingNumericAggregationFn,
+      aggregatedCell: ({ getValue }) => (
+        <div className="w-full text-right font-medium tabular-nums">
+          {formatIndianNumber(Number(getValue() ?? 0), 0)}
+        </div>
+      ),
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <GradedBagSizeCell
@@ -803,6 +851,13 @@ export const gradingReportColumns = [
       id: 'incomingNetKg',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Net (kg)',
+      sortingFn: numericColumnSortingFn,
+      aggregationFn: gradingNumericAggregationFn,
+      aggregatedCell: ({ getValue }) => (
+        <span className="font-custom font-medium tabular-nums">
+          {formatIndianNumber(Number(getValue() ?? 0), 0)}
+        </span>
+      ),
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom">
@@ -817,6 +872,13 @@ export const gradingReportColumns = [
       id: 'incomingBardanaWeightKg',
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming bardana weight',
+      sortingFn: numericColumnSortingFn,
+      aggregationFn: gradingNumericAggregationFn,
+      aggregatedCell: ({ getValue }) => (
+        <span className="font-custom font-medium tabular-nums">
+          {formatNumber(Number(getValue() ?? 0))}
+        </span>
+      ),
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -833,6 +895,12 @@ export const gradingReportColumns = [
       meta: { gradingReportRowSpan: 'split' },
       header: 'Incoming Net Weight (w/o Bardana)',
       sortingFn: numericColumnSortingFn,
+      aggregationFn: gradingNumericAggregationFn,
+      aggregatedCell: ({ getValue }) => (
+        <span className="font-custom font-medium tabular-nums">
+          {formatNumber(Number(getValue() ?? 0))}
+        </span>
+      ),
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -983,6 +1051,11 @@ export const gradingReportColumns = [
         </div>
       ),
       aggregationFn: dedupGradingNumericAggregationFn,
+      aggregatedCell: ({ getValue }) => (
+        <span className="font-custom font-medium tabular-nums">
+          {formatNumber(Number(getValue() ?? 0))}
+        </span>
+      ),
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -1004,6 +1077,11 @@ export const gradingReportColumns = [
       ),
       sortingFn: numericColumnSortingFn,
       aggregationFn: dedupGradingNumericAggregationFn,
+      aggregatedCell: ({ getValue }) => (
+        <span className="font-custom font-medium tabular-nums">
+          {formatNumber(Number(getValue() ?? 0))}
+        </span>
+      ),
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">
@@ -1022,7 +1100,20 @@ export const gradingReportColumns = [
       header: () => (
         <div className="font-custom w-full text-right">Wastage (%)</div>
       ),
-      aggregationFn: dedupGradingNumericAggregationFn,
+      aggregationFn: dedupGradingNumericAverageAggregationFn,
+      aggregatedCell: ({ getValue }) => {
+        const value = getValue();
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          return (
+            <span className="text-muted-foreground/50 font-custom">-</span>
+          );
+        }
+        return (
+          <span className="font-custom font-medium tabular-nums">
+            {formatNumber(value)}%
+          </span>
+        );
+      },
       filterFn: multiValueFilterFn,
       cell: ({ row }) => (
         <span className="font-custom font-medium tabular-nums">

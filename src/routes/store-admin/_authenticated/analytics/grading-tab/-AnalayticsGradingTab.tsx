@@ -14,15 +14,11 @@ const AnalayticsGradingTab = ({ dateRange }: AnalayticsGradingTabProps) => {
   };
 
   return (
-    <>
+    <div className="space-y-6">
       <GradingSizeDistributionChart dateParams={dateParams} />
-      <h1 className="p-6">gap1</h1>
       <GradingDailyBreakdown dateParams={dateParams} />
-
-      <h1 className="p-6">gap2</h1>
-
       <GradingAreaWiseDistribution dateParams={dateParams} />
-    </>
+    </div>
   );
 };
 

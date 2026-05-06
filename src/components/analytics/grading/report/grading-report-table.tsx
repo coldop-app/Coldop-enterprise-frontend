@@ -241,6 +241,7 @@ const GradingReportTable = () => {
   const totalsByColumn = React.useMemo(() => {
     const totals = new Map<string, number>();
     const seenGatePassIdsByColumn = new Map<string, Set<string>>();
+    const wastagePercentAccumulator = { total: 0, count: 0 };
     for (const row of filteredRows) {
       for (const columnId of gradingNumericColumnIds) {
         if (gradingMergedNumericColumnIds.has(columnId)) {
@@ -255,8 +256,19 @@ const GradingReportTable = () => {
         }
         const value = getGradingNumericValue(row.original, columnId);
         if (value == null) continue;
+        if (columnId === 'wastagePercent') {
+          wastagePercentAccumulator.total += value;
+          wastagePercentAccumulator.count += 1;
+          continue;
+        }
         totals.set(columnId, (totals.get(columnId) ?? 0) + value);
       }
+    }
+    if (wastagePercentAccumulator.count > 0) {
+      totals.set(
+        'wastagePercent',
+        wastagePercentAccumulator.total / wastagePercentAccumulator.count
+      );
     }
     return totals;
   }, [filteredRows]);
