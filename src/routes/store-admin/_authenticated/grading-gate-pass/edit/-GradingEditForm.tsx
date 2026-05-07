@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import IncomingGatePassSelectionStep from './-Incoming-gate-pass-selection-step';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
+import GradingDetailsStep from './-grading-detail-filling-step';
 
 const STEPS = ['basic-info', 'grading-details'] as const;
 type Step = (typeof STEPS)[number];
@@ -64,9 +65,7 @@ const GradingEditForm = ({ gradingGatePass }: GradingEditFormProps) => {
 
           <TabsContent value="grading-details">
             <CardContent className="pt-6">
-              <p className="text-muted-foreground text-sm">
-                Grading Details tab content goes here.
-              </p>
+              <GradingDetailsStep />
             </CardContent>
           </TabsContent>
         </Tabs>
