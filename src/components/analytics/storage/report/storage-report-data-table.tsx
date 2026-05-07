@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { BAG_SIZE_COLUMN_IDS, type IncomingReportRow } from './columns';
+import type { BagSizeColumnId, IncomingReportRow } from './columns';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
@@ -23,6 +23,7 @@ const isFirefoxBrowser =
 type StorageReportDataTableProps = {
   table: Table<IncomingReportRow>;
   rows: Row<IncomingReportRow>[];
+  bagSizeColumnIds: BagSizeColumnId[];
   visibleColumnIds: string[];
   numericColumnIds: Set<string>;
   hasVisibleNumericTotals: boolean;
@@ -33,6 +34,7 @@ type StorageReportDataTableProps = {
 export function StorageReportDataTable({
   table,
   rows,
+  bagSizeColumnIds,
   visibleColumnIds,
   numericColumnIds,
   hasVisibleNumericTotals,
@@ -251,8 +253,8 @@ export function StorageReportDataTable({
                 className="hover:bg-transparent"
               >
                 {visibleColumnIds.map((columnId, columnIndex) => {
-                  const cellValue = BAG_SIZE_COLUMN_IDS.includes(
-                    columnId as (typeof BAG_SIZE_COLUMN_IDS)[number]
+                  const cellValue = bagSizeColumnIds.includes(
+                    columnId as BagSizeColumnId
                   )
                     ? totalsByColumn[columnId] || ''
                     : columnId === 'totalBags'

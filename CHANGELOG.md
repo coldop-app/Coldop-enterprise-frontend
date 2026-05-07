@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-05-07
+
+### Changed
+- Storage analytics report table and column behavior were refined for clearer grouped totals, improved value formatting, and more consistent data-table rendering.
+- Daybook gate-pass edit/list flows (incoming, storage, nikasi, grading) were aligned with updated form defaults, status handling, and table/list interactions for more consistent admin workflows.
+- Store-admin preferences query handling was adjusted to stay in sync with the latest settings screen behavior.
+- Project version updated to `0.6.2` for this analytics and gate-pass workflow refinement release.
+
 ## [0.6.1] - 2026-05-06
 
 ### Added

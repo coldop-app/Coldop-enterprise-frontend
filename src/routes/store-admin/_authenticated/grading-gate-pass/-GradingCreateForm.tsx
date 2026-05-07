@@ -57,7 +57,6 @@ import {
   formatNumber,
   getBagWeightsFromPreferences,
 } from '@/components/daybook/grading-calculations';
-import { BAG_TYPES, GRADER_OPTIONS, GRADING_SIZES } from '@/lib/constants';
 import { formatDateToISO } from '@/lib/helpers';
 import { useCreateGradingGatePass } from '@/services/store-admin/grading-gate-pass/useCreateGradingGatePass';
 import { usePreferencesStore, useStore } from '@/stores/store';
@@ -70,7 +69,6 @@ import {
 
 import type { GradingCreateIncomingSelection } from './-IncomingSelectionCreateStep';
 
-const KNOWN_GRADERS_SET = new Set<string>(GRADER_OPTIONS);
 const GRADER_SELECT_CUSTOM = '__custom__';
 
 function getFarmerFromIncomingRefs(
@@ -186,12 +184,38 @@ export const GradingCreateForm = memo(function GradingCreateForm({
     () => getBagWeightsFromPreferences(preferences),
     [preferences]
   );
+  const gradingSizes = useMemo(
+    () =>
+      (preferences?.bagSizes ?? []).filter((size) => size.trim().length > 0),
+    [preferences?.bagSizes]
+  );
+  const graderOptions = useMemo(
+    () =>
+      (preferences?.custom.graderOptions ?? []).filter(
+        (grader) => grader.trim().length > 0
+      ),
+    [preferences?.custom.graderOptions]
+  );
+  const bagTypes = useMemo(
+    () =>
+      (preferences?.custom.bagConfig.bagTypes ?? []).filter(
+        (bagType) => bagType.trim().length > 0
+      ),
+    [preferences?.custom.bagConfig.bagTypes]
+  );
+  const knownGradersSet = useMemo(
+    () => new Set<string>(graderOptions),
+    [graderOptions]
+  );
   const [step, setStep] = useState<0 | 1>(0);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const confirmSaveRef = useRef(false);
 
-  const effectiveIncomingPasses =
-    selection.selectedIncomingPasses ?? ([] as GradingGatePassIncomingRef[]);
+  const effectiveIncomingPasses = useMemo(
+    () =>
+      selection.selectedIncomingPasses ?? ([] as GradingGatePassIncomingRef[]),
+    [selection.selectedIncomingPasses]
+  );
 
   const farmerDisplay = useMemo(
     () => getFarmerFromIncomingRefs(effectiveIncomingPasses),
@@ -200,22 +224,22 @@ export const GradingCreateForm = memo(function GradingCreateForm({
 
   const sizeOptions: Option<string>[] = useMemo(
     () =>
-      GRADING_SIZES.map((s) => ({
+      gradingSizes.map((s) => ({
         value: s,
         label: s,
         searchableText: s,
       })),
-    []
+    [gradingSizes]
   );
 
-  const defaultKnownGrader: string = GRADER_OPTIONS[0] ?? GRADER_SELECT_CUSTOM;
+  const defaultKnownGrader: string = graderOptions[0] ?? GRADER_SELECT_CUSTOM;
 
   const initialOrderDetails = [
     {
-      size: GRADING_SIZES.includes('Below 30')
+      size: gradingSizes.includes('Below 30')
         ? 'Below 30'
-        : (GRADING_SIZES[0] ?? ''),
-      bagType: 'LENO',
+        : (gradingSizes[0] ?? ''),
+      bagType: bagTypes[0] ?? '',
       quantity: 0,
       weightPerBagKg: 0,
     },
@@ -657,7 +681,7 @@ export const GradingCreateForm = memo(function GradingCreateForm({
                           </FieldLabel>
                           <Select
                             value={
-                              KNOWN_GRADERS_SET.has(
+                              knownGradersSet.has(
                                 String(graderKnown.state.value ?? '')
                               ) ||
                               graderKnown.state.value === GRADER_SELECT_CUSTOM
@@ -675,7 +699,7 @@ export const GradingCreateForm = memo(function GradingCreateForm({
                               <SelectValue placeholder="Choose grader" />
                             </SelectTrigger>
                             <SelectContent>
-                              {GRADER_OPTIONS.map((g) => (
+                              {graderOptions.map((g) => (
                                 <SelectItem
                                   key={g}
                                   value={g}
@@ -702,7 +726,7 @@ export const GradingCreateForm = memo(function GradingCreateForm({
                           GRADER_SELECT_CUSTOM ||
                         ((form.state.values.graderKnownKey || '').trim() !==
                           '' &&
-                          !KNOWN_GRADERS_SET.has(
+                          !knownGradersSet.has(
                             form.state.values.graderKnownKey ?? ''
                           )) ? (
                           <Field>
@@ -801,8 +825,8 @@ export const GradingCreateForm = memo(function GradingCreateForm({
                       form.setFieldValue('orderDetails', [
                         ...(form.state.values.orderDetails ?? []),
                         {
-                          size: GRADING_SIZES[4] ?? '30–40',
-                          bagType: 'JUTE',
+                          size: gradingSizes[4] ?? gradingSizes[0] ?? '',
+                          bagType: bagTypes[0] ?? '',
                           quantity: 0,
                           weightPerBagKg: 0,
                         },
@@ -904,7 +928,7 @@ export const GradingCreateForm = memo(function GradingCreateForm({
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {BAG_TYPES.map((b) => (
+                                      {bagTypes.map((b) => (
                                         <SelectItem
                                           key={b}
                                           value={b}
@@ -1079,7 +1103,7 @@ export const GradingCreateForm = memo(function GradingCreateForm({
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {BAG_TYPES.map((b) => (
+                                      {bagTypes.map((b) => (
                                         <SelectItem
                                           key={b}
                                           value={b}

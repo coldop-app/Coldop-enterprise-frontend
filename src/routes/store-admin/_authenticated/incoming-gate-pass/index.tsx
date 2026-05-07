@@ -23,11 +23,6 @@ export const Route = createFileRoute(
   component: AddIncomingGatePassComponent,
 });
 
-const DEFAULT_INCOMING_LOCATIONS: Option<string>[] = [
-  { label: 'Jindal Ice And Cold Store', value: 'Jindal Ice And Cold Store' },
-  { label: 'Goyal Tarai Seed Shed', value: 'Goyal Tarai Seed Shed' },
-];
-
 function parseNumber(value: string): number | undefined {
   const normalized = value.trim();
   if (!normalized) return undefined;
@@ -139,15 +134,21 @@ function AddIncomingGatePassComponent() {
   }, [potatoVarietyOptions, selectedVariety]);
 
   const locationOptions = useMemo<Option<string>[]>(() => {
-    const exists = DEFAULT_INCOMING_LOCATIONS.some(
+    const incomingLocationOptions = (
+      preferences?.custom.incomingLocations ?? []
+    )
+      .filter((location) => location.trim().length > 0)
+      .map((location) => ({ label: location, value: location }));
+
+    const exists = incomingLocationOptions.some(
       (opt) => opt.value === selectedLocation
     );
-    if (!selectedLocation || exists) return DEFAULT_INCOMING_LOCATIONS;
+    if (!selectedLocation || exists) return incomingLocationOptions;
     return [
-      ...DEFAULT_INCOMING_LOCATIONS,
+      ...incomingLocationOptions,
       { label: selectedLocation, value: selectedLocation },
     ];
-  }, [selectedLocation]);
+  }, [preferences?.custom.incomingLocations, selectedLocation]);
 
   return (
     <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">

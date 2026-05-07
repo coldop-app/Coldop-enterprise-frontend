@@ -25,6 +25,7 @@ import {
   type Option,
 } from '@/components/forms/search-selector';
 import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-modal';
+import { usePreferencesStore } from '@/stores/store';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
 import {
@@ -40,7 +41,6 @@ import {
 } from '@/lib/business-number-input';
 import { formatDateToISO, toDatePickerDisplayValue } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
-import { BAG_TYPES, GRADING_SIZES, POTATO_VARIETIES } from '@/lib/constants';
 import {
   NikasiSummarySheet,
   type NikasiSummaryFormValues,
@@ -53,16 +53,6 @@ type ExtraQuantityRow = {
   bagType: string;
   variety: string;
 };
-
-const defaultSizeQuantities = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, 0])
-) as Record<string, number>;
-const defaultSizeBagTypes = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, 'JUTE'])
-) as Record<string, string>;
-const defaultSizeVarieties = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, ''])
-) as Record<string, string>;
 
 const formSchema = z.object({
   manualGatePassNumber: z.union([z.number().nonnegative(), z.undefined()]),
@@ -110,6 +100,54 @@ const NikasiEditForm = memo(function NikasiEditForm({
     () => dispatchLedgersResponse?.data ?? [],
     [dispatchLedgersResponse?.data]
   );
+  const preferences = usePreferencesStore((state) => state.preferences);
+  const incomingLocationSuggestions = useMemo(
+    () =>
+      (preferences?.custom.incomingLocations ?? []).filter(
+        (location) => location.trim().length > 0
+      ),
+    [preferences?.custom.incomingLocations]
+  );
+  const gradingSizes = useMemo(
+    () =>
+      (preferences?.bagSizes ?? []).filter((size) => size.trim().length > 0),
+    [preferences?.bagSizes]
+  );
+  const bagTypes = useMemo(
+    () =>
+      (preferences?.custom.bagConfig.bagTypes ?? []).filter(
+        (bagType) => bagType.trim().length > 0
+      ),
+    [preferences?.custom.bagConfig.bagTypes]
+  );
+  const potatoVarietyOptions = useMemo(
+    () => preferences?.custom.potatoVarieties ?? [],
+    [preferences?.custom.potatoVarieties]
+  );
+  const defaultBagType = bagTypes[0] ?? 'JUTE';
+  const defaultSizeQuantities = useMemo(
+    () =>
+      Object.fromEntries(gradingSizes.map((size) => [size, 0])) as Record<
+        string,
+        number
+      >,
+    [gradingSizes]
+  );
+  const defaultSizeBagTypes = useMemo(
+    () =>
+      Object.fromEntries(
+        gradingSizes.map((size) => [size, defaultBagType])
+      ) as Record<string, string>,
+    [defaultBagType, gradingSizes]
+  );
+  const defaultSizeVarieties = useMemo(
+    () =>
+      Object.fromEntries(gradingSizes.map((size) => [size, ''])) as Record<
+        string,
+        string
+      >,
+    [gradingSizes]
+  );
   const [isSummarySheetOpen, setIsSummarySheetOpen] = useState(false);
   const [openSheetRef, setOpenSheetRef] = useState(false);
 
@@ -144,9 +182,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
 
       for (const row of editData.bagSize ?? []) {
         const qty = Number(row.quantityIssued) || 0;
-        if (
-          GRADING_SIZES.includes(row.size as (typeof GRADING_SIZES)[number])
-        ) {
+        if (gradingSizes.includes(row.size)) {
           sizeQuantities[row.size] = (sizeQuantities[row.size] ?? 0) + qty;
           sizeVarieties[row.size] = row.variety ?? '';
         } else {
@@ -154,7 +190,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
             id: crypto.randomUUID(),
             size: row.size,
             quantity: qty,
-            bagType: 'JUTE',
+            bagType: defaultBagType,
             variety: row.variety ?? '',
           });
         }
@@ -462,6 +498,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
                           </p>
                           <Input
                             id="nikasi-edit-to-label-optional"
+                            list="nikasi-edit-incoming-location-suggestions"
                             value={optField.state.value}
                             onChange={(e) =>
                               optField.handleChange(e.target.value)
@@ -470,6 +507,11 @@ const NikasiEditForm = memo(function NikasiEditForm({
                             maxLength={200}
                             className="font-custom focus-visible:ring-primary mt-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                           />
+                          <datalist id="nikasi-edit-incoming-location-suggestions">
+                            {incomingLocationSuggestions.map((location) => (
+                              <option key={location} value={location} />
+                            ))}
+                          </datalist>
                         </>
                       )}
                     />
@@ -542,9 +584,9 @@ const NikasiEditForm = memo(function NikasiEditForm({
                   extraQuantityRows,
                 }) => (
                   <>
-                    {GRADING_SIZES.map((size) => {
+                    {gradingSizes.map((size) => {
                       const value = sizeQuantities[size] ?? 0;
-                      const bagType = sizeBagTypes[size] ?? 'JUTE';
+                      const bagType = sizeBagTypes[size] ?? defaultBagType;
                       const variety = sizeVarieties[size] ?? '';
                       return (
                         <div
@@ -590,7 +632,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
                               }}
                               className="border-input bg-background focus-visible:ring-primary font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:w-28"
                             >
-                              {BAG_TYPES.map((opt) => (
+                              {bagTypes.map((opt) => (
                                 <option key={opt} value={opt}>
                                   {opt}
                                 </option>
@@ -598,7 +640,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
                             </select>
                             <SearchSelector
                               id={`nikasi-edit-variety-${size}`}
-                              options={POTATO_VARIETIES}
+                              options={potatoVarietyOptions}
                               placeholder="Variety"
                               searchPlaceholder="Search variety..."
                               value={variety}
@@ -635,7 +677,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
                             }
                             className="border-input bg-background font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm sm:w-28"
                           >
-                            {GRADING_SIZES.map((s) => (
+                            {gradingSizes.map((s) => (
                               <option key={s} value={s}>
                                 {s}
                               </option>
@@ -681,7 +723,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
                             }
                             className="border-input bg-background font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm sm:w-28"
                           >
-                            {BAG_TYPES.map((opt) => (
+                            {bagTypes.map((opt) => (
                               <option key={opt} value={opt}>
                                 {opt}
                               </option>
@@ -689,7 +731,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
                           </select>
                           <SearchSelector
                             id={`nikasi-edit-extra-variety-${row.id}`}
-                            options={POTATO_VARIETIES}
+                            options={potatoVarietyOptions}
                             placeholder="Variety"
                             searchPlaceholder="Search variety..."
                             value={row.variety}
@@ -737,9 +779,9 @@ const NikasiEditForm = memo(function NikasiEditForm({
                     ...(form.state.values.extraQuantityRows ?? []),
                     {
                       id: crypto.randomUUID(),
-                      size: GRADING_SIZES[0] ?? '',
+                      size: gradingSizes[0] ?? '',
                       quantity: 0,
-                      bagType: 'JUTE',
+                      bagType: defaultBagType,
                       variety: '',
                     },
                   ])

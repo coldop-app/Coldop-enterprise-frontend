@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Item } from '@/components/ui/item';
 import { useGetStorageGatePassReport } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageGatePassReport';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
-import { useStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
 import PdfWorker from './pdf.worker?worker';
 import type {
@@ -34,12 +34,13 @@ import type {
 } from './pdf-worker.types';
 import { StorageExcelButton } from './storage-excel-button';
 import {
-  BAG_SIZE_COLUMN_IDS,
-  defaultColumnOrder,
+  getBagSizeColumnConfig,
+  getDefaultColumnOrder,
+  getNumericColumnIds,
   defaultStorageReportColumnVisibility,
   globalManualGatePassFilterFn,
-  numericColumnIds,
-  storageReportColumns,
+  getStorageReportColumns,
+  type BagSizeColumnId,
   type GlobalFilterValue,
   type IncomingReportRow,
 } from './columns';
@@ -262,10 +263,32 @@ const StorageReportTable = () => {
   const [appliedToDate, setAppliedToDate] = React.useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const preferences = usePreferencesStore((state) => state.preferences);
+  const bagSizeColumnConfig = React.useMemo(
+    () => getBagSizeColumnConfig(preferences?.bagSizes),
+    [preferences?.bagSizes]
+  );
+  const bagSizeColumnIds = React.useMemo<BagSizeColumnId[]>(
+    () => bagSizeColumnConfig.map((item) => item.id),
+    [bagSizeColumnConfig]
+  );
+  const defaultColumnOrder = React.useMemo(
+    () => getDefaultColumnOrder(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const numericColumnIds = React.useMemo(
+    () => getNumericColumnIds(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const storageReportColumns = React.useMemo(
+    () => getStorageReportColumns(bagSizeColumnConfig),
+    [bagSizeColumnConfig]
+  );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(defaultStorageReportColumnVisibility);
-  const [columnOrder, setColumnOrder] =
-    React.useState<string[]>(defaultColumnOrder);
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(
+    () => defaultColumnOrder
+  );
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -280,6 +303,7 @@ const StorageReportTable = () => {
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
   const hasInitializedBagVisibilityRef = React.useRef(false);
+  const hasInitializedColumnOrderRef = React.useRef(false);
 
   const { data, isFetching, isLoading, isError, error, refetch } =
     useGetStorageGatePassReport(
@@ -313,14 +337,20 @@ const StorageReportTable = () => {
 
   const emptyBagSizeColumnIds = React.useMemo(() => {
     const emptyColumns = new Set<string>();
-    BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+    bagSizeColumnIds.forEach((columnId) => {
       const hasAnyValue = incomingReportData.some(
         (row) => Number(row[columnId] ?? 0) > 0
       );
       if (!hasAnyValue) emptyColumns.add(columnId);
     });
     return emptyColumns;
-  }, [incomingReportData]);
+  }, [bagSizeColumnIds, incomingReportData]);
+
+  React.useEffect(() => {
+    if (hasInitializedColumnOrderRef.current) return;
+    setColumnOrder(defaultColumnOrder);
+    hasInitializedColumnOrderRef.current = true;
+  }, [defaultColumnOrder]);
 
   React.useEffect(() => {
     if (
@@ -331,13 +361,13 @@ const StorageReportTable = () => {
 
     setColumnVisibility((current) => {
       const next = { ...current };
-      BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+      bagSizeColumnIds.forEach((columnId) => {
         next[columnId] = !emptyBagSizeColumnIds.has(columnId);
       });
       return next;
     });
     hasInitializedBagVisibilityRef.current = true;
-  }, [emptyBagSizeColumnIds, incomingReportData.length]);
+  }, [bagSizeColumnIds, emptyBagSizeColumnIds, incomingReportData.length]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<IncomingReportRow>({
@@ -379,26 +409,26 @@ const StorageReportTable = () => {
   const emptyGroupedBagSizeColumnIds = React.useMemo(() => {
     if (grouping.length === 0) return new Set<string>();
     const emptyColumns = new Set<string>();
-    BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+    bagSizeColumnIds.forEach((columnId) => {
       const hasAnyValue = filteredRows.some(
         (row) => Number(row.original[columnId] ?? 0) > 0
       );
       if (!hasAnyValue) emptyColumns.add(columnId);
     });
     return emptyColumns;
-  }, [filteredRows, grouping.length]);
+  }, [bagSizeColumnIds, filteredRows, grouping.length]);
 
   React.useEffect(() => {
     if (grouping.length === 0) return;
     setColumnVisibility((current) => {
       const next = { ...current };
-      BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+      bagSizeColumnIds.forEach((columnId) => {
         if (current[columnId] === false) return;
         next[columnId] = !emptyGroupedBagSizeColumnIds.has(columnId);
       });
       return next;
     });
-  }, [emptyGroupedBagSizeColumnIds, grouping.length]);
+  }, [bagSizeColumnIds, emptyGroupedBagSizeColumnIds, grouping.length]);
 
   const totalFilteredEntries = filteredRows.length;
   const currentPageSize = table.getState().pagination.pageSize;
@@ -420,17 +450,17 @@ const StorageReportTable = () => {
       totalBags: 0,
     };
     for (const row of filteredRows) {
-      BAG_SIZE_COLUMN_IDS.forEach((columnId) => {
+      bagSizeColumnIds.forEach((columnId) => {
         totals[columnId] += Number(row.original[columnId] ?? 0);
       });
       totals.totalBags += Number(row.original.totalBags ?? 0);
     }
     return totals;
-  }, [filteredRows]);
+  }, [bagSizeColumnIds, filteredRows]);
 
   const hasVisibleNumericTotals = React.useMemo(
     () => visibleColumnIds.some((columnId) => numericColumnIds.has(columnId)),
-    [visibleColumnIds]
+    [numericColumnIds, visibleColumnIds]
   );
 
   const buildPdfWorkerPayload = React.useCallback(
@@ -552,6 +582,7 @@ const StorageReportTable = () => {
           <StorageReportDataTable
             table={table}
             rows={rows}
+            bagSizeColumnIds={bagSizeColumnIds}
             visibleColumnIds={visibleColumnIds}
             numericColumnIds={numericColumnIds}
             hasVisibleNumericTotals={hasVisibleNumericTotals}

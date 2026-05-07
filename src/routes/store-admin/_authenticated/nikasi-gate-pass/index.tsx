@@ -33,7 +33,7 @@ import {
 } from '@/lib/business-number-input';
 import { formatDateToISO } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
-import { BAG_TYPES, GRADING_SIZES, POTATO_VARIETIES } from '@/lib/constants';
+import { usePreferencesStore } from '@/stores/store';
 import {
   NikasiSummarySheet,
   type NikasiSummaryFormValues,
@@ -47,19 +47,8 @@ type ExtraQuantityRow = {
   variety: string;
 };
 
-const defaultSizeQuantities = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, 0])
-) as Record<string, number>;
-
-const defaultSizeBagTypes = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, 'JUTE'])
-) as Record<string, string>;
-
-const defaultSizeVarieties = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, ''])
-) as Record<string, string>;
-
 const NikasiCreateForm = memo(function NikasiCreateForm() {
+  const preferences = usePreferencesStore((state) => state.preferences);
   const { mutate: createNikasiGatePass, isPending } = useCreateNikasiGatePass();
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('nikasi-gate-pass');
@@ -96,6 +85,46 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
         searchableText: `${ledger.name} ${ledger.mobileNumber ?? ''} ${ledger.address}`,
       })),
     [dispatchLedgers]
+  );
+  const gradingSizes = useMemo(
+    () =>
+      (preferences?.bagSizes ?? []).filter((size) => size.trim().length > 0),
+    [preferences?.bagSizes]
+  );
+  const bagTypes = useMemo(
+    () =>
+      (preferences?.custom.bagConfig.bagTypes ?? []).filter(
+        (bagType) => bagType.trim().length > 0
+      ),
+    [preferences?.custom.bagConfig.bagTypes]
+  );
+  const potatoVarietyOptions = useMemo(
+    () => preferences?.custom.potatoVarieties ?? [],
+    [preferences?.custom.potatoVarieties]
+  );
+  const defaultBagType = bagTypes[0] ?? 'JUTE';
+  const defaultSizeQuantities = useMemo(
+    () =>
+      Object.fromEntries(gradingSizes.map((size) => [size, 0])) as Record<
+        string,
+        number
+      >,
+    [gradingSizes]
+  );
+  const defaultSizeBagTypes = useMemo(
+    () =>
+      Object.fromEntries(
+        gradingSizes.map((size) => [size, defaultBagType])
+      ) as Record<string, string>,
+    [defaultBagType, gradingSizes]
+  );
+  const defaultSizeVarieties = useMemo(
+    () =>
+      Object.fromEntries(gradingSizes.map((size) => [size, ''])) as Record<
+        string,
+        string
+      >,
+    [gradingSizes]
   );
 
   const [manualGatePassNumber, setManualGatePassNumber] = useState<
@@ -399,7 +428,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {GRADING_SIZES.map((size) => (
+              {gradingSizes.map((size) => (
                 <div
                   key={size}
                   className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
@@ -431,7 +460,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                       )}
                     />
                     <select
-                      value={sizeBagTypes[size] ?? 'JUTE'}
+                      value={sizeBagTypes[size] ?? defaultBagType}
                       onChange={(e) =>
                         setSizeBagTypes((p) => ({
                           ...p,
@@ -440,7 +469,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                       }
                       className="border-input bg-background font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm sm:w-28"
                     >
-                      {BAG_TYPES.map((opt) => (
+                      {bagTypes.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
                         </option>
@@ -448,7 +477,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                     </select>
                     <SearchSelector
                       id={`nikasi-create-variety-${size}`}
-                      options={POTATO_VARIETIES}
+                      options={potatoVarietyOptions}
                       placeholder="Variety"
                       value={sizeVarieties[size] ?? ''}
                       onSelect={(v) =>
@@ -477,7 +506,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                       }
                       className="border-input bg-background font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm sm:w-28"
                     >
-                      {GRADING_SIZES.map((s) => (
+                      {gradingSizes.map((s) => (
                         <option key={s} value={s}>
                           {s}
                         </option>
@@ -525,7 +554,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                       }
                       className="border-input bg-background font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm sm:w-28"
                     >
-                      {BAG_TYPES.map((opt) => (
+                      {bagTypes.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
                         </option>
@@ -533,7 +562,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                     </select>
                     <SearchSelector
                       id={`nikasi-create-extra-variety-${row.id}`}
-                      options={POTATO_VARIETIES}
+                      options={potatoVarietyOptions}
                       placeholder="Variety"
                       value={row.variety}
                       onSelect={(v) =>
@@ -571,9 +600,9 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
                     ...prev,
                     {
                       id: crypto.randomUUID(),
-                      size: GRADING_SIZES[0] ?? '',
+                      size: gradingSizes[0] ?? '',
                       quantity: 0,
-                      bagType: 'JUTE',
+                      bagType: defaultBagType,
                       variety: '',
                     },
                   ])

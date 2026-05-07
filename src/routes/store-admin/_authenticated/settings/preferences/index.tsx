@@ -428,6 +428,28 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     }));
     setDirty(true);
   };
+  const removeIncomingLocation = (location: string) => {
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        incomingLocations: (p.custom.incomingLocations ?? []).filter(
+          (item) => item !== location
+        ),
+      },
+    }));
+    setDirty(true);
+  };
+  const addIncomingLocation = (location: string) => {
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        incomingLocations: [...(p.custom.incomingLocations ?? []), location],
+      },
+    }));
+    setDirty(true);
+  };
 
   // Buy-back rates
   const updateRate = (variety: string, size: string, rate: number) => {
@@ -604,7 +626,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
               value="graders"
               className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
             >
-              <Users size={13} /> Graders
+              <Users size={13} /> Graders and Locations
             </TabsTrigger>
           </TabsList>
 
@@ -988,6 +1010,20 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                     <Plus size={12} /> Add Grader
                   </Button>
                 </div>
+
+                <Separator className="my-6" />
+
+                <SectionHeader
+                  icon={Settings2}
+                  title="Incoming Locations"
+                  description="Locations available in incoming gate pass forms"
+                />
+                <TagList
+                  items={data.custom.incomingLocations ?? []}
+                  onRemove={removeIncomingLocation}
+                  onAdd={addIncomingLocation}
+                  addPlaceholder="e.g. Goyal Tarai Seed Shed"
+                />
               </CardContent>
             </Card>
           </TabsContent>

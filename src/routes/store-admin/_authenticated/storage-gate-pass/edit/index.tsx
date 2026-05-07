@@ -37,13 +37,12 @@ import {
   businessNumberSpinnerClassName,
   preventArrowUpDownOnNumericInput,
 } from '@/lib/business-number-input';
-import { BAG_TYPES, GRADING_SIZES, POTATO_VARIETIES } from '@/lib/constants';
 import { formatDate } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/general/useGetVoucherNumber';
 import { useEditStorageGatePass } from '@/services/store-admin/storage-gate-pass/useEditStorageGatePass';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
-import { useStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
 import {
   StorageSummarySheet,
@@ -75,14 +74,6 @@ type ExtraQuantityRow = {
   quantity: number;
   bagType: string;
 };
-
-const defaultSizeQuantities = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, 0])
-) as Record<string, number>;
-
-const defaultSizeBagTypes = Object.fromEntries(
-  GRADING_SIZES.map((size) => [size, 'JUTE'])
-) as Record<string, string>;
 
 const formSchema = z
   .object({
@@ -210,7 +201,40 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
   const coldStorageId = useStore(
     (s) => s.coldStorage?._id ?? s.admin?.coldStorageId
   );
+  const preferences = usePreferencesStore((s) => s.preferences);
   const isFixedFarmerMode = coldStorageId === FIXED_FARMER_COLD_STORAGE_ID;
+  const gradingSizes = useMemo(
+    () =>
+      (preferences?.bagSizes ?? []).filter((size) => size.trim().length > 0),
+    [preferences?.bagSizes]
+  );
+  const bagTypes = useMemo(
+    () =>
+      (preferences?.custom.bagConfig.bagTypes ?? []).filter(
+        (bagType) => bagType.trim().length > 0
+      ),
+    [preferences?.custom.bagConfig.bagTypes]
+  );
+  const potatoVarietyOptions = useMemo(
+    () => preferences?.custom.potatoVarieties ?? [],
+    [preferences?.custom.potatoVarieties]
+  );
+  const defaultBagType = bagTypes[0] ?? 'JUTE';
+  const defaultSizeQuantities = useMemo(
+    () =>
+      Object.fromEntries(gradingSizes.map((size) => [size, 0])) as Record<
+        string,
+        number
+      >,
+    [gradingSizes]
+  );
+  const defaultSizeBagTypes = useMemo(
+    () =>
+      Object.fromEntries(
+        gradingSizes.map((size) => [size, defaultBagType])
+      ) as Record<string, string>,
+    [defaultBagType, gradingSizes]
+  );
 
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('storage-gate-pass');
@@ -253,7 +277,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
       if (size in sizeQuantities) {
         sizeQuantities[size] =
           (sizeQuantities[size] ?? 0) + (bag.currentQuantity ?? 0);
-        sizeBagTypes[size] = bag.bagType || 'JUTE';
+        sizeBagTypes[size] = bag.bagType || defaultBagType;
         locationBySize[size] = {
           chamber: bag.chamber ?? '',
           floor: bag.floor ?? '',
@@ -265,7 +289,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
           id,
           size,
           quantity: bag.currentQuantity ?? 0,
-          bagType: bag.bagType || 'JUTE',
+          bagType: bag.bagType || defaultBagType,
         });
         locationBySize[`${EXTRA_ROW_KEY_PREFIX}${id}`] = {
           chamber: bag.chamber ?? '',
@@ -322,7 +346,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
           const location = value.locationBySize?.[size] ?? DEFAULT_LOCATION;
           return {
             size,
-            bagType: value.sizeBagTypes?.[size] || 'JUTE',
+            bagType: value.sizeBagTypes?.[size] || defaultBagType,
             currentQuantity: qty ?? 0,
             initialQuantity: qty ?? 0,
             chamber: location.chamber,
@@ -338,7 +362,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
           const location = value.locationBySize?.[key] ?? DEFAULT_LOCATION;
           return {
             size: row.size,
-            bagType: row.bagType || 'JUTE',
+            bagType: row.bagType || defaultBagType,
             currentQuantity: row.quantity ?? 0,
             initialQuantity: row.quantity ?? 0,
             chamber: location.chamber,
@@ -687,7 +711,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                         Select Variety
                       </FieldLabel>
                       <SearchSelector
-                        options={POTATO_VARIETIES}
+                        options={potatoVarietyOptions}
                         placeholder="Select a variety"
                         searchPlaceholder="Search variety..."
                         onSelect={(v) => field.handleChange(v ?? '')}
@@ -719,7 +743,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                       const sizeQuantities =
                         field.state.value ?? defaultSizeQuantities;
                       const quantitiesDisabled = !variety?.trim();
-                      const fixedTotal = GRADING_SIZES.reduce(
+                      const fixedTotal = gradingSizes.reduce(
                         (sum, size) => sum + (sizeQuantities[size] ?? 0),
                         0
                       );
@@ -734,9 +758,9 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                           ...extraQuantityRows,
                           {
                             id: crypto.randomUUID(),
-                            size: GRADING_SIZES[0] ?? '',
+                            size: gradingSizes[0] ?? '',
                             quantity: 0,
-                            bagType: 'JUTE',
+                            bagType: defaultBagType,
                           },
                         ];
                         form.setFieldValue(
@@ -780,9 +804,10 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
-                            {GRADING_SIZES.map((size) => {
+                            {gradingSizes.map((size) => {
                               const value = sizeQuantities[size] ?? 0;
-                              const bagType = sizeBagTypes[size] ?? 'JUTE';
+                              const bagType =
+                                sizeBagTypes[size] ?? defaultBagType;
                               return (
                                 <div
                                   key={size}
@@ -839,7 +864,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                       }}
                                       className="border-input bg-background focus-visible:ring-primary font-custom h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:w-28"
                                     >
-                                      {BAG_TYPES.map((opt) => (
+                                      {bagTypes.map((opt) => (
                                         <option key={opt} value={opt}>
                                           {opt}
                                         </option>
@@ -867,7 +892,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                     }
                                     className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-32"
                                   >
-                                    {GRADING_SIZES.map((s) => (
+                                    {gradingSizes.map((s) => (
                                       <option key={s} value={s}>
                                         {s}
                                       </option>
@@ -876,7 +901,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                   <select
                                     aria-label={`Bag type for ${row.size}`}
                                     disabled={quantitiesDisabled}
-                                    value={row.bagType ?? 'JUTE'}
+                                    value={row.bagType ?? defaultBagType}
                                     onChange={(e) =>
                                       updateExtraRow(row.id, {
                                         bagType: e.target.value,
@@ -884,7 +909,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                     }
                                     className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-24 shrink-0 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                   >
-                                    {BAG_TYPES.map((opt) => (
+                                    {bagTypes.map((opt) => (
                                       <option key={opt} value={opt}>
                                         {opt}
                                       </option>
@@ -971,13 +996,13 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                     })}
                   >
                     {({ sizeQuantities, extraQuantityRows }) => {
-                      const fixedWithQty = GRADING_SIZES.filter(
-                        (size) => (sizeQuantities[size] ?? 0) > 0
-                      ).map((size) => ({
-                        key: size,
-                        sizeLabel: size,
-                        quantity: sizeQuantities[size] ?? 0,
-                      }));
+                      const fixedWithQty = gradingSizes
+                        .filter((size) => (sizeQuantities[size] ?? 0) > 0)
+                        .map((size) => ({
+                          key: size,
+                          sizeLabel: size,
+                          quantity: sizeQuantities[size] ?? 0,
+                        }));
                       const extraWithQty = (extraQuantityRows ?? [])
                         .filter((row) => (row.quantity ?? 0) > 0)
                         .map((row) => ({

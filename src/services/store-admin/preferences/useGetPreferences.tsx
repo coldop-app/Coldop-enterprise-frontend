@@ -22,6 +22,7 @@ export interface PreferencesCustomData {
   potatoVarieties: PreferenceOption[];
   farmerSeedGenerations: PreferenceOption[];
   graderOptions: string[];
+  incomingLocations: string[];
   bagConfig: BagConfig;
   standardBagsPerAcre: Record<string, number>;
   buyBackCost: BuyBackCost[];
