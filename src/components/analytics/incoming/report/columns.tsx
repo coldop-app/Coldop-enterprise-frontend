@@ -277,16 +277,17 @@ export const incomingReportColumns = [
     cell: (info) => {
       const value = info.getValue();
       const isGraded = value === 'GRADED';
+      const normalizedValue = String(value).replace('_', ' ');
       return (
         <Badge
           variant={isGraded ? 'default' : 'secondary'}
-          className={`font-custom rounded-md border px-2 py-0.5 text-[11px] tracking-wide uppercase ${
+          className={`font-custom h-7 self-center rounded-lg border px-2.5 text-[11px] leading-none tracking-wide uppercase ${
             isGraded
-              ? 'border-primary/40 bg-primary/15 text-primary'
-              : 'border-muted-foreground/20 bg-muted text-muted-foreground'
+              ? 'border-primary/35 bg-primary/12 text-primary'
+              : 'border-muted-foreground/20 bg-muted/80 text-muted-foreground'
           }`}
         >
-          {String(value).replace('_', ' ')}
+          {normalizedValue}
         </Badge>
       );
     },

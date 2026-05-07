@@ -1,6 +1,6 @@
 import type { AggregationFn } from '@tanstack/react-table';
 import { roundMax2 } from '@/components/daybook/grading-calculations';
-import { resolveBuyBackRateFromPreferences } from '@/components/people/reports/helpers/summary-prepare';
+import type { PreferencesData } from '@/services/store-admin/preferences/useGetPreferences';
 import {
   type ContractFarmingReportData,
   type ContractFarmingReportFarmer,
@@ -9,6 +9,61 @@ import { usePreferencesStore } from '@/stores/store';
 
 import type { FlattenedRow } from './types';
 import { GRADE_BAG_COLUMN_KEY_PREFIX } from './types';
+
+function normalizeBuyBackSizeToken(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\u2013/g, '-')
+    .replace(/\u2014/g, '-')
+    .replace(/\s+/g, ' ');
+}
+
+function compactBuyBackSizeKey(raw: string): string {
+  return normalizeBuyBackSizeToken(raw).replace(/\s+/g, '').toLowerCase();
+}
+
+/**
+ * Looks up buy-back rate for a variety/size using only cold-storage preferences
+ * (`custom.buyBackCost`). No constants/default-rate fallbacks are used.
+ */
+function resolveBuyBackRateFromPreferences(
+  preferences: PreferencesData | null | undefined,
+  varietyRaw: string,
+  sizeLabel: string
+): number | null {
+  const variety = varietyRaw.trim();
+  const sizeTrim = sizeLabel.trim();
+  const list = preferences?.custom?.buyBackCost;
+  if (!list?.length || !variety || !sizeTrim) return null;
+
+  const entry =
+    list.find((e) => e.variety === variety) ??
+    list.find((e) => e.variety.trim().toLowerCase() === variety.toLowerCase());
+  if (!entry) return null;
+
+  const sizes = entry.sizeRates ?? {};
+  const targetNorm = normalizeBuyBackSizeToken(sizeTrim);
+  const targetCompact = compactBuyBackSizeKey(sizeTrim);
+
+  if (Object.prototype.hasOwnProperty.call(sizes, sizeTrim)) {
+    const v = Number(sizes[sizeTrim]);
+    return Number.isFinite(v) ? v : null;
+  }
+  for (const [k, val] of Object.entries(sizes)) {
+    if (normalizeBuyBackSizeToken(k) === targetNorm) {
+      const v = Number(val);
+      return Number.isFinite(v) ? v : null;
+    }
+  }
+  for (const [k, val] of Object.entries(sizes)) {
+    if (compactBuyBackSizeKey(k) === targetCompact) {
+      const v = Number(val);
+      return Number.isFinite(v) ? v : null;
+    }
+  }
+
+  return null;
+}
 
 /** Dedupe key for variety-level metrics (must match footer rollup). */
 export function varietyMetricDedupeKey(row: FlattenedRow): string {
@@ -286,9 +341,11 @@ export function getOutputPercentage(row: FlattenedRow): number | null {
  * same rounding pattern as accounting summary ({@link roundMax2} on each grade line).
  */
 export function getBuyBackAmountFromGradeData(
-  row: FlattenedRow
+  row: FlattenedRow,
+  preferencesOverride?: PreferencesData | null
 ): number | null {
-  const preferences = usePreferencesStore.getState().preferences;
+  const preferences =
+    preferencesOverride ?? usePreferencesStore.getState().preferences;
   let total = 0;
   let hasPositiveNet = false;
 
@@ -310,8 +367,11 @@ export function getBuyBackAmountFromGradeData(
 }
 
 /** Buy-back ₹ from grading − total seed ₹ for the variety ({@link roundMax2}); null when buy-back ₹ unknown. */
-export function getNetAmountRupee(row: FlattenedRow): number | null {
-  const buyBack = getBuyBackAmountFromGradeData(row);
+export function getNetAmountRupee(
+  row: FlattenedRow,
+  preferencesOverride?: PreferencesData | null
+): number | null {
+  const buyBack = getBuyBackAmountFromGradeData(row, preferencesOverride);
   if (buyBack === null) return null;
   const seedTotal = Number(row.varietyTotalSeedAmountPayable ?? 0);
   const safeSeed = Number.isFinite(seedTotal) ? seedTotal : 0;
@@ -319,8 +379,11 @@ export function getNetAmountRupee(row: FlattenedRow): number | null {
 }
 
 /** ₹ net per acre = Net Amount ÷ variety total acres ({@link roundMax2}). */
-export function getNetAmountPerAcreRupee(row: FlattenedRow): number | null {
-  const net = getNetAmountRupee(row);
+export function getNetAmountPerAcreRupee(
+  row: FlattenedRow,
+  preferencesOverride?: PreferencesData | null
+): number | null {
+  const net = getNetAmountRupee(row, preferencesOverride);
   if (net === null) return null;
   const acres = row.varietyTotalAcres;
   if (!acres || acres <= 0) return null;

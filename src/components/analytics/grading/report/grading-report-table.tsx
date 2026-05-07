@@ -62,10 +62,71 @@ function toApiDate(value: string): string | undefined {
   return `${year}-${normalizedMonth}-${normalizedDay}`;
 }
 
+function normalizePreferenceBagSize(value: string): string {
+  return value
+    .replace(/\bmm\b/gi, '')
+    .replace(/[()]/g, ' ')
+    .replace(/[–—−-]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const CANONICAL_BAG_LABEL_BY_NORMALIZED = new Map(
+  GRADING_BAG_SIZE_COLUMN_ORDER.map((label) => [
+    normalizePreferenceBagSize(label),
+    label,
+  ])
+);
+
+function getGradingBagSizeLabelsFromPreferences(
+  preferenceBagSizes: string[] | undefined
+): string[] {
+  const fromPreferences = (preferenceBagSizes ?? [])
+    .map((raw) =>
+      CANONICAL_BAG_LABEL_BY_NORMALIZED.get(
+        normalizePreferenceBagSize(String(raw || ''))
+      )
+    )
+    .filter((value): value is string => Boolean(value));
+
+  if (fromPreferences.length === 0) {
+    return [...GRADING_BAG_SIZE_COLUMN_ORDER];
+  }
+
+  const deduped = new Set<string>();
+  fromPreferences.forEach((label) => deduped.add(label));
+  return Array.from(deduped);
+}
+
+function buildDefaultColumnOrderWithBagSizes(
+  bagSizeColumnIds: string[]
+): string[] {
+  const original = defaultGradingColumnOrder as readonly string[];
+  const firstBagIndex = original.findIndex((id) => id.startsWith('bagSize__'));
+  if (firstBagIndex === -1 || bagSizeColumnIds.length === 0) {
+    return [...original];
+  }
+
+  let lastBagIndex = firstBagIndex;
+  while (
+    lastBagIndex < original.length &&
+    original[lastBagIndex].startsWith('bagSize__')
+  ) {
+    lastBagIndex += 1;
+  }
+
+  const prefix = original.slice(0, firstBagIndex);
+  const suffix = original.slice(lastBagIndex);
+  return [...prefix, ...bagSizeColumnIds, ...suffix];
+}
+
 const GradingReportTable = () => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
+  const preferences = usePreferencesStore((store) => store.preferences);
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const [appliedFromDate, setAppliedFromDate] = React.useState('');
@@ -91,6 +152,7 @@ const GradingReportTable = () => {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
+  const hasInitializedColumnOrderRef = React.useRef(false);
 
   const bagWeightsRevision = usePreferencesStore((store) =>
     [
@@ -117,10 +179,23 @@ const GradingReportTable = () => {
     () => expandGradingReportRows(data ?? []),
     [data]
   );
-  const gradingBagSizeColumnIds = React.useMemo(
-    () => GRADING_BAG_SIZE_COLUMN_ORDER.map(getGradingBagSizeColumnId),
-    []
+  const gradingBagSizeLabels = React.useMemo(
+    () => getGradingBagSizeLabelsFromPreferences(preferences?.bagSizes),
+    [preferences?.bagSizes]
   );
+  const gradingBagSizeColumnIds = React.useMemo(
+    () => gradingBagSizeLabels.map((label) => getGradingBagSizeColumnId(label)),
+    [gradingBagSizeLabels]
+  );
+  const computedDefaultColumnOrder = React.useMemo(
+    () => buildDefaultColumnOrderWithBagSizes(gradingBagSizeColumnIds),
+    [gradingBagSizeColumnIds]
+  );
+  React.useEffect(() => {
+    if (hasInitializedColumnOrderRef.current) return;
+    setColumnOrder(computedDefaultColumnOrder);
+    hasInitializedColumnOrderRef.current = true;
+  }, [computedDefaultColumnOrder]);
   const emptyBagSizeColumnIds = React.useMemo(() => {
     const emptyColumns = new Set<string>();
     gradingBagSizeColumnIds.forEach((columnId) => {
@@ -472,7 +547,7 @@ const GradingReportTable = () => {
         open={isViewFiltersOpen}
         onOpenChange={setIsViewFiltersOpen}
         table={table}
-        defaultColumnOrder={defaultGradingColumnOrder}
+        defaultColumnOrder={computedDefaultColumnOrder}
         defaultColumnVisibility={defaultGradingReportColumnVisibility}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}

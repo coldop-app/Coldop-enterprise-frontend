@@ -23,7 +23,7 @@ import {
   type ContractFarmingReportFarmer,
   useGetContractFarmingReport,
 } from '@/services/store-admin/general/useGetContractFarmingReport';
-import { useStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
@@ -84,6 +84,37 @@ function getGradeHeaders(farmers: ContractFarmingReportFarmer[]): string[] {
   return Array.from(gradeSet).sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true })
   );
+}
+
+function normalizePreferenceBagSize(value: string): string {
+  return value
+    .replace(/\bmm\b/gi, '')
+    .replace(/[()]/g, ' ')
+    .replace(/[–—−-]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function orderGradeHeadersByPreferences(
+  allGradeHeaders: string[],
+  preferenceBagSizes: string[] | undefined
+): string[] {
+  if (allGradeHeaders.length === 0) return [];
+  const gradeByNormalized = new Map(
+    allGradeHeaders.map((grade) => [normalizePreferenceBagSize(grade), grade])
+  );
+  const preferred = (preferenceBagSizes ?? [])
+    .map((size) => gradeByNormalized.get(normalizePreferenceBagSize(size)))
+    .filter((value): value is string => Boolean(value));
+
+  const dedupedPreferred = Array.from(new Set(preferred));
+  if (dedupedPreferred.length === 0) return allGradeHeaders;
+
+  const preferredSet = new Set(dedupedPreferred);
+  const remaining = allGradeHeaders.filter((grade) => !preferredSet.has(grade));
+  return [...dedupedPreferred, ...remaining];
 }
 
 function buildFamilyKeyByAccountBase(
@@ -189,60 +220,76 @@ function flattenFarmers(
   return rows;
 }
 
-const globalContractFarmingFilterFn = (
-  row: { original: FlattenedRow },
-  _columnId: string,
-  filterValue: GlobalFilterValue
-) => {
-  if (isAdvancedFilterGroup(filterValue)) {
-    const rowRecord: Record<string, unknown> = {
-      ...row.original,
-      familyKey: row.original.familyKey ?? 0,
-      farmer: row.original.farmerName,
-      accountNumber: row.original.accountNumber,
-      address: row.original.address,
-      variety: row.original.varietyName,
-      size: row.original.sizeName,
-      qty: row.original.sizeQuantity,
-      acres: row.original.sizeAcres,
-      bbBags: row.original.buyBackBags,
-      bbNetWeight: row.original.buyBackNetWeightKg,
-      amount: row.original.sizeAmountPayable,
-      [TOTAL_GRADED_BAGS_COLUMN_ID]: getTotalGradeBags(row.original),
-      [TOTAL_GRADED_NET_WEIGHT_COLUMN_ID]: getTotalGradeNetWeightKg(
-        row.original
-      ),
-      [AVG_QUINTAL_PER_ACRE_COLUMN_ID]: getAverageQuintalPerAcre(row.original),
-      [WASTAGE_KG_COLUMN_ID]: getWastageKg(row.original),
-      [OUTPUT_PERCENTAGE_COLUMN_ID]: getOutputPercentage(row.original),
-      [BUY_BACK_AMOUNT_COLUMN_ID]: getBuyBackAmountFromGradeData(row.original),
-      [NET_AMOUNT_COLUMN_ID]: getNetAmountRupee(row.original),
-      [NET_AMOUNT_PER_ACRE_COLUMN_ID]: getNetAmountPerAcreRupee(row.original),
-    };
-
-    Object.entries(row.original.gradeData ?? {}).forEach(([grade, value]) => {
-      const bagsKey = `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`;
-      const pctKey = `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`;
-      rowRecord[bagsKey] = Number(value?.bags ?? 0);
-      rowRecord[pctKey] = getGradeWeightPercent(row.original, grade);
-    });
-
-    return evaluateFilterGroup(rowRecord, filterValue);
-  }
-  const term = String(filterValue ?? '')
-    .trim()
-    .toLowerCase();
-  if (!term) return true;
+function createGlobalContractFarmingFilterFn(
+  preferences: ReturnType<typeof usePreferencesStore.getState>['preferences']
+) {
   return (
-    row.original.farmerName.toLowerCase().includes(term) ||
-    String(row.original.accountNumber).toLowerCase().includes(term) ||
-    row.original.varietyName.toLowerCase().includes(term)
-  );
-};
+    row: { original: FlattenedRow },
+    _columnId: string,
+    filterValue: GlobalFilterValue
+  ) => {
+    if (isAdvancedFilterGroup(filterValue)) {
+      const rowRecord: Record<string, unknown> = {
+        ...row.original,
+        familyKey: row.original.familyKey ?? 0,
+        farmer: row.original.farmerName,
+        accountNumber: row.original.accountNumber,
+        address: row.original.address,
+        variety: row.original.varietyName,
+        size: row.original.sizeName,
+        qty: row.original.sizeQuantity,
+        acres: row.original.sizeAcres,
+        bbBags: row.original.buyBackBags,
+        bbNetWeight: row.original.buyBackNetWeightKg,
+        amount: row.original.sizeAmountPayable,
+        [TOTAL_GRADED_BAGS_COLUMN_ID]: getTotalGradeBags(row.original),
+        [TOTAL_GRADED_NET_WEIGHT_COLUMN_ID]: getTotalGradeNetWeightKg(
+          row.original
+        ),
+        [AVG_QUINTAL_PER_ACRE_COLUMN_ID]: getAverageQuintalPerAcre(
+          row.original
+        ),
+        [WASTAGE_KG_COLUMN_ID]: getWastageKg(row.original),
+        [OUTPUT_PERCENTAGE_COLUMN_ID]: getOutputPercentage(row.original),
+        [BUY_BACK_AMOUNT_COLUMN_ID]: getBuyBackAmountFromGradeData(
+          row.original,
+          preferences
+        ),
+        [NET_AMOUNT_COLUMN_ID]: getNetAmountRupee(row.original, preferences),
+        [NET_AMOUNT_PER_ACRE_COLUMN_ID]: getNetAmountPerAcreRupee(
+          row.original,
+          preferences
+        ),
+      };
+
+      Object.entries(row.original.gradeData ?? {}).forEach(([grade, value]) => {
+        const bagsKey = `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`;
+        const pctKey = `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`;
+        rowRecord[bagsKey] = Number(value?.bags ?? 0);
+        rowRecord[pctKey] = getGradeWeightPercent(row.original, grade);
+      });
+
+      return evaluateFilterGroup(rowRecord, filterValue);
+    }
+    const term = String(filterValue ?? '')
+      .trim()
+      .toLowerCase();
+    if (!term) return true;
+    return (
+      row.original.farmerName.toLowerCase().includes(term) ||
+      String(row.original.accountNumber).toLowerCase().includes(term) ||
+      row.original.varietyName.toLowerCase().includes(term)
+    );
+  };
+}
 
 export default function ContractFarmingReportTable() {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
+  const preferences = usePreferencesStore((store) => store.preferences);
+  const preferenceBagSizes = usePreferencesStore(
+    (store) => store.preferences?.bagSizes
   );
 
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
@@ -260,6 +307,8 @@ export default function ContractFarmingReportTable() {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
+  const hasInitializedColumnOrderRef = React.useRef(false);
+  const hasInitializedBagVisibilityRef = React.useRef(false);
 
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
@@ -269,10 +318,11 @@ export default function ContractFarmingReportTable() {
     const fromApi = data?.meta?.allGrades ?? [];
     const fromRows = getGradeHeaders(farmers);
     const all = new Set<string>([...fromApi, ...fromRows]);
-    return Array.from(all).sort((a, b) =>
+    const sorted = Array.from(all).sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true })
     );
-  }, [data?.meta?.allGrades, farmers]);
+    return orderGradeHeadersByPreferences(sorted, preferenceBagSizes);
+  }, [data?.meta?.allGrades, farmers, preferenceBagSizes]);
 
   const columns = React.useMemo(
     () => buildColumns(gradeHeaders),
@@ -284,14 +334,63 @@ export default function ContractFarmingReportTable() {
   );
 
   React.useEffect(() => {
-    if (columnOrder.length > 0) return;
+    if (hasInitializedColumnOrderRef.current) return;
     setColumnOrder(defaultColumnOrder);
-  }, [columnOrder.length, defaultColumnOrder]);
+    hasInitializedColumnOrderRef.current = true;
+  }, [defaultColumnOrder]);
 
   const flattenedData = React.useMemo(
     () => flattenFarmers(farmers, gradeHeaders),
     [farmers, gradeHeaders]
   );
+  const globalContractFarmingFilterFn = React.useMemo(
+    () => createGlobalContractFarmingFilterFn(preferences),
+    [preferences]
+  );
+  const gradeBagColumnIds = React.useMemo(
+    () => gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
+    [gradeHeaders]
+  );
+  const gradePercentColumnIds = React.useMemo(
+    () =>
+      gradeHeaders.map(
+        (grade) => `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`
+      ),
+    [gradeHeaders]
+  );
+  const emptyGradeBagColumnIds = React.useMemo(() => {
+    const emptyColumns = new Set<string>();
+    gradeHeaders.forEach((grade) => {
+      const hasAnyValue = flattenedData.some(
+        (row) => Number(row.gradeData?.[grade]?.bags ?? 0) > 0
+      );
+      if (!hasAnyValue) {
+        emptyColumns.add(`${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`);
+      }
+    });
+    return emptyColumns;
+  }, [flattenedData, gradeHeaders]);
+
+  React.useEffect(() => {
+    if (hasInitializedBagVisibilityRef.current || flattenedData.length === 0)
+      return;
+
+    setColumnVisibility((current) => {
+      const next = { ...current };
+      gradeBagColumnIds.forEach((columnId, index) => {
+        const shouldShow = !emptyGradeBagColumnIds.has(columnId);
+        next[columnId] = shouldShow;
+        next[gradePercentColumnIds[index]!] = shouldShow;
+      });
+      return next;
+    });
+    hasInitializedBagVisibilityRef.current = true;
+  }, [
+    emptyGradeBagColumnIds,
+    flattenedData.length,
+    gradeBagColumnIds,
+    gradePercentColumnIds,
+  ]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<FlattenedRow>({

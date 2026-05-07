@@ -239,41 +239,41 @@ const AccountingReportTable = ({
 
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
-      <div className="space-y-5">
-        <Card className="border-border/50 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_10px_28px_rgba(0,0,0,0.06)] ring-1">
-          <CardContent className="p-0">
-            <div className="from-primary/10 via-primary/5 to-background border-border/40 border-b bg-linear-to-r px-4 py-4 sm:px-6 sm:py-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-1">
-                  <p className="font-custom text-muted-foreground text-xs font-semibold tracking-[0.12em] uppercase">
-                    Accounting Report
-                  </p>
-                  <h1 className="font-custom text-2xl font-bold tracking-tight text-[#222] sm:text-3xl">
-                    {coldStorageName}
-                  </h1>
-                  <p className="font-custom text-muted-foreground text-sm">
-                    Farmer Ledger &amp; Stock Movement Statement
-                  </p>
-                </div>
+      <Card className="border-border/50 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_10px_28px_rgba(0,0,0,0.06)] ring-1">
+        <CardContent className="p-0">
+          <div className="from-primary/10 via-primary/5 to-background border-border/40 border-b bg-linear-to-r px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <p className="font-custom text-muted-foreground text-xs font-semibold tracking-[0.12em] uppercase">
+                  Accounting Report
+                </p>
+                <h1 className="font-custom text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+                  {coldStorageName}
+                </h1>
+                <p className="font-custom text-muted-foreground text-sm">
+                  Farmer Ledger &amp; Stock Movement Statement
+                </p>
+              </div>
 
-                <div className="border-border/50 bg-card/90 rounded-xl border px-3 py-2 text-right">
-                  <p className="font-custom text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                    Powered By
-                  </p>
-                  <p className="font-custom text-primary text-base font-bold tracking-wide">
-                    COLDOP
-                  </p>
-                </div>
+              <div className="border-border/50 bg-card/90 rounded-xl border px-3 py-2 text-right">
+                <p className="font-custom text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Powered By
+                </p>
+                <p className="font-custom text-primary text-base font-bold tracking-wide">
+                  COLDOP
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+          <div className="space-y-8 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="border-border/50 bg-card rounded-xl border p-3">
                 <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
                   <CalendarDays className="h-3.5 w-3.5" />
                   Generated On
                 </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
+                <p className="font-custom text-foreground text-sm font-semibold">
                   {reportGeneratedOn}
                 </p>
               </div>
@@ -282,7 +282,7 @@ const AccountingReportTable = ({
                   <FileText className="h-3.5 w-3.5" />
                   Report Period
                 </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
+                <p className="font-custom text-foreground text-sm font-semibold">
                   {reportPeriodLabel}
                 </p>
               </div>
@@ -290,7 +290,7 @@ const AccountingReportTable = ({
                 <p className="font-custom text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
                   Included Grading Passes
                 </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
+                <p className="font-custom text-foreground text-sm font-semibold">
                   {selectedGradingIdSet.size} / {gradingPasses.length}
                 </p>
               </div>
@@ -299,206 +299,203 @@ const AccountingReportTable = ({
                   <Building2 className="h-3.5 w-3.5" />
                   Rows Snapshot
                 </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
+                <p className="font-custom text-foreground text-sm font-semibold">
                   In: {rowStats.incoming} | Gr: {rowStats.grading} | Summary:{' '}
                   {rowStats.summary} | Seed: {rowStats.seed}
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {farmerStorageLink ? (
-          <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
-            <CardHeader className="border-border/40 bg-secondary/50 border-b px-3 py-3 sm:px-4 sm:py-4">
-              <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
-                Farmer details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
-              <div className="border-border/50 bg-card rounded-xl border p-3">
-                <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
-                  <UserRound className="h-3.5 w-3.5" />
-                  Name
-                </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
-                  {farmerStorageLink.name}
-                </p>
-              </div>
+            {farmerStorageLink ? (
+              <section className="border-border/40 space-y-3 rounded-xl border p-3 sm:p-4">
+                <h2 className="font-custom text-foreground text-lg font-semibold sm:text-xl">
+                  Farmer details
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="border-border/50 bg-card rounded-xl border p-3">
+                    <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+                      <UserRound className="h-3.5 w-3.5" />
+                      Name
+                    </p>
+                    <p className="font-custom text-foreground text-sm font-semibold">
+                      {farmerStorageLink.name}
+                    </p>
+                  </div>
+                  <div className="border-border/50 bg-card rounded-xl border p-3">
+                    <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+                      <Hash className="h-3.5 w-3.5" />
+                      Account
+                    </p>
+                    <p className="font-custom text-foreground text-sm font-semibold">
+                      #{farmerStorageLink.accountNumber}
+                    </p>
+                  </div>
+                  <div className="border-border/50 bg-card rounded-xl border p-3">
+                    <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+                      <Phone className="h-3.5 w-3.5" />
+                      Mobile
+                    </p>
+                    <p className="font-custom text-foreground text-sm font-semibold">
+                      {farmerStorageLink.mobileNumber}
+                    </p>
+                  </div>
+                  <div className="border-border/50 bg-card rounded-xl border p-3">
+                    <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Address
+                    </p>
+                    <p className="font-custom text-foreground text-sm font-semibold">
+                      {farmerStorageLink.address}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
-              <div className="border-border/50 bg-card rounded-xl border p-3">
-                <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
-                  <Hash className="h-3.5 w-3.5" />
-                  Account
-                </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
-                  #{farmerStorageLink.accountNumber}
-                </p>
-              </div>
-
-              <div className="border-border/50 bg-card rounded-xl border p-3">
-                <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
-                  <Phone className="h-3.5 w-3.5" />
-                  Mobile
-                </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
-                  {farmerStorageLink.mobileNumber}
-                </p>
-              </div>
-
-              <div className="border-border/50 bg-card rounded-xl border p-3">
-                <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Address
-                </p>
-                <p className="font-custom text-sm font-semibold text-[#333]">
-                  {farmerStorageLink.address}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <AccountingReportExcelButton
-            coldStorageName={coldStorageName}
-            farmerDetails={farmerStorageLink}
-            varietySections={varietySections}
-            reportPeriodLabel={reportPeriodLabel}
-            rowStats={rowStats}
-          />
-          <Button
-            type="button"
-            onClick={handleCustomSelectClick}
-            className="font-custom shadow-sm"
-            disabled={gradingPasses.length === 0}
-          >
-            Custom Select ({selectedGradingIdSet.size}/{gradingPasses.length})
-          </Button>
-        </div>
-        <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
-          <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
-            <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
-              Incoming
-            </CardTitle>
-            <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Manual gate passes, store, truck, variety, bags, weight slip,
-              gross, tare, net, bardana, and actual weight — grouped by variety.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="space-y-4 p-4">
-                <Skeleton className="font-custom text-muted-foreground h-[280px] w-full rounded-2xl" />
-              </div>
-            ) : isError ? (
-              <div className="p-4">
-                <Empty className="border-border/50 rounded-xl border py-12">
-                  <EmptyHeader>
-                    <EmptyTitle className="font-custom">
-                      Could not load incoming gate passes
-                    </EmptyTitle>
-                    <EmptyDescription className="font-custom">
-                      {incomingFetchErrorDescription}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              </div>
-            ) : (
-              <div className="w-full">
-                <IncomingTable varietyGroups={varietyGroupedIncoming} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
-          <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
-            <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
-              Grading
-            </CardTitle>
-            <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Grading gate passes with bag sizes by variety — one table, blocks
-              per variety.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="space-y-4 p-4">
-                <Skeleton className="font-custom text-muted-foreground h-[280px] w-full rounded-2xl" />
-              </div>
-            ) : isError ? (
-              <div className="p-4">
-                <Empty className="border-border/50 rounded-xl border py-12">
-                  <EmptyHeader>
-                    <EmptyTitle className="font-custom">
-                      Could not load grading gate passes
-                    </EmptyTitle>
-                    <EmptyDescription className="font-custom">
-                      {incomingFetchErrorDescription}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              </div>
-            ) : (
-              <div className="w-full">
-                <GradingTable varietyGroups={varietyGroupedGrading} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
-          <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
-            <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
-              Summary
-            </CardTitle>
-            <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Bag-type and size summary lines grouped by variety in one table.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="space-y-4 p-4">
-                <Skeleton className="font-custom text-muted-foreground h-[200px] w-full rounded-2xl" />
-              </div>
-            ) : isError ? (
-              <div className="p-4">
-                <Empty className="border-border/50 rounded-xl border py-12">
-                  <EmptyHeader>
-                    <EmptyTitle className="font-custom">
-                      Could not load summary (grading gate passes)
-                    </EmptyTitle>
-                    <EmptyDescription className="font-custom">
-                      {incomingFetchErrorDescription}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              </div>
-            ) : (
-              <div className="w-full">
-                <SummaryTable varietyGroups={varietyGroupedSummary} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/40 ring-primary/5 overflow-hidden rounded-2xl border py-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.04)] ring-1">
-          <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
-            <CardTitle className="font-custom text-lg font-semibold text-[#333] sm:text-xl">
-              Farmer seed
-            </CardTitle>
-            <CardDescription className="font-custom leading-relaxed text-gray-600">
-              Seed dispatch lines grouped by variety in one table.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="w-full">
-              <FarmerSeedTable varietyGroups={varietyGroupedFarmerSeed} />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <AccountingReportExcelButton
+                coldStorageName={coldStorageName}
+                farmerDetails={farmerStorageLink}
+                varietySections={varietySections}
+                reportPeriodLabel={reportPeriodLabel}
+                rowStats={rowStats}
+              />
+              <Button
+                type="button"
+                onClick={handleCustomSelectClick}
+                className="font-custom shadow-sm"
+                disabled={gradingPasses.length === 0}
+              >
+                Custom Select ({selectedGradingIdSet.size}/
+                {gradingPasses.length})
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            <section className="border-border/40 overflow-hidden rounded-xl border">
+              <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
+                <CardTitle className="font-custom text-foreground text-lg font-semibold sm:text-xl">
+                  Incoming
+                </CardTitle>
+                <CardDescription className="font-custom text-muted-foreground leading-relaxed">
+                  Manual gate passes, store, truck, variety, bags, weight slip,
+                  gross, tare, net, bardana, and actual weight — grouped by
+                  variety.
+                </CardDescription>
+              </CardHeader>
+              <div className="p-0">
+                {isLoading ? (
+                  <div className="space-y-4 p-4">
+                    <Skeleton className="font-custom text-muted-foreground h-[280px] w-full rounded-2xl" />
+                  </div>
+                ) : isError ? (
+                  <div className="p-4">
+                    <Empty className="border-border/50 rounded-xl border py-12">
+                      <EmptyHeader>
+                        <EmptyTitle className="font-custom">
+                          Could not load incoming gate passes
+                        </EmptyTitle>
+                        <EmptyDescription className="font-custom">
+                          {incomingFetchErrorDescription}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    <IncomingTable varietyGroups={varietyGroupedIncoming} />
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="border-border/40 overflow-hidden rounded-xl border">
+              <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
+                <CardTitle className="font-custom text-foreground text-lg font-semibold sm:text-xl">
+                  Grading
+                </CardTitle>
+                <CardDescription className="font-custom text-muted-foreground leading-relaxed">
+                  Grading gate passes with bag sizes by variety — one table,
+                  blocks per variety.
+                </CardDescription>
+              </CardHeader>
+              <div className="p-0">
+                {isLoading ? (
+                  <div className="space-y-4 p-4">
+                    <Skeleton className="font-custom text-muted-foreground h-[280px] w-full rounded-2xl" />
+                  </div>
+                ) : isError ? (
+                  <div className="p-4">
+                    <Empty className="border-border/50 rounded-xl border py-12">
+                      <EmptyHeader>
+                        <EmptyTitle className="font-custom">
+                          Could not load grading gate passes
+                        </EmptyTitle>
+                        <EmptyDescription className="font-custom">
+                          {incomingFetchErrorDescription}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    <GradingTable varietyGroups={varietyGroupedGrading} />
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="border-border/40 overflow-hidden rounded-xl border">
+              <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
+                <CardTitle className="font-custom text-foreground text-lg font-semibold sm:text-xl">
+                  Summary
+                </CardTitle>
+                <CardDescription className="font-custom text-muted-foreground leading-relaxed">
+                  Bag-type and size summary lines grouped by variety in one
+                  table.
+                </CardDescription>
+              </CardHeader>
+              <div className="p-0">
+                {isLoading ? (
+                  <div className="space-y-4 p-4">
+                    <Skeleton className="font-custom text-muted-foreground h-[200px] w-full rounded-2xl" />
+                  </div>
+                ) : isError ? (
+                  <div className="p-4">
+                    <Empty className="border-border/50 rounded-xl border py-12">
+                      <EmptyHeader>
+                        <EmptyTitle className="font-custom">
+                          Could not load summary (grading gate passes)
+                        </EmptyTitle>
+                        <EmptyDescription className="font-custom">
+                          {incomingFetchErrorDescription}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    <SummaryTable varietyGroups={varietyGroupedSummary} />
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="border-border/40 overflow-hidden rounded-xl border">
+              <CardHeader className="border-border/40 bg-secondary/50 space-y-1.5 border-b px-3 py-3 sm:px-4 sm:py-4">
+                <CardTitle className="font-custom text-foreground text-lg font-semibold sm:text-xl">
+                  Farmer seed
+                </CardTitle>
+                <CardDescription className="font-custom text-muted-foreground leading-relaxed">
+                  Seed dispatch lines grouped by variety in one table.
+                </CardDescription>
+              </CardHeader>
+              <div className="w-full p-0">
+                <FarmerSeedTable varietyGroups={varietyGroupedFarmerSeed} />
+              </div>
+            </section>
+          </div>
+        </CardContent>
+      </Card>
 
       <AccountingGradingPassSelectionDialog
         open={isSelectionDialogOpen}

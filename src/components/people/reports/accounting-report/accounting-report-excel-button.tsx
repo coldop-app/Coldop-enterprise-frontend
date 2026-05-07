@@ -44,6 +44,7 @@ type AccountingReportExcelButtonProps = {
   farmerDetails: FarmerStorageLinkInPassesPayload | null;
   varietySections: AccountingReportVarietySection[];
   reportPeriodLabel: string;
+  reportTitle?: string;
   rowStats: {
     incoming: number;
     grading: number;
@@ -571,6 +572,7 @@ export const AccountingReportExcelButton = ({
   farmerDetails,
   varietySections,
   reportPeriodLabel,
+  reportTitle = 'Accounting Report',
   rowStats,
 }: AccountingReportExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
@@ -583,7 +585,7 @@ export const AccountingReportExcelButton = ({
 
       const safeName = safeFilePart(coldStorageName, 'Cold Storage');
       const dateLabel = getDateLabel(new Date());
-      const fileName = `${safeName} Accounting Report ${dateLabel}.xlsx`;
+      const fileName = `${safeName} ${reportTitle} ${dateLabel}.xlsx`;
 
       const wb = new ExcelJS.Workbook();
       wb.creator = safeName;
@@ -599,7 +601,7 @@ export const AccountingReportExcelButton = ({
         2
       );
 
-      const reportSheet = wb.addWorksheet('Accounting Report');
+      const reportSheet = wb.addWorksheet(reportTitle);
 
       const allHeaders = mergeHeaderRowForWidth(maxColumns, [
         INCOMING_EXCEL_HEADERS,
@@ -686,7 +688,7 @@ export const AccountingReportExcelButton = ({
         reportSheet,
         maxColumns,
         safeName,
-        'Accounting Report',
+        reportTitle,
         dateLabel,
         overviewLines
       );
@@ -767,6 +769,7 @@ export const AccountingReportExcelButton = ({
     coldStorageName,
     farmerDetails,
     isGeneratingExcel,
+    reportTitle,
     reportPeriodLabel,
     rowStats,
     varietySections,

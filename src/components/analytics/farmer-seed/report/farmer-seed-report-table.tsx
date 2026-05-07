@@ -23,7 +23,7 @@ import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Item } from '@/components/ui/item';
-import { useStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import { useGetFarmerSeedReport } from '@/services/store-admin/farmer-seed/analytics/useGetFarmerSeedReport';
 import type { FarmerSeedReportEntry } from '@/types/farmer-seed';
 import { ViewFiltersSheet } from '@/components/analytics/farmer-seed/report/view-filters-sheet/index';
@@ -34,7 +34,6 @@ import type {
 } from '@/components/analytics/farmer-seed/report/pdf.worker';
 import { FarmerSeedExcelButton } from './farmer-seed-excel-button';
 import {
-  defaultColumnOrder,
   defaultFarmerSeedColumnVisibility,
   formatIndianNumber,
   globalFilterFn,
@@ -114,6 +113,60 @@ function getFarmerDisplayName(
     return `${farmerName} (#${accountNumber})`;
   }
   return farmerName;
+}
+
+function normalizePreferenceBagSize(value: string): string {
+  return value
+    .replace(/\bmm\b/gi, '')
+    .replace(/[()]/g, ' ')
+    .replace(/[–—−-]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const PREFERENCE_BAG_LABEL_TO_COLUMN_ID = new Map<string, BagSizeKey>([
+  [normalizePreferenceBagSize('35-40'), 'bag35to40'],
+  [normalizePreferenceBagSize('40-45'), 'bag40to45'],
+  [normalizePreferenceBagSize('40-50'), 'bag40to50'],
+  [normalizePreferenceBagSize('45-50'), 'bag45to50'],
+  [normalizePreferenceBagSize('50-55'), 'bag50to55'],
+]);
+
+function getBagSizeColumnOrderFromPreferences(
+  preferenceBagSizes: string[] | undefined
+): BagSizeKey[] {
+  const fromPreferences = (preferenceBagSizes ?? [])
+    .map((label) =>
+      PREFERENCE_BAG_LABEL_TO_COLUMN_ID.get(normalizePreferenceBagSize(label))
+    )
+    .filter((value): value is BagSizeKey => Boolean(value));
+
+  if (fromPreferences.length === 0) {
+    return ['bag35to40', 'bag40to45', 'bag40to50', 'bag45to50', 'bag50to55'];
+  }
+
+  const deduped = new Set<BagSizeKey>();
+  fromPreferences.forEach((id) => deduped.add(id));
+  return Array.from(deduped);
+}
+
+function buildDefaultColumnOrder(bagSizeColumnIds: BagSizeKey[]): string[] {
+  return [
+    'farmerName',
+    'totalAcres',
+    'gatePassNo',
+    'invoiceNumber',
+    'date',
+    'variety',
+    'generation',
+    ...bagSizeColumnIds,
+    'totalBags',
+    'averageRate',
+    'totalAmount',
+    'remarks',
+  ];
 }
 
 function computeTotals(entry: FarmerSeedReportEntry) {
@@ -309,6 +362,7 @@ const FarmerSeedReportTable = () => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
+  const preferences = usePreferencesStore((state) => state.preferences);
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const [appliedFromDate, setAppliedFromDate] = React.useState('');
@@ -317,8 +371,17 @@ const FarmerSeedReportTable = () => {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(defaultFarmerSeedColumnVisibility);
-  const [columnOrder, setColumnOrder] =
-    React.useState<string[]>(defaultColumnOrder);
+  const bagSizeColumnIds = React.useMemo<BagSizeKey[]>(
+    () => getBagSizeColumnOrderFromPreferences(preferences?.bagSizes),
+    [preferences?.bagSizes]
+  );
+  const computedDefaultColumnOrder = React.useMemo(
+    () => buildDefaultColumnOrder(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(
+    () => computedDefaultColumnOrder
+  );
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -332,6 +395,8 @@ const FarmerSeedReportTable = () => {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
+  const hasInitializedBagVisibilityRef = React.useRef(false);
+  const hasInitializedColumnOrderRef = React.useRef(false);
 
   const hasDateFilters = Boolean(fromDate && toDate);
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
@@ -399,6 +464,37 @@ const FarmerSeedReportTable = () => {
       }),
     [data]
   );
+
+  const emptyBagSizeColumnIds = React.useMemo(() => {
+    const emptyColumns = new Set<string>();
+    bagSizeColumnIds.forEach((columnId) => {
+      const hasAnyValue = reportData.some(
+        (row) => Number(row[columnId] ?? 0) > 0
+      );
+      if (!hasAnyValue) emptyColumns.add(columnId);
+    });
+    return emptyColumns;
+  }, [bagSizeColumnIds, reportData]);
+
+  React.useEffect(() => {
+    if (hasInitializedColumnOrderRef.current) return;
+    setColumnOrder(computedDefaultColumnOrder);
+    hasInitializedColumnOrderRef.current = true;
+  }, [computedDefaultColumnOrder]);
+
+  React.useEffect(() => {
+    if (hasInitializedBagVisibilityRef.current || reportData.length === 0)
+      return;
+
+    setColumnVisibility((current) => {
+      const next = { ...current };
+      bagSizeColumnIds.forEach((columnId) => {
+        next[columnId] = !emptyBagSizeColumnIds.has(columnId);
+      });
+      return next;
+    });
+    hasInitializedBagVisibilityRef.current = true;
+  }, [bagSizeColumnIds, emptyBagSizeColumnIds, reportData.length]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<FarmerSeedReportRow>({
@@ -706,7 +802,7 @@ const FarmerSeedReportTable = () => {
         open={isViewFiltersOpen}
         onOpenChange={setIsViewFiltersOpen}
         table={table}
-        defaultColumnOrder={defaultColumnOrder}
+        defaultColumnOrder={computedDefaultColumnOrder}
         defaultColumnVisibility={defaultFarmerSeedColumnVisibility}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}

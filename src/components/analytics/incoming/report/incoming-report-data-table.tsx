@@ -217,6 +217,7 @@ export function IncomingReportDataTable({
                     const isGroupedCell = cell.getIsGrouped();
                     const isAggregatedCell = cell.getIsAggregated();
                     const isPlaceholderCell = cell.getIsPlaceholder();
+                    const isRightAligned = numericColumnIds.has(cell.column.id);
                     const shouldSuppressAggregation =
                       isAggregatedCell &&
                       (cell.column.id === 'gatePassNo' ||
@@ -228,7 +229,9 @@ export function IncomingReportDataTable({
                           display: 'flex',
                           width: cell.column.getSize(),
                         }}
-                        className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
+                        className={`font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle wrap-break-word whitespace-normal last:border-r-0 ${
+                          isRightAligned ? 'justify-end tabular-nums' : ''
+                        }`}
                       >
                         {isGroupedCell ? (
                           <button
