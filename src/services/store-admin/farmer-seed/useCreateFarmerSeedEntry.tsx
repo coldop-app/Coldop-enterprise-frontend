@@ -3,6 +3,7 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
+import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
 import type {
   CreateFarmerSeedApiResponse,
   CreateFarmerSeedInput,
@@ -63,6 +64,12 @@ export function useCreateFarmerSeedEntry() {
       if (data.success) {
         toast.success(data.message ?? 'Farmer seed created successfully');
         queryClient.invalidateQueries({ queryKey: farmerSeedKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: [...farmerSeedKeys.all, 'report'],
+        });
+        queryClient.invalidateQueries({
+          queryKey: contractFarmingReportKeys.all,
+        });
       } else {
         toast.error(data.message ?? 'Failed to create farmer seed');
       }

@@ -101,10 +101,17 @@ export interface GradingGatePassOrderDetail {
   weightPerBagKg: number;
 }
 
+/** Farmer storage link projection directly on grading gate pass (newer GET /grading-gate-pass shape) */
+export type GradingGatePassFarmerStorageLinkRef =
+  | GradingGatePassIncomingRefLink
+  | GradingGatePassFarmerStorageLink
+  | GradingGatePassIncomingReportFarmerStorageLink;
+
 /** Grading gate pass as returned by GET /grading-gate-pass (list API) and GET /grading-gate-pass/farmer-storage-link/:id */
 export interface GradingGatePass {
   _id: string;
-  farmerStorageLinkId: string;
+  /** Newer responses populate this object directly on grading gate pass; older shapes may return an ID string */
+  farmerStorageLinkId: string | GradingGatePassFarmerStorageLinkRef;
   incomingGatePassIds: GradingGatePassIncomingRef[];
   /** Populated object in list API; may be ID string in get-all-gate-passes-of-farmer */
   createdBy: GradingGatePassGradedBy | string;

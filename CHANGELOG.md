@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-05-07
+
+### Added
+- Grading gate pass edit flow now supports linking and unlinking incoming gate passes via a dedicated selection step and link dialog (`-Incoming-gate-pass-selection-step.tsx`, `-Link-incoming-gate-pass-dialog.tsx`).
+- New service hooks for fetching a single grading gate pass (`useGetSingleGradingGatePass`) and for managing linked incoming gate passes (`useLinkIncomingGatePasses`, `useUnlinkIncomingGatePasses`).
+
+### Changed
+- Grading gate pass edit form and route were significantly refactored, splitting incoming gate pass selection and linking into reusable modules for clearer admin workflows.
+- Grading gate pass list service now normalizes API responses so newer top-level `farmerStorageLinkId` shapes and legacy nested shapes are both consumed safely; types were updated to reflect this dual shape.
+- Daybook grading and incoming gate pass cards now read `farmerStorageLinkId` directly from the gate pass and treat any zero-bag incoming voucher as cancelled regardless of grading status.
+- Farmer seed and incoming gate pass create/edit mutations now also invalidate analytics report and contract farming report queries to keep dashboards in sync after voucher changes.
+- Grading analytics report table tightened bag size column typings using a shared `CanonBagSize` type for more accurate column rendering.
+- Project version updated to `0.6.3` for this grading gate pass linking workflow and analytics cache invalidation release.
+
 ## [0.6.2] - 2026-05-07
 
 ### Changed

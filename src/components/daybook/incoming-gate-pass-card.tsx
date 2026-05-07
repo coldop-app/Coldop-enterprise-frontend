@@ -104,13 +104,12 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
     gatePass.status === 'NOT_GRADED' || gatePass.status === 'GRADED'
       ? STATUS_LABELS[gatePass.status]
       : gatePass.status;
-  const isNotGraded = gatePass.status === 'NOT_GRADED';
   const gross = gatePass.weightSlip?.grossWeightKg ?? 0;
   const tare = gatePass.weightSlip?.tareWeightKg ?? 0;
   const netKg = gross - tare;
   const bardanaKg = gatePass.bagsReceived * juteBagWeight;
   const netProductKg = netKg - bardanaKg;
-  const isCancelledGatePass = gatePass.bagsReceived === 0 && !isNotGraded;
+  const isCancelledGatePass = gatePass.bagsReceived === 0;
 
   const handleEditClick = () => {
     const editSearch = {

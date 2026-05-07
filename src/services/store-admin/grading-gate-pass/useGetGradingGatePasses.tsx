@@ -8,6 +8,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetGradingGatePassesApiResponse,
+  GradingGatePass,
   GradingGatePassPagination,
 } from '@/types/grading-gate-pass';
 
@@ -128,6 +129,31 @@ function getFetchErrorMessage(
   return fallback;
 }
 
+/**
+ * API compatibility normalizer:
+ * - New shape: gradingGatePass.farmerStorageLinkId is populated
+ * - Legacy shape: first incomingGatePassIds[].farmerStorageLinkId is populated
+ */
+function normalizeGradingGatePass(
+  gradingGatePass: GradingGatePass
+): GradingGatePass {
+  const hasTopLevelLink =
+    gradingGatePass.farmerStorageLinkId &&
+    typeof gradingGatePass.farmerStorageLinkId === 'object';
+  if (hasTopLevelLink) return gradingGatePass;
+
+  const fallbackLink =
+    gradingGatePass.incomingGatePassIds?.[0]?.farmerStorageLinkId;
+  if (!fallbackLink || typeof fallbackLink !== 'object') {
+    return gradingGatePass;
+  }
+
+  return {
+    ...gradingGatePass,
+    farmerStorageLinkId: fallbackLink,
+  };
+}
+
 /** Fetcher for a single page */
 async function fetchGradingGatePassesPage(
   params: ReturnType<typeof sanitizeParams>
@@ -149,7 +175,9 @@ async function fetchGradingGatePassesPage(
   }
 
   const response = data as GetGradingGatePassesApiResponse;
-  const list = Array.isArray(response.data) ? response.data : [];
+  const list = Array.isArray(response.data)
+    ? response.data.map(normalizeGradingGatePass)
+    : [];
   const pagination = response.pagination ?? {
     page: params.page ?? 1,
     limit: params.limit ?? 50,

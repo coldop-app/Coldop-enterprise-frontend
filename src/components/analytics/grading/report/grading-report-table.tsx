@@ -45,6 +45,7 @@ import {
 } from './columns';
 import {
   GRADING_BAG_SIZE_COLUMN_ORDER,
+  type CanonBagSize,
   getGradingBagSizeColumnId,
 } from './column-meta';
 import { GradingExcelButton } from './grading-excel-button';
@@ -82,20 +83,20 @@ const CANONICAL_BAG_LABEL_BY_NORMALIZED = new Map(
 
 function getGradingBagSizeLabelsFromPreferences(
   preferenceBagSizes: string[] | undefined
-): string[] {
+): CanonBagSize[] {
   const fromPreferences = (preferenceBagSizes ?? [])
     .map((raw) =>
       CANONICAL_BAG_LABEL_BY_NORMALIZED.get(
         normalizePreferenceBagSize(String(raw || ''))
       )
     )
-    .filter((value): value is string => Boolean(value));
+    .filter((value): value is CanonBagSize => Boolean(value));
 
   if (fromPreferences.length === 0) {
     return [...GRADING_BAG_SIZE_COLUMN_ORDER];
   }
 
-  const deduped = new Set<string>();
+  const deduped = new Set<CanonBagSize>();
   fromPreferences.forEach((label) => deduped.add(label));
   return Array.from(deduped);
 }

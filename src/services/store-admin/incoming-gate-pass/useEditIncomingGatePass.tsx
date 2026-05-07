@@ -3,6 +3,8 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
+import { incomingGatePassReportKeys } from './analytics/useGetIncomingGatePassReport';
+import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
 import type {
   EditIncomingGatePassApiResponse,
   EditIncomingGatePassInput,
@@ -65,6 +67,12 @@ export function useEditIncomingGatePass() {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all }),
+        queryClient.invalidateQueries({
+          queryKey: incomingGatePassReportKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: contractFarmingReportKeys.all,
+        }),
       ]);
     },
 

@@ -4,10 +4,7 @@ import { usePreferencesStore } from '@/stores/store';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type {
-  GradingGatePass,
-  GradingGatePassEditRouterState,
-} from '@/types/grading-gate-pass';
+import type { GradingGatePass } from '@/types/grading-gate-pass';
 import {
   ChevronDown,
   ChevronUp,
@@ -34,7 +31,7 @@ import {
 } from './grading-calculations';
 
 function getFarmerStorageLink(pass: GradingGatePass) {
-  const raw = pass.incomingGatePassIds?.[0]?.farmerStorageLinkId;
+  const raw = pass.farmerStorageLinkId;
   if (!raw || typeof raw !== 'object') return undefined;
   return raw;
 }
@@ -90,13 +87,9 @@ function GradingVoucherCardComponent({
   const navigate = useNavigate();
 
   const handleEditClick = () => {
-    const routerState = {
-      gradingGatePass,
-    } satisfies GradingGatePassEditRouterState;
     navigate({
       to: '/store-admin/grading-gate-pass/edit',
       search: { id: gradingGatePass._id },
-      state: (prev) => ({ ...prev, ...routerState }),
     });
   };
 

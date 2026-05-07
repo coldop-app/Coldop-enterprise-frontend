@@ -3,6 +3,8 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
+import { incomingGatePassReportKeys } from './analytics/useGetIncomingGatePassReport';
+import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
 import type {
   CreateIncomingGatePassApiResponse,
   CreateIncomingGatePassInput,
@@ -50,6 +52,12 @@ export function useCreateIncomingGatePass() {
           data.message ?? 'Incoming gate pass created successfully'
         );
         queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: incomingGatePassReportKeys.all,
+        });
+        queryClient.invalidateQueries({
+          queryKey: contractFarmingReportKeys.all,
+        });
       } else {
         toast.error(data.message ?? 'Failed to create incoming gate pass');
       }
