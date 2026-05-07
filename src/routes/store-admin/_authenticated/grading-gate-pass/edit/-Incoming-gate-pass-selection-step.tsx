@@ -1,18 +1,31 @@
+import { useMemo } from 'react';
 import { format } from 'date-fns';
+import { AddFarmerModal } from '@/components/forms/add-farmer-modal';
+import {
+  SearchSelector,
+  type Option,
+} from '@/components/forms/search-selector';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useUnlinkIncomingGatePasses } from '@/services/store-admin/general/useUnlinkIncomingGatePasses';
+import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 import LinkIncomingGatePassDialog from './-Link-incoming-gate-pass-dialog';
 
 type IncomingGatePassSelectionStepProps = {
   gradingGatePass?: GradingGatePass;
+  onPayloadChange?: (payload: {
+    farmerStorageLinkId?: string;
+    variety?: string;
+  }) => void;
 };
 
 const IncomingGatePassSelectionStep = ({
   gradingGatePass,
+  onPayloadChange,
 }: IncomingGatePassSelectionStepProps) => {
   const incomingGatePasses = gradingGatePass?.incomingGatePassIds ?? [];
+  const { data: farmerLinks = [] } = useGetAllFarmers();
   const { mutate: unlinkIncomingGatePasses, isPending: isUnlinking } =
     useUnlinkIncomingGatePasses();
 
@@ -22,12 +35,119 @@ const IncomingGatePassSelectionStep = ({
     });
   };
 
+  const initialFarmerStorageLinkId =
+    typeof gradingGatePass?.farmerStorageLinkId === 'string'
+      ? gradingGatePass.farmerStorageLinkId
+      : gradingGatePass?.farmerStorageLinkId?._id;
+
+  const initialVariety = gradingGatePass?.variety;
+  const selectedVarietyLabel = gradingGatePass?.variety || '';
+  const selectedGatePassNo =
+    gradingGatePass?.manualGatePassNumber ||
+    gradingGatePass?.gatePassNo ||
+    '--';
+
+  const farmerOptions = useMemo<Option<string>[]>(() => {
+    return farmerLinks.map((link) => ({
+      label: `${link.farmerId.name} (Account #${link.accountNumber})`,
+      value: link._id,
+      searchableText:
+        `${link.farmerId.name} ${link.accountNumber} ${link.farmerId.mobileNumber}`.trim(),
+    }));
+  }, [farmerLinks]);
+
+  const varietyOptions = useMemo<Option<string>[]>(() => {
+    if (!selectedVarietyLabel) return [];
+    return [
+      {
+        label: selectedVarietyLabel,
+        value: selectedVarietyLabel,
+      },
+    ];
+  }, [selectedVarietyLabel]);
+
+  const onIncomingGatePassLinked = ({
+    farmerStorageLinkId,
+    variety,
+  }: {
+    farmerStorageLinkId?: string;
+    variety?: string;
+  }) => {
+    if (!onPayloadChange) return;
+
+    onPayloadChange({
+      farmerStorageLinkId:
+        farmerStorageLinkId &&
+        farmerStorageLinkId !== initialFarmerStorageLinkId
+          ? farmerStorageLinkId
+          : undefined,
+      variety: variety && variety !== initialVariety ? variety : undefined,
+    });
+  };
+
+  const selectedMetaSection = (
+    <div className="space-y-6">
+      <div>
+        <p className="font-custom mb-2 text-sm font-medium text-[#6f6f6f]">
+          Gate Pass No.
+        </p>
+        <span className="font-custom inline-flex rounded-full bg-green-100 px-4 py-1.5 text-sm font-medium text-green-700">
+          VOUCHER NO: #{selectedGatePassNo}
+        </span>
+      </div>
+
+      <div>
+        <p className="font-custom mb-2 text-base font-semibold text-[#111]">
+          Enter Account Name (search and select)
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <SearchSelector
+              id="selected-farmer"
+              options={farmerOptions}
+              placeholder="Search or Create Farmer"
+              searchPlaceholder="Search by name, account number, or mobile..."
+              className="w-full"
+              buttonClassName="w-full justify-between bg-white"
+              value={initialFarmerStorageLinkId || ''}
+              onSelect={() => {}}
+            />
+          </div>
+          <AddFarmerModal links={farmerLinks} onFarmerAdded={() => {}} />
+        </div>
+      </div>
+
+      <div className="border-primary/30 bg-primary/5 rounded-xl border p-4">
+        <p className="font-custom text-base font-semibold text-[#111]">
+          Select Variety
+        </p>
+        <p className="font-custom mt-1 text-sm text-[#6f6f6f]">
+          Choose the potato variety for this order
+        </p>
+        <div className="mt-3">
+          <SearchSelector
+            id="selected-variety"
+            options={varietyOptions}
+            placeholder="Select a variety"
+            searchPlaceholder="Search variety..."
+            className="w-full"
+            buttonClassName="w-full justify-between bg-white"
+            value={selectedVarietyLabel}
+            onSelect={() => {}}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   if (!incomingGatePasses.length) {
     return (
       <div className="space-y-4">
+        {selectedMetaSection}
         <div className="flex justify-end">
           <LinkIncomingGatePassDialog
             gradingGatePassId={gradingGatePass?._id}
+            onIncomingGatePassLinked={onIncomingGatePassLinked}
           />
         </div>
         <div className="text-muted-foreground rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm">
@@ -39,8 +159,12 @@ const IncomingGatePassSelectionStep = ({
 
   return (
     <div className="space-y-4">
+      {selectedMetaSection}
       <div className="flex justify-end">
-        <LinkIncomingGatePassDialog gradingGatePassId={gradingGatePass?._id} />
+        <LinkIncomingGatePassDialog
+          gradingGatePassId={gradingGatePass?._id}
+          onIncomingGatePassLinked={onIncomingGatePassLinked}
+        />
       </div>
 
       <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

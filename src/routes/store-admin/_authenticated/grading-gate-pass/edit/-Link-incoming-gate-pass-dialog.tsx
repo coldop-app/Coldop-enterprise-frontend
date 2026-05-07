@@ -24,10 +24,15 @@ import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers
 
 type LinkIncomingGatePassDialogProps = {
   gradingGatePassId?: string;
+  onIncomingGatePassLinked?: (payload: {
+    farmerStorageLinkId?: string;
+    variety?: string;
+  }) => void;
 };
 
 const LinkIncomingGatePassDialog = ({
   gradingGatePassId,
+  onIncomingGatePassLinked,
 }: LinkIncomingGatePassDialogProps) => {
   const [open, setOpen] = useState(false);
   const [selectedFarmerLinkId, setSelectedFarmerLinkId] = useState('');
@@ -242,6 +247,16 @@ const LinkIncomingGatePassDialog = ({
                                   {
                                     onSuccess: (data) => {
                                       if (!data.success) return;
+                                      onIncomingGatePassLinked?.({
+                                        farmerStorageLinkId:
+                                          selectedFarmerLinkId ||
+                                          (typeof gatePass.farmerStorageLinkId ===
+                                          'object'
+                                            ? gatePass.farmerStorageLinkId?._id
+                                            : undefined),
+                                        variety:
+                                          selectedVariety || gatePass.variety,
+                                      });
                                       setSelectedIncomingGatePassId(null);
                                     },
                                   }
