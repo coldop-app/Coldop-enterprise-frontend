@@ -3,14 +3,13 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import type { StoreAdmin } from '@/types/store-admin';
-import type { PermissionAction, PermissionLookup } from '@/types/store-admin';
 import type { ColdStorage } from '@/types/cold-storage';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 interface StoreState {
   admin: Omit<StoreAdmin, 'password'> | null;
   coldStorage: ColdStorage | null;
   token: string | null;
-  permissions: PermissionLookup;
   daybookActiveTab:
     | 'seed'
     | 'incoming'
@@ -31,13 +30,8 @@ interface StoreState {
   setAdminData: (
     admin: Omit<StoreAdmin, 'password'>,
     coldStorage: ColdStorage,
-    token: string,
-    permissions: PermissionLookup
+    token: string
   ) => void;
-  hasPermission: (
-    resource: string,
-    action: PermissionAction | string
-  ) => boolean;
 
   clearAdminData: () => void;
   setDaybookActiveTab: (
@@ -64,12 +58,7 @@ interface StoreState {
 
 type PersistedState = Pick<
   StoreState,
-  | 'admin'
-  | 'coldStorage'
-  | 'token'
-  | 'permissions'
-  | 'daybookActiveTab'
-  | 'analyticsActiveTab'
+  'admin' | 'coldStorage' | 'token' | 'daybookActiveTab' | 'analyticsActiveTab'
 >;
 
 // ⏳ 1 week expiry in milliseconds
@@ -117,33 +106,28 @@ export const useStore = create(
       admin: null,
       coldStorage: null,
       token: null,
-      permissions: {},
       daybookActiveTab: 'seed',
       analyticsActiveTab: 'seed',
       isLoading: false,
       _hasHydrated: false,
 
-      setAdminData: (admin, coldStorage, token, permissions) => {
+      setAdminData: (admin, coldStorage, token) => {
         set({
           admin,
           coldStorage,
           token,
-          permissions,
           isLoading: false,
         });
       },
 
-      hasPermission: (resource, action) => {
-        const state = useStore.getState();
-        return !!state.permissions[resource]?.[action];
-      },
-
       clearAdminData: () =>
-        set({
-          admin: null,
-          coldStorage: null,
-          token: null,
-          permissions: {},
+        set(() => {
+          usePermissionsStore.getState().clearPermissions();
+          return {
+            admin: null,
+            coldStorage: null,
+            token: null,
+          };
         }),
 
       setDaybookActiveTab: (tab) => set({ daybookActiveTab: tab }),
@@ -161,7 +145,6 @@ export const useStore = create(
         admin: state.admin,
         coldStorage: state.coldStorage,
         token: state.token,
-        permissions: state.permissions,
         daybookActiveTab: state.daybookActiveTab,
         analyticsActiveTab: state.analyticsActiveTab,
       }),

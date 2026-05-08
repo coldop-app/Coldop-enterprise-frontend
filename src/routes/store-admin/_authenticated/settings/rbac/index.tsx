@@ -426,11 +426,22 @@ function RouteComponent() {
   >({});
 
   const roles = useMemo(() => data ?? [], [data]);
-  const adminRoles = useMemo(
-    () => roles.filter((rolePermission) => rolePermission.role === 'Admin'),
-    [roles]
-  );
-  const visibleRoles = adminRoles.length > 0 ? adminRoles : roles.slice(0, 1);
+  const visibleRoles = useMemo(() => {
+    const preferredRoleOrder = ['Admin', 'Manager', 'Operator'];
+    const preferredRoles = roles
+      .filter((rolePermission) =>
+        preferredRoleOrder.includes(rolePermission.role)
+      )
+      .sort(
+        (a, b) =>
+          preferredRoleOrder.indexOf(a.role) -
+          preferredRoleOrder.indexOf(b.role)
+      );
+
+    if (preferredRoles.length > 0) return preferredRoles;
+
+    return roles.slice(0, 1);
+  }, [roles]);
   const baseDrafts = useMemo(
     () =>
       roles.reduce<Record<string, RolePermissionDraft>>(

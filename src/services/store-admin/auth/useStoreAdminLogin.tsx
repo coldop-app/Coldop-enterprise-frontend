@@ -11,6 +11,7 @@ import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useStore } from '@/stores/store';
 import type { ColdStorage } from '@/types/cold-storage';
 import type { PermissionLookup, RolePermissionItem } from '@/types/store-admin';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 const buildPermissionLookup = (
   permissionEntries: RolePermissionItem[]
@@ -33,6 +34,7 @@ export const useStoreAdminLogin = () => {
   const router = useRouter();
   const search = useSearch({ from: '/store-admin/login/' });
   const { setAdminData, setLoading } = useStore();
+  const { setPermissions } = usePermissionsStore();
 
   return useMutation<
     StoreAdminLoginApiResponse,
@@ -99,8 +101,10 @@ export const useStoreAdminLogin = () => {
 
       const permissions = buildPermissionLookup(rolePermission.permissions);
 
-      // Store admin + coldStorage + token + permissions
-      setAdminData(admin, coldStorage, token, permissions);
+      // Store auth + cold storage in auth store
+      setAdminData(admin, coldStorage, token);
+      // Store permissions in dedicated store for easier access
+      setPermissions(permissions);
 
       toast.success(data.message || 'Logged in successfully!');
 

@@ -5,6 +5,7 @@ import {
   usePreferencesStoreHydrated,
 } from '@/stores/usePreferencesStore';
 import { useStore } from '@/stores/store';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 export const Route = createFileRoute('/zustand/')({
   component: RouteComponent,
@@ -14,7 +15,7 @@ function RouteComponent() {
   const admin = useStore((state) => state.admin);
   const coldStorage = useStore((state) => state.coldStorage);
   const token = useStore((state) => state.token);
-  const permissions = useStore((state) => state.permissions);
+  const permissions = usePermissionsStore((state) => state.permissions);
   const daybookActiveTab = useStore((state) => state.daybookActiveTab);
   const isLoading = useStore((state) => state.isLoading);
   const hasHydrated = useStore((state) => state._hasHydrated);
@@ -32,7 +33,8 @@ function RouteComponent() {
           Zustand Global State
         </h1>
         <p className="font-custom text-sm text-[#6f6f6f]">
-          Live snapshot of values from `src/stores/store.ts` and
+          Live snapshot of values from `src/stores/store.ts`,
+          `src/stores/usePermissionsStore.ts`, and
           `src/stores/usePreferencesStore.ts`.
         </p>
 
