@@ -2,13 +2,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { StoreAdmin } from '@/types/store-admin';
+import { buildPermissionMap, canDo, hasAnyAction } from '@/lib/permissions';
 import type { ColdStorage } from '@/types/cold-storage';
+import type {
+  RolePermission,
+  StoreAdmin,
+  PermissionAction,
+} from '@/types/store-admin';
+import type { PermissionMap } from '@/lib/permissions';
 
 interface StoreState {
   admin: Omit<StoreAdmin, 'password'> | null;
   coldStorage: ColdStorage | null;
   token: string | null;
+  rolePermission: RolePermission | null;
+  permissionMap: PermissionMap;
   daybookActiveTab:
     | 'seed'
     | 'incoming'
@@ -29,8 +37,12 @@ interface StoreState {
   setAdminData: (
     admin: Omit<StoreAdmin, 'password'>,
     coldStorage: ColdStorage,
-    token: string
+    token: string,
+    rolePermission: RolePermission | null
   ) => void;
+  setRolePermission: (rolePermission: RolePermission | null) => void;
+  can: (resource: string, action: PermissionAction) => boolean;
+  hasAny: (resource: string, actions: PermissionAction[]) => boolean;
 
   clearAdminData: () => void;
   setDaybookActiveTab: (
@@ -57,7 +69,13 @@ interface StoreState {
 
 type PersistedState = Pick<
   StoreState,
-  'admin' | 'coldStorage' | 'token' | 'daybookActiveTab' | 'analyticsActiveTab'
+  | 'admin'
+  | 'coldStorage'
+  | 'token'
+  | 'rolePermission'
+  | 'permissionMap'
+  | 'daybookActiveTab'
+  | 'analyticsActiveTab'
 >;
 
 // ⏳ 1 week expiry in milliseconds
@@ -105,25 +123,40 @@ export const useStore = create(
       admin: null,
       coldStorage: null,
       token: null,
+      rolePermission: null,
+      permissionMap: {},
       daybookActiveTab: 'seed',
       analyticsActiveTab: 'seed',
       isLoading: false,
       _hasHydrated: false,
 
-      setAdminData: (admin, coldStorage, token) => {
+      setAdminData: (admin, coldStorage, token, rolePermission) => {
         set({
           admin,
           coldStorage,
           token,
+          rolePermission,
+          permissionMap: buildPermissionMap(rolePermission?.permissions),
           isLoading: false,
         });
       },
+      setRolePermission: (rolePermission) =>
+        set({
+          rolePermission,
+          permissionMap: buildPermissionMap(rolePermission?.permissions),
+        }),
+      can: (resource, action) =>
+        canDo(useStore.getState().permissionMap, resource, action),
+      hasAny: (resource, actions) =>
+        hasAnyAction(useStore.getState().permissionMap, resource, actions),
 
       clearAdminData: () =>
         set({
           admin: null,
           coldStorage: null,
           token: null,
+          rolePermission: null,
+          permissionMap: {},
         }),
 
       setDaybookActiveTab: (tab) => set({ daybookActiveTab: tab }),
@@ -141,6 +174,8 @@ export const useStore = create(
         admin: state.admin,
         coldStorage: state.coldStorage,
         token: state.token,
+        rolePermission: state.rolePermission,
+        permissionMap: state.permissionMap,
         daybookActiveTab: state.daybookActiveTab,
         analyticsActiveTab: state.analyticsActiveTab,
       }),

@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { usePermission } from '@/hooks/usePermission';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
 import { cn } from '@/lib/utils';
 import {
@@ -209,6 +210,8 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
 }: FarmerSeedVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const { canDo } = usePermission();
+  const canUpdateFarmerSeedGatePass = canDo('farmer-seed-gate-pass', 'update');
 
   const seedData = buildViewModel(entry);
   const isCancelledGatePass = seedData.totals.totalBags === 0;
@@ -378,16 +381,18 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
         </Button>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="font-custom focus-visible:ring-primary h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
-            aria-label="Edit seed voucher"
-            onClick={handleEditClick}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          {canUpdateFarmerSeedGatePass ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="font-custom focus-visible:ring-primary h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-offset-2"
+              aria-label="Edit seed voucher"
+              onClick={handleEditClick}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"

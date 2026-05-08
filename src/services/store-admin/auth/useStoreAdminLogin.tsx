@@ -43,7 +43,7 @@ export const useStoreAdminLogin = () => {
         return;
       }
 
-      const { storeAdmin, token } = data.data;
+      const { storeAdmin, token, rolePermission } = data.data;
 
       // Transform the API response to match our StoreAdmin type
       // The API returns coldStorageId as an object, but our type expects it as a string
@@ -80,7 +80,7 @@ export const useStoreAdminLogin = () => {
       };
 
       // Store admin + coldStorage + token
-      setAdminData(admin, coldStorage, token);
+      setAdminData(admin, coldStorage, token, rolePermission);
 
       toast.success(data.message || 'Logged in successfully!');
 
