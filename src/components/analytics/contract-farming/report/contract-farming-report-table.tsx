@@ -69,6 +69,22 @@ const WHOLE_NUMBER_TOTAL_COLUMN_IDS = new Set<string>([
   'bbBags',
   TOTAL_GRADED_BAGS_COLUMN_ID,
 ]);
+const VARIETY_LEVEL_TOTAL_COLUMN_IDS = new Set<string>([
+  TOTAL_GRADED_BAGS_COLUMN_ID,
+  TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
+  BUY_BACK_AMOUNT_COLUMN_ID,
+  NET_AMOUNT_COLUMN_ID,
+  NET_AMOUNT_PER_ACRE_COLUMN_ID,
+]);
+const VARIETY_LEVEL_AVERAGE_COLUMN_IDS = new Set<string>([
+  AVG_QUINTAL_PER_ACRE_COLUMN_ID,
+  WASTAGE_KG_COLUMN_ID,
+  OUTPUT_PERCENTAGE_COLUMN_ID,
+]);
+
+function getVarietyAggregationKey(row: FlattenedRow): string {
+  return `${row.accountNumber}|${row.varietyName}`;
+}
 
 type GlobalFilterValue = string | FilterGroupNode;
 
@@ -307,7 +323,6 @@ export default function ContractFarmingReportTable() {
     React.useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
-  const hasInitializedColumnOrderRef = React.useRef(false);
   const hasInitializedBagVisibilityRef = React.useRef(false);
 
   const { data, isLoading, isFetching, isError, error, refetch } =
@@ -334,9 +349,24 @@ export default function ContractFarmingReportTable() {
   );
 
   React.useEffect(() => {
-    if (hasInitializedColumnOrderRef.current) return;
-    setColumnOrder(defaultColumnOrder);
-    hasInitializedColumnOrderRef.current = true;
+    setColumnOrder((current) => {
+      if (current.length === 0) return defaultColumnOrder;
+
+      // Rehydrate to defaults when dynamic grade columns arrive after initial mount.
+      const currentSet = new Set(current);
+      const defaultSet = new Set(defaultColumnOrder);
+      const isSameLength = current.length === defaultColumnOrder.length;
+      const hasAllDefaultColumns = defaultColumnOrder.every((id) =>
+        currentSet.has(id)
+      );
+      const hasOnlyDefaultColumns = current.every((id) => defaultSet.has(id));
+
+      if (isSameLength && hasAllDefaultColumns && hasOnlyDefaultColumns) {
+        return current;
+      }
+
+      return defaultColumnOrder;
+    });
   }, [defaultColumnOrder]);
 
   const flattenedData = React.useMemo(
@@ -440,13 +470,27 @@ export default function ContractFarmingReportTable() {
     const numericVisibleColumnIds = visibleColumnIds.filter((columnId) =>
       isNumericSortColumnId(columnId)
     );
+    const uniqueVarietyRows = new Map<string, FlattenedRow>();
 
     numericVisibleColumnIds.forEach((columnId) => {
       totals[columnId] = 0;
     });
 
     for (const row of filteredRows) {
+      const key = getVarietyAggregationKey(row.original);
+      if (!uniqueVarietyRows.has(key)) {
+        uniqueVarietyRows.set(key, row.original);
+      }
+    }
+
+    for (const row of filteredRows) {
       for (const columnId of numericVisibleColumnIds) {
+        if (
+          VARIETY_LEVEL_TOTAL_COLUMN_IDS.has(columnId) ||
+          VARIETY_LEVEL_AVERAGE_COLUMN_IDS.has(columnId)
+        ) {
+          continue;
+        }
         const raw = row.getValue(columnId);
         const value = typeof raw === 'number' ? raw : Number(raw);
         if (Number.isFinite(value)) {
@@ -455,8 +499,70 @@ export default function ContractFarmingReportTable() {
       }
     }
 
+    const varietyRows = Array.from(uniqueVarietyRows.values());
+
+    if (numericVisibleColumnIds.includes(TOTAL_GRADED_BAGS_COLUMN_ID)) {
+      totals[TOTAL_GRADED_BAGS_COLUMN_ID] = varietyRows.reduce(
+        (sum, row) => sum + (getTotalGradeBags(row) ?? 0),
+        0
+      );
+    }
+    if (numericVisibleColumnIds.includes(TOTAL_GRADED_NET_WEIGHT_COLUMN_ID)) {
+      totals[TOTAL_GRADED_NET_WEIGHT_COLUMN_ID] = varietyRows.reduce(
+        (sum, row) => sum + (getTotalGradeNetWeightKg(row) ?? 0),
+        0
+      );
+    }
+    if (numericVisibleColumnIds.includes(BUY_BACK_AMOUNT_COLUMN_ID)) {
+      totals[BUY_BACK_AMOUNT_COLUMN_ID] = varietyRows.reduce(
+        (sum, row) =>
+          sum + (getBuyBackAmountFromGradeData(row, preferences) ?? 0),
+        0
+      );
+    }
+    if (numericVisibleColumnIds.includes(NET_AMOUNT_COLUMN_ID)) {
+      totals[NET_AMOUNT_COLUMN_ID] = varietyRows.reduce(
+        (sum, row) => sum + (getNetAmountRupee(row, preferences) ?? 0),
+        0
+      );
+    }
+    if (numericVisibleColumnIds.includes(NET_AMOUNT_PER_ACRE_COLUMN_ID)) {
+      totals[NET_AMOUNT_PER_ACRE_COLUMN_ID] = varietyRows.reduce(
+        (sum, row) => sum + (getNetAmountPerAcreRupee(row, preferences) ?? 0),
+        0
+      );
+    }
+
+    const averageOverVarieties = (values: Array<number | null | undefined>) => {
+      let sum = 0;
+      let count = 0;
+      values.forEach((value) => {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          sum += value;
+          count += 1;
+        }
+      });
+      return count > 0 ? sum / count : 0;
+    };
+
+    if (numericVisibleColumnIds.includes(AVG_QUINTAL_PER_ACRE_COLUMN_ID)) {
+      totals[AVG_QUINTAL_PER_ACRE_COLUMN_ID] = averageOverVarieties(
+        varietyRows.map((row) => getAverageQuintalPerAcre(row))
+      );
+    }
+    if (numericVisibleColumnIds.includes(WASTAGE_KG_COLUMN_ID)) {
+      totals[WASTAGE_KG_COLUMN_ID] = averageOverVarieties(
+        varietyRows.map((row) => getWastageKg(row))
+      );
+    }
+    if (numericVisibleColumnIds.includes(OUTPUT_PERCENTAGE_COLUMN_ID)) {
+      totals[OUTPUT_PERCENTAGE_COLUMN_ID] = averageOverVarieties(
+        varietyRows.map((row) => getOutputPercentage(row))
+      );
+    }
+
     return totals;
-  }, [filteredRows, visibleColumnIds]);
+  }, [filteredRows, preferences, visibleColumnIds]);
 
   const hasVisibleNumericTotals = React.useMemo(
     () => visibleColumnIds.some((columnId) => isNumericSortColumnId(columnId)),

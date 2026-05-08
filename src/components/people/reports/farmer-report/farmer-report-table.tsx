@@ -61,6 +61,17 @@ function formatDateRangeLabel(dates: string[]): string {
   return `${formatDisplayDate(parsed[0])} - ${formatDisplayDate(parsed[parsed.length - 1])}`;
 }
 
+function dedupeById<T extends { _id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const item of items) {
+    if (!item?._id || seen.has(item._id)) continue;
+    seen.add(item._id);
+    deduped.push(item);
+  }
+  return deduped;
+}
+
 const FarmerReportTable = ({ farmerStorageLinkId }: FarmerReportTableProps) => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
@@ -103,7 +114,10 @@ const FarmerReportTable = ({ farmerStorageLinkId }: FarmerReportTableProps) => {
   }, [gradingPasses]);
 
   const filteredGradingPasses = useMemo(
-    () => gradingPasses.filter((pass) => selectedGradingIdSet.has(pass._id)),
+    () =>
+      dedupeById(
+        gradingPasses.filter((pass) => selectedGradingIdSet.has(pass._id))
+      ),
     [gradingPasses, selectedGradingIdSet]
   );
 
@@ -119,7 +133,9 @@ const FarmerReportTable = ({ farmerStorageLinkId }: FarmerReportTableProps) => {
 
   const filteredIncomingPasses = useMemo(
     () =>
-      incomingList.filter((incoming) => selectedIncomingIds.has(incoming._id)),
+      dedupeById(
+        incomingList.filter((incoming) => selectedIncomingIds.has(incoming._id))
+      ),
     [incomingList, selectedIncomingIds]
   );
 

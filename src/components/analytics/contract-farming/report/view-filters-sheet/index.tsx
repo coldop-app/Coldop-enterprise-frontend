@@ -52,6 +52,7 @@ import {
   type FilterOperator,
 } from '@/lib/advanced-filters';
 import type { ContractFarmingViewFiltersSheetProps } from './types';
+import { defaultContractFarmingColumnVisibility } from '../columns';
 import {
   mutateFilterNodeById,
   parseGroupingColumnId,
@@ -280,6 +281,9 @@ export function ContractFarmingViewFiltersSheet({
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
     Record<string, boolean>
   >({});
+  const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
+    number | null
+  >(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor),
@@ -518,23 +522,51 @@ export function ContractFarmingViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility(table.initialState.columnVisibility ?? {});
+    table.setColumnVisibility(defaultContractFarmingColumnVisibility);
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
     table.setGlobalFilter('');
     table.resetColumnSizing();
+    table.resetSorting();
+    table.setGrouping([]);
+    table.resetExpanded();
     onColumnResizeModeChange('onChange');
     onColumnResizeDirectionChange('ltr');
-    onGroupingChange(['farmer', 'variety']);
-    syncDraftFromTable();
+
+    const visibility: Record<string, boolean> = {};
+    hidableColumns.forEach((column) => {
+      visibility[column.id] =
+        defaultContractFarmingColumnVisibility[column.id] !== false;
+    });
+    const validOrder = defaultColumnOrder.filter((id) =>
+      hidableColumnIds.includes(id)
+    );
+    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+    const nextValueFilters: Record<string, string[]> = {};
+    filterableColumns.forEach(({ id }) => {
+      nextValueFilters[id] = [...(availableFilterOptions[id] ?? [])];
+    });
+
+    setDraftColumnVisibility(visibility);
+    setDraftColumnOrder([...validOrder, ...missing]);
+    setDraftGrouping([]);
+    setDraftValueFilters(nextValueFilters);
+    setDraftLogicFilter({
+      ...createDefaultFilterGroup(),
+      conditions: [createDefaultCondition('farmer' as FilterField)],
+    });
+    setActiveGroupingDropIndex(null);
+    setActiveTab('filters');
     resetFilterUiState();
   }, [
+    availableFilterOptions,
     defaultColumnOrder,
+    filterableColumns,
+    hidableColumnIds,
+    hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
-    onGroupingChange,
     resetFilterUiState,
-    syncDraftFromTable,
     table,
   ]);
 
@@ -592,9 +624,6 @@ export function ContractFarmingViewFiltersSheet({
     });
   };
 
-  const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
-    number | null
-  >(null);
   const handleGroupingDragMove = (event: {
     over: { id: string | number } | null;
   }) => {
