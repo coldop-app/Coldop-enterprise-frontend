@@ -38,6 +38,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { useStore } from '@/stores/store';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetOverview } from '@/services/store-admin/general/useGetOverview';
 import type { AnalyticsDateRange } from './index';
@@ -318,6 +319,9 @@ interface OverviewProps {
 
 const Overview = memo(function Overview({ dateRange }: OverviewProps) {
   const navigate = useNavigate();
+  const setAnalyticsActiveTab = useStore(
+    (state) => state.setAnalyticsActiveTab
+  );
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
   const canReadOverview = hasPermission('analytics-overview', 'read');
   const canReadFarmerSeedReports = hasPermission(
@@ -485,7 +489,8 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         onGetReportClick={
           canReadNikasiReports
             ? () =>
-                void navigate({ to: '/store-admin/analytics/reports/nikasi' })
+                void (setAnalyticsActiveTab('dispatch-pre-outgoing'),
+                navigate({ to: '/store-admin/analytics' }))
             : undefined
         }
       />
@@ -496,7 +501,8 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         onGetReportClick={
           canReadOutgoingReports
             ? () =>
-                void navigate({ to: '/store-admin/analytics/reports/outgoing' })
+                void (setAnalyticsActiveTab('dispatch-outgoing'),
+                navigate({ to: '/store-admin/analytics' }))
             : undefined
         }
       />
