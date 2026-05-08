@@ -207,7 +207,6 @@ export function ViewFiltersSheet({
     [table, coreRowCount]
   );
 
-  /** Unfiltered facets for reset — avoids stale facet state before the next React commit. */
   const collectDistinctColumnStringsFromCore = React.useCallback(
     (columnId: string): string[] => {
       void coreRowCount;
@@ -218,9 +217,9 @@ export function ViewFiltersSheet({
         const normalized = String(rawValue).trim();
         if (normalized.length > 0) uniqueValues.add(normalized);
       });
-      return Array.from(uniqueValues)
-        .map((value) => String(value))
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      return Array.from(uniqueValues).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true })
+      );
     },
     [table, coreRowCount]
   );
@@ -258,10 +257,11 @@ export function ViewFiltersSheet({
   >(() => {
     const options = {} as Record<FilterField, string[]>;
     advancedFilterFields.forEach(({ id }) => {
-      options[id] = getUniqueColumnValues(id);
+      // Keep advanced filter options stable even when faceted values are temporarily empty.
+      options[id] = collectDistinctColumnStringsFromCore(id);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [collectDistinctColumnStringsFromCore]);
 
   const syncDraftFromTable = React.useCallback(() => {
     const visibility: Record<string, boolean> = {};

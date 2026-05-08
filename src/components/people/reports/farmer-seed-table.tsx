@@ -227,7 +227,7 @@ function FarmerSeedVarietyGroupedTable({
                       {MDASH}
                     </TableCell>
                     <TableCell className="font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-right text-sm font-semibold whitespace-nowrap tabular-nums">
-                      {bagSum === 0 ? '' : formatIndianNumber(bagSum, 0)}
+                      {bagSum === 0 ? '' : formatIndianNumber(bagSum, 2)}
                     </TableCell>
                     <TableCell className="font-custom border-border/50 text-muted-foreground h-10 border-r px-3 py-2.5 text-center text-sm font-semibold">
                       {MDASH}
@@ -384,7 +384,7 @@ const FarmerSeedTable = ({
                     content =
                       totalBagsGiven === 0
                         ? ''
-                        : formatIndianNumber(totalBagsGiven, 0);
+                        : formatIndianNumber(totalBagsGiven, 2);
                   } else if (column.id === 'totalSeedAmount') {
                     content = formatIndianNumber(totalSeedAmount, 2);
                   }

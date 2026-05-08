@@ -115,11 +115,17 @@ export const reportColumns = [
     header: () => <div className="w-full text-right">Acres Planted</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 100,
     maxSize: 160,
     cell: (info) => (
       <div className="w-full text-right tabular-nums">
         {formatIndianNumber(Number(info.getValue() || 0), 2)}
+      </div>
+    ),
+    aggregatedCell: (info) => (
+      <div className="w-full text-right tabular-nums">
+        {formatRoundedIndianNumber(Number(info.getValue() || 0), 2)}
       </div>
     ),
   }),
@@ -163,49 +169,70 @@ export const reportColumns = [
     header: () => <div className="w-full text-right">35-40 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 90,
     maxSize: 180,
     cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
+    aggregatedCell: (info) =>
+      renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag40to45', {
     header: () => <div className="w-full text-right">40-45 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 90,
     maxSize: 180,
     cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
+    aggregatedCell: (info) =>
+      renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag40to50', {
     header: () => <div className="w-full text-right">40-50 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 90,
     maxSize: 180,
     cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
+    aggregatedCell: (info) =>
+      renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag45to50', {
     header: () => <div className="w-full text-right">45-50 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 90,
     maxSize: 180,
     cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
+    aggregatedCell: (info) =>
+      renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('bag50to55', {
     header: () => <div className="w-full text-right">50-55 (mm)</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 90,
     maxSize: 180,
     cell: (info) => renderBagQuantityCell(Number(info.getValue() || 0)),
+    aggregatedCell: (info) =>
+      renderBagQuantityCell(Number(info.getValue() || 0)),
   }),
   columnHelper.accessor('totalBags', {
     header: () => <div className="w-full text-right">Total Bags</div>,
     sortingFn: 'basic',
     filterFn: multiValueFilterFn,
+    aggregationFn: 'sum',
     minSize: 90,
     maxSize: 180,
     cell: (info) => (
+      <div className="w-full text-right tabular-nums">
+        {formatIndianNumber(Number(info.getValue() || 0), 0)}
+      </div>
+    ),
+    aggregatedCell: (info) => (
       <div className="w-full text-right tabular-nums">
         {formatIndianNumber(Number(info.getValue() || 0), 0)}
       </div>

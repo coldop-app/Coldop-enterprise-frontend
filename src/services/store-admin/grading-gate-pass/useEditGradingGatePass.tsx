@@ -8,6 +8,7 @@ import type {
   EditGradingGatePassApiResponse,
   EditGradingGatePassInput,
 } from '@/types/grading-gate-pass';
+import { gradingGatePassReportKeys } from './analytics/useGetGradingGatePassReport';
 import { gradingGatePassKeys } from './useGetGradingGatePasses';
 
 export type EditGradingGatePassParams = EditGradingGatePassInput & {
@@ -114,6 +115,9 @@ export function useEditGradingGatePass() {
         toast.success(data.message ?? 'Grading gate pass updated');
         await queryClient.invalidateQueries({
           queryKey: gradingGatePassKeys.all,
+        });
+        await queryClient.invalidateQueries({
+          queryKey: gradingGatePassReportKeys.all,
         });
         await navigate({ to: DAYBOOK_ROUTE });
       } else {

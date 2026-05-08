@@ -4,15 +4,12 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
+import { farmerSeedReportKeys } from './analytics/useGetFarmerSeedReport';
+import { farmerSeedKeys } from './keys';
 import type {
   CreateFarmerSeedApiResponse,
   CreateFarmerSeedInput,
 } from '@/types/farmer-seed';
-
-/** Query key prefix for farmer seed inventory. */
-export const farmerSeedKeys = {
-  all: ['store-admin', 'farmer-seed'] as const,
-};
 
 /** API error shape: { success, error: { code, message } } */
 type FarmerSeedApiError = {
@@ -65,7 +62,7 @@ export function useCreateFarmerSeedEntry() {
         toast.success(data.message ?? 'Farmer seed created successfully');
         queryClient.invalidateQueries({ queryKey: farmerSeedKeys.all });
         queryClient.invalidateQueries({
-          queryKey: [...farmerSeedKeys.all, 'report'],
+          queryKey: farmerSeedReportKeys.all,
         });
         queryClient.invalidateQueries({
           queryKey: contractFarmingReportKeys.all,

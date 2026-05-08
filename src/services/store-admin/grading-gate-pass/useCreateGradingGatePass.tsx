@@ -8,6 +8,7 @@ import type {
   CreateGradingGatePassApiResponse,
   CreateGradingGatePassInput,
 } from '@/types/grading-gate-pass';
+import { gradingGatePassReportKeys } from './analytics/useGetGradingGatePassReport';
 import { gradingGatePassKeys } from './useGetGradingGatePasses';
 
 type GradingGatePassApiError = {
@@ -95,6 +96,9 @@ export function useCreateGradingGatePass() {
         toast.success(data.message ?? 'Grading gate pass created');
         await queryClient.invalidateQueries({
           queryKey: gradingGatePassKeys.all,
+        });
+        await queryClient.invalidateQueries({
+          queryKey: gradingGatePassReportKeys.all,
         });
         await navigate({ to: DAYBOOK_ROUTE });
       } else {

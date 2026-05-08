@@ -6,7 +6,7 @@ import type {
   FarmerSeedReportEntry,
   GetFarmerSeedReportApiResponse,
 } from '@/types/farmer-seed';
-import { farmerSeedKeys } from '../useCreateFarmerSeedEntry';
+import { farmerSeedKeys } from '../keys';
 
 export const farmerSeedReportKeys = {
   all: [...farmerSeedKeys.all, 'report'] as const,

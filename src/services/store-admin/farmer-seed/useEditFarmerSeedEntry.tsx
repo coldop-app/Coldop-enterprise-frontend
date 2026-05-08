@@ -4,11 +4,12 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
+import { farmerSeedReportKeys } from './analytics/useGetFarmerSeedReport';
 import type {
   EditFarmerSeedApiResponse,
   EditFarmerSeedInput,
 } from '@/types/farmer-seed.ts';
-import { farmerSeedKeys } from './useCreateFarmerSeedEntry';
+import { farmerSeedKeys } from './keys';
 
 /** API error shape: { success, error: { code, message } } */
 type FarmerSeedApiError = {
@@ -67,7 +68,7 @@ export function useEditFarmerSeedEntry() {
         toast.success(data.message ?? 'Farmer seed updated successfully');
         queryClient.invalidateQueries({ queryKey: farmerSeedKeys.all });
         queryClient.invalidateQueries({
-          queryKey: [...farmerSeedKeys.all, 'report'],
+          queryKey: farmerSeedReportKeys.all,
         });
         queryClient.invalidateQueries({
           queryKey: contractFarmingReportKeys.all,

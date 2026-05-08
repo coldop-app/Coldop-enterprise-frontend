@@ -7,7 +7,7 @@ import type {
   FarmerSeedEntryPagination,
   GetFarmerSeedAuditApiResponse,
 } from '@/types/farmer-seed';
-import { farmerSeedKeys } from './useCreateFarmerSeedEntry';
+import { farmerSeedKeys } from './keys';
 
 type GetFarmerSeedAuditError = {
   success?: boolean;

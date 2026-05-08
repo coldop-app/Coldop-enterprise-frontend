@@ -199,7 +199,7 @@ export const incomingReportColumns = [
       const precision = getDecimalPlaces(value);
       return (
         <div className="w-full text-right tabular-nums">
-          {formatIndianNumber(value, precision)}
+          {formatIndianNumber(Number(value), precision)}
         </div>
       );
     },
@@ -215,7 +215,7 @@ export const incomingReportColumns = [
       const precision = getDecimalPlaces(value);
       return (
         <div className="w-full text-right tabular-nums">
-          {formatIndianNumber(value, precision)}
+          {formatIndianNumber(Number(value), precision)}
         </div>
       );
     },
@@ -250,7 +250,7 @@ export const incomingReportColumns = [
       const safeTotal = scaledSum / factor;
       return (
         <div className="w-full text-right font-medium tabular-nums">
-          {formatIndianNumber(safeTotal, maxPrecision)}
+          {formatIndianNumber(Number(safeTotal), maxPrecision)}
         </div>
       );
     },
@@ -260,7 +260,7 @@ export const incomingReportColumns = [
       const { netWeightKg, netWeightPrecision } = info.row.original;
       return (
         <div className="w-full text-right font-medium tabular-nums">
-          {formatIndianNumber(netWeightKg, netWeightPrecision)}
+          {formatIndianNumber(Number(netWeightKg), netWeightPrecision)}
         </div>
       );
     },
