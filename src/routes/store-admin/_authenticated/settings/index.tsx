@@ -2,6 +2,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ShieldCheck, Settings2, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useStore } from '@/stores/store';
 
 export const Route = createFileRoute('/store-admin/_authenticated/settings/')({
   component: RouteComponent,
@@ -25,6 +26,11 @@ const settingsCards = [
 
 function RouteComponent() {
   const navigate = useNavigate();
+  const role = useStore((state) => state.admin?.role);
+  const cardsToRender =
+    role === 'Admin'
+      ? settingsCards
+      : settingsCards.filter((card) => card.title !== 'RBAC');
 
   return (
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
@@ -38,7 +44,7 @@ function RouteComponent() {
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {settingsCards.map((card) => {
+        {cardsToRender.map((card) => {
           const Icon = card.icon;
 
           return (

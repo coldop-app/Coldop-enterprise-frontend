@@ -25,6 +25,7 @@ import { Route as StoreAdminAuthenticatedContractTestIndexRouteImport } from './
 import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/index'
 import { Route as StoreAdminAuthenticatedStorageGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/history/index'
 import { Route as StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/edit/index'
+import { Route as StoreAdminAuthenticatedSettingsRbacIndexRouteImport } from './routes/store-admin/_authenticated/settings/rbac/index'
 import { Route as StoreAdminAuthenticatedSettingsPreferencesIndexRouteImport } from './routes/store-admin/_authenticated/settings/preferences/index'
 import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/index'
 import { Route as StoreAdminAuthenticatedNikasiGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/nikasi-gate-pass/history/index'
@@ -135,6 +136,12 @@ const StoreAdminAuthenticatedStorageGatePassEditIndexRoute =
   StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport.update({
     id: '/storage-gate-pass/edit/',
     path: '/storage-gate-pass/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedSettingsRbacIndexRoute =
+  StoreAdminAuthenticatedSettingsRbacIndexRouteImport.update({
+    id: '/settings/rbac/',
+    path: '/settings/rbac/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedSettingsPreferencesIndexRoute =
@@ -283,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/nikasi-gate-pass/history/': typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
   '/store-admin/settings/preferences/': typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  '/store-admin/settings/rbac/': typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
   '/store-admin/storage-gate-pass/edit/': typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
   '/store-admin/storage-gate-pass/history/': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   '/store-admin/analytics/reports/contract-farming/': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
@@ -320,6 +328,7 @@ export interface FileRoutesByTo {
   '/store-admin/nikasi-gate-pass/history': typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
   '/store-admin/settings/preferences': typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  '/store-admin/settings/rbac': typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
   '/store-admin/storage-gate-pass/edit': typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
   '/store-admin/storage-gate-pass/history': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   '/store-admin/analytics/reports/contract-farming': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
@@ -358,6 +367,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/nikasi-gate-pass/history/': typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
   '/store-admin/_authenticated/settings/preferences/': typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  '/store-admin/_authenticated/settings/rbac/': typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
   '/store-admin/_authenticated/storage-gate-pass/edit/': typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
   '/store-admin/_authenticated/storage-gate-pass/history/': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   '/store-admin/_authenticated/analytics/reports/contract-farming/': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/store-admin/nikasi-gate-pass/history/'
     | '/store-admin/people/$farmerStorageLinkId/'
     | '/store-admin/settings/preferences/'
+    | '/store-admin/settings/rbac/'
     | '/store-admin/storage-gate-pass/edit/'
     | '/store-admin/storage-gate-pass/history/'
     | '/store-admin/analytics/reports/contract-farming/'
@@ -434,6 +445,7 @@ export interface FileRouteTypes {
     | '/store-admin/nikasi-gate-pass/history'
     | '/store-admin/people/$farmerStorageLinkId'
     | '/store-admin/settings/preferences'
+    | '/store-admin/settings/rbac'
     | '/store-admin/storage-gate-pass/edit'
     | '/store-admin/storage-gate-pass/history'
     | '/store-admin/analytics/reports/contract-farming'
@@ -471,6 +483,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/nikasi-gate-pass/history/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
     | '/store-admin/_authenticated/settings/preferences/'
+    | '/store-admin/_authenticated/settings/rbac/'
     | '/store-admin/_authenticated/storage-gate-pass/edit/'
     | '/store-admin/_authenticated/storage-gate-pass/history/'
     | '/store-admin/_authenticated/analytics/reports/contract-farming/'
@@ -603,6 +616,13 @@ declare module '@tanstack/react-router' {
       path: '/storage-gate-pass/edit'
       fullPath: '/store-admin/storage-gate-pass/edit/'
       preLoaderRoute: typeof StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/settings/rbac/': {
+      id: '/store-admin/_authenticated/settings/rbac/'
+      path: '/settings/rbac'
+      fullPath: '/store-admin/settings/rbac/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedSettingsRbacIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/settings/preferences/': {
@@ -762,6 +782,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
   StoreAdminAuthenticatedSettingsPreferencesIndexRoute: typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  StoreAdminAuthenticatedSettingsRbacIndexRoute: typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
   StoreAdminAuthenticatedStorageGatePassEditIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
   StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
   StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
@@ -817,6 +838,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute,
     StoreAdminAuthenticatedSettingsPreferencesIndexRoute:
       StoreAdminAuthenticatedSettingsPreferencesIndexRoute,
+    StoreAdminAuthenticatedSettingsRbacIndexRoute:
+      StoreAdminAuthenticatedSettingsRbacIndexRoute,
     StoreAdminAuthenticatedStorageGatePassEditIndexRoute:
       StoreAdminAuthenticatedStorageGatePassEditIndexRoute,
     StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute:

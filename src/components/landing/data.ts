@@ -261,7 +261,7 @@ export const demoVideoData: DemoVideoData = {
   title: 'Watch how Coldop works',
   description:
     'Get a quick overview of how our platform helps you manage your cold storage operations efficiently.',
-  videoId: 'dQw4w9WgXcQ', // Placeholder - replace with actual video ID
+  videoId: 'aCQ3rb-K_m0',
   videoTitle: 'Coldop Platform Demo',
   detailsTitle: 'Complete Cold Storage Management',
   detailsDescription:
