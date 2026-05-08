@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 export interface FarmerProfileAggregates {
   totalBagsSeed: number;
@@ -102,6 +103,12 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   editAriaLabel = 'Edit farmer',
   aggregates,
 }: FarmerProfileOverviewProps) {
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadFarmerProfileReports = hasPermission(
+    'farmer-profile',
+    'reports'
+  );
+  const canUpdateFarmerProfile = hasPermission('farmer-profile', 'update');
   const name = nameProp ?? PLACEHOLDER_NAME;
   const accountNumber = accountNumberProp ?? PLACEHOLDER_ACCOUNT;
   const address = addressProp ?? PLACEHOLDER_ADDRESS;
@@ -139,78 +146,82 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-0.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
-                    onClick={onEdit}
-                    aria-label={editAriaLabel}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Edit</TooltipContent>
-              </Tooltip>
-            </div>
+            {canUpdateFarmerProfile && (
+              <div className="flex shrink-0 items-center gap-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
+                      onClick={onEdit}
+                      aria-label={editAriaLabel}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Edit</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
           </div>
 
           <Separator />
 
-          <div className="flex flex-wrap gap-2">
-            {farmerStorageLinkId ? (
-              <Button type="button" size="sm" className="gap-1.5" asChild>
-                <Link
-                  to="/store-admin/people/$farmerStorageLinkId/farmer-report"
-                  params={{ farmerStorageLinkId }}
-                  preload="intent"
-                  className={reportLinkClassName}
-                >
+          {canReadFarmerProfileReports && (
+            <div className="flex flex-wrap gap-2">
+              {farmerStorageLinkId ? (
+                <Button type="button" size="sm" className="gap-1.5" asChild>
+                  <Link
+                    to="/store-admin/people/$farmerStorageLinkId/farmer-report"
+                    params={{ farmerStorageLinkId }}
+                    preload="intent"
+                    className={reportLinkClassName}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Farmer report
+                  </Link>
+                </Button>
+              ) : (
+                <Button type="button" size="sm" className="gap-1.5" disabled>
                   <FileText className="h-3.5 w-3.5" />
                   Farmer report
-                </Link>
-              </Button>
-            ) : (
-              <Button type="button" size="sm" className="gap-1.5" disabled>
-                <FileText className="h-3.5 w-3.5" />
-                Farmer report
-              </Button>
-            )}
+                </Button>
+              )}
 
-            {farmerStorageLinkId ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                asChild
-              >
-                <Link
-                  to="/store-admin/people/$farmerStorageLinkId/accounting-report"
-                  params={{ farmerStorageLinkId }}
-                  preload="intent"
-                  className={reportLinkClassName}
+              {farmerStorageLinkId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  asChild
+                >
+                  <Link
+                    to="/store-admin/people/$farmerStorageLinkId/accounting-report"
+                    params={{ farmerStorageLinkId }}
+                    preload="intent"
+                    className={reportLinkClassName}
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Accounting report
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled
                 >
                   <BookOpen className="h-3.5 w-3.5" />
                   Accounting report
-                </Link>
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                disabled
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                Accounting report
-              </Button>
-            )}
-          </div>
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </TooltipProvider>
 

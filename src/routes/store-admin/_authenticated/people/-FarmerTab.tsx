@@ -22,8 +22,11 @@ import {
 } from '@/components/ui/item';
 import { FarmerCard } from '@/components/people/FarmerCard';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 const FarmerTab = () => {
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canCreateFarmerProfile = hasPermission('farmer-profile', 'create');
   const [search, setSearch] = useDebounceValue('', 500);
   const [sortBy, setSortBy] = useState('name-asc');
   const {
@@ -124,10 +127,12 @@ const FarmerTab = () => {
         ]}
       >
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-          <AddFarmerModal
-            links={farmers}
-            onFarmerAdded={() => void refetch()}
-          />
+          {canCreateFarmerProfile && (
+            <AddFarmerModal
+              links={farmers}
+              onFarmerAdded={() => void refetch()}
+            />
+          )}
         </div>
       </FilterBar>
 
