@@ -7,12 +7,30 @@ import queryClient from '@/lib/queryClient';
 import storeAdminAxiosClient from '@/lib/axios';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useStore } from '@/stores/store';
 import type { ColdStorage } from '@/types/cold-storage';
+import type { PermissionLookup, RolePermissionItem } from '@/types/store-admin';
+
+const buildPermissionLookup = (
+  permissionEntries: RolePermissionItem[]
+): PermissionLookup => {
+  return permissionEntries.reduce<PermissionLookup>((acc, permission) => {
+    if (!acc[permission.resource]) {
+      acc[permission.resource] = {};
+    }
+
+    permission.actions.forEach((action) => {
+      acc[permission.resource][action] = true;
+    });
+
+    return acc;
+  }, {});
+};
 
 export const useStoreAdminLogin = () => {
   const navigate = useNavigate();
+  const router = useRouter();
   const search = useSearch({ from: '/store-admin/login/' });
   const { setAdminData, setLoading } = useStore();
 
@@ -79,8 +97,10 @@ export const useStoreAdminLogin = () => {
         updatedAt: storeAdmin.updatedAt,
       };
 
-      // Store admin + coldStorage + token
-      setAdminData(admin, coldStorage, token, rolePermission);
+      const permissions = buildPermissionLookup(rolePermission.permissions);
+
+      // Store admin + coldStorage + token + permissions
+      setAdminData(admin, coldStorage, token, permissions);
 
       toast.success(data.message || 'Logged in successfully!');
 
@@ -90,12 +110,28 @@ export const useStoreAdminLogin = () => {
       const redirectTo =
         (search as { redirect?: string })?.redirect || '/store-admin/daybook';
 
-      // If redirect is a full URL, use window.location, otherwise use router navigation
-      if (redirectTo.startsWith('http')) {
-        window.location.href = redirectTo;
-      } else {
+      // Use router history for login redirects to preserve full target URL.
+      try {
+        if (redirectTo.startsWith('http')) {
+          const redirectUrl = new URL(redirectTo);
+          const currentOrigin = window.location.origin;
+
+          if (redirectUrl.origin === currentOrigin) {
+            router.history.push(
+              `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`
+            );
+          } else {
+            navigate({
+              href: redirectTo,
+              replace: true,
+            });
+          }
+        } else {
+          router.history.push(redirectTo);
+        }
+      } catch {
         navigate({
-          to: redirectTo,
+          to: '/store-admin/daybook',
           replace: true,
         });
       }

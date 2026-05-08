@@ -14,6 +14,7 @@ function RouteComponent() {
   const admin = useStore((state) => state.admin);
   const coldStorage = useStore((state) => state.coldStorage);
   const token = useStore((state) => state.token);
+  const permissions = useStore((state) => state.permissions);
   const daybookActiveTab = useStore((state) => state.daybookActiveTab);
   const isLoading = useStore((state) => state.isLoading);
   const hasHydrated = useStore((state) => state._hasHydrated);
@@ -46,6 +47,11 @@ function RouteComponent() {
           emptyLabel="No cold storage selected"
         />
         <StateBlock title="token" value={token} emptyLabel="No token present" />
+        <StateBlock
+          title="permissions"
+          value={permissions}
+          emptyLabel="No permissions available"
+        />
         <StateBlock title="daybookActiveTab" value={daybookActiveTab} />
         <StateBlock title="isLoading" value={isLoading} />
         <StateBlock title="_hasHydrated" value={hasHydrated} />

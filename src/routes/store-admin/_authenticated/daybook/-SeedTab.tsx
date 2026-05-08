@@ -38,7 +38,6 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import FarmerSeedVoucherCard from '@/components/daybook/seed-gate-pass-card';
-import { usePermission } from '@/hooks/usePermission';
 import { useGetAllFarmerSeedEntries } from '@/services/store-admin/farmer-seed/useGetAllFarmerSeedEntries';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
 
@@ -146,10 +145,6 @@ interface SeedTabProps {
 
 const SeedTab = ({ isActive = true }: SeedTabProps) => {
   const navigate = useNavigate();
-  const { canDo } = usePermission();
-  const canReadFarmerSeedGatePass = canDo('farmer-seed-gate-pass', 'read');
-  const canCreateFarmerSeedGatePass = canDo('farmer-seed-gate-pass', 'create');
-  const canUpdateFarmerSeedGatePass = canDo('farmer-seed-gate-pass', 'update');
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
@@ -267,17 +262,13 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
   }, [navigate]);
 
   const emptyTitle = useMemo(() => {
-    if (!canReadFarmerSeedGatePass) return 'No access to farmer seed entries';
     if (isLoading) return 'Loading farmer seed gate passes...';
     if (isError) return 'Failed to load farmer seed gate passes';
     if (normalizedSearchQuery) return 'No matching seed gate pass found';
     return 'No farmer seed gate passes yet';
-  }, [canReadFarmerSeedGatePass, isLoading, isError, normalizedSearchQuery]);
+  }, [isLoading, isError, normalizedSearchQuery]);
 
   const emptyDescription = useMemo(() => {
-    if (!canReadFarmerSeedGatePass) {
-      return 'You do not have read permission for farmer seed gate passes.';
-    }
     if (isLoading) return 'Please wait while we fetch the latest entries.';
     if (isError)
       return (
@@ -287,13 +278,7 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
     if (normalizedSearchQuery)
       return 'Try a different gate pass number to search seed entries.';
     return 'Seed entries will appear here once gate passes are created.';
-  }, [
-    canReadFarmerSeedGatePass,
-    isLoading,
-    isError,
-    normalizedSearchQuery,
-    error?.message,
-  ]);
+  }, [isLoading, isError, normalizedSearchQuery, error?.message]);
 
   return (
     <main className="space-y-5">
@@ -345,29 +330,25 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            {canUpdateFarmerSeedGatePass ? (
-              <Button
-                variant="secondary"
-                className="font-custom w-full cursor-pointer sm:w-auto"
-                onClick={handleNavigateHistory}
-              >
-                Seed Edit History
-              </Button>
-            ) : null}
-            {canCreateFarmerSeedGatePass ? (
-              <Button
-                className="font-custom w-full cursor-pointer sm:w-auto"
-                onClick={handleNavigateAdd}
-              >
-                <ArrowUpFromLine className="h-4 w-4" />
-                Add Farmer Seed
-              </Button>
-            ) : null}
+            <Button
+              variant="secondary"
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={handleNavigateHistory}
+            >
+              Seed Edit History
+            </Button>
+            <Button
+              className="font-custom w-full cursor-pointer sm:w-auto"
+              onClick={handleNavigateAdd}
+            >
+              <ArrowUpFromLine className="h-4 w-4" />
+              Add Farmer Seed
+            </Button>
           </div>
         </ItemFooter>
       </Item>
 
-      {canReadFarmerSeedGatePass && paginatedEntries.length > 0 ? (
+      {paginatedEntries.length > 0 ? (
         <div className="w-full space-y-4">
           {paginatedEntries.map((entry, index) => (
             <FarmerSeedVoucherCard
