@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IncomingVoucherCard } from '@/components/daybook/incoming-gate-pass-card';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -159,6 +160,16 @@ interface IncomingTabProps {
 
 const IncomingTab = ({ isActive = true }: IncomingTabProps) => {
   const navigate = useNavigate();
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadIncomingGatePass = hasPermission('incoming-gate-pass', 'read');
+  const canCreateIncomingGatePass = hasPermission(
+    'incoming-gate-pass',
+    'create'
+  );
+  const canUpdateIncomingGatePass = hasPermission(
+    'incoming-gate-pass',
+    'update'
+  );
 
   // Consolidated filter/pagination state to reduce cascading re-renders
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
@@ -211,7 +222,9 @@ const IncomingTab = ({ isActive = true }: IncomingTabProps) => {
     error: listError,
     refetch: refetchList,
     isFetching: isListFetching,
-  } = useGetIncomingGatePasses(listQueryParams, { enabled: isActive });
+  } = useGetIncomingGatePasses(listQueryParams, {
+    enabled: isActive && canReadIncomingGatePass,
+  });
 
   const {
     data: searchData,
@@ -221,7 +234,7 @@ const IncomingTab = ({ isActive = true }: IncomingTabProps) => {
     refetch: refetchSearch,
     isFetching: isSearchFetching,
   } = useSearchIncomingGatePassNumber(isSearching ? debouncedSearch : null, {
-    enabled: isActive,
+    enabled: isActive && canReadIncomingGatePass,
   });
 
   // Derived display values
@@ -361,27 +374,33 @@ const IncomingTab = ({ isActive = true }: IncomingTabProps) => {
             <StatusDropdown value={status} onChange={handleStatusChange} />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={handleNavigateHistory}
-            >
-              Incoming Edit History
-            </Button>
-            <Button
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={handleNavigateAdd}
-            >
-              <ArrowUpFromLine className="h-4 w-4" />
-              Add Incoming
-            </Button>
-          </div>
+          {(canUpdateIncomingGatePass || canCreateIncomingGatePass) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              {canUpdateIncomingGatePass && (
+                <Button
+                  variant="secondary"
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={handleNavigateHistory}
+                >
+                  Incoming Edit History
+                </Button>
+              )}
+              {canCreateIncomingGatePass && (
+                <Button
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={handleNavigateAdd}
+                >
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Add Incoming
+                </Button>
+              )}
+            </div>
+          )}
         </ItemFooter>
       </Item>
 
       {/* List or empty state */}
-      {incomingGatePasses.length > 0 ? (
+      {canReadIncomingGatePass && incomingGatePasses.length > 0 ? (
         <div className="space-y-4">
           {incomingGatePasses.map((gatePass) => (
             <IncomingVoucherCard key={gatePass._id} gatePass={gatePass} />
@@ -393,9 +412,15 @@ const IncomingTab = ({ isActive = true }: IncomingTabProps) => {
             <EmptyMedia variant="icon">
               <NotebookText />
             </EmptyMedia>
-            <EmptyTitle className="font-custom">{emptyTitle}</EmptyTitle>
+            <EmptyTitle className="font-custom">
+              {canReadIncomingGatePass
+                ? emptyTitle
+                : 'Access restricted for incoming gate passes'}
+            </EmptyTitle>
             <EmptyDescription className="font-custom">
-              {emptyDescription}
+              {canReadIncomingGatePass
+                ? emptyDescription
+                : 'You do not have read permission for incoming gate passes.'}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

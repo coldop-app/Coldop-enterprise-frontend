@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 import { CalculationsDialog } from './calculations-dialog';
 import {
@@ -87,8 +88,13 @@ function GradingVoucherCardComponent({
   const [isExpanded, setIsExpanded] = useState(false);
   const [calculationsOpen, setCalculationsOpen] = useState(false);
   const navigate = useNavigate();
+  const canUpdateGradingGatePass = usePermissionsStore((state) =>
+    state.hasPermission('grading-gate-pass', 'update')
+  );
 
   const handleEditClick = () => {
+    if (!canUpdateGradingGatePass) return;
+
     navigate({
       to: '/store-admin/grading-gate-pass/edit',
       search: { id: gradingGatePass._id },
@@ -253,15 +259,17 @@ function GradingVoucherCardComponent({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="font-custom h-8 w-8 p-0"
-              onClick={handleEditClick}
-              aria-label={`Edit grading gate pass ${gradingGatePass.gatePassNo}`}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
+            {canUpdateGradingGatePass && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-custom h-8 w-8 p-0"
+                onClick={handleEditClick}
+                aria-label={`Edit grading gate pass ${gradingGatePass.gatePassNo}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

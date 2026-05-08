@@ -37,6 +37,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { NikasiVoucherCard } from '@/components/daybook/nikasi-gate-pass-card';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetNikasiGatePasses } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
 import { useSearchNikasiGatePass } from '@/services/store-admin/nikasi-gate-pass/useSearchNikasiGatePass';
 
@@ -104,6 +105,10 @@ const ItemsPerPageDropdown = ({
 
 const NikasiTab = () => {
   const navigate = useNavigate();
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadNikasiGatePass = hasPermission('nikasi-gate-pass', 'read');
+  const canCreateNikasiGatePass = hasPermission('nikasi-gate-pass', 'create');
+  const canUpdateNikasiGatePass = hasPermission('nikasi-gate-pass', 'update');
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
@@ -118,11 +123,16 @@ const NikasiTab = () => {
     error: listError,
     isFetching: isListFetching,
     refetch: refetchList,
-  } = useGetNikasiGatePasses({
-    page: currentPage,
-    limit: itemsPerPage,
-    sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
-  });
+  } = useGetNikasiGatePasses(
+    {
+      page: currentPage,
+      limit: itemsPerPage,
+      sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
+    },
+    {
+      enabled: canReadNikasiGatePass,
+    }
+  );
 
   const isSearching = debouncedSearch.length > 0;
 
@@ -133,7 +143,9 @@ const NikasiTab = () => {
     error: searchError,
     isFetching: isSearchFetching,
     refetch: refetchSearch,
-  } = useSearchNikasiGatePass(isSearching ? debouncedSearch : null);
+  } = useSearchNikasiGatePass(isSearching ? debouncedSearch : null, {
+    enabled: canReadNikasiGatePass,
+  });
 
   const nikasiGatePasses = useMemo(
     () => (isSearching ? (searchData ?? []) : (nikasiResponse?.data ?? [])),
@@ -254,28 +266,50 @@ const NikasiTab = () => {
             <SortDropdown value={sortOrder} onChange={handleSortChange} />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={() =>
-                navigate({ to: '/store-admin/nikasi-gate-pass/history' })
-              }
-            >
-              Edit History
-            </Button>
-            <Button
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={() => navigate({ to: '/store-admin/nikasi-gate-pass' })}
-            >
-              <ArrowUpFromLine className="h-4 w-4" />
-              Add Dispatch
-            </Button>
-          </div>
+          {(canUpdateNikasiGatePass || canCreateNikasiGatePass) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              {canUpdateNikasiGatePass && (
+                <Button
+                  variant="secondary"
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={() =>
+                    navigate({ to: '/store-admin/nikasi-gate-pass/history' })
+                  }
+                >
+                  Edit History
+                </Button>
+              )}
+              {canCreateNikasiGatePass && (
+                <Button
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={() =>
+                    navigate({ to: '/store-admin/nikasi-gate-pass' })
+                  }
+                >
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Add Dispatch
+                </Button>
+              )}
+            </div>
+          )}
         </ItemFooter>
       </Item>
 
-      {isLoading ? (
+      {!canReadNikasiGatePass ? (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Access restricted for nikasi gate passes
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              You do not have read permission for nikasi gate passes.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : isLoading ? (
         <Empty className="bg-muted/10 rounded-xl border">
           <EmptyHeader>
             <EmptyMedia variant="icon">

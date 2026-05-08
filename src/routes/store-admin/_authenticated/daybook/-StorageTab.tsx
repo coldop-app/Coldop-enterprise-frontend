@@ -38,6 +38,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import StorageVoucherCard from '@/components/daybook/storage-gate-pass-card';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetStorageGatePasses } from '@/services/store-admin/storage-gate-pass/useGetStorageGatePasses';
 import { useSearchStorageGatePass } from '@/services/store-admin/storage-gate-pass/useSearchStorageGatePass';
 
@@ -110,6 +111,10 @@ interface StorageTabProps {
 
 const StorageTab = ({ isActive = true }: StorageTabProps) => {
   const navigate = useNavigate();
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadStorageGatePass = hasPermission('storage-gate-pass', 'read');
+  const canCreateStorageGatePass = hasPermission('storage-gate-pass', 'create');
+  const canUpdateStorageGatePass = hasPermission('storage-gate-pass', 'update');
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
@@ -136,7 +141,9 @@ const StorageTab = ({ isActive = true }: StorageTabProps) => {
     error: listError,
     refetch: refetchList,
     isFetching: isListFetching,
-  } = useGetStorageGatePasses(listQueryParams, { enabled: isActive });
+  } = useGetStorageGatePasses(listQueryParams, {
+    enabled: isActive && canReadStorageGatePass,
+  });
 
   const {
     data: searchData,
@@ -146,7 +153,7 @@ const StorageTab = ({ isActive = true }: StorageTabProps) => {
     refetch: refetchSearch,
     isFetching: isSearchFetching,
   } = useSearchStorageGatePass(isSearching ? debouncedSearch : null, {
-    enabled: isActive,
+    enabled: isActive && canReadStorageGatePass,
   });
 
   const storageGatePasses = isSearching
@@ -265,28 +272,36 @@ const StorageTab = ({ isActive = true }: StorageTabProps) => {
             <SortDropdown value={sortOrder} onChange={handleSortChange} />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={() =>
-                navigate({ to: '/store-admin/storage-gate-pass/history' })
-              }
-            >
-              Storage History
-            </Button>
-            <Button
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={() => navigate({ to: '/store-admin/storage-gate-pass' })}
-            >
-              <ArrowUpFromLine className="h-4 w-4" />
-              Add Storage
-            </Button>
-          </div>
+          {(canUpdateStorageGatePass || canCreateStorageGatePass) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              {canUpdateStorageGatePass && (
+                <Button
+                  variant="secondary"
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={() =>
+                    navigate({ to: '/store-admin/storage-gate-pass/history' })
+                  }
+                >
+                  Storage History
+                </Button>
+              )}
+              {canCreateStorageGatePass && (
+                <Button
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={() =>
+                    navigate({ to: '/store-admin/storage-gate-pass' })
+                  }
+                >
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Add Storage
+                </Button>
+              )}
+            </div>
+          )}
         </ItemFooter>
       </Item>
 
-      {storageGatePasses.length > 0 ? (
+      {canReadStorageGatePass && storageGatePasses.length > 0 ? (
         <div className="space-y-4">
           {storageGatePasses.map((gatePass) => (
             <StorageVoucherCard key={gatePass._id} gatePass={gatePass} />
@@ -299,23 +314,27 @@ const StorageTab = ({ isActive = true }: StorageTabProps) => {
               <NotebookText />
             </EmptyMedia>
             <EmptyTitle className="font-custom">
-              {isLoading
-                ? 'Loading storage gate passes...'
-                : isError
-                  ? 'Failed to load storage gate passes'
-                  : isSearching
-                    ? 'No matching storage gate pass found'
-                    : 'No storage gate passes found'}
+              {canReadStorageGatePass
+                ? isLoading
+                  ? 'Loading storage gate passes...'
+                  : isError
+                    ? 'Failed to load storage gate passes'
+                    : isSearching
+                      ? 'No matching storage gate pass found'
+                      : 'No storage gate passes found'
+                : 'Access restricted for storage gate passes'}
             </EmptyTitle>
             <EmptyDescription className="font-custom">
-              {isLoading
-                ? 'Please wait while we fetch the latest storage entries.'
-                : isError
-                  ? (error?.message ??
-                    'Please try again in a moment to fetch storage gate passes.')
-                  : isSearching
-                    ? 'Try a different gate pass number.'
-                    : 'Storage entries will appear here once they are created.'}
+              {canReadStorageGatePass
+                ? isLoading
+                  ? 'Please wait while we fetch the latest storage entries.'
+                  : isError
+                    ? (error?.message ??
+                      'Please try again in a moment to fetch storage gate passes.')
+                    : isSearching
+                      ? 'Try a different gate pass number.'
+                      : 'Storage entries will appear here once they are created.'
+                : 'You do not have read permission for storage gate passes.'}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

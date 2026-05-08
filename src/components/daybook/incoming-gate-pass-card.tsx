@@ -25,6 +25,7 @@ import type {
 } from '@/types/incoming-gate-pass';
 import { cn } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/store';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 const STATUS_LABELS = {
   NOT_GRADED: 'Not Graded',
@@ -88,6 +89,9 @@ function formatDateTime(value: string) {
 export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const canUpdateIncomingGatePass = usePermissionsStore((state) =>
+    state.hasPermission('incoming-gate-pass', 'update')
+  );
   const juteBagWeight =
     usePreferencesStore(
       (s) => s.preferences?.custom?.bagConfig?.juteBagWeight
@@ -112,6 +116,8 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
   const isCancelledGatePass = gatePass.bagsReceived === 0;
 
   const handleEditClick = () => {
+    if (!canUpdateIncomingGatePass) return;
+
     const editSearch = {
       id: gatePass._id,
       gatePassNo: String(gatePass.gatePassNo),
@@ -258,15 +264,17 @@ export function IncomingVoucherCard({ gatePass }: IncomingVoucherCardProps) {
         </Button>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            className="font-custom h-8 w-8 p-0"
-            onClick={handleEditClick}
-            aria-label={`Edit incoming gate pass ${gatePass.gatePassNo}`}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          {canUpdateIncomingGatePass && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom h-8 w-8 p-0"
+              onClick={handleEditClick}
+              aria-label={`Edit incoming gate pass ${gatePass.gatePassNo}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

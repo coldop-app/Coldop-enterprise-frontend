@@ -38,6 +38,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import FarmerSeedVoucherCard from '@/components/daybook/seed-gate-pass-card';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetAllFarmerSeedEntries } from '@/services/store-admin/farmer-seed/useGetAllFarmerSeedEntries';
 import type { FarmerSeedEntryListItem } from '@/types/farmer-seed';
 
@@ -145,12 +146,22 @@ interface SeedTabProps {
 
 const SeedTab = ({ isActive = true }: SeedTabProps) => {
   const navigate = useNavigate();
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canReadSeedGatePass = hasPermission('farmer-seed-gate-pass', 'read');
+  const canCreateSeedGatePass = hasPermission(
+    'farmer-seed-gate-pass',
+    'create'
+  );
+  const canUpdateSeedGatePass = hasPermission(
+    'farmer-seed-gate-pass',
+    'update'
+  );
 
   const {
     data: farmerSeedEntriesResult,
@@ -161,7 +172,7 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
     refetch,
   } = useGetAllFarmerSeedEntries(
     { page: currentPage, limit: itemsPerPage },
-    { enabled: isActive }
+    { enabled: isActive && canReadSeedGatePass }
   );
 
   const farmerSeedEntries = useMemo(
@@ -329,26 +340,32 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
             <SortDropdown value={sortOrder} onChange={handleSortChange} />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={handleNavigateHistory}
-            >
-              Seed Edit History
-            </Button>
-            <Button
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={handleNavigateAdd}
-            >
-              <ArrowUpFromLine className="h-4 w-4" />
-              Add Farmer Seed
-            </Button>
-          </div>
+          {(canUpdateSeedGatePass || canCreateSeedGatePass) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              {canUpdateSeedGatePass && (
+                <Button
+                  variant="secondary"
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={handleNavigateHistory}
+                >
+                  Seed Edit History
+                </Button>
+              )}
+              {canCreateSeedGatePass && (
+                <Button
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={handleNavigateAdd}
+                >
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Add Farmer Seed
+                </Button>
+              )}
+            </div>
+          )}
         </ItemFooter>
       </Item>
 
-      {paginatedEntries.length > 0 ? (
+      {canReadSeedGatePass && paginatedEntries.length > 0 ? (
         <div className="w-full space-y-4">
           {paginatedEntries.map((entry, index) => (
             <FarmerSeedVoucherCard
@@ -363,9 +380,15 @@ const SeedTab = ({ isActive = true }: SeedTabProps) => {
             <EmptyMedia variant="icon">
               <NotebookText />
             </EmptyMedia>
-            <EmptyTitle className="font-custom">{emptyTitle}</EmptyTitle>
+            <EmptyTitle className="font-custom">
+              {canReadSeedGatePass
+                ? emptyTitle
+                : 'Access restricted for farmer seed gate passes'}
+            </EmptyTitle>
             <EmptyDescription className="font-custom">
-              {emptyDescription}
+              {canReadSeedGatePass
+                ? emptyDescription
+                : 'You do not have read permission for farmer seed gate passes.'}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

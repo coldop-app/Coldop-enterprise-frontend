@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { GradingVoucherCard } from '@/components/daybook/grading-gate-pass-card';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -114,6 +115,10 @@ interface GradingTabProps {
 
 const GradingTab = ({ isActive = true }: GradingTabProps) => {
   const navigate = useNavigate();
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadGradingGatePass = hasPermission('grading-gate-pass', 'read');
+  const canCreateGradingGatePass = hasPermission('grading-gate-pass', 'create');
+  const canUpdateGradingGatePass = hasPermission('grading-gate-pass', 'update');
 
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
@@ -160,7 +165,9 @@ const GradingTab = ({ isActive = true }: GradingTabProps) => {
     error: listError,
     refetch: refetchList,
     isFetching: isListFetching,
-  } = useGetGradingGatePasses(listQueryParams, { enabled: isActive });
+  } = useGetGradingGatePasses(listQueryParams, {
+    enabled: isActive && canReadGradingGatePass,
+  });
 
   const {
     data: searchData,
@@ -170,7 +177,7 @@ const GradingTab = ({ isActive = true }: GradingTabProps) => {
     refetch: refetchSearch,
     isFetching: isSearchFetching,
   } = useSearchGradingGatePassNumber(isSearching ? debouncedSearch : null, {
-    enabled: isActive,
+    enabled: isActive && canReadGradingGatePass,
   });
 
   const gradingGatePasses = useMemo(
@@ -299,26 +306,32 @@ const GradingTab = ({ isActive = true }: GradingTabProps) => {
             <SortDropdown value={sortOrder} onChange={handleSortChange} />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={handleNavigateHistory}
-            >
-              Grading History
-            </Button>
-            <Button
-              className="font-custom w-full cursor-pointer sm:w-auto"
-              onClick={handleNavigateAdd}
-            >
-              <ArrowUpFromLine className="h-4 w-4" />
-              Add Grading
-            </Button>
-          </div>
+          {(canUpdateGradingGatePass || canCreateGradingGatePass) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              {canUpdateGradingGatePass && (
+                <Button
+                  variant="secondary"
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={handleNavigateHistory}
+                >
+                  Grading History
+                </Button>
+              )}
+              {canCreateGradingGatePass && (
+                <Button
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={handleNavigateAdd}
+                >
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Add Grading
+                </Button>
+              )}
+            </div>
+          )}
         </ItemFooter>
       </Item>
 
-      {gradingGatePasses.length > 0 ? (
+      {canReadGradingGatePass && gradingGatePasses.length > 0 ? (
         <div className="space-y-4">
           {gradingGatePasses.map((pass) => (
             <GradingVoucherCard key={pass._id} gradingGatePass={pass} />
@@ -330,9 +343,15 @@ const GradingTab = ({ isActive = true }: GradingTabProps) => {
             <EmptyMedia variant="icon">
               <NotebookText />
             </EmptyMedia>
-            <EmptyTitle className="font-custom">{emptyTitle}</EmptyTitle>
+            <EmptyTitle className="font-custom">
+              {canReadGradingGatePass
+                ? emptyTitle
+                : 'Access restricted for grading gate passes'}
+            </EmptyTitle>
             <EmptyDescription className="font-custom">
-              {emptyDescription}
+              {canReadGradingGatePass
+                ? emptyDescription
+                : 'You do not have read permission for grading gate passes.'}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

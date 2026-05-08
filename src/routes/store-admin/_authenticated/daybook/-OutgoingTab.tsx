@@ -5,6 +5,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -92,6 +93,16 @@ const ItemsPerPageDropdown = ({
 );
 
 const OutgoingTab = () => {
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadOutgoingGatePass = hasPermission('outgoing-gate-pass', 'read');
+  const canCreateOutgoingGatePass = hasPermission(
+    'outgoing-gate-pass',
+    'create'
+  );
+  const canUpdateOutgoingGatePass = hasPermission(
+    'outgoing-gate-pass',
+    'update'
+  );
   const [sortOrder, setSortOrder] = useState<SortOrder>('Latest first');
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [currentPage, setCurrentPage] = useState(1);
@@ -170,18 +181,24 @@ const OutgoingTab = () => {
             <SortDropdown value={sortOrder} onChange={handleSortChange} />
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              className="font-custom w-full cursor-pointer sm:w-auto"
-            >
-              Outgoing History
-            </Button>
-            <Button className="font-custom w-full cursor-pointer sm:w-auto">
-              <ArrowUpFromLine className="h-4 w-4" />
-              Add Outgoing
-            </Button>
-          </div>
+          {(canUpdateOutgoingGatePass || canCreateOutgoingGatePass) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+              {canUpdateOutgoingGatePass && (
+                <Button
+                  variant="secondary"
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                >
+                  Outgoing History
+                </Button>
+              )}
+              {canCreateOutgoingGatePass && (
+                <Button className="font-custom w-full cursor-pointer sm:w-auto">
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Add Outgoing
+                </Button>
+              )}
+            </div>
+          )}
         </ItemFooter>
       </Item>
 
@@ -190,7 +207,11 @@ const OutgoingTab = () => {
         size="sm"
         className="font-custom text-muted-foreground rounded-xl px-4 py-6 text-sm"
       >
-        <p>Display outgoing gate pass here..</p>
+        {canReadOutgoingGatePass ? (
+          <p>Display outgoing gate pass here..</p>
+        ) : (
+          <p>You do not have read permission for outgoing gate passes.</p>
+        )}
       </Item>
 
       <Item

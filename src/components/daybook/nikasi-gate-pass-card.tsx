@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import type {
   NikasiGatePassFarmerStorageLink,
   NikasiGatePassCreatedBy,
@@ -114,6 +115,9 @@ export function NikasiVoucherCard({
 }: NikasiVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const canUpdateNikasiGatePass = usePermissionsStore((state) =>
+    state.hasPermission('nikasi-gate-pass', 'update')
+  );
 
   const isDispatch = variant === 'dispatch';
   const themeDot = isDispatch
@@ -153,6 +157,8 @@ export function NikasiVoucherCard({
   const isCancelledGatePass = totalIssued === 0;
 
   const handleEditClick = () => {
+    if (!canUpdateNikasiGatePass) return;
+
     const editState: NikasiGatePassEditState = {
       id: gatePass._id,
       gatePassNo: String(gatePass.gatePassNo),
@@ -302,15 +308,17 @@ export function NikasiVoucherCard({
         </Button>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            className="font-custom h-8 w-8 p-0"
-            onClick={handleEditClick}
-            aria-label={`Edit nikasi gate pass ${gatePass.gatePassNo}`}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          {canUpdateNikasiGatePass && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom h-8 w-8 p-0"
+              onClick={handleEditClick}
+              aria-label={`Edit nikasi gate pass ${gatePass.gatePassNo}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

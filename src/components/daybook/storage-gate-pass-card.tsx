@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
 import { cn } from '@/lib/utils';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -62,6 +63,9 @@ interface StorageVoucherCardProps {
 export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const canUpdateStorageGatePass = usePermissionsStore((state) =>
+    state.hasPermission('storage-gate-pass', 'update')
+  );
 
   const totalBags = gatePass.bagSizes.reduce(
     (sum, bag) => sum + bag.currentQuantity,
@@ -77,6 +81,8 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
   const account = gatePass.farmerStorageLinkId.accountNumber;
 
   const handleEditClick = () => {
+    if (!canUpdateStorageGatePass) return;
+
     navigate({
       to: '/store-admin/storage-gate-pass/edit',
       state: ((prev: Record<string, unknown>) => ({
@@ -197,15 +203,17 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
         </Button>
 
         <div className="flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
-            aria-label="Edit"
-            onClick={handleEditClick}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          {canUpdateStorageGatePass && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              aria-label="Edit"
+              onClick={handleEditClick}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-8 w-8 p-0">
             <Printer className="h-3.5 w-3.5" />
           </Button>
