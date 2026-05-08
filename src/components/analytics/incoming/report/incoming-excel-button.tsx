@@ -55,13 +55,23 @@ function collectIncomingLeafColumnSums(
   rows: Row<IncomingReportRow>[],
   sums: Record<string, number>
 ): void {
+  const visitedRowIds = new Set<string>();
   for (const row of rows) {
-    if (row.subRows.length > 0) {
-      collectIncomingLeafColumnSums(row.subRows, sums);
-      continue;
-    }
-    for (const id of INCOMING_SUM_COLUMN_IDS) {
-      sums[id] = (sums[id] ?? 0) + toSumNumber(row.getValue(id));
+    const stack: Row<IncomingReportRow>[] = [row];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      if (visitedRowIds.has(current.id)) continue;
+      visitedRowIds.add(current.id);
+
+      if (current.subRows.length > 0) {
+        stack.push(...current.subRows);
+        continue;
+      }
+
+      for (const id of INCOMING_SUM_COLUMN_IDS) {
+        sums[id] = (sums[id] ?? 0) + toSumNumber(current.getValue(id));
+      }
     }
   }
 }
@@ -380,9 +390,13 @@ function getExcelBodyRows(
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
   }> = [];
+  const visitedRowIds = new Set<string>();
 
   const appendRows = (tableRows: Row<IncomingReportRow>[]) => {
     for (const row of tableRows) {
+      if (visitedRowIds.has(row.id)) continue;
+      visitedRowIds.add(row.id);
+
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
@@ -461,10 +475,7 @@ export const IncomingExcelButton = ({
       const colCount = Math.max(2, visibleColumns.length);
       const headerLabels = visibleColumns.map(getColumnHeaderLabel);
 
-      const sourceRows =
-        t.getState().grouping.length > 0
-          ? t.getPrePaginationRowModel().rows
-          : t.getRowModel().rows;
+      const sourceRows = t.getPrePaginationRowModel().rows;
       const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
       const styledBodyRows = bodyRows.map((row) => ({
         values: coerceRows([row.values])[0],

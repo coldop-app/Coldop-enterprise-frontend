@@ -344,12 +344,9 @@ function formatIncomingWeightKg(
 function formatIncomingNetKg(
   ref: GradingGatePassIncomingRef | undefined
 ): string {
-  const gross = ref?.weightSlip?.grossWeightKg;
-  const tare = ref?.weightSlip?.tareWeightKg;
-  if (typeof gross !== 'number' || typeof tare !== 'number') return '-';
-  const net = gross - tare;
-  if (!Number.isFinite(net)) return '-';
-  return formatIndianNumber(net, 0);
+  const value = getIncomingNetKgValue(ref);
+  if (value == null) return '-';
+  return formatIndianNumber(value, 0);
 }
 
 function formatIncomingBardanaWeightKg(
@@ -366,14 +363,9 @@ function formatIncomingBardanaWeightKg(
 function formatIncomingNetWeightWithoutBardana(
   ref: GradingGatePassIncomingRef | undefined
 ): string {
-  if (!ref) return '-';
-  const bagWeights = getBagWeightsFromStore();
-  const incoming = calculateIncomingMetrics([ref], bagWeights);
-  const netProductKg = incoming.rows[0]?.netProductKg;
-  if (typeof netProductKg !== 'number' || !Number.isFinite(netProductKg)) {
-    return '-';
-  }
-  return formatNumber(netProductKg);
+  const value = getIncomingNetWeightWithoutBardanaValue(ref);
+  if (value == null) return '-';
+  return formatNumber(value);
 }
 
 function getGradingTotalsForGatePass(gp: GradingGatePass) {
@@ -398,9 +390,38 @@ function formatGradingBardanaWeightKg(gp: GradingGatePass): string {
 function formatNetWeightAfterGradingWithoutBardana(
   gp: GradingGatePass
 ): string {
-  const value = getGradingTotalsForGatePass(gp).totalNetKg;
-  if (!Number.isFinite(value)) return '-';
+  const value = getNetWeightAfterGradingWithoutBardanaValue(gp);
+  if (value == null) return '-';
   return formatNumber(value);
+}
+
+function getIncomingNetWeightWithoutBardanaValue(
+  ref: GradingGatePassIncomingRef | undefined
+): number | null {
+  if (!ref) return null;
+  const bagWeights = getBagWeightsFromStore();
+  const incoming = calculateIncomingMetrics([ref], bagWeights);
+  const netProductKg = incoming.rows[0]?.netProductKg;
+  return typeof netProductKg === 'number' && Number.isFinite(netProductKg)
+    ? netProductKg
+    : null;
+}
+
+function getIncomingNetKgValue(
+  ref: GradingGatePassIncomingRef | undefined
+): number | null {
+  const gross = ref?.weightSlip?.grossWeightKg;
+  const tare = ref?.weightSlip?.tareWeightKg;
+  if (typeof gross !== 'number' || typeof tare !== 'number') return null;
+  const net = gross - tare;
+  return Number.isFinite(net) ? net : null;
+}
+
+function getNetWeightAfterGradingWithoutBardanaValue(
+  gp: GradingGatePass
+): number | null {
+  const value = getGradingTotalsForGatePass(gp).totalNetKg;
+  return Number.isFinite(value) ? value : null;
 }
 
 function formatWastagePercentFromGatePass(gp: GradingGatePass): string {
@@ -478,11 +499,11 @@ function getGradingColumnFilterValue(
     case 'incomingTareKg':
       return formatIncomingWeightKg(ref, 'tareWeightKg');
     case 'incomingNetKg':
-      return formatIncomingNetKg(ref);
+      return getIncomingNetKgValue(ref) ?? undefined;
     case 'incomingBardanaWeightKg':
       return formatIncomingBardanaWeightKg(ref);
     case 'incomingNetWeightWithoutBardana':
-      return formatIncomingNetWeightWithoutBardana(ref);
+      return getIncomingNetWeightWithoutBardanaValue(ref) ?? undefined;
     case 'createdBy':
       return formatCreatedBy(gp);
     case 'gatePassNo': {
@@ -508,7 +529,7 @@ function getGradingColumnFilterValue(
     case 'gradingBardanaWeightKg':
       return formatGradingBardanaWeightKg(gp);
     case 'netWeightAfterGradingWithoutBardana':
-      return formatNetWeightAfterGradingWithoutBardana(gp);
+      return getNetWeightAfterGradingWithoutBardanaValue(gp) ?? undefined;
     case 'wastagePercent':
       return formatWastagePercentFromGatePass(gp);
     case 'grader':
@@ -547,11 +568,7 @@ export function getGradingNumericValue(
       return typeof value === 'number' && Number.isFinite(value) ? value : null;
     }
     case 'incomingNetKg': {
-      const gross = ref?.weightSlip?.grossWeightKg;
-      const tare = ref?.weightSlip?.tareWeightKg;
-      if (typeof gross !== 'number' || typeof tare !== 'number') return null;
-      const net = gross - tare;
-      return Number.isFinite(net) ? net : null;
+      return getIncomingNetKgValue(ref);
     }
     case 'incomingBardanaWeightKg': {
       if (!ref) return null;
@@ -563,13 +580,7 @@ export function getGradingNumericValue(
       return typeof value === 'number' && Number.isFinite(value) ? value : null;
     }
     case 'incomingNetWeightWithoutBardana': {
-      if (!ref) return null;
-      const incoming = calculateIncomingMetrics(
-        [ref],
-        getBagWeightsFromStore()
-      );
-      const value = incoming.rows[0]?.netProductKg;
-      return typeof value === 'number' && Number.isFinite(value) ? value : null;
+      return getIncomingNetWeightWithoutBardanaValue(ref);
     }
     case 'gradedBags':
       return sumInitialBags(gp.orderDetails);
@@ -578,8 +589,7 @@ export function getGradingNumericValue(
       return Number.isFinite(value) ? value : null;
     }
     case 'netWeightAfterGradingWithoutBardana': {
-      const value = getGradingTotalsForGatePass(gp).totalNetKg;
-      return Number.isFinite(value) ? value : null;
+      return getNetWeightAfterGradingWithoutBardanaValue(gp);
     }
     case 'wastagePercent': {
       const value = getGradingTotalsForGatePass(gp).wastagePct;
@@ -663,11 +673,16 @@ export const globalGradingFilterFn: FilterFn<GradingReportTableRow> = (
 };
 
 export const defaultGradingReportColumnVisibility: VisibilityState = {
+  incomingBagsReceived: false,
+  incomingNetKg: false,
+  incomingBardanaWeightKg: false,
+  incomingNetWeightWithoutBardana: false,
   incomingSlipNumber: false,
   incomingGrossKg: false,
   incomingTareKg: false,
   createdBy: false,
   gatePassNo: false,
+  grader: false,
 };
 
 export function shouldSuppressGradingAggregatedCell(columnId: string) {

@@ -140,9 +140,16 @@ function collectLeafRows(
   rows: Row<GradingReportTableRow>[]
 ): Row<GradingReportTableRow>[] {
   const out: Row<GradingReportTableRow>[] = [];
-  for (const row of rows) {
+  const visitedRowIds = new Set<string>();
+  const stack = [...rows];
+  while (stack.length > 0) {
+    const row = stack.pop();
+    if (!row) continue;
+    if (visitedRowIds.has(row.id)) continue;
+    visitedRowIds.add(row.id);
+
     if (row.subRows.length > 0) {
-      out.push(...collectLeafRows(row.subRows));
+      stack.push(...row.subRows);
     } else {
       out.push(row);
     }
@@ -178,20 +185,31 @@ function collectGradingLeafColumnSums(
   sums: Record<string, number>
 ): void {
   const seenGatePassIdsByColumn = new Map<string, Set<string>>();
-  collectGradingLeafColumnSumsInternal(rows, sums, seenGatePassIdsByColumn);
+  const visitedRowIds = new Set<string>();
+  collectGradingLeafColumnSumsInternal(
+    rows,
+    sums,
+    seenGatePassIdsByColumn,
+    visitedRowIds
+  );
 }
 
 function collectGradingLeafColumnSumsInternal(
   rows: Row<GradingReportTableRow>[],
   sums: Record<string, number>,
-  seenGatePassIdsByColumn: Map<string, Set<string>>
+  seenGatePassIdsByColumn: Map<string, Set<string>>,
+  visitedRowIds: Set<string>
 ): void {
   for (const row of rows) {
+    if (visitedRowIds.has(row.id)) continue;
+    visitedRowIds.add(row.id);
+
     if (row.subRows.length > 0) {
       collectGradingLeafColumnSumsInternal(
         row.subRows,
         sums,
-        seenGatePassIdsByColumn
+        seenGatePassIdsByColumn,
+        visitedRowIds
       );
       continue;
     }
@@ -379,9 +397,13 @@ function getExcelBodyRows(
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
   }> = [];
+  const visitedRowIds = new Set<string>();
 
   const appendRows = (tableRows: Row<GradingReportTableRow>[]) => {
     for (const row of tableRows) {
+      if (visitedRowIds.has(row.id)) continue;
+      visitedRowIds.add(row.id);
+
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
@@ -479,10 +501,7 @@ export const GradingExcelButton = ({
       setIsGeneratingExcel(true);
 
       const visibleColumns = t.getVisibleLeafColumns();
-      const isGroupedExport = t.getState().grouping.length > 0;
-      const sourceRows = isGroupedExport
-        ? t.getPrePaginationRowModel().rows
-        : t.getRowModel().rows;
+      const sourceRows = t.getPrePaginationRowModel().rows;
       // Keep grouped aggregates visible in export, matching table behavior.
       const hideGroupedAggregations = false;
       // Match digital table behavior for merged grading gate pass cells.

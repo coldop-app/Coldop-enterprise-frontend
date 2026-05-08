@@ -58,15 +58,25 @@ function collectFarmerSeedLeafColumnSums(
   rows: Row<FarmerSeedReportRow>[],
   sums: Record<string, number>
 ): void {
+  const visitedRowIds = new Set<string>();
   for (const row of rows) {
-    if (row.subRows.length > 0) {
-      collectFarmerSeedLeafColumnSums(row.subRows, sums);
-      continue;
-    }
-    for (const id of FARMER_SEED_SUM_COLUMN_IDS) {
-      sums[id] =
-        (sums[id] ?? 0) +
-        toSumNumber(row.getValue(id as keyof FarmerSeedReportRow));
+    const stack: Row<FarmerSeedReportRow>[] = [row];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      if (visitedRowIds.has(current.id)) continue;
+      visitedRowIds.add(current.id);
+
+      if (current.subRows.length > 0) {
+        stack.push(...current.subRows);
+        continue;
+      }
+
+      for (const id of FARMER_SEED_SUM_COLUMN_IDS) {
+        sums[id] =
+          (sums[id] ?? 0) +
+          toSumNumber(current.getValue(id as keyof FarmerSeedReportRow));
+      }
     }
   }
 }
@@ -239,9 +249,13 @@ function getExcelBodyRows(
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
   }> = [];
+  const visitedRowIds = new Set<string>();
 
   const appendRows = (tableRows: Row<FarmerSeedReportRow>[]) => {
     for (const row of tableRows) {
+      if (visitedRowIds.has(row.id)) continue;
+      visitedRowIds.add(row.id);
+
       const nextRow: Array<string | number> = Array(visibleColumns.length).fill(
         ''
       );
@@ -375,10 +389,7 @@ export const FarmerSeedExcelButton = ({
       const headerLabels = visibleColumns.map((column) =>
         getRenderedHeaderLabel(t, column)
       );
-      const sourceRows =
-        t.getState().grouping.length > 0
-          ? t.getPrePaginationRowModel().rows
-          : t.getRowModel().rows;
+      const sourceRows = t.getPrePaginationRowModel().rows;
       const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
 
       const sums: Record<string, number> = {};
