@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/stores/store';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import {
   Item,
   ItemActions,
@@ -74,6 +75,11 @@ function RouteComponent() {
   });
   const activeTab = useStore((state) => state.analyticsActiveTab);
   const setActiveTab = useStore((state) => state.setAnalyticsActiveTab);
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadAnalyticsOverview = hasPermission('analytics-overview', 'read');
+  const canReadAnalyticsCharts = hasPermission('analytics-charts', 'read');
+  const canShowAnalyticsSections =
+    canReadAnalyticsOverview || canReadAnalyticsCharts;
 
   const handleResetFilters = () => {
     setFromDate('');
@@ -164,64 +170,74 @@ function RouteComponent() {
           </div>
         </Item>
 
-        <Overview dateRange={appliedDateRange} />
-        <Tabs
-          value={activeTab}
-          onValueChange={handleValueChange}
-          className="w-full space-y-4"
-        >
-          <TabsList className="w-full">
-            <TabsTrigger className="flex-1" value="seed">
-              <Sprout aria-hidden="true" className="size-4 sm:hidden" />
-              <span className="sr-only sm:not-sr-only">Seed</span>
-            </TabsTrigger>
-            <TabsTrigger className="flex-1" value="incoming">
-              <Inbox aria-hidden="true" className="size-4 sm:hidden" />
-              <span className="sr-only sm:not-sr-only">Incoming</span>
-            </TabsTrigger>
-            <TabsTrigger className="flex-1" value="grading">
-              <Scale aria-hidden="true" className="size-4 sm:hidden" />
-              <span className="sr-only sm:not-sr-only">Grading</span>
-            </TabsTrigger>
-            <TabsTrigger className="flex-1" value="storage">
-              <PackageCheck aria-hidden="true" className="size-4 sm:hidden" />
-              <span className="sr-only sm:not-sr-only">Storage</span>
-            </TabsTrigger>
-            <TabsTrigger className="flex-1" value="dispatch-pre-outgoing">
-              <ArrowRightLeft aria-hidden="true" className="size-4 sm:hidden" />
-              <span className="sr-only sm:not-sr-only">
-                Dispatch (Pre Storage)
-              </span>
-            </TabsTrigger>
-            <TabsTrigger className="flex-1" value="dispatch-outgoing">
-              <ArrowRightFromLine
-                aria-hidden="true"
-                className="size-4 sm:hidden"
-              />
-              <span className="sr-only sm:not-sr-only">
-                Dispatch (Post Storage)
-              </span>
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="seed">
-            <AnalyticsSeedTab />
-          </TabsContent>
-          <TabsContent value="incoming">
-            <AnalyticsIncomingTab dateRange={appliedDateRange} />
-          </TabsContent>
-          <TabsContent value="grading">
-            <AnalayticsGradingTab dateRange={appliedDateRange} />
-          </TabsContent>
-          <TabsContent value="storage">
-            <AnalyticsStorageTab />
-          </TabsContent>
-          <TabsContent value="dispatch-pre-outgoing">
-            <AnalyticsNikasiTab />
-          </TabsContent>
-          <TabsContent value="dispatch-outgoing">
-            <AnalyticsOutgoingTab />
-          </TabsContent>
-        </Tabs>
+        {canShowAnalyticsSections && (
+          <>
+            <Overview dateRange={appliedDateRange} />
+            <Tabs
+              value={activeTab}
+              onValueChange={handleValueChange}
+              className="w-full space-y-4"
+            >
+              <TabsList className="w-full">
+                <TabsTrigger className="flex-1" value="seed">
+                  <Sprout aria-hidden="true" className="size-4 sm:hidden" />
+                  <span className="sr-only sm:not-sr-only">Seed</span>
+                </TabsTrigger>
+                <TabsTrigger className="flex-1" value="incoming">
+                  <Inbox aria-hidden="true" className="size-4 sm:hidden" />
+                  <span className="sr-only sm:not-sr-only">Incoming</span>
+                </TabsTrigger>
+                <TabsTrigger className="flex-1" value="grading">
+                  <Scale aria-hidden="true" className="size-4 sm:hidden" />
+                  <span className="sr-only sm:not-sr-only">Grading</span>
+                </TabsTrigger>
+                <TabsTrigger className="flex-1" value="storage">
+                  <PackageCheck
+                    aria-hidden="true"
+                    className="size-4 sm:hidden"
+                  />
+                  <span className="sr-only sm:not-sr-only">Storage</span>
+                </TabsTrigger>
+                <TabsTrigger className="flex-1" value="dispatch-pre-outgoing">
+                  <ArrowRightLeft
+                    aria-hidden="true"
+                    className="size-4 sm:hidden"
+                  />
+                  <span className="sr-only sm:not-sr-only">
+                    Dispatch (Pre Storage)
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger className="flex-1" value="dispatch-outgoing">
+                  <ArrowRightFromLine
+                    aria-hidden="true"
+                    className="size-4 sm:hidden"
+                  />
+                  <span className="sr-only sm:not-sr-only">
+                    Dispatch (Post Storage)
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="seed">
+                <AnalyticsSeedTab />
+              </TabsContent>
+              <TabsContent value="incoming">
+                <AnalyticsIncomingTab dateRange={appliedDateRange} />
+              </TabsContent>
+              <TabsContent value="grading">
+                <AnalayticsGradingTab dateRange={appliedDateRange} />
+              </TabsContent>
+              <TabsContent value="storage">
+                <AnalyticsStorageTab />
+              </TabsContent>
+              <TabsContent value="dispatch-pre-outgoing">
+                <AnalyticsNikasiTab />
+              </TabsContent>
+              <TabsContent value="dispatch-outgoing">
+                <AnalyticsOutgoingTab />
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
       </div>
     </main>
   );

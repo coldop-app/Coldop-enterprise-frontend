@@ -32,6 +32,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
   X,
   Plus,
   Save,
@@ -50,6 +57,7 @@ import {
   usePreferencesStore,
   usePreferencesStoreHydrated,
 } from '@/stores/usePreferencesStore';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/settings/preferences/'
@@ -106,11 +114,15 @@ function TagList({
   items,
   onRemove,
   onAdd,
+  canAdd = true,
+  canRemove = true,
   addPlaceholder = 'Add item…',
 }: {
   items: string[];
   onRemove: (item: string) => void;
   onAdd: (item: string) => void;
+  canAdd?: boolean;
+  canRemove?: boolean;
   addPlaceholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -134,50 +146,54 @@ function TagList({
           className="font-custom border-border bg-muted/80 text-foreground hover:bg-muted gap-1.5 rounded-full border py-1.5 pr-2 pl-3 text-xs font-medium transition-colors duration-200"
         >
           {item}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => onRemove(item)}
-            className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
-            aria-label={`Remove ${item}`}
-          >
-            <X size={12} />
-          </Button>
+          {canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => onRemove(item)}
+              className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
+              aria-label={`Remove ${item}`}
+            >
+              <X size={12} />
+            </Button>
+          )}
         </Badge>
       ))}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
-          >
-            <Plus size={12} className="mr-1" /> Add
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="font-custom sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-sm">Add New Item</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={addPlaceholder}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            className="mt-2"
-            autoFocus
-          />
-          <DialogFooter className="mt-4">
-            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Cancel
+      {canAdd && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
+            >
+              <Plus size={12} className="mr-1" /> Add
             </Button>
-            <Button size="sm" onClick={handleAdd} disabled={!value.trim()}>
-              Add
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogTrigger>
+          <DialogContent className="font-custom sm:max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Add New Item</DialogTitle>
+            </DialogHeader>
+            <Input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={addPlaceholder}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              className="mt-2"
+              autoFocus
+            />
+            <DialogFooter className="mt-4">
+              <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleAdd} disabled={!value.trim()}>
+                Add
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -186,10 +202,14 @@ function LabelValueList({
   items,
   onRemove,
   onAdd,
+  canAdd = true,
+  canRemove = true,
 }: {
   items: PreferenceOption[];
   onRemove: (value: string) => void;
   onAdd: (item: PreferenceOption) => void;
+  canAdd?: boolean;
+  canRemove?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -216,50 +236,54 @@ function LabelValueList({
           )}
         >
           {item.label}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => onRemove(item.value)}
-            className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
-            aria-label={`Remove ${item.label}`}
-          >
-            <X size={12} />
-          </Button>
+          {canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => onRemove(item.value)}
+              className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
+              aria-label={`Remove ${item.label}`}
+            >
+              <X size={12} />
+            </Button>
+          )}
         </Badge>
       ))}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
-          >
-            <Plus size={12} className="mr-1" /> Add
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="font-custom sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-sm">Add Option</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Label / Value"
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            autoFocus
-            className="mt-2"
-          />
-          <DialogFooter className="mt-4">
-            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Cancel
+      {canAdd && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
+            >
+              <Plus size={12} className="mr-1" /> Add
             </Button>
-            <Button size="sm" onClick={handleAdd} disabled={!label.trim()}>
-              Add
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogTrigger>
+          <DialogContent className="font-custom sm:max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Add Option</DialogTitle>
+            </DialogHeader>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Label / Value"
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              autoFocus
+              className="mt-2"
+            />
+            <DialogFooter className="mt-4">
+              <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleAdd} disabled={!label.trim()}>
+                Add
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -268,10 +292,12 @@ function BuyBackTable({
   entry,
   bagSizes,
   onChange,
+  canEdit = true,
 }: {
   entry: BuyBackCost;
   bagSizes: string[];
   onChange: (variety: string, size: string, rate: number) => void;
+  canEdit?: boolean;
 }) {
   const colorClass =
     VARIETY_COLORS[entry.variety] ?? 'bg-muted text-foreground border-border';
@@ -312,6 +338,7 @@ function BuyBackTable({
                     type="number"
                     step="0.25"
                     defaultValue={rate}
+                    disabled={!canEdit}
                     onChange={(e) =>
                       onChange(entry.variety, size, parseFloat(e.target.value))
                     }
@@ -330,6 +357,10 @@ function BuyBackTable({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canCreatePreferences = hasPermission('preferences', 'create');
+  const canUpdatePreferences = hasPermission('preferences', 'update');
+  const canMutatePreferences = canCreatePreferences || canUpdatePreferences;
   const rawData = usePreferencesStore((s) => s.preferences);
   const data = rawData ? normalizePreferences(rawData, baseline) : null;
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
@@ -353,6 +384,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addBagSize = (size: string) => {
+    if (!canCreatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       bagSizes: [...p.bagSizes, size],
@@ -377,6 +409,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addVariety = (item: PreferenceOption) => {
+    if (!canCreatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: {
@@ -404,6 +437,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addGeneration = (item: PreferenceOption) => {
+    if (!canCreatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: {
@@ -426,6 +460,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addGrader = (g: string) => {
+    if (!canCreatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: { ...p.custom, graderOptions: [...p.custom.graderOptions, g] },
@@ -445,6 +480,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addIncomingLocation = (location: string) => {
+    if (!canCreatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: {
@@ -457,6 +493,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
 
   // Buy-back rates
   const updateRate = (variety: string, size: string, rate: number) => {
+    if (!canUpdatePreferences) return;
     updatePreferences((p) => {
       const idx = p.custom.buyBackCost.findIndex((e) => e.variety === variety);
       const nextBuyBack =
@@ -480,6 +517,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     key: 'juteBagWeight' | 'lenoBagWeight',
     val: number
   ) => {
+    if (!canUpdatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: {
@@ -492,6 +530,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
 
   // Standard bags per acre
   const updateBagsPerAcre = (size: string, val: number) => {
+    if (!canUpdatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: {
@@ -518,6 +557,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
   const addBagsPerAcreSize = () => {
+    if (!canCreatePreferences) return;
     const sizeKey = standardBagSizeKey.trim();
     if (!sizeKey) return;
     updatePreferences((p) => ({
@@ -540,6 +580,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   };
 
   const handleSave = async () => {
+    if (!canMutatePreferences) return;
     try {
       const res = await mutateAsync({
         coldStorageId: data.coldStorageId,
@@ -583,7 +624,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {dirty && (
+            {dirty && canUpdatePreferences && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -598,7 +639,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
               size="sm"
               variant={dirty ? 'default' : 'secondary'}
               onClick={() => void handleSave()}
-              disabled={!dirty || isPending}
+              disabled={!dirty || isPending || !canMutatePreferences}
               className="gap-1.5 transition-all duration-200"
             >
               <Save size={14} /> Save changes
@@ -649,6 +690,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                   items={data.bagSizes}
                   onRemove={removeBagSize}
                   onAdd={addBagSize}
+                  canAdd={canCreatePreferences}
+                  canRemove={canUpdatePreferences}
                   addPlaceholder="e.g. 55-60"
                 />
                 <p className="text-muted-foreground mt-3 font-mono text-xs">
@@ -668,15 +711,17 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       open={standardBagsDialogOpen}
                       onOpenChange={setStandardBagsDialogOpen}
                     >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
-                        >
-                          <Plus size={12} className="mr-1" /> Add size
-                        </Button>
-                      </DialogTrigger>
+                      {canCreatePreferences && (
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
+                          >
+                            <Plus size={12} className="mr-1" /> Add size
+                          </Button>
+                        </DialogTrigger>
+                      )}
                       <DialogContent className="font-custom sm:max-w-xs">
                         <DialogHeader>
                           <DialogTitle className="text-sm">
@@ -741,6 +786,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                               type="button"
                               variant="ghost"
                               size="icon-xs"
+                              disabled={!canUpdatePreferences}
                               onClick={() => removeBagsPerAcreSize(size)}
                               className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 rounded-full p-0 transition-colors duration-200"
                               aria-label={`Remove standard bags size ${size}`}
@@ -752,6 +798,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                             <Input
                               type="number"
                               defaultValue={count ?? 0}
+                              disabled={!canUpdatePreferences}
                               onChange={(e) =>
                                 updateBagsPerAcre(
                                   size,
@@ -820,6 +867,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                     items={data.custom.potatoVarieties}
                     onRemove={removeVariety}
                     onAdd={addVariety}
+                    canAdd={canCreatePreferences}
+                    canRemove={canUpdatePreferences}
                   />
                 </CardContent>
               </Card>
@@ -833,6 +882,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                     items={data.custom.farmerSeedGenerations}
                     onRemove={removeGeneration}
                     onAdd={addGeneration}
+                    canAdd={canCreatePreferences}
+                    canRemove={canUpdatePreferences}
                   />
                 </CardContent>
               </Card>
@@ -875,6 +926,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       entry={entry}
                       bagSizes={data.bagSizes}
                       onChange={updateRate}
+                      canEdit={canUpdatePreferences}
                     />
                   );
                 })}
@@ -907,6 +959,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                           type="number"
                           step="0.01"
                           defaultValue={data.custom.bagConfig[key]}
+                          disabled={!canUpdatePreferences}
                           onChange={(e) =>
                             updateBagWeight(key, parseFloat(e.target.value))
                           }
@@ -931,6 +984,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       <div key={type} className="flex items-center gap-2.5">
                         <Switch
                           id={type}
+                          disabled={!canUpdatePreferences}
                           checked={data.custom.bagConfig.bagTypes.includes(
                             type
                           )}
@@ -982,6 +1036,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                     <div key={i} className="group flex items-center gap-2">
                       <Input
                         defaultValue={grader}
+                        disabled={!canUpdatePreferences}
                         onChange={(e) => {
                           const updated = [...data.custom.graderOptions];
                           updated[i] = e.target.value;
@@ -996,6 +1051,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canUpdatePreferences}
                         className="text-muted-foreground hover:text-destructive h-8 w-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                         onClick={() => removeGrader(grader)}
                       >
@@ -1006,6 +1062,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={!canCreatePreferences}
                     className="text-muted-foreground hover:text-foreground mt-2 gap-1.5 border-dashed text-xs transition-colors duration-200"
                     onClick={() => addGrader('New Grader')}
                   >
@@ -1024,6 +1081,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                   items={data.custom.incomingLocations ?? []}
                   onRemove={removeIncomingLocation}
                   onAdd={addIncomingLocation}
+                  canAdd={canCreatePreferences}
+                  canRemove={canUpdatePreferences}
                   addPlaceholder="e.g. Goyal Tarai Seed Shed"
                 />
               </CardContent>
@@ -1036,6 +1095,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
 }
 
 function RouteComponent() {
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadPreferences = hasPermission('preferences', 'read');
   const { data } = useGetPreferences();
   const hydrated = usePreferencesStoreHydrated();
   const prefs = usePreferencesStore((s) => s.preferences);
@@ -1047,6 +1108,26 @@ function RouteComponent() {
     if (!data || !hydrated) return;
     syncFromServerIfNeeded(data);
   }, [data, hydrated, syncFromServerIfNeeded]);
+
+  if (!canReadPreferences) {
+    return (
+      <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Settings2 />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Access restricted for preferences
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              You do not have read permission for preferences.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </main>
+    );
+  }
 
   if (!data)
     return (

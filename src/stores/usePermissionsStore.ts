@@ -52,7 +52,7 @@ const expiringStorage = {
 };
 
 export const usePermissionsStore = create(
-  persist<PermissionsState>(
+  persist<PermissionsState, [], [], Pick<PermissionsState, 'permissions'>>(
     (set, get) => ({
       permissions: {},
 

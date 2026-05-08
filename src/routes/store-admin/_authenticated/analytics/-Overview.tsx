@@ -38,6 +38,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetOverview } from '@/services/store-admin/general/useGetOverview';
 import type { AnalyticsDateRange } from './index';
 interface GradingBags {
@@ -146,15 +147,17 @@ const StaticReportCard = memo(function StaticReportCard({
         </span>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onGetReportClick}
-          className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
-        >
-          <FileText className="h-4 w-4" />
-          Get Reports
-        </Button>
+        {onGetReportClick != null && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onGetReportClick}
+            className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
+          >
+            <FileText className="h-4 w-4" />
+            Get Reports
+          </Button>
+        )}
         <div className="bg-muted group-hover:bg-primary/10 absolute right-4 bottom-4 flex h-6 w-6 items-center justify-center rounded-full transition-all duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
           <ArrowUpRight className="text-primary h-3 w-3" />
         </div>
@@ -190,15 +193,17 @@ const StatCard = memo(function StatCard({
             {description}
           </CardDescription>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onGetReportClick}
-          className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
-        >
-          <FileText className="h-4 w-4" />
-          Get Reports
-        </Button>
+        {onGetReportClick != null && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onGetReportClick}
+            className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
+          >
+            <FileText className="h-4 w-4" />
+            Get Reports
+          </Button>
+        )}
         <div className="bg-muted group-hover:bg-primary/10 absolute right-4 bottom-4 flex h-6 w-6 items-center justify-center rounded-full transition-all duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
           <ArrowUpRight className="text-primary h-3 w-3" />
         </div>
@@ -241,15 +246,17 @@ const GradingCard = memo(function GradingCard({
           <CardDescription className="font-custom text-muted-foreground text-sm">
             {formatWeight(weightKg)}
           </CardDescription>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onGetReportClick}
-            className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
-          >
-            <FileText className="h-4 w-4" />
-            Get Reports
-          </Button>
+          {onGetReportClick != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onGetReportClick}
+              className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
+            >
+              <FileText className="h-4 w-4" />
+              Get Reports
+            </Button>
+          )}
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
@@ -311,6 +318,23 @@ interface OverviewProps {
 
 const Overview = memo(function Overview({ dateRange }: OverviewProps) {
   const navigate = useNavigate();
+  const hasPermission = usePermissionsStore((state) => state.hasPermission);
+  const canReadOverview = hasPermission('analytics-overview', 'read');
+  const canReadFarmerSeedReports = hasPermission(
+    'farmer-seed-gate-pass',
+    'reports'
+  );
+  const canReadIncomingReports = hasPermission('incoming-gate-pass', 'reports');
+  const canReadGradingReports = hasPermission('grading-gate-pass', 'reports');
+  const canReadStorageReports = hasPermission('storage-gate-pass', 'reports');
+  const canReadNikasiReports = hasPermission('nikasi-gate-pass', 'reports');
+  const canReadOutgoingReports = hasPermission('outgoing-gate-pass', 'reports');
+  const contractFarmingPermissions = usePermissionsStore(
+    (state) => state.permissions['contract-farming']
+  );
+  const shouldShowContractFarmingCard =
+    contractFarmingPermissions != null &&
+    Object.keys(contractFarmingPermissions).length > 0;
   const { data, isLoading, isError, error, refetch } = useGetOverview({
     dateFrom: dateRange.fromDate || undefined,
     dateTo: dateRange.toDate || undefined,
@@ -346,6 +370,24 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
     );
   }
 
+  if (!canReadOverview) {
+    return (
+      <Empty className="bg-muted/10 rounded-xl border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <BarChart3 />
+          </EmptyMedia>
+          <EmptyTitle className="font-custom">
+            Access restricted for analytics overview
+          </EmptyTitle>
+          <EmptyDescription className="font-custom">
+            You do not have read permission for analytics overview.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
   if (!normalized) {
     return (
       <Empty className="bg-muted/10 rounded-xl border">
@@ -373,8 +415,13 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         value={formatNumber(normalized.totalSeedBagsGiven)}
         icon={<Sprout className="h-5 w-5" />}
         description="Total seed bags issued to farmers"
-        onGetReportClick={() =>
-          void navigate({ to: '/store-admin/analytics/reports/farmer-seed' })
+        onGetReportClick={
+          canReadFarmerSeedReports
+            ? () =>
+                void navigate({
+                  to: '/store-admin/analytics/reports/farmer-seed',
+                })
+            : undefined
         }
       />
       <StatCard
@@ -382,8 +429,11 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         value={formatNumber(normalized.totalIncomingBags)}
         description={`${formatWeight(normalized.totalIncomingWeight)} (excl bardana)`}
         icon={<Package className="h-5 w-5" />}
-        onGetReportClick={() =>
-          void navigate({ to: '/store-admin/analytics/reports/incoming' })
+        onGetReportClick={
+          canReadIncomingReports
+            ? () =>
+                void navigate({ to: '/store-admin/analytics/reports/incoming' })
+            : undefined
         }
       />
       <StatCard
@@ -391,26 +441,35 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         value={formatNumber(normalized.totalUngradedBags)}
         description={`${formatWeight(normalized.totalUngradedWeight)} ungraded`}
         icon={<Boxes className="h-5 w-5" />}
-        onGetReportClick={() =>
-          void navigate({
-            to: '/store-admin/analytics/reports/ungraded',
-          })
+        onGetReportClick={
+          canReadIncomingReports
+            ? () =>
+                void navigate({
+                  to: '/store-admin/analytics/reports/ungraded',
+                })
+            : undefined
         }
       />
       <GradingCard
         initialQuantity={normalized.totalGradingBags.initialQuantity}
         currentQuantity={normalized.totalGradingBags.currentQuantity}
         weightKg={normalized.totalGradingWeight}
-        onGetReportClick={() =>
-          void navigate({ to: '/store-admin/analytics/reports/grading' })
+        onGetReportClick={
+          canReadGradingReports
+            ? () =>
+                void navigate({ to: '/store-admin/analytics/reports/grading' })
+            : undefined
         }
       />
       <StatCard
         title="Bags Stored"
         value={formatNumber(normalized.totalBagsStored)}
         icon={<Warehouse className="h-5 w-5" />}
-        onGetReportClick={() =>
-          void navigate({ to: '/store-admin/analytics/reports/storage' })
+        onGetReportClick={
+          canReadStorageReports
+            ? () =>
+                void navigate({ to: '/store-admin/analytics/reports/storage' })
+            : undefined
         }
       />
       <StatCard
@@ -423,21 +482,38 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         title="Dispatch (Pre Storage)"
         value={formatNumber(normalized.totalBagsDispatched)}
         icon={<Truck className="h-5 w-5" />}
+        onGetReportClick={
+          canReadNikasiReports
+            ? () =>
+                void navigate({ to: '/store-admin/analytics/reports/nikasi' })
+            : undefined
+        }
       />
       <StatCard
         title="Dispatch (Post Storage)"
         value={formatNumber(normalized.totalOutgoingBags)}
         icon={<ArrowUpRight className="h-5 w-5" />}
-      />
-      <StaticReportCard
-        title="Contract Farming Report"
-        icon={<Handshake className="h-5 w-5" />}
-        onGetReportClick={() =>
-          void navigate({
-            to: '/store-admin/analytics/reports/contract-farming',
-          })
+        onGetReportClick={
+          canReadOutgoingReports
+            ? () =>
+                void navigate({ to: '/store-admin/analytics/reports/outgoing' })
+            : undefined
         }
       />
+      {shouldShowContractFarmingCard && (
+        <StaticReportCard
+          title="Contract Farming Report"
+          icon={<Handshake className="h-5 w-5" />}
+          onGetReportClick={
+            canReadFarmerSeedReports
+              ? () =>
+                  void navigate({
+                    to: '/store-admin/analytics/reports/contract-farming',
+                  })
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 });
