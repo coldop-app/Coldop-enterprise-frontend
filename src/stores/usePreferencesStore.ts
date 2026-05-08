@@ -1,7 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { PreferencesData } from '@/services/store-admin/preferences/useGetPreferences';
+import {
+  normalizePreferences,
+  type PreferencesData,
+} from '@/services/store-admin/preferences/useGetPreferences';
 
 /** Persist slice only — actions are not persisted */
 type PreferencesPersistSlice = Pick<
@@ -22,7 +25,7 @@ interface PreferencesStore {
 }
 
 function clonePreferences(server: PreferencesData): PreferencesData {
-  return structuredClone(server);
+  return normalizePreferences(structuredClone(server));
 }
 
 export const usePreferencesStore = create<PreferencesStore>()(
@@ -38,7 +41,15 @@ export const usePreferencesStore = create<PreferencesStore>()(
             preferences: clonePreferences(server),
             syncedColdStorageId: server.coldStorageId,
           });
+          return;
         }
+
+        set({
+          preferences: normalizePreferences(
+            structuredClone(preferences),
+            server
+          ),
+        });
       },
 
       resetToServer: (server) =>
@@ -50,7 +61,9 @@ export const usePreferencesStore = create<PreferencesStore>()(
       updatePreferences: (updater) => {
         const prev = get().preferences;
         if (!prev) return;
-        set({ preferences: updater(prev) });
+        set({
+          preferences: normalizePreferences(updater(clonePreferences(prev))),
+        });
       },
     }),
     {
@@ -60,7 +73,17 @@ export const usePreferencesStore = create<PreferencesStore>()(
         preferences: state.preferences,
         syncedColdStorageId: state.syncedColdStorageId,
       }),
-      version: 1,
+      version: 2,
+      migrate: (persisted) => {
+        const state = persisted as PreferencesPersistSlice;
+
+        return {
+          ...state,
+          preferences: state.preferences
+            ? normalizePreferences(state.preferences)
+            : null,
+        };
+      },
     }
   )
 );

@@ -2,6 +2,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import {
   useGetPreferences,
+  normalizePreferences,
   type PreferencesData,
   type PreferenceOption,
   type BuyBackCost,
@@ -329,7 +330,8 @@ function BuyBackTable({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
-  const data = usePreferencesStore((s) => s.preferences);
+  const rawData = usePreferencesStore((s) => s.preferences);
+  const data = rawData ? normalizePreferences(rawData, baseline) : null;
   const updatePreferences = usePreferencesStore((s) => s.updatePreferences);
   const resetToServer = usePreferencesStore((s) => s.resetToServer);
   const { mutateAsync, isPending } = useUpdatePreferences();
@@ -339,6 +341,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   const [standardBagCount, setStandardBagCount] = useState('');
 
   if (!data) return null;
+
+  const standardBagsPerAcre = data.custom.standardBagsPerAcre ?? {};
 
   // Bag sizes
   const removeBagSize = (size: string) => {
@@ -502,7 +506,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   };
   const removeBagsPerAcreSize = (size: string) => {
     updatePreferences((p) => {
-      const { [size]: _removed, ...rest } = p.custom.standardBagsPerAcre;
+      const { [size]: _removed, ...rest } = p.custom.standardBagsPerAcre ?? {};
       return {
         ...p,
         custom: {
@@ -726,44 +730,42 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                     </Dialog>
                   </div>
                   <div className="flex flex-wrap gap-6">
-                    {Object.entries(data.custom.standardBagsPerAcre).map(
-                      ([size, count]) => {
-                        return (
-                          <div key={size}>
-                            <div className="mb-2 flex items-center gap-2">
-                              <Label className="text-muted-foreground block font-mono text-xs">
-                                {size}
-                              </Label>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                onClick={() => removeBagsPerAcreSize(size)}
-                                className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 rounded-full p-0 transition-colors duration-200"
-                                aria-label={`Remove standard bags size ${size}`}
-                              >
-                                <X size={12} />
-                              </Button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                defaultValue={count ?? 0}
-                                onChange={(e) =>
-                                  updateBagsPerAcre(
-                                    size,
-                                    parseInt(e.target.value, 10)
-                                  )
-                                }
-                                className="bg-background h-9 w-24 font-mono text-sm"
-                              />
-                              <span className="text-muted-foreground text-xs">
-                                bags/acre
-                              </span>
-                            </div>
+                    {Object.entries(standardBagsPerAcre).map(
+                      ([size, count]) => (
+                        <div key={size}>
+                          <div className="mb-2 flex items-center gap-2">
+                            <Label className="text-muted-foreground block font-mono text-xs">
+                              {size}
+                            </Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => removeBagsPerAcreSize(size)}
+                              className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 rounded-full p-0 transition-colors duration-200"
+                              aria-label={`Remove standard bags size ${size}`}
+                            >
+                              <X size={12} />
+                            </Button>
                           </div>
-                        );
-                      }
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              defaultValue={count ?? 0}
+                              onChange={(e) =>
+                                updateBagsPerAcre(
+                                  size,
+                                  parseInt(e.target.value, 10)
+                                )
+                              }
+                              className="bg-background h-9 w-24 font-mono text-sm"
+                            />
+                            <span className="text-muted-foreground text-xs">
+                              bags/acre
+                            </span>
+                          </div>
+                        </div>
+                      )
                     )}
                   </div>
                 </div>

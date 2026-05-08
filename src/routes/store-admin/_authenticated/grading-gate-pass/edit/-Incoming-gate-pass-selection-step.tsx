@@ -1,8 +1,9 @@
 import type { GradingGatePassIncomingRef } from '@/types/grading-gate-pass';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
+import { useUnlinkIncomingGatePasses } from '@/services/store-admin/general/useUnlinkIncomingGatePasses';
 import { usePreferencesStore } from '@/stores/store';
 import {
   SearchSelector,
@@ -11,9 +12,15 @@ import {
 import LinkIncomingGatePassDialog from './-Link-incoming-gate-pass-dialog';
 
 type IncomingGatePassSelectionStepProps = {
+  gradingGatePassId: string;
   incomingGatePasses: GradingGatePassIncomingRef[];
   initialFarmerStorageLinkId: string;
   initialVariety?: string;
+  onSelectionChange?: (selection: {
+    farmerStorageLinkId: string;
+    farmerName: string;
+    variety: string;
+  }) => void;
 };
 
 const formatDisplayDate = (date?: string) => {
@@ -32,12 +39,16 @@ const getStatusBadgeClassName = (status?: string) => {
 };
 
 const IncomingGatePassSelectionStep = ({
+  gradingGatePassId,
   incomingGatePasses,
   initialFarmerStorageLinkId,
   initialVariety,
+  onSelectionChange,
 }: IncomingGatePassSelectionStepProps) => {
   const { data: farmerLinks = [], isLoading: isFarmersLoading } =
     useGetAllFarmers();
+  const { mutateAsync: unlinkIncomingGatePasses, isPending: isUnlinking } =
+    useUnlinkIncomingGatePasses();
   const preferences = usePreferencesStore((state) => state.preferences);
   const [selectedFarmerLinkId, setSelectedFarmerLinkId] = useState('');
   const [selectedVariety, setSelectedVariety] = useState('');
@@ -140,6 +151,19 @@ const IncomingGatePassSelectionStep = ({
     ];
   }, [effectiveSelectedVariety, potatoVarietyOptions]);
 
+  useEffect(() => {
+    onSelectionChange?.({
+      farmerStorageLinkId: effectiveSelectedFarmerLinkId,
+      farmerName: effectiveSelectedFarmerName,
+      variety: effectiveSelectedVariety,
+    });
+  }, [
+    effectiveSelectedFarmerLinkId,
+    effectiveSelectedFarmerName,
+    effectiveSelectedVariety,
+    onSelectionChange,
+  ]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -201,6 +225,7 @@ const IncomingGatePassSelectionStep = ({
       </div>
 
       <LinkIncomingGatePassDialog
+        gradingGatePassId={gradingGatePassId}
         farmerStorageLinkId={effectiveSelectedFarmerLinkId}
         farmerName={effectiveSelectedFarmerName}
         variety={effectiveSelectedVariety}
@@ -281,6 +306,13 @@ const IncomingGatePassSelectionStep = ({
                           type="button"
                           variant="outline"
                           className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          disabled={isUnlinking}
+                          onClick={async () => {
+                            await unlinkIncomingGatePasses({
+                              gradingGatePassId,
+                              incomingGatePassIds: [gatePass._id],
+                            });
+                          }}
                         >
                           Delink
                         </Button>

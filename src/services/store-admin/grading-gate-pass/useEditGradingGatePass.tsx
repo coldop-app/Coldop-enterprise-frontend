@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
@@ -20,6 +21,7 @@ type GradingGatePassApiError = {
 };
 
 const DEFAULT_ERROR = 'Failed to update grading gate pass';
+const DAYBOOK_ROUTE = '/store-admin/daybook' as const;
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
   400: 'Invalid grading gate pass payload',
@@ -53,6 +55,9 @@ function normalizePayload(
   payload: EditGradingGatePassInput
 ): EditGradingGatePassInput {
   return {
+    ...(payload.farmerStorageLinkId !== undefined && {
+      farmerStorageLinkId: payload.farmerStorageLinkId.trim(),
+    }),
     ...(payload.manualGatePassNumber !== undefined && {
       manualGatePassNumber: payload.manualGatePassNumber,
     }),
@@ -65,7 +70,7 @@ function normalizePayload(
         size: row.size.trim(),
         bagType: row.bagType.trim(),
         currentQuantity: row.currentQuantity,
-        initialQuantity: row.initialQuantity,
+        initialQuantity: row.currentQuantity,
         weightPerBagKg: row.weightPerBagKg,
       })),
     }),
@@ -78,11 +83,16 @@ function normalizePayload(
     ...(payload.remarks !== undefined && {
       remarks: payload.remarks.trim(),
     }),
+    ...(payload.isMarkedNull !== undefined && {
+      isMarkedNull: payload.isMarkedNull,
+    }),
   };
 }
 
 /** PATCH /grading-gate-pass/:gradingGatePassId */
 export function useEditGradingGatePass() {
+  const navigate = useNavigate();
+
   return useMutation<
     EditGradingGatePassApiResponse,
     AxiosError<GradingGatePassApiError>,
@@ -105,6 +115,7 @@ export function useEditGradingGatePass() {
         await queryClient.invalidateQueries({
           queryKey: gradingGatePassKeys.all,
         });
+        await navigate({ to: DAYBOOK_ROUTE });
       } else {
         toast.error(data.message ?? DEFAULT_ERROR);
       }

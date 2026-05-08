@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/date-picker';
 import { toDatePickerDisplayValue } from '@/lib/helpers';
 import { usePreferencesStore } from '@/stores/store';
+import { toast } from 'sonner';
 import type {
   EditGradingGatePassInput,
   GradingGatePass,
@@ -18,6 +19,7 @@ import {
   GradingSummarySheet,
   type GradingSummaryFormValues,
 } from './-SummarySheet';
+import { useEditGradingGatePass } from '@/services/store-admin/grading-gate-pass/useEditGradingGatePass';
 
 const FALLBACK_GRADING_SIZES = [
   'Ration',
@@ -39,7 +41,11 @@ type SelectedIncomingPassRow = {
 
 type GradingDetailsStepProps = {
   gradingGatePass?: GradingGatePass;
-  onReviewCreate: (payload: Partial<EditGradingGatePassInput>) => void;
+  selectedFarmerName?: string;
+  selectedVariety?: string;
+  selectedFarmerStorageLinkId?: string;
+  isMarkedAsNull?: boolean;
+  remarksFocusTrigger?: number;
 };
 
 const getIncomingPassLabel = (pass: GradingGatePassIncomingRef): string => {
@@ -68,8 +74,14 @@ const hasMeaningfulOrderDetailValue = (detail: {
 
 const GradingDetailsStep = ({
   gradingGatePass,
-  onReviewCreate,
+  selectedFarmerName,
+  selectedVariety,
+  selectedFarmerStorageLinkId,
+  isMarkedAsNull = false,
+  remarksFocusTrigger = 0,
 }: GradingDetailsStepProps) => {
+  const { mutateAsync: editGradingGatePass, isPending: isSubmitting } =
+    useEditGradingGatePass();
   const preferences = usePreferencesStore((s) => s.preferences);
 
   const graderOptions = useMemo(
@@ -136,8 +148,8 @@ const GradingDetailsStep = ({
       : ''
   );
   const [remarks, setRemarks] = useState(gradingGatePass?.remarks ?? '');
+  const remarksInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<
     Partial<EditGradingGatePassInput>
   >({});
@@ -150,6 +162,11 @@ const GradingDetailsStep = ({
       ? String(gradingGatePass.manualGatePassNumber)
       : '';
   const initialRemarks = gradingGatePass?.remarks ?? '';
+  const initialVariety = gradingGatePass?.variety ?? '';
+  const initialFarmerStorageLinkId =
+    typeof gradingGatePass?.farmerStorageLinkId === 'string'
+      ? gradingGatePass.farmerStorageLinkId
+      : (gradingGatePass?.farmerStorageLinkId?._id ?? '');
   const [orderDetailsState, setOrderDetailsState] = useState(() =>
     gradingSizes.map((sizeLabel) => {
       const detail = orderDetailBySize.get(sizeLabel);
@@ -167,6 +184,14 @@ const GradingDetailsStep = ({
     () => new Map(orderDetailsState.map((detail) => [detail.size, detail])),
     [orderDetailsState]
   );
+
+  useEffect(() => {
+    if (!isMarkedAsNull) return;
+    const focusTimer = requestAnimationFrame(() => {
+      remarksInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(focusTimer);
+  }, [isMarkedAsNull, remarksFocusTrigger]);
 
   const setOrderDetailField = (
     size: string,
@@ -196,6 +221,13 @@ const GradingDetailsStep = ({
   ).filter((detail) => hasMeaningfulOrderDetailValue(detail));
 
   const buildDiffPayload = (): Partial<EditGradingGatePassInput> => {
+    if (isMarkedAsNull) {
+      return {
+        isMarkedNull: true,
+        remarks: remarks.trim(),
+      };
+    }
+
     const payload: Partial<EditGradingGatePassInput> = {};
 
     if (grader !== initialGrader) {
@@ -220,6 +252,16 @@ const GradingDetailsStep = ({
 
     if (remarks !== initialRemarks) {
       payload.remarks = remarks || undefined;
+    }
+
+    const nextVariety = (selectedVariety ?? '').trim();
+    if (nextVariety !== initialVariety) {
+      payload.variety = nextVariety || undefined;
+    }
+
+    const nextFarmerStorageLinkId = (selectedFarmerStorageLinkId ?? '').trim();
+    if (nextFarmerStorageLinkId !== initialFarmerStorageLinkId) {
+      payload.farmerStorageLinkId = nextFarmerStorageLinkId || undefined;
     }
 
     const nextOrderDetails = buildOrderDetailsPayload();
@@ -278,11 +320,27 @@ const GradingDetailsStep = ({
     };
   };
 
-  const onConfirmUpdate = () => {
-    setIsSubmitting(true);
-    onReviewCreate(pendingPayload);
-    setIsSubmitting(false);
-    setIsSummaryOpen(false);
+  const onConfirmUpdate = async () => {
+    if (!gradingGatePass?._id) {
+      toast.error('Missing grading gate pass id');
+      return;
+    }
+
+    if (Object.keys(pendingPayload).length === 0) {
+      toast.info('No changes to update');
+      setIsSummaryOpen(false);
+      return;
+    }
+
+    try {
+      await editGradingGatePass({
+        gradingGatePassId: gradingGatePass._id,
+        ...pendingPayload,
+      });
+      setIsSummaryOpen(false);
+    } catch {
+      // Error toast is handled in useEditGradingGatePass
+    }
   };
 
   return (
@@ -350,6 +408,35 @@ const GradingDetailsStep = ({
           </Card>
         )}
 
+        <Card className="border-primary/20 bg-primary/5 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-custom text-foreground text-base font-semibold sm:text-lg">
+              Selected farmer and variety
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="bg-background rounded-lg border border-white/60 p-3 shadow-sm">
+                <p className="font-custom text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Farmer
+                </p>
+                <p className="font-custom text-foreground mt-1 text-sm font-semibold sm:text-base">
+                  {selectedFarmerName || '—'}
+                </p>
+              </div>
+
+              <div className="bg-background rounded-lg border border-white/60 p-3 shadow-sm">
+                <p className="font-custom text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Variety
+                </p>
+                <p className="font-custom text-foreground mt-1 text-sm font-semibold sm:text-base">
+                  {selectedVariety || '—'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <FieldGroup className="space-y-6">
           <Field>
             <FieldLabel
@@ -362,6 +449,7 @@ const GradingDetailsStep = ({
               id="grading-grader"
               value={grader}
               onChange={(e) => setGrader(e.target.value)}
+              disabled={isMarkedAsNull}
               className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <option value="">Select grader</option>
@@ -391,17 +479,20 @@ const GradingDetailsStep = ({
               placeholder=""
               value={manualGatePassNumber}
               onChange={(e) => setManualGatePassNumber(e.target.value)}
+              disabled={isMarkedAsNull}
               className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
           </Field>
 
           <Field>
-            <DatePicker
-              label="Date"
-              id="grading-date"
-              value={date}
-              onChange={setDate}
-            />
+            <div className={isMarkedAsNull ? 'pointer-events-none' : ''}>
+              <DatePicker
+                label="Date"
+                id="grading-date"
+                value={date}
+                onChange={setDate}
+              />
+            </div>
           </Field>
 
           <div className="space-y-4">
@@ -461,6 +552,7 @@ const GradingDetailsStep = ({
                               Number(e.target.value || 0)
                             )
                           }
+                          disabled={isMarkedAsNull}
                           className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       </Field>
@@ -474,6 +566,7 @@ const GradingDetailsStep = ({
                               e.target.value
                             )
                           }
+                          disabled={isMarkedAsNull}
                           className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                         >
                           {/* Preserve the existing bag type if it's not in preferences */}
@@ -504,6 +597,7 @@ const GradingDetailsStep = ({
                               Number(e.target.value || 0)
                             )
                           }
+                          disabled={isMarkedAsNull}
                           className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       </Field>
@@ -516,6 +610,7 @@ const GradingDetailsStep = ({
                     variant="outline"
                     size="sm"
                     className="font-custom"
+                    disabled={isMarkedAsNull}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Size
@@ -570,6 +665,7 @@ const GradingDetailsStep = ({
                                 Number(e.target.value || 0)
                               )
                             }
+                            disabled={isMarkedAsNull}
                             className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                         </Field>
@@ -590,6 +686,7 @@ const GradingDetailsStep = ({
                                 e.target.value
                               )
                             }
+                            disabled={isMarkedAsNull}
                             className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                           >
                             {detail?.bagType &&
@@ -626,6 +723,7 @@ const GradingDetailsStep = ({
                                 Number(e.target.value || 0)
                               )
                             }
+                            disabled={isMarkedAsNull}
                             className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                         </Field>
@@ -638,6 +736,7 @@ const GradingDetailsStep = ({
                   variant="outline"
                   size="sm"
                   className="font-custom w-full"
+                  disabled={isMarkedAsNull}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Size
@@ -667,6 +766,7 @@ const GradingDetailsStep = ({
               Remarks
             </FieldLabel>
             <textarea
+              ref={remarksInputRef}
               id="grading-remarks"
               placeholder="Max 500 characters"
               maxLength={500}

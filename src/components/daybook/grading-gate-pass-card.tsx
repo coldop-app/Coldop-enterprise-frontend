@@ -19,8 +19,10 @@ import {
   Hash,
   FileText,
   LayoutGrid,
+  Ban,
   type LucideIcon,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 import { CalculationsDialog } from './calculations-dialog';
 import {
@@ -118,14 +120,38 @@ function GradingVoucherCardComponent({
     );
     return { incoming: inc, grading: grad };
   }, [bagWeights, gradingGatePass]);
+  const isCancelledGatePass = grading.totals.totalInitial === 0;
 
   const farmerLink = getFarmerStorageLink(gradingGatePass);
   const farmer = farmerLink?.farmerId;
 
   return (
     <>
-      <Card className="border-border/40 bg-card hover:border-primary/40 relative overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md">
-        <div className="bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4">
+      <Card
+        className={cn(
+          'border-border/40 bg-card hover:border-primary/40 relative overflow-hidden rounded-xl pt-0 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md',
+          isCancelledGatePass &&
+            'border-border/20 bg-muted/30 opacity-55 saturate-0'
+        )}
+      >
+        {isCancelledGatePass ? (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-1">
+              <div className="border-border/30 bg-background/40 rounded-full border p-3">
+                <Ban className="text-muted-foreground/50 h-7 w-7" />
+              </div>
+              <span className="font-custom text-muted-foreground/60 text-[10px] tracking-[0.18em] uppercase">
+                Null
+              </span>
+            </div>
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            'bg-muted/15 border-border/50 flex flex-col justify-between gap-3 border-b px-3 pt-2 pb-3 sm:flex-row sm:items-start sm:px-4 sm:pt-3 sm:pb-4',
+            isCancelledGatePass && 'bg-muted/30 border-border/30'
+          )}
+        >
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
               <div className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
@@ -152,10 +178,22 @@ function GradingVoucherCardComponent({
           <div className="flex shrink-0 items-center gap-1.5">
             <Badge
               variant="outline"
-              className="bg-background font-custom px-2 py-0.5 text-[10px] font-medium"
+              className={cn(
+                'bg-background font-custom px-2 py-0.5 text-[10px] font-medium',
+                isCancelledGatePass &&
+                  'border-border/50 bg-muted/40 text-muted-foreground'
+              )}
             >
               {formatNumber(grading.totals.totalInitial)} Bags
             </Badge>
+            {isCancelledGatePass ? (
+              <Badge
+                variant="secondary"
+                className="font-custom border-border/60 bg-muted/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium"
+              >
+                Cancelled Gate Pass
+              </Badge>
+            ) : null}
           </div>
         </div>
 

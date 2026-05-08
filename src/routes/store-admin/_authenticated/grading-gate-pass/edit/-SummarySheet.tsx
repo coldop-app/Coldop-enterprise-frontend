@@ -6,7 +6,6 @@ import {
   LayoutGrid,
   Loader2,
   Package,
-  Scale,
   User,
   UserCircle,
 } from 'lucide-react';
@@ -232,50 +231,62 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
                     <ClipboardList className="text-muted-foreground size-4" />
                     Incoming gate passes
                   </h3>
-                  <ul className="space-y-2">
-                    {summary.incomingLines.map((line, i) => (
-                      <li
-                        key={`${line.gatePassNo}-${line.manualGatePassNumber}-${i}`}
-                      >
-                        <Card className="shadow-sm">
-                          <CardContent className="p-4 text-sm">
-                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                              <span className="font-custom font-semibold">
-                                GP #{line.gatePassNo ?? '—'}
-                              </span>
-                              {line.manualGatePassNumber != null ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="font-custom text-xs font-normal"
-                                >
-                                  Manual #{line.manualGatePassNumber}
-                                </Badge>
-                              ) : null}
-                            </div>
-                            <div className="text-muted-foreground font-custom mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
-                              {line.truckNumber ? (
-                                <span>{line.truckNumber}</span>
-                              ) : null}
-                              {line.bagsReceived != null ? (
-                                <span>{line.bagsReceived} bags</span>
-                              ) : null}
-                              {line.netWeightKg != null ? (
-                                <span className="flex items-center gap-1">
-                                  <Scale className="size-3" />
-                                  Net {formatKg(line.netWeightKg)} kg
-                                </span>
-                              ) : null}
-                            </div>
-                            {line.remarks?.trim() ? (
-                              <p className="text-muted-foreground font-custom border-border/70 mt-3 border-t pt-3 text-xs leading-relaxed italic">
-                                {line.remarks}
-                              </p>
-                            ) : null}
-                          </CardContent>
-                        </Card>
-                      </li>
-                    ))}
-                  </ul>
+                  <Card className="overflow-hidden py-0 shadow-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                          <TableHead className="font-custom text-muted-foreground h-10 px-3 text-[10px] font-medium uppercase">
+                            Gate Pass
+                          </TableHead>
+                          <TableHead className="font-custom text-muted-foreground h-10 px-3 text-[10px] font-medium uppercase">
+                            Manual
+                          </TableHead>
+                          <TableHead className="font-custom text-muted-foreground h-10 px-3 text-[10px] font-medium uppercase">
+                            Truck
+                          </TableHead>
+                          <TableHead className="font-custom text-muted-foreground h-10 px-3 text-right text-[10px] font-medium uppercase">
+                            Bags
+                          </TableHead>
+                          <TableHead className="font-custom text-muted-foreground h-10 px-3 text-right text-[10px] font-medium uppercase">
+                            Net (kg)
+                          </TableHead>
+                          <TableHead className="font-custom text-muted-foreground h-10 px-3 text-[10px] font-medium uppercase">
+                            Remarks
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {summary.incomingLines.map((line, index) => (
+                          <TableRow
+                            key={`${line.gatePassNo}-${line.manualGatePassNumber}-${line.truckNumber}-${index}`}
+                          >
+                            <TableCell className="font-custom text-foreground px-3 py-2 font-medium whitespace-nowrap">
+                              GP #{line.gatePassNo ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground font-custom px-3 py-2 whitespace-nowrap">
+                              {line.manualGatePassNumber != null
+                                ? `#${line.manualGatePassNumber}`
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground font-custom px-3 py-2 whitespace-nowrap">
+                              {line.truckNumber || '—'}
+                            </TableCell>
+                            <TableCell className="font-custom text-primary px-3 py-2 text-right font-semibold tabular-nums">
+                              {line.bagsReceived ?? 0}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground font-custom px-3 py-2 text-right text-xs tabular-nums">
+                              {line.netWeightKg != null
+                                ? formatKg(line.netWeightKg)
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground font-custom max-w-56 px-3 py-2 text-xs whitespace-normal">
+                              {line.remarks?.trim() || '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Card>
                 </div>
               </>
             ) : null}
@@ -364,7 +375,7 @@ export const GradingSummarySheet = memo(function GradingSummarySheet({
             <Button
               type="button"
               variant="outline"
-              className="font-custom focus-visible:ring-primary w-full sm:w-auto sm:min-w-[7rem]"
+              className="font-custom focus-visible:ring-primary w-full sm:w-auto sm:min-w-28"
               onClick={() => onOpenChange(false)}
               disabled={isPending}
             >

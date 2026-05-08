@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-05-08
+
+### Changed
+- Grading gate pass edit flow was refined with improved incoming gate pass linking/unlinking interactions, stronger selection-step validation, and updated summary/detail handling for safer edits.
+- Grading daybook and grading edit modules were aligned to newer gate pass field shapes and UI behavior, including updates to card rendering, edit form composition, and grading detail filling interactions.
+- Preferences data handling was tightened across settings and store layers, including query normalization and persisted preference synchronization updates.
+- Grading gate pass service hooks and shared typings were updated to support the revised edit payload behavior and linked incoming gate pass workflows.
+- Project version updated to `0.6.4` for this grading edit-flow stability and preferences synchronization release.
+
 ## [0.6.3] - 2026-05-07
 
 ### Added

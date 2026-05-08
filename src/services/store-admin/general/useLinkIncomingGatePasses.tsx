@@ -54,21 +54,18 @@ export function useLinkIncomingGatePasses() {
           payload
         );
 
+      return data;
+    },
+    onSuccess: async (data, variables) => {
       if (data.success) {
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: gradingGatePassKeys.all,
+            queryKey: gradingGatePassKeys.detail(variables.gradingGatePassId),
           }),
           queryClient.invalidateQueries({
             queryKey: incomingGatePassesOfFarmerKeys.all,
           }),
         ]);
-      }
-
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data.success) {
         toast.success(data.message ?? 'Incoming gate pass linked');
       } else {
         toast.error(data.message ?? DEFAULT_ERROR);

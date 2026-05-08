@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import { gradingGatePassKeys } from '../grading-gate-pass/useGetGradingGatePasses';
+import { incomingGatePassesOfFarmerKeys } from './useGetIncomingGatePassesOfFarmer';
 
 type UnlinkIncomingGatePassesApiResponse = {
   success: boolean;
@@ -17,6 +18,7 @@ type UnlinkIncomingGatePassesApiError = {
 };
 
 export type UnlinkIncomingGatePassesParams = {
+  gradingGatePassId?: string;
   incomingGatePassIds: string[];
 };
 
@@ -49,18 +51,20 @@ export function useUnlinkIncomingGatePasses() {
           payload
         );
 
+      return data;
+    },
+    onSuccess: async (data, variables) => {
       if (data.success) {
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: gradingGatePassKeys.all,
+            queryKey: variables.gradingGatePassId
+              ? gradingGatePassKeys.detail(variables.gradingGatePassId)
+              : gradingGatePassKeys.all,
+          }),
+          queryClient.invalidateQueries({
+            queryKey: incomingGatePassesOfFarmerKeys.all,
           }),
         ]);
-      }
-
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data.success) {
         toast.success(data.message ?? 'Incoming gate passes unlinked');
       } else {
         toast.error(data.message ?? DEFAULT_ERROR);

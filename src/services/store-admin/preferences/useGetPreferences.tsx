@@ -45,6 +45,47 @@ export interface GetPreferencesApiResponse {
   message?: string;
 }
 
+export function normalizePreferences(
+  preferences: PreferencesData,
+  fallback?: PreferencesData
+): PreferencesData {
+  const custom = preferences.custom ?? ({} as PreferencesData['custom']);
+  const fallbackCustom = fallback?.custom;
+  const bagConfig =
+    custom.bagConfig ?? ({} as PreferencesData['custom']['bagConfig']);
+  const fallbackBagConfig = fallbackCustom?.bagConfig;
+
+  return {
+    ...preferences,
+    bagSizes: preferences.bagSizes ?? fallback?.bagSizes ?? [],
+    reportFormat: preferences.reportFormat ?? fallback?.reportFormat ?? '',
+    custom: {
+      ...custom,
+      potatoVarieties:
+        custom.potatoVarieties ?? fallbackCustom?.potatoVarieties ?? [],
+      farmerSeedGenerations:
+        custom.farmerSeedGenerations ??
+        fallbackCustom?.farmerSeedGenerations ??
+        [],
+      graderOptions:
+        custom.graderOptions ?? fallbackCustom?.graderOptions ?? [],
+      incomingLocations:
+        custom.incomingLocations ?? fallbackCustom?.incomingLocations ?? [],
+      bagConfig: {
+        ...bagConfig,
+        juteBagWeight:
+          bagConfig.juteBagWeight ?? fallbackBagConfig?.juteBagWeight ?? 0,
+        lenoBagWeight:
+          bagConfig.lenoBagWeight ?? fallbackBagConfig?.lenoBagWeight ?? 0,
+        bagTypes: bagConfig.bagTypes ?? fallbackBagConfig?.bagTypes ?? [],
+      },
+      standardBagsPerAcre:
+        custom.standardBagsPerAcre ?? fallbackCustom?.standardBagsPerAcre ?? {},
+      buyBackCost: custom.buyBackCost ?? fallbackCustom?.buyBackCost ?? [],
+    },
+  };
+}
+
 /** Query key factory - use for invalidation and consistent cache keys */
 export const preferencesKeys = {
   all: ['store-admin', 'preferences'] as const,
@@ -60,7 +101,7 @@ async function fetchPreferences(): Promise<PreferencesData> {
     throw new Error(data.message ?? 'Failed to fetch preferences');
   }
 
-  return data.data;
+  return normalizePreferences(data.data);
 }
 
 /** Query options - use with useQuery, prefetchQuery, or in loaders */

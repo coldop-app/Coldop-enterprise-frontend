@@ -249,6 +249,7 @@ export interface GetGradingGatePassByIdApiResponse {
 
 /** PATCH /grading-gate-pass/:gradingGatePassId */
 export interface EditGradingGatePassInput {
+  farmerStorageLinkId?: string;
   manualGatePassNumber?: number;
   date?: string;
   variety?: string;
@@ -256,6 +257,7 @@ export interface EditGradingGatePassInput {
   allocationStatus?: string;
   grader?: string;
   remarks?: string;
+  isMarkedNull?: boolean;
 }
 
 export interface EditGradingGatePassApiResponse {

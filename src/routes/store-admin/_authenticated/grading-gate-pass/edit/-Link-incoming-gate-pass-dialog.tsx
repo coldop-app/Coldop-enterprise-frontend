@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FieldGroup } from '@/components/ui/field';
 import { useGetIncomingGatePassesOfFarmer } from '@/services/store-admin/general/useGetIncomingGatePassesOfFarmer';
+import { useLinkIncomingGatePasses } from '@/services/store-admin/general/useLinkIncomingGatePasses';
 
 type LinkIncomingGatePassDialogProps = {
+  gradingGatePassId: string;
   farmerStorageLinkId: string;
   farmerName: string;
   variety: string;
@@ -37,6 +39,7 @@ const getStatusBadgeClassName = (status?: string) => {
 };
 
 const LinkIncomingGatePassDialog = ({
+  gradingGatePassId,
   farmerStorageLinkId,
   farmerName,
   variety,
@@ -49,14 +52,21 @@ const LinkIncomingGatePassDialog = ({
     isError,
     error,
   } = useGetIncomingGatePassesOfFarmer(farmerStorageLinkId);
+  const { mutateAsync: linkIncomingGatePasses, isPending: isLinking } =
+    useLinkIncomingGatePasses();
 
-  const notGradedGatePasses = useMemo(
-    () =>
-      farmerIncomingGatePasses.filter(
-        (gatePass) => gatePass.status === 'NOT_GRADED'
-      ),
-    [farmerIncomingGatePasses]
-  );
+  const eligibleGatePasses = useMemo(() => {
+    const normalizedVariety = variety.trim();
+
+    return farmerIncomingGatePasses.filter((gatePass) => {
+      if (gatePass.status !== 'NOT_GRADED') return false;
+
+      // Only show gate passes for the exact same variety.
+      if (!normalizedVariety) return true;
+
+      return gatePass.variety?.trim() === normalizedVariety;
+    });
+  }, [farmerIncomingGatePasses, variety]);
 
   return (
     <>
@@ -102,13 +112,13 @@ const LinkIncomingGatePassDialog = ({
                           ? error.message
                           : 'Failed to load incoming gate passes.'}
                       </div>
-                    ) : notGradedGatePasses.length === 0 ? (
+                    ) : eligibleGatePasses.length === 0 ? (
                       <div className="font-custom px-4 py-8 text-center text-sm text-gray-500 sm:px-6">
-                        No ungraded incoming gate passes found for this farmer.
+                        {`No NOT_GRADED incoming gate passes found for ${farmerName || 'this farmer'} for variety "${variety}".`}
                       </div>
                     ) : (
                       <div className="divide-y divide-gray-100">
-                        {notGradedGatePasses.map((gatePass) => (
+                        {eligibleGatePasses.map((gatePass) => (
                           <div
                             key={gatePass._id}
                             className="grid grid-cols-[60px_1.2fr_1.2fr_1fr_1.5fr_100px_130px_120px] items-center gap-4 px-4 py-4 transition-colors hover:bg-gray-50 sm:px-6"
@@ -153,6 +163,14 @@ const LinkIncomingGatePassDialog = ({
                                 variant="default"
                                 size="sm"
                                 className="font-custom"
+                                disabled={isLinking || !gradingGatePassId}
+                                onClick={async () => {
+                                  await linkIncomingGatePasses({
+                                    gradingGatePassId,
+                                    incomingGatePassIds: [gatePass._id],
+                                  });
+                                  setOpen(false);
+                                }}
                               >
                                 Link
                               </Button>

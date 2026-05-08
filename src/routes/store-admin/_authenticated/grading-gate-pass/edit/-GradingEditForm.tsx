@@ -1,23 +1,45 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { useMemo, useState } from 'react';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
+import { Button } from '@/components/ui/button';
 import IncomingGatePassSelectionStep from './-Incoming-gate-pass-selection-step';
+import GradingDetailsStep from './-grading-detail-filling-step';
 
 type GradingEditFormProps = {
   gradingGatePass?: GradingGatePass;
 };
 
 const GradingEditForm = ({ gradingGatePass }: GradingEditFormProps) => {
+  const [activeTab, setActiveTab] = useState<
+    'incoming-selection' | 'grading-details'
+  >('incoming-selection');
+  const [isMarkedAsNull, setIsMarkedAsNull] = useState(false);
+  const [remarksFocusTrigger, setRemarksFocusTrigger] = useState(0);
   const selectedFarmerStorageLinkId =
     typeof gradingGatePass?.farmerStorageLinkId === 'string'
       ? gradingGatePass.farmerStorageLinkId
       : (gradingGatePass?.farmerStorageLinkId?._id ?? '');
+  const initialFarmerName = useMemo(() => {
+    if (
+      gradingGatePass &&
+      typeof gradingGatePass.farmerStorageLinkId === 'object' &&
+      gradingGatePass.farmerStorageLinkId !== null
+    ) {
+      return gradingGatePass.farmerStorageLinkId.farmerId.name ?? '';
+    }
+    return '';
+  }, [gradingGatePass]);
+  const [selectedSummary, setSelectedSummary] = useState({
+    farmerStorageLinkId: selectedFarmerStorageLinkId,
+    farmerName: initialFarmerName,
+    variety: gradingGatePass?.variety ?? '',
+  });
+
+  const handleMarkAsNull = () => {
+    setIsMarkedAsNull(true);
+    setActiveTab('grading-details');
+    setRemarksFocusTrigger((prev) => prev + 1);
+  };
 
   return (
     <main className="font-custom mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-12">
@@ -30,9 +52,24 @@ const GradingEditForm = ({ gradingGatePass }: GradingEditFormProps) => {
             VOUCHER NO: {gradingGatePass?.gatePassNo}
           </span>
         </div>
+        <Button
+          type="button"
+          variant="destructive"
+          className="font-custom block w-fit"
+          onClick={handleMarkAsNull}
+          disabled={isMarkedAsNull}
+        >
+          {isMarkedAsNull ? 'Marked as Null' : 'Mark as Null'}
+        </Button>
       </div>
 
-      <Tabs defaultValue="incoming-selection" className="max-w-4xl">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          setActiveTab(value as 'incoming-selection' | 'grading-details')
+        }
+        className="max-w-4xl"
+      >
         <TabsList>
           <TabsTrigger value="incoming-selection">
             Incoming Selection
@@ -41,24 +78,31 @@ const GradingEditForm = ({ gradingGatePass }: GradingEditFormProps) => {
         </TabsList>
         <TabsContent value="incoming-selection">
           <IncomingGatePassSelectionStep
+            gradingGatePassId={gradingGatePass?._id ?? ''}
             incomingGatePasses={gradingGatePass?.incomingGatePassIds ?? []}
             initialFarmerStorageLinkId={selectedFarmerStorageLinkId}
             initialVariety={gradingGatePass?.variety}
+            onSelectionChange={setSelectedSummary}
           />
+          <div className="mt-6 flex justify-end">
+            <Button
+              type="button"
+              className="font-custom"
+              onClick={() => setActiveTab('grading-details')}
+            >
+              Next
+            </Button>
+          </div>
         </TabsContent>
         <TabsContent value="grading-details">
-          <Card>
-            <CardHeader>
-              <CardTitle>Analytics</CardTitle>
-              <CardDescription>
-                Track performance and user engagement metrics. Monitor trends
-                and identify growth opportunities.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Page views are up 25% compared to last month.
-            </CardContent>
-          </Card>
+          <GradingDetailsStep
+            gradingGatePass={gradingGatePass}
+            selectedFarmerName={selectedSummary.farmerName}
+            selectedVariety={selectedSummary.variety}
+            selectedFarmerStorageLinkId={selectedSummary.farmerStorageLinkId}
+            isMarkedAsNull={isMarkedAsNull}
+            remarksFocusTrigger={remarksFocusTrigger}
+          />
         </TabsContent>
       </Tabs>
     </main>
