@@ -11,6 +11,14 @@ export type GradeBagFlatKey = `${typeof GRADE_BAG_COLUMN_KEY_PREFIX}${string}`;
  */
 export type FlattenedRow = {
   rowId: string;
+  /** Stable key for a farmer × variety block. */
+  varietyRowKey: string;
+  /** Number of seed-size rows represented by this farmer × variety block. */
+  mergedRowSpan: number;
+  /** True for the first physical row inside a merged farmer × variety block. */
+  isFirstOfMergedBlock: boolean;
+  /** Zero-based index of this seed-size row within the merged farmer × variety block. */
+  sizeRowIndex: number;
   /** Group key by account-number family (base + decimal variants). */
   familyKey?: number;
   farmerName: string;

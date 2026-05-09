@@ -192,10 +192,16 @@ function flattenFarmers(
         Array.isArray(variety.seed?.sizes) && variety.seed.sizes.length > 0
           ? variety.seed.sizes
           : [null];
+      const varietyRowKey = `${farmer.id}|${variety.name}`;
+      const mergedRowSpan = sizeRows.length;
 
       sizeRows.forEach((size, sizeIndex) => {
         const row: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${size?.name ?? 'no-size'}-${sizeIndex}`,
+          varietyRowKey,
+          mergedRowSpan,
+          isFirstOfMergedBlock: sizeIndex === 0,
+          sizeRowIndex: sizeIndex,
           familyKey:
             familyKeyByBase.get(Math.trunc(Number(farmer.accountNumber))) ?? 0,
           farmerName: farmer.name,

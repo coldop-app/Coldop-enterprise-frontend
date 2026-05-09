@@ -11,7 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import type { FlattenedRow } from './types';
+import { isContractFarmingSplitSpanColumn } from './columns';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
@@ -40,6 +42,7 @@ export function ContractFarmingReportDataTable({
   isLoading,
 }: ContractFarmingReportDataTableProps) {
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  const isGroupedView = table.getState().grouping.length > 0;
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
@@ -97,22 +100,32 @@ export function ContractFarmingReportDataTable({
         </div>
       ) : (
         <table
-          style={{ display: 'grid', width: table.getTotalSize() }}
+          style={
+            isGroupedView
+              ? { display: 'grid', width: table.getTotalSize() }
+              : { width: table.getTotalSize(), tableLayout: 'fixed' }
+          }
           className="font-custom text-sm"
         >
           <TableHeader
             className="bg-secondary border-border/60 text-secondary-foreground border-b backdrop-blur-sm"
-            style={{
-              display: 'grid',
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-            }}
+            style={
+              isGroupedView
+                ? {
+                    display: 'grid',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                  }
+                : { position: 'sticky', top: 0, zIndex: 10 }
+            }
           >
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                style={{ display: 'flex', width: '100%' }}
+                style={
+                  isGroupedView ? { display: 'flex', width: '100%' } : undefined
+                }
                 className="hover:bg-transparent"
               >
                 {headerGroup.headers.map((header) => {
@@ -126,11 +139,19 @@ export function ContractFarmingReportDataTable({
                   return (
                     <TableHead
                       key={header.id}
-                      style={{
-                        display: 'flex',
-                        width: header.getSize(),
-                        position: 'relative',
-                      }}
+                      style={
+                        isGroupedView
+                          ? {
+                              display: 'flex',
+                              width: header.getSize(),
+                              position: 'relative',
+                            }
+                          : {
+                              width: header.getSize(),
+                              minWidth: header.getSize(),
+                              position: 'relative',
+                            }
+                      }
                       className="font-custom border-border/50 text-foreground/75 min-h-11 border-r px-3 py-2 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
                     >
                       <div
@@ -187,34 +208,148 @@ export function ContractFarmingReportDataTable({
             ))}
           </TableHeader>
           <TableBody
-            style={{
-              display: 'grid',
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              position: 'relative',
-            }}
+            style={
+              isGroupedView
+                ? {
+                    display: 'grid',
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    position: 'relative',
+                  }
+                : undefined
+            }
           >
-            {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index] as Row<FlattenedRow>;
+            {(isGroupedView
+              ? virtualRows.map((virtualRow) => rows[virtualRow.index]!)
+              : rows
+            ).map((row, rowIndex) => {
+              if (isGroupedView) {
+                const virtualRow = virtualRows[rowIndex];
+                const isMultiSizeBlock = row.original.mergedRowSpan > 1;
+                const multiSizeRowClass = row.original.isFirstOfMergedBlock
+                  ? 'bg-primary/[0.055] hover:bg-primary/[0.085]'
+                  : 'bg-primary/[0.035] hover:bg-primary/[0.065]';
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-index={virtualRow?.index}
+                    ref={(node) => rowVirtualizer.measureElement(node)}
+                    className={cn(
+                      'border-border/50 border-b transition-colors',
+                      row.getIsGrouped()
+                        ? 'bg-primary/5 hover:bg-primary/10'
+                        : isMultiSizeBlock
+                          ? multiSizeRowClass
+                          : virtualRow.index % 2 === 0
+                            ? 'bg-background hover:bg-accent/40'
+                            : 'bg-muted/25 hover:bg-accent/40'
+                    )}
+                    style={
+                      virtualRow
+                        ? {
+                            display: 'flex',
+                            position: 'absolute',
+                            transform: `translateY(${virtualRow.start}px)`,
+                            width: '100%',
+                          }
+                        : undefined
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const hideRepeatedMergedCell =
+                        !cell.getIsGrouped() &&
+                        !cell.getIsAggregated() &&
+                        !cell.getIsPlaceholder() &&
+                        !isContractFarmingSplitSpanColumn(cell.column.id) &&
+                        !row.original.isFirstOfMergedBlock;
+                      const isRemarksCell = cell.column.id === 'remarks';
+                      const isLongTextCell =
+                        cell.column.id === 'farmer' ||
+                        cell.column.id === 'address';
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          style={{
+                            display: 'flex',
+                            width: cell.column.getSize(),
+                            minWidth:
+                              isRemarksCell || isLongTextCell ? 0 : undefined,
+                          }}
+                          className={`font-custom border-border/40 text-foreground/85 overflow-hidden border-r px-3 py-2.5 align-middle last:border-r-0 ${
+                            isRemarksCell || isLongTextCell
+                              ? 'wrap-break-word whitespace-normal'
+                              : 'whitespace-nowrap'
+                          }`}
+                        >
+                          {hideRepeatedMergedCell ? null : cell.getIsGrouped() ? (
+                            <button
+                              type="button"
+                              onClick={row.getToggleExpandedHandler()}
+                              className={`${
+                                isRemarksCell || isLongTextCell
+                                  ? 'flex w-full min-w-0 flex-wrap items-start gap-1 whitespace-normal'
+                                  : 'inline-flex items-center gap-1 whitespace-nowrap'
+                              } text-left transition-colors ${
+                                row.getCanExpand()
+                                  ? 'hover:text-primary cursor-pointer'
+                                  : 'cursor-default'
+                              }`}
+                            >
+                              <span className="text-xs">
+                                {row.getIsExpanded() ? '▼' : '▶'}
+                              </span>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                              <span className="text-muted-foreground text-xs">
+                                ({row.subRows.length})
+                              </span>
+                            </button>
+                          ) : cell.getIsAggregated() ? (
+                            flexRender(
+                              cell.column.columnDef.aggregatedCell ??
+                                cell.column.columnDef.cell,
+                              cell.getContext()
+                            )
+                          ) : cell.getIsPlaceholder() ? null : (
+                            flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              }
+
+              const expanded = row.original;
+              const cellsToRender = row.getVisibleCells().filter((cell) => {
+                if (isContractFarmingSplitSpanColumn(cell.column.id))
+                  return true;
+                return expanded.isFirstOfMergedBlock;
+              });
+
               return (
                 <TableRow
                   key={row.id}
-                  data-index={virtualRow.index}
-                  ref={(node) => rowVirtualizer.measureElement(node)}
-                  className={`border-border/50 border-b transition-colors ${
-                    row.getIsGrouped()
-                      ? 'bg-primary/5 hover:bg-primary/10'
-                      : virtualRow.index % 2 === 0
-                        ? 'bg-background hover:bg-accent/40'
-                        : 'bg-muted/25 hover:bg-accent/40'
-                  }`}
-                  style={{
-                    display: 'flex',
-                    position: 'absolute',
-                    transform: `translateY(${virtualRow.start}px)`,
-                    width: '100%',
-                  }}
+                  className={cn(
+                    'border-border/50 hover:bg-accent/40 border-b transition-colors',
+                    expanded.varietyRowKey
+                      ? expanded.sizeRowIndex % 2 === 0
+                        ? 'bg-background'
+                        : 'bg-muted/25'
+                      : 'bg-background'
+                  )}
                 >
-                  {row.getVisibleCells().map((cell) => {
+                  {cellsToRender.map((cell) => {
+                    const rowSpan =
+                      !isContractFarmingSplitSpanColumn(cell.column.id) &&
+                      expanded.isFirstOfMergedBlock &&
+                      expanded.mergedRowSpan > 1
+                        ? expanded.mergedRowSpan
+                        : undefined;
                     const isRemarksCell = cell.column.id === 'remarks';
                     const isLongTextCell =
                       cell.column.id === 'farmer' ||
@@ -222,54 +357,20 @@ export function ContractFarmingReportDataTable({
                     return (
                       <TableCell
                         key={cell.id}
+                        rowSpan={rowSpan}
                         style={{
-                          display: 'flex',
                           width: cell.column.getSize(),
-                          minWidth:
-                            isRemarksCell || isLongTextCell ? 0 : undefined,
+                          minWidth: cell.column.getSize(),
                         }}
-                        className={`font-custom border-border/40 text-foreground/85 overflow-hidden border-r px-3 py-2.5 align-middle last:border-r-0 ${
+                        className={`font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle last:border-r-0 ${
                           isRemarksCell || isLongTextCell
                             ? 'wrap-break-word whitespace-normal'
                             : 'whitespace-nowrap'
                         }`}
                       >
-                        {cell.getIsGrouped() ? (
-                          <button
-                            type="button"
-                            onClick={row.getToggleExpandedHandler()}
-                            className={`${
-                              isRemarksCell || isLongTextCell
-                                ? 'flex w-full min-w-0 flex-wrap items-start gap-1 whitespace-normal'
-                                : 'inline-flex items-center gap-1 whitespace-nowrap'
-                            } text-left transition-colors ${
-                              row.getCanExpand()
-                                ? 'hover:text-primary cursor-pointer'
-                                : 'cursor-default'
-                            }`}
-                          >
-                            <span className="text-xs">
-                              {row.getIsExpanded() ? '▼' : '▶'}
-                            </span>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                            <span className="text-muted-foreground text-xs">
-                              ({row.subRows.length})
-                            </span>
-                          </button>
-                        ) : cell.getIsAggregated() ? (
-                          flexRender(
-                            cell.column.columnDef.aggregatedCell ??
-                              cell.column.columnDef.cell,
-                            cell.getContext()
-                          )
-                        ) : cell.getIsPlaceholder() ? null : (
-                          flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
                         )}
                       </TableCell>
                     );
@@ -281,16 +382,27 @@ export function ContractFarmingReportDataTable({
           {rows.length > 0 && hasVisibleNumericTotals ? (
             <TableFooter
               className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
-              style={{
-                display: 'grid',
-                position: 'sticky',
-                bottom: 0,
-                paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
-                zIndex: 9,
-              }}
+              style={
+                isGroupedView
+                  ? {
+                      display: 'grid',
+                      position: 'sticky',
+                      bottom: 0,
+                      paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                      zIndex: 9,
+                    }
+                  : {
+                      position: 'sticky',
+                      bottom: 0,
+                      paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                      zIndex: 9,
+                    }
+              }
             >
               <TableRow
-                style={{ display: 'flex', width: '100%' }}
+                style={
+                  isGroupedView ? { display: 'flex', width: '100%' } : undefined
+                }
                 className="hover:bg-transparent"
               >
                 {visibleColumnIds.map((columnId, columnIndex) => {
@@ -301,8 +413,9 @@ export function ContractFarmingReportDataTable({
                     <TableCell
                       key={`totals-${columnId}`}
                       style={{
-                        display: 'flex',
+                        display: isGroupedView ? 'flex' : undefined,
                         width: table.getColumn(columnId)?.getSize(),
+                        minWidth: table.getColumn(columnId)?.getSize(),
                       }}
                       className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
                         isNumeric ? 'justify-end tabular-nums' : ''

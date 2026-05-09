@@ -12,6 +12,7 @@ import {
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   WASTAGE_KG_COLUMN_ID,
+  isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
 } from './columns';
 import type { FlattenedRow } from './types';
@@ -199,7 +200,8 @@ function buildTotalsRow(
 
 function getExcelBodyRows(
   rows: Row<FlattenedRow>[],
-  visibleColumnIds: string[]
+  visibleColumnIds: string[],
+  suppressRepeatedMergedCells: boolean
 ): Array<{
   values: Array<string | number>;
   boldByColumn: boolean[];
@@ -256,6 +258,14 @@ function getExcelBodyRows(
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
         } else {
+          const hideRepeatedMergedCell =
+            suppressRepeatedMergedCells &&
+            !isContractFarmingSplitSpanColumn(columnId) &&
+            !row.original.isFirstOfMergedBlock;
+          if (hideRepeatedMergedCell) {
+            nextRow[columnIndex] = '';
+            continue;
+          }
           const rawValue = row.getValue(columnId);
           if (rawValue == null) {
             nextRow[columnIndex] = '';
@@ -382,7 +392,12 @@ export const ContractFarmingExcelButton = ({
         t.getState().grouping.length > 0
           ? t.getPrePaginationRowModel().rows
           : t.getFilteredRowModel().rows;
-      const bodyRows = getExcelBodyRows(sourceRows, visibleColumnIds);
+      const suppressRepeatedMergedCells = true;
+      const bodyRows = getExcelBodyRows(
+        sourceRows,
+        visibleColumnIds,
+        suppressRepeatedMergedCells
+      );
 
       const totalsRowValues = buildTotalsRow(visibleColumnIds, sourceRows);
       const allRowsForWidth = [

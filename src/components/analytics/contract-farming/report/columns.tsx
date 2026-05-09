@@ -105,9 +105,19 @@ export const VARIETY_LEVEL_COLUMN_IDS = new Set([
   'bbNetWeight',
 ]);
 export const BUY_BACK_COLUMN_IDS = new Set(['bbBags', 'bbNetWeight']);
+const CONTRACT_FARMING_SPLIT_SPAN_COLUMN_IDS = new Set<string>([
+  'size',
+  'qty',
+  'acres',
+  SEED_AMOUNT_COLUMN_ID,
+]);
 export const defaultContractFarmingColumnVisibility: VisibilityState = {
   farmerMobile: false,
 };
+
+export function isContractFarmingSplitSpanColumn(columnId: string): boolean {
+  return CONTRACT_FARMING_SPLIT_SPAN_COLUMN_IDS.has(columnId);
+}
 
 function StrongNum({
   value,

@@ -33,3 +33,7 @@ dist-ssr
 
 # Local analytics experiments
 src/components/analytics/contract-farming/report-2/
+
+# Local report behavior notes
+docs/grading-report-rowspan-and-excel-behavior.md
+docs/incoming-report-advanced-tab-value-rendering.md
