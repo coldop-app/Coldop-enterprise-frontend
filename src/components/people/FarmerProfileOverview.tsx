@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
   ArrowUpFromLine,
@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { EditFarmerDialog } from '@/components/forms/edit-farmer-dialog';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 export interface FarmerProfileAggregates {
@@ -87,6 +88,7 @@ export interface FarmerProfileOverviewProps {
   name?: string;
   accountNumber?: string;
   address?: string;
+  mobileNumber?: string;
   /** When set, Farmer report / Accounting report navigate to the corresponding routes. */
   farmerStorageLinkId?: string;
   onEdit?: () => void;
@@ -98,23 +100,58 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   name: nameProp,
   accountNumber: accountNumberProp,
   address: addressProp,
+  mobileNumber: mobileNumberProp,
   farmerStorageLinkId,
   onEdit,
   editAriaLabel = 'Edit farmer',
   aggregates,
 }: FarmerProfileOverviewProps) {
+  const [editFarmerDialogOpen, setEditFarmerDialogOpen] = useState(false);
+
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
   const canReadFarmerProfileReports = hasPermission(
     'farmer-profile',
     'reports'
   );
   const canUpdateFarmerProfile = hasPermission('farmer-profile', 'update');
+
+  const editFarmerInitialValues = useMemo(
+    () => ({
+      name: nameProp?.trim() ? nameProp : '',
+      address: addressProp?.trim() ? addressProp : '',
+      mobileNumber: mobileNumberProp ?? '',
+      accountNumber: (() => {
+        const n = Number(accountNumberProp);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+      })(),
+    }),
+    [nameProp, addressProp, mobileNumberProp, accountNumberProp]
+  );
+
+  const handleEditClick = () => {
+    if (onEdit != null) {
+      onEdit();
+      return;
+    }
+    if (farmerStorageLinkId != null) {
+      setEditFarmerDialogOpen(true);
+    }
+  };
   const name = nameProp ?? PLACEHOLDER_NAME;
   const accountNumber = accountNumberProp ?? PLACEHOLDER_ACCOUNT;
   const address = addressProp ?? PLACEHOLDER_ADDRESS;
 
   return (
     <div className="space-y-6">
+      {farmerStorageLinkId != null && onEdit == null ? (
+        <EditFarmerDialog
+          open={editFarmerDialogOpen}
+          onOpenChange={setEditFarmerDialogOpen}
+          farmerStorageLinkId={farmerStorageLinkId}
+          initialValues={editFarmerInitialValues}
+        />
+      ) : null}
+
       <TooltipProvider delayDuration={300}>
         <div className="space-y-5">
           <div className="flex items-start justify-between gap-3">
@@ -146,25 +183,26 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
               </div>
             </div>
 
-            {canUpdateFarmerProfile && (
-              <div className="flex shrink-0 items-center gap-0.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
-                      onClick={onEdit}
-                      aria-label={editAriaLabel}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Edit</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
+            {canUpdateFarmerProfile &&
+              (onEdit != null || farmerStorageLinkId != null) && (
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
+                        onClick={handleEditClick}
+                        aria-label={editAriaLabel}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Edit</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
           </div>
 
           <Separator />

@@ -17,3 +17,17 @@ export interface QuickRegisterFarmerApiResponse {
   message?: string;
   data?: FarmerStorageLink | null;
 }
+
+/** Payload for PUT /farmer-storage-link/:id */
+export interface EditFarmerStorageLinkInput {
+  name: string;
+  mobileNumber: string;
+  accountNumber: number;
+  address: string;
+}
+
+export interface EditFarmerStorageLinkApiResponse {
+  success: boolean;
+  message?: string;
+  data?: FarmerStorageLink | null;
+}

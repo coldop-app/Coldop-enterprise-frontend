@@ -16,6 +16,7 @@ const navigationItems: NavigationItem[] = [
     name: 'Daybook',
     href: '/store-admin/daybook',
     icon: BookOpen,
+    activePaths: ['/store-admin/farmer-seed'],
   },
   {
     name: 'People',
@@ -27,7 +28,11 @@ const navigationItems: NavigationItem[] = [
     name: 'Analytics',
     href: '/store-admin/analytics',
     icon: BarChart3,
-    activePaths: ['/store-admin/analytics', '/store-admin/variety-breakdown'],
+    activePaths: [
+      '/store-admin/analytics',
+      '/store-admin/variety-breakdown',
+      '/store-admin/area-breakdown',
+    ],
   },
   {
     name: 'Settings',
@@ -63,7 +68,7 @@ const AppBottomNav = () => {
   }
 
   return (
-    <nav className="fixed right-0 bottom-0 left-0 z-50 border-t border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <nav className="border-border/50 bg-background/80 fixed right-0 bottom-0 left-0 z-50 border-t shadow-sm backdrop-blur-md">
       <div className="flex h-16 items-center justify-around">
         {navigationItemsWithState.map((item) => {
           const Icon = item.icon;
@@ -74,17 +79,13 @@ const AppBottomNav = () => {
               to={item.href}
               className={cn(
                 'font-custom focus-visible:ring-primary flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-t px-2 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-                item.isActive
-                  ? 'text-primary'
-                  : 'text-gray-600 dark:text-gray-300'
+                item.isActive ? 'text-primary' : 'text-foreground/70'
               )}
             >
               <Icon
                 className={cn(
                   'h-5 w-5 transition-colors duration-200',
-                  item.isActive
-                    ? 'text-primary'
-                    : 'text-gray-600 dark:text-gray-300'
+                  item.isActive ? 'text-primary' : 'text-foreground/70'
                 )}
               />
               <span
@@ -92,7 +93,7 @@ const AppBottomNav = () => {
                   'text-xs font-medium transition-colors duration-200',
                   item.isActive
                     ? 'text-primary font-semibold'
-                    : 'text-gray-600 dark:text-gray-300'
+                    : 'text-foreground/70'
                 )}
               >
                 {item.name}

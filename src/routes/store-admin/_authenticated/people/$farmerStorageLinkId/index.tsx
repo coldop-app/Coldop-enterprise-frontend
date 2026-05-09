@@ -118,6 +118,9 @@ function RouteComponent() {
                     name={gatePassesResponse.farmerStorageLink?.name}
                     accountNumber={gatePassesResponse.farmerStorageLink?.accountNumber?.toString()}
                     address={gatePassesResponse.farmerStorageLink?.address}
+                    mobileNumber={
+                      gatePassesResponse.farmerStorageLink?.mobileNumber
+                    }
                     farmerStorageLinkId={farmerStorageLinkId}
                     aggregates={aggregates}
                   />
