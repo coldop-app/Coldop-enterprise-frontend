@@ -54,6 +54,7 @@ import {
   buildColumns,
   buildDefaultContractFarmingColumnOrder,
   defaultContractFarmingColumnVisibility,
+  isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
 } from './columns';
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
@@ -494,6 +495,12 @@ export default function ContractFarmingReportTable() {
         if (
           VARIETY_LEVEL_TOTAL_COLUMN_IDS.has(columnId) ||
           VARIETY_LEVEL_AVERAGE_COLUMN_IDS.has(columnId)
+        ) {
+          continue;
+        }
+        if (
+          !isContractFarmingSplitSpanColumn(columnId) &&
+          !row.original.isFirstOfMergedBlock
         ) {
           continue;
         }

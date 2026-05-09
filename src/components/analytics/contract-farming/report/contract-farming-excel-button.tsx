@@ -5,12 +5,7 @@ import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AVG_QUINTAL_PER_ACRE_COLUMN_ID,
-  BUY_BACK_AMOUNT_COLUMN_ID,
-  NET_AMOUNT_COLUMN_ID,
-  NET_AMOUNT_PER_ACRE_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
-  TOTAL_GRADED_BAGS_COLUMN_ID,
-  TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   WASTAGE_KG_COLUMN_ID,
   isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
@@ -150,14 +145,6 @@ function buildTotalsRow(
     WASTAGE_KG_COLUMN_ID,
     OUTPUT_PERCENTAGE_COLUMN_ID,
   ]);
-  const DEDUP_BY_VARIETY_COLUMN_IDS = new Set<string>([
-    TOTAL_GRADED_BAGS_COLUMN_ID,
-    TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
-    BUY_BACK_AMOUNT_COLUMN_ID,
-    NET_AMOUNT_COLUMN_ID,
-    NET_AMOUNT_PER_ACRE_COLUMN_ID,
-    ...AVERAGE_COLUMN_IDS,
-  ]);
   const leafRows = collectUniqueLeafRows(rows);
   const uniqueVarietyLeafRows = Array.from(
     new Map(
@@ -171,9 +158,9 @@ function buildTotalsRow(
     if (index === 0) return 'Total';
     if (!isNumericSortColumnId(columnId)) return '';
 
-    const sourceRows = DEDUP_BY_VARIETY_COLUMN_IDS.has(columnId)
-      ? uniqueVarietyLeafRows
-      : leafRows;
+    const sourceRows = isContractFarmingSplitSpanColumn(columnId)
+      ? leafRows
+      : uniqueVarietyLeafRows;
 
     if (AVERAGE_COLUMN_IDS.has(columnId)) {
       let sum = 0;
