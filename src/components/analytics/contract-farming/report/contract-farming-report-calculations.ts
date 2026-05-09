@@ -502,10 +502,16 @@ export function flattenRows(
       const varietyTotalSeedAmountPayable =
         variety.seed?.totalAmountPayable ?? amountSum;
       const gradeData = variety.grading ?? {};
+      const varietyRowKey = `${farmer.id}-${variety.name}-${farmerIndex}-${varietyIndex}`;
+      const mergedRowSpan = normalizedSizes.length;
 
       normalizedSizes.forEach((size, sizeIndex) => {
         const base: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${sizeIndex}-${farmerIndex}-${varietyIndex}`,
+          varietyRowKey,
+          mergedRowSpan,
+          isFirstOfMergedBlock: sizeIndex === 0,
+          sizeRowIndex: sizeIndex,
           farmerName: farmer.name,
           mobileNumber: farmer.mobileNumber,
           farmerMobile: farmer.mobileNumber,
