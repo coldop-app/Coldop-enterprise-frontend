@@ -190,7 +190,12 @@ export function ViewFiltersSheet({
       if (values.length === 0) {
         const uniqueValues = new Set<string>();
         table.getCoreRowModel().rows.forEach((row) => {
-          const rawValue = row.getValue(columnId);
+          const rawValueFromAccessor = row.getValue(columnId);
+          const rawValueFromOriginal = (
+            row.original as Record<string, unknown>
+          )[columnId];
+          const rawValue =
+            rawValueFromAccessor ?? rawValueFromOriginal ?? undefined;
           if (rawValue === undefined || rawValue === null) return;
           const normalized = String(rawValue).trim();
           if (normalized.length > 0) {
@@ -212,7 +217,12 @@ export function ViewFiltersSheet({
       void coreRowCount;
       const uniqueValues = new Set<string>();
       table.getCoreRowModel().rows.forEach((row) => {
-        const rawValue = row.getValue(columnId);
+        const rawValueFromAccessor = row.getValue(columnId);
+        const rawValueFromOriginal = (row.original as Record<string, unknown>)[
+          columnId
+        ];
+        const rawValue =
+          rawValueFromAccessor ?? rawValueFromOriginal ?? undefined;
         if (rawValue === undefined || rawValue === null) return;
         const normalized = String(rawValue).trim();
         if (normalized.length > 0) uniqueValues.add(normalized);
