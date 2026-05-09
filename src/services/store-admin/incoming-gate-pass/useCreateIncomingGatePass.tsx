@@ -9,11 +9,7 @@ import type {
   CreateIncomingGatePassApiResponse,
   CreateIncomingGatePassInput,
 } from '@/types/incoming-gate-pass';
-
-/** Query key prefix for incoming gate pass – use for invalidation */
-export const incomingGatePassKeys = {
-  all: ['store-admin', 'incoming-gate-pass'] as const,
-};
+import { incomingGatePassKeys } from './useGetIncomingGatePasses';
 
 /** API error shape (400, 404, 409): { success, error: { code, message } } */
 type IncomingGatePassApiError = {
