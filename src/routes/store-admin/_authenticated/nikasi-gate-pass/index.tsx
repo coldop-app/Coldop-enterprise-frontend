@@ -33,11 +33,15 @@ import {
 } from '@/lib/business-number-input';
 import { computeAverageWeightPerBag, formatDateToISO } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
-import { usePreferencesStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import {
   NikasiSummarySheet,
   type NikasiSummaryFormValues,
 } from './edit/-SummarySheet';
+import {
+  NIKASI_FIXED_FARMER_COLD_STORAGE_ID,
+  NIKASI_FIXED_FARMER_STORAGE_LINK_ID,
+} from './-fixed-farmer-by-cold-storage';
 
 type ExtraQuantityRow = {
   id: string;
@@ -49,6 +53,9 @@ type ExtraQuantityRow = {
 
 const NikasiCreateForm = memo(function NikasiCreateForm() {
   const preferences = usePreferencesStore((state) => state.preferences);
+  const coldStorageId = useStore((s) => s.coldStorage?._id);
+  const isFixedFarmerColdStorage =
+    coldStorageId === NIKASI_FIXED_FARMER_COLD_STORAGE_ID;
   const { mutate: createNikasiGatePass, isPending } = useCreateNikasiGatePass();
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('nikasi-gate-pass');
@@ -132,6 +139,10 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     number | undefined
   >(undefined);
   const [farmerStorageLinkId, setFarmerStorageLinkId] = useState('');
+  const effectiveFarmerStorageLinkId = isFixedFarmerColdStorage
+    ? NIKASI_FIXED_FARMER_STORAGE_LINK_ID
+    : farmerStorageLinkId;
+
   const [dispatchLedgerId, setDispatchLedgerId] = useState('');
   const [toField, setToField] = useState('');
   /** Optional override for API `to`; when empty, selected ledger name (`toField`) is used. */
@@ -155,10 +166,10 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
   const openSheetRef = useRef(false);
   const selectedFarmerName = useMemo(() => {
     const selectedFarmer = farmerLinks?.find(
-      (link) => link._id === farmerStorageLinkId
+      (link) => link._id === effectiveFarmerStorageLinkId
     );
     return selectedFarmer?.farmerId?.name?.trim() ?? '';
-  }, [farmerLinks, farmerStorageLinkId]);
+  }, [farmerLinks, effectiveFarmerStorageLinkId]);
 
   const totalQty = useMemo(() => {
     const fixed = Object.values(sizeQuantities ?? {}).reduce(
@@ -239,7 +250,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
   const gatePassNo = voucherNumber ?? 0;
 
   const submitCreate = () => {
-    if (!farmerStorageLinkId.trim())
+    if (!effectiveFarmerStorageLinkId.trim())
       return toast.error('Please select a farmer account.');
     if (!selectedFarmerName)
       return toast.error(
@@ -275,7 +286,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     createNikasiGatePass(
       {
         gatePassNo,
-        farmerStorageLinkId: farmerStorageLinkId.trim(),
+        farmerStorageLinkId: effectiveFarmerStorageLinkId.trim(),
         manualGatePassNumber,
         truckNumber: truckNumber.trim() || undefined,
         isInternalTransfer,
@@ -357,24 +368,26 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
             />
           </Field>
 
-          <Field>
-            <FieldLabel className="font-custom mb-2 block text-base font-semibold">
-              Enter Account Name (search and select)
-            </FieldLabel>
-            <SearchSelector
-              id="nikasi-create-farmer-select"
-              options={farmerOptions}
-              placeholder="Search or select farmer"
-              searchPlaceholder="Search by name, account number, or mobile..."
-              value={farmerStorageLinkId}
-              onSelect={(value) => setFarmerStorageLinkId(value ?? '')}
-              loading={isLoadingFarmers}
-              loadingMessage="Loading farmers..."
-              emptyMessage="No farmers found"
-              className="w-full"
-              buttonClassName="w-full justify-between"
-            />
-          </Field>
+          {!isFixedFarmerColdStorage ? (
+            <Field>
+              <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+                Enter Account Name (search and select)
+              </FieldLabel>
+              <SearchSelector
+                id="nikasi-create-farmer-select"
+                options={farmerOptions}
+                placeholder="Search or select farmer"
+                searchPlaceholder="Search by name, account number, or mobile..."
+                value={farmerStorageLinkId}
+                onSelect={(value) => setFarmerStorageLinkId(value ?? '')}
+                loading={isLoadingFarmers}
+                loadingMessage="Loading farmers..."
+                emptyMessage="No farmers found"
+                className="w-full"
+                buttonClassName="w-full justify-between"
+              />
+            </Field>
+          ) : null}
 
           <Field>
             <FieldLabel className="font-custom mb-2 block text-base font-semibold">
@@ -725,7 +738,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
             onClick={() => {
               setTruckNumber('');
               setManualGatePassNumber(undefined);
-              setFarmerStorageLinkId('');
+              if (!isFixedFarmerColdStorage) setFarmerStorageLinkId('');
               setDispatchLedgerId('');
               setToField('');
               setToLabelOptional('');

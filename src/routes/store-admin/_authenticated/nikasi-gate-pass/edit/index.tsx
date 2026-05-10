@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createFileRoute,
   useLocation,
@@ -25,7 +25,7 @@ import {
   type Option,
 } from '@/components/forms/search-selector';
 import { AddDispatchLedgerModal } from '@/components/forms/add-dispatch-ledger-modal';
-import { usePreferencesStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useGetDispatchLedgers } from '@/services/store-admin/dispatch-ledger/useGetDispatchLedgers';
 import {
@@ -49,6 +49,10 @@ import {
   NikasiSummarySheet,
   type NikasiSummaryFormValues,
 } from './-SummarySheet';
+import {
+  NIKASI_FIXED_FARMER_COLD_STORAGE_ID,
+  NIKASI_FIXED_FARMER_STORAGE_LINK_ID,
+} from '../-fixed-farmer-by-cold-storage';
 
 type ExtraQuantityRow = {
   id: string;
@@ -93,6 +97,9 @@ const NikasiEditForm = memo(function NikasiEditForm({
   editData: NikasiGatePassEditState;
 }) {
   const navigate = useNavigate();
+  const coldStorageId = useStore((s) => s.coldStorage?._id);
+  const isFixedFarmerColdStorage =
+    coldStorageId === NIKASI_FIXED_FARMER_COLD_STORAGE_ID;
   const { mutate: editNikasiGatePass, isPending } = useEditNikasiGatePass();
   const { data: farmerLinks, isLoading: isLoadingFarmers } = useGetAllFarmers();
   const {
@@ -312,13 +319,25 @@ const NikasiEditForm = memo(function NikasiEditForm({
       );
     },
   });
+
+  useEffect(() => {
+    if (!isFixedFarmerColdStorage) return;
+    form.setFieldValue(
+      'farmerStorageLinkId',
+      NIKASI_FIXED_FARMER_STORAGE_LINK_ID
+    );
+  }, [form, isFixedFarmerColdStorage]);
+
   const selectedFarmerStorageLinkId = form.state.values.farmerStorageLinkId;
+  const effectiveFarmerLinkId = isFixedFarmerColdStorage
+    ? NIKASI_FIXED_FARMER_STORAGE_LINK_ID
+    : selectedFarmerStorageLinkId;
   const { data: incomingGatePassesOfFarmer = [] } =
-    useGetIncomingGatePassesOfFarmer(selectedFarmerStorageLinkId);
+    useGetIncomingGatePassesOfFarmer(effectiveFarmerLinkId);
 
   const selectedFarmerName =
     farmerLinks
-      ?.find((link) => link._id === form.state.values.farmerStorageLinkId)
+      ?.find((link) => link._id === effectiveFarmerLinkId)
       ?.farmerId?.name?.trim() ||
     editData.from ||
     '';
@@ -470,29 +489,31 @@ const NikasiEditForm = memo(function NikasiEditForm({
             )}
           />
 
-          <form.Field
-            name="farmerStorageLinkId"
-            children={(field) => (
-              <Field>
-                <FieldLabel className="font-custom mb-2 block text-base font-semibold">
-                  Enter Account Name (search and select)
-                </FieldLabel>
-                <SearchSelector
-                  id="nikasi-edit-farmer-select"
-                  options={farmerOptions}
-                  placeholder="Search or select farmer"
-                  searchPlaceholder="Search by name, account number, or mobile..."
-                  value={field.state.value}
-                  onSelect={(value) => field.handleChange(value ?? '')}
-                  loading={isLoadingFarmers}
-                  loadingMessage="Loading farmers..."
-                  emptyMessage="No farmers found"
-                  className="w-full"
-                  buttonClassName="w-full justify-between"
-                />
-              </Field>
-            )}
-          />
+          {!isFixedFarmerColdStorage ? (
+            <form.Field
+              name="farmerStorageLinkId"
+              children={(field) => (
+                <Field>
+                  <FieldLabel className="font-custom mb-2 block text-base font-semibold">
+                    Enter Account Name (search and select)
+                  </FieldLabel>
+                  <SearchSelector
+                    id="nikasi-edit-farmer-select"
+                    options={farmerOptions}
+                    placeholder="Search or select farmer"
+                    searchPlaceholder="Search by name, account number, or mobile..."
+                    value={field.state.value}
+                    onSelect={(value) => field.handleChange(value ?? '')}
+                    loading={isLoadingFarmers}
+                    loadingMessage="Loading farmers..."
+                    emptyMessage="No farmers found"
+                    className="w-full"
+                    buttonClassName="w-full justify-between"
+                  />
+                </Field>
+              )}
+            />
+          ) : null}
 
           <form.Field
             name="dispatchLedgerId"
@@ -937,7 +958,15 @@ const NikasiEditForm = memo(function NikasiEditForm({
           <Button
             type="button"
             variant="outline"
-            onClick={() => form.reset()}
+            onClick={() => {
+              form.reset();
+              if (isFixedFarmerColdStorage) {
+                form.setFieldValue(
+                  'farmerStorageLinkId',
+                  NIKASI_FIXED_FARMER_STORAGE_LINK_ID
+                );
+              }
+            }}
             className="font-custom"
           >
             Reset
