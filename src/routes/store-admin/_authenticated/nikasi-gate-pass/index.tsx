@@ -31,7 +31,7 @@ import {
   businessNumberSpinnerClassName,
   preventArrowUpDownOnNumericInput,
 } from '@/lib/business-number-input';
-import { formatDateToISO } from '@/lib/helpers';
+import { computeAverageWeightPerBag, formatDateToISO } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/store';
 import {
@@ -127,6 +127,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     [gradingSizes]
   );
 
+  const [truckNumber, setTruckNumber] = useState('');
   const [manualGatePassNumber, setManualGatePassNumber] = useState<
     number | undefined
   >(undefined);
@@ -147,9 +148,6 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     ExtraQuantityRow[]
   >([]);
   const [netWeight, setNetWeight] = useState<number | undefined>(undefined);
-  const [averageWeightPerBag, setAverageWeightPerBag] = useState<
-    number | undefined
-  >(undefined);
   const [remarks, setRemarks] = useState('');
   const [isInternalTransfer, setIsInternalTransfer] = useState(false);
 
@@ -174,6 +172,11 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     return fixed + extra;
   }, [sizeQuantities, extraQuantityRows]);
 
+  const averageWeightPerBag = useMemo(
+    () => computeAverageWeightPerBag(netWeight, totalQty),
+    [netWeight, totalQty]
+  );
+
   const summaryFormValues: NikasiSummaryFormValues = useMemo(() => {
     const fixedAllocations = (
       Object.entries(sizeQuantities) as [string, number][]
@@ -197,9 +200,11 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
       passes: [
         {
           date,
-          from: selectedFarmerName,
-          toField: toLabelOptional.trim() || toField,
+          farmerName: selectedFarmerName,
+          dispatchLedgerName: toField.trim(),
+          destination: toLabelOptional.trim() || toField.trim(),
           remarks,
+          truckNumber: truckNumber.trim() || undefined,
           isInternalTransfer,
           gradingGatePasses: [
             {
@@ -222,6 +227,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     toField,
     toLabelOptional,
     remarks,
+    truckNumber,
     isInternalTransfer,
     sizeQuantities,
     sizeVarieties,
@@ -271,6 +277,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
         gatePassNo,
         farmerStorageLinkId: farmerStorageLinkId.trim(),
         manualGatePassNumber,
+        truckNumber: truckNumber.trim() || undefined,
         isInternalTransfer,
         date: formatDateToISO(date),
         from: selectedFarmerName,
@@ -330,6 +337,23 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
               onWheel={blurTargetOnNumberWheel}
               onKeyDown={preventArrowUpDownOnNumericInput}
               className={cn('font-custom', businessNumberSpinnerClassName)}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel
+              htmlFor="nikasi-create-truckNumber"
+              className="font-custom mb-2 block text-base font-semibold"
+            >
+              Truck Number
+            </FieldLabel>
+            <Input
+              id="nikasi-create-truckNumber"
+              name="truckNumber"
+              placeholder="Enter truck number"
+              className="font-custom"
+              value={truckNumber}
+              onChange={(e) => setTruckNumber(e.target.value)}
             />
           </Field>
 
@@ -622,49 +646,62 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel className="font-custom mb-2 block text-base font-semibold">
-                Net Weight
-              </FieldLabel>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                value={netWeight ?? ''}
-                onChange={(e) =>
-                  setNetWeight(
-                    e.target.value
-                      ? Number.parseFloat(e.target.value)
-                      : undefined
-                  )
-                }
-                onWheel={blurTargetOnNumberWheel}
-                onKeyDown={preventArrowUpDownOnNumericInput}
-                className={cn('font-custom', businessNumberSpinnerClassName)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel className="font-custom mb-2 block text-base font-semibold">
-                Average Weight per Bag
-              </FieldLabel>
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                value={averageWeightPerBag ?? ''}
-                onChange={(e) =>
-                  setAverageWeightPerBag(
-                    e.target.value
-                      ? Number.parseFloat(e.target.value)
-                      : undefined
-                  )
-                }
-                onWheel={blurTargetOnNumberWheel}
-                onKeyDown={preventArrowUpDownOnNumericInput}
-                className={cn('font-custom', businessNumberSpinnerClassName)}
-              />
-            </Field>
+          <div
+            className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 sm:gap-y-3"
+            role="group"
+            aria-label="Net weight and average per bag"
+          >
+            <FieldLabel
+              htmlFor="nikasi-create-net-weight"
+              className="font-custom block text-base font-semibold sm:col-start-1 sm:row-start-1 sm:self-end"
+            >
+              Net Weight
+            </FieldLabel>
+            <FieldLabel
+              htmlFor="nikasi-create-avg-weight-per-bag"
+              className="font-custom block text-base font-semibold sm:col-start-2 sm:row-start-1 sm:self-end"
+            >
+              Average Weight per Bag
+              <span className="text-muted-foreground mt-0.5 block text-sm font-normal">
+                (net weight ÷ total bags)
+              </span>
+            </FieldLabel>
+            <Input
+              id="nikasi-create-net-weight"
+              type="number"
+              min={0}
+              step="any"
+              value={netWeight ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!raw) return setNetWeight(undefined);
+                const parsed = Number.parseFloat(raw);
+                setNetWeight(Number.isFinite(parsed) ? parsed : undefined);
+              }}
+              onWheel={blurTargetOnNumberWheel}
+              onKeyDown={preventArrowUpDownOnNumericInput}
+              className={cn(
+                'font-custom sm:col-start-1 sm:row-start-2',
+                businessNumberSpinnerClassName
+              )}
+            />
+            <Input
+              id="nikasi-create-avg-weight-per-bag"
+              readOnly
+              tabIndex={-1}
+              aria-readonly="true"
+              type="text"
+              value={
+                averageWeightPerBag === undefined
+                  ? ''
+                  : String(averageWeightPerBag)
+              }
+              placeholder="—"
+              className={cn(
+                'font-custom bg-muted/50 text-foreground sm:col-start-2 sm:row-start-2',
+                businessNumberSpinnerClassName
+              )}
+            />
           </div>
 
           <Field>
@@ -686,6 +723,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
             type="button"
             variant="outline"
             onClick={() => {
+              setTruckNumber('');
               setManualGatePassNumber(undefined);
               setFarmerStorageLinkId('');
               setDispatchLedgerId('');
@@ -697,7 +735,6 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
               setSizeVarieties(defaultSizeVarieties);
               setExtraQuantityRows([]);
               setNetWeight(undefined);
-              setAverageWeightPerBag(undefined);
               setRemarks('');
               setIsInternalTransfer(false);
             }}

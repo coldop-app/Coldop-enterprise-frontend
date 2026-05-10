@@ -16,6 +16,7 @@ export interface CreateNikasiGatePassInput {
   dispatchLedgerId: string;
   gatePassNo: number;
   manualGatePassNumber?: number;
+  truckNumber?: string;
   isInternalTransfer?: boolean;
   date: string;
   from: string;
@@ -86,6 +87,10 @@ function normalizeCreateNikasiGatePassPayload(
     ...(payload.manualGatePassNumber !== undefined && {
       manualGatePassNumber: payload.manualGatePassNumber,
     }),
+    ...(payload.truckNumber !== undefined &&
+      payload.truckNumber.trim() !== '' && {
+        truckNumber: payload.truckNumber.trim(),
+      }),
     ...(payload.isInternalTransfer !== undefined && {
       isInternalTransfer: payload.isInternalTransfer,
     }),

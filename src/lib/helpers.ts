@@ -54,3 +54,20 @@ export const formatDateToISO = (dateString: string): string => {
   const dayStr = String(day).padStart(2, '0');
   return `${year}-${monthStr}-${dayStr}T00:00:00.000Z`;
 };
+
+/** Net weight (kg) ÷ total bag count; undefined when inputs are missing or invalid. */
+export function computeAverageWeightPerBag(
+  netWeightKg: number | undefined,
+  totalBagCount: number
+): number | undefined {
+  if (
+    netWeightKg === undefined ||
+    !Number.isFinite(netWeightKg) ||
+    netWeightKg <= 0 ||
+    totalBagCount <= 0
+  ) {
+    return undefined;
+  }
+  const raw = netWeightKg / totalBagCount;
+  return Math.round(raw * 1e6) / 1e6;
+}

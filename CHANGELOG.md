@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] - 2026-05-10
+
+### Changed
+- Contract farming analytics report grading columns now use a stable sort order (`orderContractFarmingGradeHeaders`): aggregate **Below 40** sits before **40–45**, **Above 50** after **45–50**, and **Cut** remains last, with layout version bumped for saved column-order memo invalidation.
+- Contract farming report table flattening, advanced-filter row shaping, and empty-grade-column detection now read bag counts via `getGradeBagCount` so totals stay aligned with the ordered header list.
+- Nikasi gate pass create and edit flows support an optional **truck number**, wired through list typings, mutations, summary sheet preview, and daybook cards (`truckNumber` on vouchers).
+- Nikasi summary review now separates **farmer**, **dispatch ledger**, and **destination** labels instead of generic from/to rows.
+- Average weight per bag on Nikasi create/edit is computed from net weight and total bags (`computeAverageWeightPerBag` in `helpers.ts`), shown read-only in the UI, and submitted from the edit form so payloads stay consistent with totals.
+- Project version updated to `0.6.5` for this contract farming column ordering and Nikasi trucking/average-weight release.
+
 ## [0.6.4] - 2026-05-08
 
 ### Changed

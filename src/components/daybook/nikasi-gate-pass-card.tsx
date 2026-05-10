@@ -17,6 +17,7 @@ import {
   CircleUser,
   ArrowRightCircle,
   Ban,
+  Truck,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,7 @@ export interface NikasiVoucherCardProps {
 export interface NikasiGatePassEditState {
   id: string;
   gatePassNo: string;
+  truckNumber: string;
   manualGatePassNumber: string;
   date: string;
   from: string;
@@ -162,6 +164,7 @@ export function NikasiVoucherCard({
     const editState: NikasiGatePassEditState = {
       id: gatePass._id,
       gatePassNo: String(gatePass.gatePassNo),
+      truckNumber: gatePass.truckNumber?.trim() ?? '',
       manualGatePassNumber: String(gatePass.manualGatePassNumber ?? ''),
       date: gatePass.date,
       from: gatePass.from,
@@ -270,7 +273,7 @@ export function NikasiVoucherCard({
       </div>
 
       <div className="px-3 py-3 sm:px-4 sm:py-4">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-3 lg:grid-cols-4">
           <InfoBlock
             label="Variety"
             value={bagDetails[0]?.variety ?? '--'}
@@ -285,6 +288,11 @@ export function NikasiVoucherCard({
             label="To"
             value={gatePass.to?.trim() || '—'}
             icon={ArrowRightCircle}
+          />
+          <InfoBlock
+            label="Truck No."
+            value={gatePass.truckNumber?.trim() || '—'}
+            icon={Truck}
           />
         </div>
       </div>

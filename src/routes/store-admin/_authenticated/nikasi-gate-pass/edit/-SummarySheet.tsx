@@ -8,7 +8,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { FileText, Calendar, MapPin, Loader2, Repeat2 } from 'lucide-react';
+import {
+  FileText,
+  Calendar,
+  MapPin,
+  Loader2,
+  Repeat2,
+  Truck,
+  User,
+} from 'lucide-react';
 
 export interface NikasiSummaryAllocation {
   size: string;
@@ -26,9 +34,14 @@ export interface NikasiSummaryGradingEntry {
 
 export interface NikasiSummaryPassValues {
   date: string;
-  from: string;
-  toField: string;
+  /** Farmer / account holder */
+  farmerName: string;
+  /** Selected dispatch ledger name */
+  dispatchLedgerName: string;
+  /** Destination label (optional override; defaults to ledger when blank on submit) */
+  destination: string;
   remarks: string;
+  truckNumber?: string;
   isInternalTransfer?: boolean;
   gradingGatePasses: NikasiSummaryGradingEntry[];
 }
@@ -160,7 +173,15 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
 
           <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
             {passList.map((pass, passIndex) => {
-              const { date, from, toField, remarks, gradingGatePasses } = pass;
+              const {
+                date,
+                farmerName,
+                dispatchLedgerName,
+                destination,
+                remarks,
+                truckNumber,
+                gradingGatePasses,
+              } = pass;
               const passBags = gradingGatePasses.reduce(
                 (sum, entry) =>
                   sum +
@@ -184,14 +205,24 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                         icon={Calendar}
                       />
                       <SummaryMetaRow
-                        label="From"
-                        value={from || '-'}
+                        label="Farmer"
+                        value={farmerName?.trim() || '—'}
+                        icon={User}
+                      />
+                      <SummaryMetaRow
+                        label="Dispatch ledger"
+                        value={dispatchLedgerName?.trim() || '—'}
                         icon={MapPin}
                       />
                       <SummaryMetaRow
-                        label="To"
-                        value={toField || '-'}
+                        label="Destination"
+                        value={destination?.trim() || '—'}
                         icon={MapPin}
+                      />
+                      <SummaryMetaRow
+                        label="Truck"
+                        value={truckNumber?.trim() || '—'}
+                        icon={Truck}
                       />
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">

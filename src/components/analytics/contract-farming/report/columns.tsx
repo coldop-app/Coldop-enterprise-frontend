@@ -76,7 +76,7 @@ export const TRAILING_TWO_ROW_HEADER_ID_SET = new Set<string>(
 );
 
 /** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
-export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 10;
+export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 12;
 
 /**
  * Default leaf order inside the grading section (after buy-back bags / net weight):

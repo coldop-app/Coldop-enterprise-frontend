@@ -30,8 +30,10 @@ import {
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
 import {
+  buildGradeHeaders,
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
+  getGradeBagCount,
   getGradeWeightPercent,
   getNetAmountPerAcreRupee,
   getNetAmountRupee,
@@ -39,6 +41,7 @@ import {
   getTotalGradeBags,
   getTotalGradeNetWeightKg,
   getWastageKg,
+  orderContractFarmingGradeHeaders,
 } from './contract-farming-report-calculations';
 import {
   AVG_QUINTAL_PER_ACRE_COLUMN_ID,
@@ -231,8 +234,7 @@ function flattenFarmers(
 
         gradeHeaders.forEach((grade) => {
           const key = `${GRADE_BAG_COLUMN_KEY_PREFIX}${grade}` as const;
-          const gradeEntry = gradeData[grade];
-          row[key] = gradeEntry ? gradeEntry.bags : null;
+          row[key] = getGradeBagCount(row, grade);
         });
 
         rows.push(row);
@@ -244,7 +246,8 @@ function flattenFarmers(
 }
 
 function createGlobalContractFarmingFilterFn(
-  preferences: ReturnType<typeof usePreferencesStore.getState>['preferences']
+  preferences: ReturnType<typeof usePreferencesStore.getState>['preferences'],
+  gradeHeaders: readonly string[]
 ) {
   return (
     row: { original: FlattenedRow },
@@ -285,10 +288,10 @@ function createGlobalContractFarmingFilterFn(
         ),
       };
 
-      Object.entries(row.original.gradeData ?? {}).forEach(([grade, value]) => {
+      gradeHeaders.forEach((grade) => {
         const bagsKey = `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`;
         const pctKey = `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`;
-        rowRecord[bagsKey] = Number(value?.bags ?? 0);
+        rowRecord[bagsKey] = Number(getGradeBagCount(row.original, grade) ?? 0);
         rowRecord[pctKey] = getGradeWeightPercent(row.original, grade);
       });
 
@@ -340,10 +343,12 @@ export default function ContractFarmingReportTable() {
     const fromApi = data?.meta?.allGrades ?? [];
     const fromRows = getGradeHeaders(farmers);
     const all = new Set<string>([...fromApi, ...fromRows]);
-    const sorted = Array.from(all).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true })
+    const grouped = buildGradeHeaders(Array.from(all));
+    const preferenceOrdered = orderGradeHeadersByPreferences(
+      grouped,
+      preferenceBagSizes
     );
-    return orderGradeHeadersByPreferences(sorted, preferenceBagSizes);
+    return orderContractFarmingGradeHeaders(preferenceOrdered);
   }, [data?.meta?.allGrades, farmers, preferenceBagSizes]);
 
   const columns = React.useMemo(
@@ -381,8 +386,8 @@ export default function ContractFarmingReportTable() {
     [farmers, gradeHeaders]
   );
   const globalContractFarmingFilterFn = React.useMemo(
-    () => createGlobalContractFarmingFilterFn(preferences),
-    [preferences]
+    () => createGlobalContractFarmingFilterFn(preferences, gradeHeaders),
+    [preferences, gradeHeaders]
   );
   const gradeBagColumnIds = React.useMemo(
     () => gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
@@ -399,7 +404,7 @@ export default function ContractFarmingReportTable() {
     const emptyColumns = new Set<string>();
     gradeHeaders.forEach((grade) => {
       const hasAnyValue = flattenedData.some(
-        (row) => Number(row.gradeData?.[grade]?.bags ?? 0) > 0
+        (row) => (getGradeBagCount(row, grade) ?? 0) > 0
       );
       if (!hasAnyValue) {
         emptyColumns.add(`${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`);

@@ -16,6 +16,7 @@ export interface NikasiBagSizeInput {
 export interface EditNikasiGatePassInput {
   gatePassNo?: number;
   manualGatePassNumber?: number;
+  truckNumber?: string;
   isInternalTransfer?: boolean;
   date?: string;
   from?: string;
@@ -88,6 +89,9 @@ function normalizeEditNikasiGatePassPayload(
     }),
     ...(payload.manualGatePassNumber !== undefined && {
       manualGatePassNumber: payload.manualGatePassNumber,
+    }),
+    ...(payload.truckNumber !== undefined && {
+      truckNumber: payload.truckNumber.trim(),
     }),
     ...(payload.isInternalTransfer !== undefined && {
       isInternalTransfer: payload.isInternalTransfer,

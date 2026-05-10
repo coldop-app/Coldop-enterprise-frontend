@@ -74,6 +74,7 @@ export interface NikasiGatePassItem {
   toField?: string;
   bagSize?: NikasiGatePassBagSize[];
   remarks?: string;
+  truckNumber?: string;
   netWeight?: number;
   averageWeightPerBag?: number;
   createdAt?: string;

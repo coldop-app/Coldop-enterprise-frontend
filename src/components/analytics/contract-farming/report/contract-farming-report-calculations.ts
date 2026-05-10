@@ -215,6 +215,41 @@ export function buildGradeHeaders(allGrades: readonly string[]): string[] {
   });
 }
 
+/** Sort key: after 35–40 (6), before 40–45 (7) in {@link BAG_SIZE_DISPLAY_ORDER}. */
+const BELOW_40_AGGREGATE_SORT_KEY = 6.5;
+
+/** Sort key: after 45–50 (9), before 50–55 (10); Above 50 aggregate sits before Cut. */
+const ABOVE_50_AGGREGATE_SORT_KEY = 9.5;
+
+/** Cut is always last among bag-size / grading columns. */
+const CUT_GRADE_SORT_KEY = 100;
+
+function getContractFarmingGradeHeaderSortKey(grade: string): number {
+  if (grade === BELOW_40_GROUP_GRADE) return BELOW_40_AGGREGATE_SORT_KEY;
+  if (grade === ABOVE_50_GROUP_GRADE) return ABOVE_50_AGGREGATE_SORT_KEY;
+  if (normalizeRangeLabel(grade) === 'cut') return CUT_GRADE_SORT_KEY;
+
+  const idx = getGroupedGradeOrderIndex(grade);
+  if (idx !== undefined) return idx;
+
+  return 75;
+}
+
+/**
+ * Stable column order for contract farming grading: **Below 40 (MM)** immediately before
+ * **40–45 (MM)**, **Above 50 (MM)** after **45–50** and before **Cut** (report + Excel).
+ */
+export function orderContractFarmingGradeHeaders(
+  gradeHeaders: readonly string[]
+): string[] {
+  return [...gradeHeaders].sort((a, b) => {
+    const da = getContractFarmingGradeHeaderSortKey(a);
+    const db = getContractFarmingGradeHeaderSortKey(b);
+    if (da !== db) return da - db;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+}
+
 export function getGradeBagCount(
   row: FlattenedRow,
   gradeHeader: string
