@@ -3,6 +3,7 @@ import type {
   ColumnResizeDirection,
   ColumnResizeMode,
   GroupingState,
+  VisibilityState,
 } from '@tanstack/react-table';
 import type { FlattenedRow } from '../types';
 
@@ -11,6 +12,7 @@ export type ContractFarmingViewFiltersSheetProps = {
   onOpenChange: (open: boolean) => void;
   table: TanstackTable<FlattenedRow>;
   defaultColumnOrder: string[];
+  defaultColumnVisibility: VisibilityState;
   columnResizeMode: ColumnResizeMode;
   columnResizeDirection: ColumnResizeDirection;
   onColumnResizeModeChange: (mode: ColumnResizeMode) => void;

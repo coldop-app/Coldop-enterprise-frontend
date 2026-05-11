@@ -56,7 +56,7 @@ import {
   WASTAGE_KG_COLUMN_ID,
   buildColumns,
   buildDefaultContractFarmingColumnOrder,
-  defaultContractFarmingColumnVisibility,
+  buildDefaultContractFarmingColumnVisibility,
   isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
 } from './columns';
@@ -85,6 +85,9 @@ const VARIETY_LEVEL_AVERAGE_COLUMN_IDS = new Set<string>([
   WASTAGE_KG_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
 ]);
+
+/** Stable empty list so `data?.farmers ?? []` does not allocate a new `[]` every render. */
+const EMPTY_FARMERS: ContractFarmingReportFarmer[] = [];
 
 function getVarietyAggregationKey(row: FlattenedRow): string {
   return `${row.accountNumber}|${row.varietyName}`;
@@ -322,7 +325,9 @@ export default function ContractFarmingReportTable() {
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>(defaultContractFarmingColumnVisibility);
+    React.useState<VisibilityState>(() =>
+      buildDefaultContractFarmingColumnVisibility([])
+    );
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -338,7 +343,10 @@ export default function ContractFarmingReportTable() {
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContractFarmingReport();
 
-  const farmers = data?.farmers ?? [];
+  const farmers = React.useMemo(
+    () => data?.farmers ?? EMPTY_FARMERS,
+    [data?.farmers]
+  );
   const gradeHeaders = React.useMemo(() => {
     const fromApi = data?.meta?.allGrades ?? [];
     const fromRows = getGradeHeaders(farmers);
@@ -357,6 +365,10 @@ export default function ContractFarmingReportTable() {
   );
   const defaultColumnOrder = React.useMemo(
     () => buildDefaultContractFarmingColumnOrder(gradeHeaders),
+    [gradeHeaders]
+  );
+  const defaultColumnVisibility = React.useMemo(
+    () => buildDefaultContractFarmingColumnVisibility(gradeHeaders),
     [gradeHeaders]
   );
 
@@ -418,16 +430,24 @@ export default function ContractFarmingReportTable() {
       return;
 
     setColumnVisibility((current) => {
-      const next = { ...current };
-      gradeBagColumnIds.forEach((columnId, index) => {
-        const shouldShow = !emptyGradeBagColumnIds.has(columnId);
-        next[columnId] = shouldShow;
-        next[gradePercentColumnIds[index]!] = shouldShow;
+      // Apply per-grade bag-column defaults (hidden) while preserving any
+      // user toggles already in `current`. Empty grade percentage columns
+      // are additionally hidden so the table doesn't show dead columns.
+      const next = { ...defaultColumnVisibility, ...current };
+      gradePercentColumnIds.forEach((columnId, index) => {
+        const bagColumnId = gradeBagColumnIds[index]!;
+        if (
+          emptyGradeBagColumnIds.has(bagColumnId) &&
+          next[columnId] !== true
+        ) {
+          next[columnId] = false;
+        }
       });
       return next;
     });
     hasInitializedBagVisibilityRef.current = true;
   }, [
+    defaultColumnVisibility,
     emptyGradeBagColumnIds,
     flattenedData.length,
     gradeBagColumnIds,
@@ -687,6 +707,7 @@ export default function ContractFarmingReportTable() {
         onOpenChange={setIsViewFiltersOpen}
         table={table}
         defaultColumnOrder={defaultColumnOrder}
+        defaultColumnVisibility={defaultColumnVisibility}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}

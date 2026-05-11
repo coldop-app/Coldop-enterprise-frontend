@@ -52,7 +52,6 @@ import {
   type FilterOperator,
 } from '@/lib/advanced-filters';
 import type { ContractFarmingViewFiltersSheetProps } from './types';
-import { defaultContractFarmingColumnVisibility } from '../columns';
 import {
   mutateFilterNodeById,
   parseGroupingColumnId,
@@ -198,6 +197,7 @@ export function ContractFarmingViewFiltersSheet({
   onOpenChange,
   table,
   defaultColumnOrder,
+  defaultColumnVisibility,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
   onGroupingChange,
@@ -210,10 +210,38 @@ export function ContractFarmingViewFiltersSheet({
     Record<string, boolean>
   >({});
 
-  const hidableColumns = React.useMemo(
-    () => table.getAllLeafColumns().filter((column) => column.getCanHide()),
-    [table]
-  );
+  /**
+   * Hidable leaf columns, ordered by the active column order (falls back to default).
+   * `defaultColumnOrder` is included in deps because `table` is a stable reference from
+   * `useReactTable`, so we need a sentinel that changes when dynamic columns (e.g. grade
+   * columns) are added so this memo recomputes — mirrors the "Filters" tab's behavior.
+   */
+  const hidableColumns = React.useMemo(() => {
+    const leafColumns = table.getAllLeafColumns();
+    const leafById = new Map(leafColumns.map((c) => [c.id, c]));
+    const order = table.getState().columnOrder;
+    const canonical = order.length > 0 ? order : defaultColumnOrder;
+    const seen = new Set<string>();
+    const rows: typeof leafColumns = [];
+
+    const pushIfHidable = (id: string) => {
+      if (seen.has(id)) return;
+      const col = leafById.get(id);
+      if (!col?.getCanHide()) return;
+      seen.add(id);
+      rows.push(col);
+    };
+
+    canonical.forEach(pushIfHidable);
+
+    leafColumns.forEach((col) => {
+      if (!seen.has(col.id) && col.getCanHide()) {
+        pushIfHidable(col.id);
+      }
+    });
+
+    return rows;
+  }, [defaultColumnOrder, table]);
   const hidableColumnIds = React.useMemo(
     () => hidableColumns.map((column) => column.id),
     [hidableColumns]
@@ -522,7 +550,7 @@ export function ContractFarmingViewFiltersSheet({
   );
 
   const handleResetAll = React.useCallback(() => {
-    table.setColumnVisibility(defaultContractFarmingColumnVisibility);
+    table.setColumnVisibility(defaultColumnVisibility);
     table.setColumnOrder(defaultColumnOrder);
     table.resetColumnFilters();
     table.setGlobalFilter('');
@@ -535,8 +563,7 @@ export function ContractFarmingViewFiltersSheet({
 
     const visibility: Record<string, boolean> = {};
     hidableColumns.forEach((column) => {
-      visibility[column.id] =
-        defaultContractFarmingColumnVisibility[column.id] !== false;
+      visibility[column.id] = defaultColumnVisibility[column.id] !== false;
     });
     const validOrder = defaultColumnOrder.filter((id) =>
       hidableColumnIds.includes(id)
@@ -561,6 +588,7 @@ export function ContractFarmingViewFiltersSheet({
   }, [
     availableFilterOptions,
     defaultColumnOrder,
+    defaultColumnVisibility,
     filterableColumns,
     hidableColumnIds,
     hidableColumns,

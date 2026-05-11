@@ -78,6 +78,9 @@ export const TRAILING_TWO_ROW_HEADER_ID_SET = new Set<string>(
 /** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
 export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 12;
 
+/** Placeholder column id when the report has no grade headers (matches `buildColumns`). */
+export const NO_GRADES_COLUMN_ID = 'noGrades';
+
 /**
  * Default leaf order inside the grading section (after buy-back bags / net weight):
  * all bag quantities by grade → all weight‑% by grade → totals and metrics → grading buy‑back ₹.
@@ -111,9 +114,46 @@ const CONTRACT_FARMING_SPLIT_SPAN_COLUMN_IDS = new Set<string>([
   'acres',
   SEED_AMOUNT_COLUMN_ID,
 ]);
+/**
+ * Static columns that are hidden by default in the contract-farming report.
+ * Dynamic grade-bag columns (one per detected grade) are added on top of this
+ * via {@link buildDefaultContractFarmingColumnVisibility} once grade headers
+ * are known. Grade-weight-% columns intentionally remain visible by default.
+ */
 export const defaultContractFarmingColumnVisibility: VisibilityState = {
+  familyKey: false,
   farmerMobile: false,
+  generation: false,
+  size: false,
+  qty: false,
+  bbBags: false,
+  bbNetWeight: false,
+  [TOTAL_GRADED_BAGS_COLUMN_ID]: false,
+  [TOTAL_GRADED_NET_WEIGHT_COLUMN_ID]: false,
+  [WASTAGE_KG_COLUMN_ID]: false,
+  [OUTPUT_PERCENTAGE_COLUMN_ID]: false,
+  [BUY_BACK_AMOUNT_COLUMN_ID]: false,
+  [SEED_AMOUNT_COLUMN_ID]: false,
+  [NET_AMOUNT_COLUMN_ID]: false,
 };
+
+/**
+ * Build the full default-hidden visibility map including the per-grade bag
+ * columns (`grade_bags_<grade>`). The percentage columns
+ * (`grade_weight_pct_<grade>`) are deliberately left absent so they remain
+ * visible by default.
+ */
+export function buildDefaultContractFarmingColumnVisibility(
+  gradeHeaders: readonly string[]
+): VisibilityState {
+  const visibility: VisibilityState = {
+    ...defaultContractFarmingColumnVisibility,
+  };
+  gradeHeaders.forEach((grade) => {
+    visibility[`${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`] = false;
+  });
+  return visibility;
+}
 
 export function isContractFarmingSplitSpanColumn(columnId: string): boolean {
   return CONTRACT_FARMING_SPLIT_SPAN_COLUMN_IDS.has(columnId);
@@ -175,6 +215,10 @@ export function isNumericSortColumnId(columnId: string) {
 export function buildDefaultContractFarmingColumnOrder(
   gradeHeaders: readonly string[]
 ): string[] {
+  const gradingSectionOrder =
+    gradeHeaders.length > 0
+      ? buildContractFarmingGradingLeafColumnIds(gradeHeaders)
+      : [NO_GRADES_COLUMN_ID];
   return [
     'familyKey',
     'farmer',
@@ -187,7 +231,7 @@ export function buildDefaultContractFarmingColumnOrder(
     'acres',
     'bbBags',
     'bbNetWeight',
-    ...buildContractFarmingGradingLeafColumnIds(gradeHeaders),
+    ...gradingSectionOrder,
     SEED_AMOUNT_COLUMN_ID,
     NET_AMOUNT_COLUMN_ID,
     NET_AMOUNT_PER_ACRE_COLUMN_ID,
@@ -680,7 +724,7 @@ export function buildColumns(
       ]
     : [
         columnHelper.display({
-          id: 'noGrades',
+          id: NO_GRADES_COLUMN_ID,
           header: 'No grades',
           enableSorting: false,
           enableGrouping: false,

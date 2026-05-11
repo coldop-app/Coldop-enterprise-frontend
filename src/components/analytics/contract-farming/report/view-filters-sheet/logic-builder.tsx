@@ -70,7 +70,7 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                     : 'bg-background text-foreground hover:bg-muted'
                 }`}
               >
-                {op === 'AND' ? 'All' : 'Any'}
+                {op === 'AND' ? 'AND' : 'OR'}
               </button>
             ))}
           </div>

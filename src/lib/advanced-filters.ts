@@ -189,6 +189,20 @@ const compareNumbers = (
   }
 };
 
+/**
+ * Parse a value that may be formatted with currency symbols (₹/$), percent signs,
+ * thousand separators, or other non-numeric punctuation. Strips anything that isn't
+ * a digit, sign, decimal point, or exponent marker so users can paste/type values
+ * directly from the displayed cells (e.g. "97.94%", "₹1,200") when filtering.
+ */
+const parseFilterNumber = (raw: unknown): number => {
+  if (typeof raw === 'number') return raw;
+  const s = String(raw ?? '').trim();
+  if (!s) return NaN;
+  const stripped = s.replace(/[^\d.\-eE]/g, '');
+  return stripped ? Number(stripped) : NaN;
+};
+
 const evaluateCondition = <TRecord extends Record<string, unknown>>(
   row: TRecord,
   node: FilterConditionNode
@@ -198,8 +212,8 @@ const evaluateCondition = <TRecord extends Record<string, unknown>>(
   const conditionValue = node.value.trim();
 
   if (isNumericFilterField(node.field)) {
-    const inputNumber = Number(rawValue);
-    const targetNumber = Number(conditionValue);
+    const inputNumber = parseFilterNumber(rawValue);
+    const targetNumber = parseFilterNumber(conditionValue);
     if (Number.isNaN(inputNumber) || Number.isNaN(targetNumber)) return false;
     return compareNumbers(inputNumber, node.operator, targetNumber);
   }
