@@ -9,6 +9,24 @@ import {
 } from '@/services/store-admin/preferences/useGetPreferences';
 import { useUpdatePreferences } from '@/services/store-admin/preferences/useUpdatePreferences';
 import { useEffect, useState } from 'react';
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +59,7 @@ import {
 import {
   X,
   Plus,
+  GripVertical,
   Save,
   RotateCcw,
   Package,
@@ -73,6 +92,32 @@ function formatDate(iso: string) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+/** Hyphen / en-dash variants used as keys in saved preferences */
+function dashKeyVariants(label: string): string[] {
+  return [label, label.replace(/-/g, '–'), label.replace(/–/g, '-')].filter(
+    (v, i, a) => a.indexOf(v) === i
+  );
+}
+
+function migrateNumericMapLabel(
+  map: Record<string, number>,
+  from: string,
+  to: string
+): Record<string, number> {
+  if (from === to) return map;
+  const next = { ...map };
+  const variantSet = new Set(dashKeyVariants(from));
+  let value: number | undefined;
+  for (const k of Object.keys(next)) {
+    if (variantSet.has(k)) {
+      if (value === undefined) value = next[k];
+      delete next[k];
+    }
+  }
+  if (value !== undefined && to) next[to] = value;
+  return next;
 }
 
 /** Subtle variety accents; unknown names use theme-muted fallback */
@@ -194,6 +239,289 @@ function TagList({
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+function SortableBagSizeChip({
+  id,
+  label,
+  canReorder,
+  canRename,
+  canRemove,
+  onRemove,
+  onRequestRename,
+}: {
+  id: string;
+  label: string;
+  canReorder: boolean;
+  canRename: boolean;
+  canRemove: boolean;
+  onRemove: (item: string) => void;
+  onRequestRename: (item: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, disabled: !canReorder });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'inline-flex max-w-full items-center gap-0.5',
+        isDragging && 'z-10 opacity-80'
+      )}
+    >
+      <Badge
+        variant="secondary"
+        className="font-custom border-border bg-muted/80 text-foreground hover:bg-muted max-w-full gap-1 rounded-full border py-1.5 pr-2 pl-2 text-xs font-medium transition-colors duration-200"
+      >
+        {canReorder && (
+          <button
+            type="button"
+            aria-label={`Reorder ${label}`}
+            className="text-muted-foreground/70 hover:text-foreground focus-visible:ring-primary cursor-grab touch-none rounded p-0.5 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          </button>
+        )}
+        {canRename ? (
+          <button
+            type="button"
+            onClick={() => onRequestRename(label)}
+            className="text-foreground hover:text-primary focus-visible:ring-primary min-w-0 truncate rounded px-0.5 text-left transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          >
+            {label}
+          </button>
+        ) : (
+          <span className="text-foreground min-w-0 truncate px-0.5">
+            {label}
+          </span>
+        )}
+        {canRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => onRemove(label)}
+            className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 shrink-0 rounded-full p-0 transition-colors duration-200"
+            aria-label={`Remove ${label}`}
+          >
+            <X size={12} />
+          </Button>
+        )}
+      </Badge>
+    </div>
+  );
+}
+
+function BagSizesEditor({
+  items,
+  onReorder,
+  onRename,
+  onRemove,
+  onAdd,
+  canAdd = true,
+  canReorder = true,
+  canRename = true,
+  canRemove = true,
+  addPlaceholder = 'Add item…',
+}: {
+  items: string[];
+  onReorder: (next: string[]) => void;
+  onRename: (from: string, to: string) => void;
+  onRemove: (item: string) => void;
+  onAdd: (item: string) => void;
+  canAdd?: boolean;
+  canReorder?: boolean;
+  canRename?: boolean;
+  canRemove?: boolean;
+  addPlaceholder?: string;
+}) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [addValue, setAddValue] = useState('');
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameFrom, setRenameFrom] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = items.indexOf(String(active.id));
+    const newIdx = items.indexOf(String(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    onReorder(arrayMove(items, oldIdx, newIdx));
+  };
+
+  const openRename = (label: string) => {
+    setRenameFrom(label);
+    setRenameValue(label);
+    setRenameOpen(true);
+  };
+
+  const trimmedRename = renameValue.trim();
+  const renameDuplicate =
+    renameFrom !== null &&
+    trimmedRename !== '' &&
+    trimmedRename !== renameFrom &&
+    items.includes(trimmedRename);
+
+  const commitRename = () => {
+    if (!renameFrom) return;
+    const next = renameValue.trim();
+    if (!next || next === renameFrom) {
+      setRenameOpen(false);
+      return;
+    }
+    if (items.includes(next)) return;
+    onRename(renameFrom, next);
+    setRenameOpen(false);
+    setRenameFrom(null);
+    setRenameValue('');
+  };
+
+  const handleAdd = () => {
+    const trimmed = addValue.trim();
+    if (trimmed && !items.includes(trimmed)) {
+      onAdd(trimmed);
+      setAddValue('');
+      setAddOpen(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={items} strategy={rectSortingStrategy}>
+          {items.map((item) => (
+            <SortableBagSizeChip
+              key={item}
+              id={item}
+              label={item}
+              canReorder={canReorder}
+              canRename={canRename}
+              canRemove={canRemove}
+              onRemove={onRemove}
+              onRequestRename={openRename}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
+
+      {canAdd && (
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
+            >
+              <Plus size={12} className="mr-1" /> Add
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="font-custom sm:max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Add New Item</DialogTitle>
+            </DialogHeader>
+            <Input
+              value={addValue}
+              onChange={(e) => setAddValue(e.target.value)}
+              placeholder={addPlaceholder}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              className="mt-2"
+              autoFocus
+            />
+            <DialogFooter className="mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAddOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleAdd} disabled={!addValue.trim()}>
+                Add
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      <Dialog
+        open={renameOpen}
+        onOpenChange={(open) => {
+          setRenameOpen(open);
+          if (!open) {
+            setRenameFrom(null);
+            setRenameValue('');
+          }
+        }}
+      >
+        <DialogContent className="font-custom sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Rename size</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder="Size label"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+            }}
+            className="mt-2"
+            autoFocus
+          />
+          {renameDuplicate && (
+            <p className="text-destructive mt-2 text-xs">
+              A size with this name already exists.
+            </p>
+          )}
+          <DialogFooter className="mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRenameOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={commitRename}
+              disabled={
+                !trimmedRename ||
+                trimmedRename === renameFrom ||
+                renameDuplicate
+              }
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -377,6 +705,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
 
   // Bag sizes
   const removeBagSize = (size: string) => {
+    if (!canUpdatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       bagSizes: p.bagSizes.filter((s) => s !== size),
@@ -388,6 +717,34 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     updatePreferences((p) => ({
       ...p,
       bagSizes: [...p.bagSizes, size],
+    }));
+    setDirty(true);
+  };
+  const reorderBagSizes = (next: string[]) => {
+    if (!canUpdatePreferences) return;
+    updatePreferences((p) => ({ ...p, bagSizes: next }));
+    setDirty(true);
+  };
+  const renameBagSize = (from: string, to: string) => {
+    if (!canUpdatePreferences) return;
+    const trimmed = to.trim();
+    if (!trimmed || trimmed === from) return;
+    if (data.bagSizes.some((s) => s === trimmed)) return;
+    updatePreferences((p) => ({
+      ...p,
+      bagSizes: p.bagSizes.map((s) => (s === from ? trimmed : s)),
+      custom: {
+        ...p.custom,
+        buyBackCost: p.custom.buyBackCost.map((e) => ({
+          ...e,
+          sizeRates: migrateNumericMapLabel(e.sizeRates, from, trimmed),
+        })),
+        standardBagsPerAcre: migrateNumericMapLabel(
+          p.custom.standardBagsPerAcre ?? {},
+          from,
+          trimmed
+        ),
+      },
     }));
     setDirty(true);
   };
@@ -686,11 +1043,15 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 />
               </CardHeader>
               <CardContent>
-                <TagList
+                <BagSizesEditor
                   items={data.bagSizes}
+                  onReorder={reorderBagSizes}
+                  onRename={renameBagSize}
                   onRemove={removeBagSize}
                   onAdd={addBagSize}
                   canAdd={canCreatePreferences}
+                  canReorder={canUpdatePreferences}
+                  canRename={canUpdatePreferences}
                   canRemove={canUpdatePreferences}
                   addPlaceholder="e.g. 55-60"
                 />
