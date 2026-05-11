@@ -12,6 +12,8 @@ import { useStore } from '@/stores/store';
 import type { ColdStorage } from '@/types/cold-storage';
 import type { PermissionLookup, RolePermissionItem } from '@/types/store-admin';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
+import { preferencesQueryOptions } from '@/services/store-admin/preferences/useGetPreferences';
 
 const buildPermissionLookup = (
   permissionEntries: RolePermissionItem[]
@@ -55,7 +57,7 @@ export const useStoreAdminLogin = () => {
       return data;
     },
 
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setLoading(false);
 
       if (!data.success || !data.data) {
@@ -105,6 +107,21 @@ export const useStoreAdminLogin = () => {
       setAdminData(admin, coldStorage, token);
       // Store permissions in dedicated store for easier access
       setPermissions(permissions);
+
+      // Seed cold-storage preferences (bag sizes, varieties, bag types, etc.)
+      // into the persisted zustand store *now*, so pages that depend on
+      // `usePreferencesStore` (Nikasi / Grading / Storage / Incoming /
+      // Farmer-Seed gate-pass forms) render correctly on the very first visit
+      // without requiring the user to open Settings → Preferences first.
+      // Token is read from `useStore` by the axios interceptor, so this works
+      // because `setAdminData` ran above.
+      try {
+        const prefs = await queryClient.fetchQuery(preferencesQueryOptions());
+        usePreferencesStore.getState().resetToServer(prefs);
+      } catch (err) {
+        // Non-fatal: user can still log in. Settings page will sync later.
+        console.error('Failed to preload preferences on login:', err);
+      }
 
       toast.success(data.message || 'Logged in successfully!');
 

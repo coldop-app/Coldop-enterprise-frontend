@@ -22,6 +22,8 @@ interface PreferencesStore {
   updatePreferences: (
     updater: (prev: PreferencesData) => PreferencesData
   ) => void;
+  /** Wipe persisted prefs (call on logout so next user starts clean). */
+  clear: () => void;
 }
 
 function clonePreferences(server: PreferencesData): PreferencesData {
@@ -65,6 +67,8 @@ export const usePreferencesStore = create<PreferencesStore>()(
           preferences: normalizePreferences(updater(clonePreferences(prev))),
         });
       },
+
+      clear: () => set({ preferences: null, syncedColdStorageId: null }),
     }),
     {
       name: 'bhatti-store-admin-preferences',

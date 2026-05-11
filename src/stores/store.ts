@@ -5,6 +5,7 @@ import { persist } from 'zustand/middleware';
 import type { StoreAdmin } from '@/types/store-admin';
 import type { ColdStorage } from '@/types/cold-storage';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
 
 interface StoreState {
   admin: Omit<StoreAdmin, 'password'> | null;
@@ -123,6 +124,7 @@ export const useStore = create(
       clearAdminData: () =>
         set(() => {
           usePermissionsStore.getState().clearPermissions();
+          usePreferencesStore.getState().clear();
           return {
             admin: null,
             coldStorage: null,
