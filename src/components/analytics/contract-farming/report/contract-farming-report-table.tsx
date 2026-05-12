@@ -328,7 +328,13 @@ export default function ContractFarmingReportTable() {
     React.useState<VisibilityState>(() =>
       buildDefaultContractFarmingColumnVisibility([])
     );
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
+  // Seed `columnOrder` with the canonical default for the initial render so
+  // TanStack never falls back to column-definition order. The order is kept
+  // in sync with `defaultColumnOrder` (which can grow as grade headers
+  // arrive) by the effect below.
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(() =>
+    buildDefaultContractFarmingColumnOrder([])
+  );
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -372,26 +378,61 @@ export default function ContractFarmingReportTable() {
     [gradeHeaders]
   );
 
+  // String signature of the column set so this effect only fires when the set
+  // of columns actually changes (e.g. new grade headers), not on every parent
+  // re-render that produces a new `defaultColumnOrder` array reference.
+  const defaultColumnOrderSignature = React.useMemo(
+    () => defaultColumnOrder.join('|'),
+    [defaultColumnOrder]
+  );
+
   React.useEffect(() => {
     setColumnOrder((current) => {
       if (current.length === 0) return defaultColumnOrder;
 
-      // Rehydrate to defaults when dynamic grade columns arrive after initial mount.
+      // Preserve user-driven order whenever the column SET matches the
+      // default; only rebuild from defaults when columns are added/removed
+      // (e.g. dynamic grade columns arriving after mount).
       const currentSet = new Set(current);
       const defaultSet = new Set(defaultColumnOrder);
-      const isSameLength = current.length === defaultColumnOrder.length;
       const hasAllDefaultColumns = defaultColumnOrder.every((id) =>
         currentSet.has(id)
       );
       const hasOnlyDefaultColumns = current.every((id) => defaultSet.has(id));
 
-      if (isSameLength && hasAllDefaultColumns && hasOnlyDefaultColumns) {
+      if (
+        current.length === defaultColumnOrder.length &&
+        hasAllDefaultColumns &&
+        hasOnlyDefaultColumns
+      ) {
         return current;
       }
 
-      return defaultColumnOrder;
+      // Merge: keep the user's existing order for columns that still exist,
+      // and insert any newly-added columns at their canonical default index
+      // so a refetch never reshuffles previously placed columns.
+      const survivors = current.filter((id) => defaultSet.has(id));
+      const newColumns = defaultColumnOrder.filter((id) => !currentSet.has(id));
+      if (newColumns.length === 0) return survivors;
+
+      const next = [...survivors];
+      newColumns.forEach((id) => {
+        const insertAfter = defaultColumnOrder.indexOf(id) - 1;
+        const anchorId =
+          insertAfter >= 0 ? defaultColumnOrder[insertAfter] : null;
+        const anchorIdx = anchorId ? next.indexOf(anchorId) : -1;
+        if (anchorIdx >= 0) {
+          next.splice(anchorIdx + 1, 0, id);
+        } else {
+          next.push(id);
+        }
+      });
+      return next;
     });
-  }, [defaultColumnOrder]);
+    // `defaultColumnOrder` is intentionally read inside the effect; we key on
+    // its stable signature so unrelated re-renders don't trigger this work.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultColumnOrderSignature]);
 
   const flattenedData = React.useMemo(
     () => flattenFarmers(farmers, gradeHeaders),
@@ -424,6 +465,17 @@ export default function ContractFarmingReportTable() {
     });
     return emptyColumns;
   }, [flattenedData, gradeHeaders]);
+
+  // Reset the bag-visibility init ref whenever the grade set changes so
+  // newly-discovered grade columns (e.g. after a refetch with new grades)
+  // also pick up the "hidden bag column" default.
+  const gradeHeaderSignature = React.useMemo(
+    () => gradeHeaders.join('|'),
+    [gradeHeaders]
+  );
+  React.useEffect(() => {
+    hasInitializedBagVisibilityRef.current = false;
+  }, [gradeHeaderSignature]);
 
   React.useEffect(() => {
     if (hasInitializedBagVisibilityRef.current || flattenedData.length === 0)
@@ -479,6 +531,10 @@ export default function ContractFarmingReportTable() {
     onGlobalFilterChange: setGlobalFilter,
     columnResizeMode,
     columnResizeDirection,
+    // Disable TanStack's default behavior of moving grouped columns to the
+    // front when grouping is applied; we want the column order to remain
+    // exactly as the user (or the default) configured it.
+    groupedColumnMode: false,
     globalFilterFn: globalContractFarmingFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

@@ -538,15 +538,31 @@ export function ContractFarmingViewFiltersSheet({
     table,
   ]);
 
+  // Stable signature of the table's column SHAPE. If this changes (e.g. a
+  // background data refetch surfaces new grade columns) while the sheet is
+  // open, drafts go stale; we use this to bail out of Save & Apply rather
+  // than push a stale layout back onto the table.
+  const defaultColumnOrderKey = React.useMemo(
+    () => defaultColumnOrder.join('|'),
+    [defaultColumnOrder]
+  );
+  const lastSyncedDefaultsKeyRef = React.useRef(defaultColumnOrderKey);
+
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
       onOpenChange(nextOpen);
       if (!nextOpen) return;
       syncDraftFromTable();
+      lastSyncedDefaultsKeyRef.current = defaultColumnOrderKey;
       resetFilterUiState();
       setActiveTab('filters');
     },
-    [onOpenChange, resetFilterUiState, syncDraftFromTable]
+    [
+      defaultColumnOrderKey,
+      onOpenChange,
+      resetFilterUiState,
+      syncDraftFromTable,
+    ]
   );
 
   const handleResetAll = React.useCallback(() => {
@@ -585,9 +601,11 @@ export function ContractFarmingViewFiltersSheet({
     setActiveGroupingDropIndex(null);
     setActiveTab('filters');
     resetFilterUiState();
+    lastSyncedDefaultsKeyRef.current = defaultColumnOrderKey;
   }, [
     availableFilterOptions,
     defaultColumnOrder,
+    defaultColumnOrderKey,
     defaultColumnVisibility,
     filterableColumns,
     hidableColumnIds,
@@ -608,9 +626,57 @@ export function ContractFarmingViewFiltersSheet({
   );
 
   const handleApplyView = React.useCallback(() => {
-    table.setColumnVisibility(draftColumnVisibility);
-    table.setColumnOrder(draftColumnOrder);
-    onGroupingChange(draftGrouping);
+    // If the column shape changed while the sheet was open (e.g. a refetch
+    // added new grade columns), the drafts may be stale. Re-sync and bail —
+    // the user will see the freshly-reconciled state and can hit Save again.
+    if (lastSyncedDefaultsKeyRef.current !== defaultColumnOrderKey) {
+      syncDraftFromTable();
+      lastSyncedDefaultsKeyRef.current = defaultColumnOrderKey;
+      return;
+    }
+
+    // Only push column visibility / order back onto the table when the draft
+    // actually differs from the current state. This prevents Save & Apply
+    // from clobbering layout when the user only changed filters/grouping.
+    const currentVisibilityState = table.getState().columnVisibility;
+    const currentColumnVisibility: Record<string, boolean> = {};
+    hidableColumns.forEach((column) => {
+      currentColumnVisibility[column.id] = column.getIsVisible();
+    });
+    const visibilityChanged = hidableColumns.some(
+      (column) =>
+        (draftColumnVisibility[column.id] ?? true) !==
+        currentColumnVisibility[column.id]
+    );
+    if (visibilityChanged) {
+      table.setColumnVisibility({
+        ...currentVisibilityState,
+        ...draftColumnVisibility,
+      });
+    }
+
+    // Normalize: an empty `columnOrder` in TanStack means "use default", so
+    // compare drafts against the canonical default in that case.
+    const activeOrder = table.getState().columnOrder;
+    const normalizedCurrentOrder =
+      activeOrder.length > 0 ? activeOrder : defaultColumnOrder;
+    const filteredCurrentOrder = normalizedCurrentOrder.filter((id) =>
+      hidableColumnIds.includes(id)
+    );
+    const orderChanged =
+      filteredCurrentOrder.length !== draftColumnOrder.length ||
+      filteredCurrentOrder.some((id, idx) => id !== draftColumnOrder[idx]);
+    if (orderChanged) {
+      table.setColumnOrder(draftColumnOrder);
+    }
+
+    const currentGrouping = table.getState().grouping;
+    const groupingChanged =
+      currentGrouping.length !== draftGrouping.length ||
+      currentGrouping.some((id, idx) => id !== draftGrouping[idx]);
+    if (groupingChanged) {
+      onGroupingChange(draftGrouping);
+    }
 
     filterableColumns.forEach(({ id }) => {
       const allValues = availableFilterOptions[id] ?? [];
@@ -630,14 +696,19 @@ export function ContractFarmingViewFiltersSheet({
     onOpenChange(false);
   }, [
     availableFilterOptions,
+    defaultColumnOrder,
+    defaultColumnOrderKey,
     draftColumnOrder,
     draftColumnVisibility,
     draftGrouping,
     draftLogicFilter,
     filterableColumns,
     getEffectiveDraftValues,
+    hidableColumnIds,
+    hidableColumns,
     onOpenChange,
     onGroupingChange,
+    syncDraftFromTable,
     table,
   ]);
 
