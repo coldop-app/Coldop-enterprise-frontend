@@ -6,9 +6,11 @@ import {
   type PreferencesData,
   type PreferenceOption,
   type BuyBackCost,
+  type StandardSeedBagsPerAcreEntry,
+  type StandardSeedBagSizeRow,
 } from '@/services/store-admin/preferences/useGetPreferences';
 import { useUpdatePreferences } from '@/services/store-admin/preferences/useUpdatePreferences';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -119,6 +121,35 @@ function migrateNumericMapLabel(
   if (value !== undefined && to) next[to] = value;
   return next;
 }
+
+function migrateStandardSeedBagsSizeLabels(
+  entries: StandardSeedBagsPerAcreEntry[],
+  from: string,
+  to: string
+): StandardSeedBagsPerAcreEntry[] {
+  if (from === to || !to.trim()) return entries;
+  const trimmed = to.trim();
+  const variantSet = new Set(dashKeyVariants(from));
+  return entries.map((e) => ({
+    ...e,
+    sizes: e.sizes.map((row) =>
+      variantSet.has(row.name) ? { ...row, name: trimmed } : row
+    ),
+  }));
+}
+
+function seedSizeRowHasValues(
+  row: StandardSeedBagSizeRow | undefined
+): boolean {
+  if (!row) return false;
+  const r = Number(row.ratePerBag);
+  const b = Number(row.bagsPerAcre);
+  return (Number.isFinite(r) && r !== 0) || (Number.isFinite(b) && b !== 0);
+}
+
+/** Size + rate + bags/acre — same grid rhythm as farmer-seed gate pass bag rows */
+const standardSeedPrefRowGridClass =
+  'grid w-full min-w-[16rem] grid-cols-[minmax(5.5rem,8.5rem)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3';
 
 /** Subtle variety accents; unknown names use theme-muted fallback */
 const VARIETY_COLORS: Record<string, string> = {
@@ -682,6 +713,285 @@ function BuyBackTable({
   );
 }
 
+function StandardSeedBagsTable({
+  entry,
+  bagSizes,
+  onChange,
+  onClearRow,
+  canEdit = true,
+}: {
+  entry: StandardSeedBagsPerAcreEntry;
+  bagSizes: string[];
+  onChange: (
+    variety: string,
+    size: string,
+    field: 'ratePerBag' | 'bagsPerAcre',
+    value: number
+  ) => void;
+  onClearRow: (variety: string, size: string) => void;
+  canEdit?: boolean;
+}) {
+  const colorClass =
+    VARIETY_COLORS[entry.variety] ?? 'bg-muted text-foreground border-border';
+
+  const rowForSize = useCallback(
+    (size: string) => {
+      const variants = new Set(dashKeyVariants(size));
+      return entry.sizes.find((s) => variants.has(s.name));
+    },
+    [entry]
+  );
+
+  const [pinnedSizes, setPinnedSizes] = useState<Set<string>>(() => new Set());
+  const [addMoreOpen, setAddMoreOpen] = useState(false);
+  const [sizeToAdd, setSizeToAdd] = useState('');
+
+  const effectivePinnedSizes = useMemo(() => {
+    const next = new Set<string>();
+    for (const s of pinnedSizes) {
+      if (!bagSizes.includes(s)) continue;
+      const row = rowForSize(s);
+      if (row && !seedSizeRowHasValues(row)) next.add(s);
+    }
+    return next;
+  }, [pinnedSizes, bagSizes, rowForSize]);
+
+  const visibleSizes = useMemo(() => {
+    return bagSizes.filter((size) => {
+      const row = rowForSize(size);
+      if (!row) return false;
+      return seedSizeRowHasValues(row) || effectivePinnedSizes.has(size);
+    });
+  }, [bagSizes, rowForSize, effectivePinnedSizes]);
+
+  const addableSizes = useMemo(() => {
+    const visible = new Set(visibleSizes);
+    return bagSizes.filter((s) => !visible.has(s));
+  }, [bagSizes, visibleSizes]);
+
+  const visibleSizeSet = useMemo(() => new Set(visibleSizes), [visibleSizes]);
+
+  const handleRemoveCard = (size: string) => {
+    const row = rowForSize(size);
+    if (seedSizeRowHasValues(row)) {
+      onClearRow(entry.variety, size);
+    }
+    setPinnedSizes((prev) => {
+      const next = new Set(prev);
+      next.delete(size);
+      return next;
+    });
+  };
+
+  const confirmAddMore = () => {
+    const key = (sizeToAdd.trim() || addableSizes[0] || '').trim();
+    if (!key || !addableSizes.includes(key)) return;
+    setPinnedSizes((prev) => new Set(prev).add(key));
+    setAddMoreOpen(false);
+    setSizeToAdd('');
+  };
+
+  return (
+    <Card className="border-border/60 bg-card font-custom border shadow-none">
+      <CardHeader className="px-5 pt-4 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold',
+              colorClass
+            )}
+          >
+            {entry.variety}
+          </Badge>
+          <span className="text-muted-foreground text-xs">
+            Rate (₹/bag) · bags/acre
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 px-5 pb-4">
+        {visibleSizes.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No sizes with values yet. Use Add more to include a size from your
+            bag list.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="flex min-w-0 flex-col gap-3">
+              <div
+                className={`text-muted-foreground border-border/60 font-custom border-b pb-2 text-xs font-medium ${standardSeedPrefRowGridClass}`}
+                aria-hidden
+              >
+                <span>Size</span>
+                <span>Rate</span>
+                <span>Bags/acre</span>
+              </div>
+              <ul className="m-0 flex list-none flex-col gap-3 p-0" role="list">
+                {visibleSizes.map((size, index) => {
+                  const row = rowForSize(size);
+                  const rate = row?.ratePerBag ?? '';
+                  const bags = row?.bagsPerAcre ?? '';
+                  return (
+                    <li
+                      key={`${entry.variety}-${size}`}
+                      className={`font-custom ${standardSeedPrefRowGridClass}`}
+                    >
+                      <div className="flex min-w-0 items-center justify-between gap-1">
+                        <label
+                          htmlFor={`standard-seed-rate-${entry.variety}-${index}`}
+                          className="text-foreground truncate text-base font-normal"
+                        >
+                          {size}
+                        </label>
+                        {canEdit && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-6 w-6 shrink-0 rounded-full"
+                            onClick={() => handleRemoveCard(size)}
+                            aria-label={`Remove ${size} from list`}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="relative min-w-0">
+                        <span className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">
+                          ₹
+                        </span>
+                        <Input
+                          id={`standard-seed-rate-${entry.variety}-${index}`}
+                          type="number"
+                          step="0.01"
+                          defaultValue={rate}
+                          disabled={!canEdit}
+                          onChange={(e) =>
+                            onChange(
+                              entry.variety,
+                              size,
+                              'ratePerBag',
+                              parseFloat(e.target.value)
+                            )
+                          }
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="bg-background focus-visible:bg-background h-9 [appearance:textfield] rounded-lg pl-6 font-mono text-sm transition-colors duration-200 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                      </div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Input
+                          id={`standard-seed-bags-${entry.variety}-${index}`}
+                          type="number"
+                          step="1"
+                          defaultValue={bags}
+                          disabled={!canEdit}
+                          onChange={(e) =>
+                            onChange(
+                              entry.variety,
+                              size,
+                              'bagsPerAcre',
+                              parseInt(e.target.value, 10)
+                            )
+                          }
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="bg-background focus-visible:bg-background h-9 min-w-0 flex-1 [appearance:textfield] rounded-lg font-mono text-sm transition-colors duration-200 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                        <span className="text-muted-foreground shrink-0 text-xs">
+                          /acre
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        <Dialog
+          open={addMoreOpen}
+          onOpenChange={(open) => {
+            setAddMoreOpen(open);
+            if (open && addableSizes.length > 0) {
+              setSizeToAdd(addableSizes[0] ?? '');
+            }
+            if (!open) setSizeToAdd('');
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!canEdit || addableSizes.length === 0}
+              className="gap-1.5"
+              title={
+                addableSizes.length === 0
+                  ? 'All bag sizes are already shown or have values'
+                  : undefined
+              }
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add more
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="font-custom sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Add bag size</DialogTitle>
+            </DialogHeader>
+            <p className="text-muted-foreground text-xs">
+              All sizes from Bag Sizes above are listed here. Already-shown rows
+              are disabled; pick another to add it to this variety.
+            </p>
+            <div className="pt-2">
+              <Label className="text-muted-foreground mb-1.5 block text-xs">
+                Bag size
+              </Label>
+              <select
+                aria-label="Bag size to add"
+                value={
+                  addableSizes.includes(sizeToAdd)
+                    ? sizeToAdd
+                    : (addableSizes[0] ?? '')
+                }
+                onChange={(e) => setSizeToAdd(e.target.value)}
+                className="border-input bg-background text-foreground focus-visible:ring-primary h-9 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              >
+                {bagSizes.map((s) => {
+                  const alreadyShown = visibleSizeSet.has(s);
+                  return (
+                    <option key={s} value={s} disabled={alreadyShown}>
+                      {alreadyShown ? `${s} (already shown)` : s}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <DialogFooter className="mt-4 gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setAddMoreOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={confirmAddMore}
+                disabled={addableSizes.length === 0}
+              >
+                Add
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
@@ -695,13 +1005,10 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   const resetToServer = usePreferencesStore((s) => s.resetToServer);
   const { mutateAsync, isPending } = useUpdatePreferences();
   const [dirty, setDirty] = useState(false);
-  const [standardBagsDialogOpen, setStandardBagsDialogOpen] = useState(false);
-  const [standardBagSizeKey, setStandardBagSizeKey] = useState('');
-  const [standardBagCount, setStandardBagCount] = useState('');
 
   if (!data) return null;
 
-  const standardBagsPerAcre = data.custom.standardBagsPerAcre ?? {};
+  const standardSeedEntries = data.custom.standardSeedBagsPerAcre ?? [];
 
   // Bag sizes
   const removeBagSize = (size: string) => {
@@ -739,8 +1046,8 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
           ...e,
           sizeRates: migrateNumericMapLabel(e.sizeRates, from, trimmed),
         })),
-        standardBagsPerAcre: migrateNumericMapLabel(
-          p.custom.standardBagsPerAcre ?? {},
+        standardSeedBagsPerAcre: migrateStandardSeedBagsSizeLabels(
+          p.custom.standardSeedBagsPerAcre ?? [],
           from,
           trimmed
         ),
@@ -760,6 +1067,9 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
             (v) => v.value !== val
           ),
           buyBackCost: p.custom.buyBackCost.filter((e) => e.variety !== val),
+          standardSeedBagsPerAcre: (
+            p.custom.standardSeedBagsPerAcre ?? []
+          ).filter((e) => e.variety !== val),
         },
       };
     });
@@ -775,6 +1085,21 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
         buyBackCost: p.custom.buyBackCost.some((e) => e.variety === item.value)
           ? p.custom.buyBackCost
           : [...p.custom.buyBackCost, { variety: item.value, sizeRates: {} }],
+        standardSeedBagsPerAcre: (p.custom.standardSeedBagsPerAcre ?? []).some(
+          (e) => e.variety === item.value
+        )
+          ? (p.custom.standardSeedBagsPerAcre ?? [])
+          : [
+              ...(p.custom.standardSeedBagsPerAcre ?? []),
+              {
+                variety: item.value,
+                sizes: p.bagSizes.map((name) => ({
+                  name,
+                  ratePerBag: 0,
+                  bagsPerAcre: 0,
+                })),
+              },
+            ],
       },
     }));
     setDirty(true);
@@ -885,55 +1210,58 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
 
-  // Standard bags per acre
-  const updateBagsPerAcre = (size: string, val: number) => {
+  const updateStandardSeed = (
+    variety: string,
+    size: string,
+    field: 'ratePerBag' | 'bagsPerAcre',
+    raw: number
+  ) => {
+    if (!canUpdatePreferences) return;
+    const val = Number.isFinite(raw) ? raw : 0;
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        standardSeedBagsPerAcre: (p.custom.standardSeedBagsPerAcre ?? []).map(
+          (e) => {
+            if (e.variety !== variety) return e;
+            const variants = new Set(dashKeyVariants(size));
+            return {
+              ...e,
+              sizes: e.sizes.map((row) =>
+                variants.has(row.name) ? { ...row, [field]: val } : row
+              ),
+            };
+          }
+        ),
+      },
+    }));
+    setDirty(true);
+  };
+
+  const clearStandardSeedSize = (variety: string, size: string) => {
     if (!canUpdatePreferences) return;
     updatePreferences((p) => ({
       ...p,
       custom: {
         ...p.custom,
-        standardBagsPerAcre: {
-          ...p.custom.standardBagsPerAcre,
-          [size]: val,
-        },
+        standardSeedBagsPerAcre: (p.custom.standardSeedBagsPerAcre ?? []).map(
+          (e) => {
+            if (e.variety !== variety) return e;
+            const variants = new Set(dashKeyVariants(size));
+            return {
+              ...e,
+              sizes: e.sizes.map((row) =>
+                variants.has(row.name)
+                  ? { ...row, ratePerBag: 0, bagsPerAcre: 0 }
+                  : row
+              ),
+            };
+          }
+        ),
       },
     }));
     setDirty(true);
-  };
-  const removeBagsPerAcreSize = (size: string) => {
-    updatePreferences((p) => {
-      const { [size]: _removed, ...rest } = p.custom.standardBagsPerAcre ?? {};
-      return {
-        ...p,
-        custom: {
-          ...p.custom,
-          standardBagsPerAcre: rest,
-        },
-      };
-    });
-    setDirty(true);
-  };
-  const addBagsPerAcreSize = () => {
-    if (!canCreatePreferences) return;
-    const sizeKey = standardBagSizeKey.trim();
-    if (!sizeKey) return;
-    updatePreferences((p) => ({
-      ...p,
-      custom: {
-        ...p.custom,
-        standardBagsPerAcre: {
-          ...p.custom.standardBagsPerAcre,
-          [sizeKey]:
-            standardBagCount.trim() === ''
-              ? 0
-              : parseInt(standardBagCount, 10) || 0,
-        },
-      },
-    }));
-    setDirty(true);
-    setStandardBagSizeKey('');
-    setStandardBagCount('');
-    setStandardBagsDialogOpen(false);
   };
 
   const handleSave = async () => {
@@ -1064,118 +1392,32 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 <div>
                   <SectionHeader
                     icon={Scale}
-                    title="Standard Bags per Acre"
-                    description="Benchmark yield used for reporting"
+                    title="Standard Seed Bags Per Acre"
+                    description="Per variety: only sizes with rate or bags/acre set are shown. Use Add more to show another size from your bag list. Remove clears values and hides the card."
                   />
-                  <div className="mb-3">
-                    <Dialog
-                      open={standardBagsDialogOpen}
-                      onOpenChange={setStandardBagsDialogOpen}
-                    >
-                      {canCreatePreferences && (
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="font-custom text-muted-foreground hover:text-foreground h-7 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
-                          >
-                            <Plus size={12} className="mr-1" /> Add size
-                          </Button>
-                        </DialogTrigger>
-                      )}
-                      <DialogContent className="font-custom sm:max-w-xs">
-                        <DialogHeader>
-                          <DialogTitle className="text-sm">
-                            Add Standard Bags Entry
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="mt-2 space-y-3">
-                          <div>
-                            <Label className="text-muted-foreground mb-1.5 block text-xs">
-                              Size Range
-                            </Label>
-                            <Input
-                              value={standardBagSizeKey}
-                              onChange={(e) =>
-                                setStandardBagSizeKey(e.target.value)
-                              }
-                              placeholder="e.g. 55-65"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-muted-foreground mb-1.5 block text-xs">
-                              Bags Per Acre
-                            </Label>
-                            <Input
-                              type="number"
-                              value={standardBagCount}
-                              onChange={(e) =>
-                                setStandardBagCount(e.target.value)
-                              }
-                              placeholder="e.g. 42"
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter className="mt-4">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setStandardBagsDialogOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={addBagsPerAcreSize}
-                            disabled={!standardBagSizeKey.trim()}
-                          >
-                            Add
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <div className="flex flex-wrap gap-6">
-                    {Object.entries(standardBagsPerAcre).map(
-                      ([size, count]) => (
-                        <div key={size}>
-                          <div className="mb-2 flex items-center gap-2">
-                            <Label className="text-muted-foreground block font-mono text-xs">
-                              {size}
-                            </Label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              disabled={!canUpdatePreferences}
-                              onClick={() => removeBagsPerAcreSize(size)}
-                              className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-5 min-h-5 w-5 min-w-5 rounded-full p-0 transition-colors duration-200"
-                              aria-label={`Remove standard bags size ${size}`}
-                            >
-                              <X size={12} />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              defaultValue={count ?? 0}
-                              disabled={!canUpdatePreferences}
-                              onChange={(e) =>
-                                updateBagsPerAcre(
-                                  size,
-                                  parseInt(e.target.value, 10)
-                                )
-                              }
-                              className="bg-background h-9 w-24 font-mono text-sm"
-                            />
-                            <span className="text-muted-foreground text-xs">
-                              bags/acre
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
+                  {data.bagSizes.length === 0 ? (
+                    <p className="text-muted-foreground font-custom text-xs">
+                      Add bag sizes above to configure standard seed rows.
+                    </p>
+                  ) : standardSeedEntries.length === 0 ? (
+                    <p className="text-muted-foreground font-custom text-xs">
+                      Add potato varieties in the Varieties tab to set standard
+                      seed bags per acre.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                      {standardSeedEntries.map((entry) => (
+                        <StandardSeedBagsTable
+                          key={entry.variety}
+                          entry={entry}
+                          bagSizes={data.bagSizes}
+                          onChange={updateStandardSeed}
+                          onClearRow={clearStandardSeedSize}
+                          canEdit={canUpdatePreferences}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

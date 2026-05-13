@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,28 +26,45 @@ import { usePreferencesStore } from '@/stores/store';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { useCreateFarmerSeedEntry } from '@/services/store-admin/farmer-seed/useCreateFarmerSeedEntry';
 import {
+  getBagsPerAcreForVarietySize,
+  getRatePerBagForVarietySize,
+  getStandardSeedEntryForVariety,
+  type StandardSeedBagsPerAcreEntry,
+} from '@/services/store-admin/preferences/useGetPreferences';
+import {
   FarmerSeedSummarySheet,
   type FarmerSeedSummaryBagSize,
 } from './edit/-SummarySheet';
 
-type FarmerSeedBagSizeRow = FarmerSeedSummaryBagSize;
-type FarmerSeedExtraBagSizeRow = FarmerSeedSummaryBagSize & { id: string };
+interface SeedQuantityRow {
+  name: string;
+  quantity: number;
+}
 
-const FARMER_SEED_DEFAULT_SIZES = [
-  'Below 30',
-  '30-40',
-  '40-50',
-  'Above 50',
-] as const;
+type ExtraSeedQuantityRow = {
+  id: string;
+  name: string;
+  quantity: number;
+};
 
-const defaultBagSizes: FarmerSeedBagSizeRow[] = FARMER_SEED_DEFAULT_SIZES.map(
-  (size) => ({
-    name: size,
-    quantity: 0,
-    rate: 0,
-    acres: 0,
-  })
-);
+function getFarmerSeedSizeNamesWithRateAndBagsPerAcre(
+  entries: StandardSeedBagsPerAcreEntry[] | undefined,
+  variety: string
+): string[] {
+  const entry = getStandardSeedEntryForVariety(entries, variety);
+  if (!entry?.sizes?.length) return [];
+  return entry.sizes
+    .filter((s) => {
+      const rate = getRatePerBagForVarietySize(entries, variety, s.name);
+      const bags = getBagsPerAcreForVarietySize(entries, variety, s.name);
+      return rate > 0 && bags > 0;
+    })
+    .map((s) => s.name);
+}
+
+type FarmerSeedComputedRow = FarmerSeedSummaryBagSize & {
+  bagsPerAcreFromPrefs: number;
+};
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/farmer-seed-gate-pass/'
@@ -79,10 +96,20 @@ function formatSeedAmount(value: number) {
   return `Rs. ${Math.round(value).toLocaleString('en-IN')}`;
 }
 
-function calculateAcres(quantity: number, standardBagsPerAcre: number) {
-  if (standardBagsPerAcre <= 0) return 0;
-  return quantity / standardBagsPerAcre;
+function formatPrefRateDisplay(value: number) {
+  if (!Number.isFinite(value) || value === 0) return '';
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2).replace(/\.?0+$/, '');
 }
+
+function calculateAcres(quantity: number, bagsPerAcre: number) {
+  if (bagsPerAcre <= 0) return 0;
+  return quantity / bagsPerAcre;
+}
+
+/** One row: label + Qty + Rate + Acres (matches gate-pass table layout) */
+const bagRowGridClass =
+  'grid w-full min-w-[16rem] grid-cols-[minmax(7rem,13rem)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3';
 
 function FarmerSeedCreateForm() {
   const navigate = useNavigate();
@@ -103,11 +130,58 @@ function FarmerSeedCreateForm() {
   const [variety, setVariety] = useState('');
   const [generation, setGeneration] = useState('');
   const [remarks, setRemarks] = useState('');
-  const [bagSizes, setBagSizes] =
-    useState<FarmerSeedBagSizeRow[]>(defaultBagSizes);
-  const [extraBagSizeRows, setExtraBagSizeRows] = useState<
-    FarmerSeedExtraBagSizeRow[]
+  const [seedQuantityRows, setSeedQuantityRows] = useState<SeedQuantityRow[]>(
+    []
+  );
+  const [extraSeedQuantityRows, setExtraSeedQuantityRows] = useState<
+    ExtraSeedQuantityRow[]
   >([]);
+
+  const standardSeedEntries = preferences?.custom.standardSeedBagsPerAcre;
+
+  const configuredFarmerSeedSizeNames = useMemo(
+    () =>
+      getFarmerSeedSizeNamesWithRateAndBagsPerAcre(
+        standardSeedEntries,
+        variety
+      ),
+    [standardSeedEntries, variety]
+  );
+
+  const standardSeedEntryForVariety = useMemo(
+    () => getStandardSeedEntryForVariety(standardSeedEntries, variety),
+    [standardSeedEntries, variety]
+  );
+
+  const varietySizeSignature = useMemo(() => {
+    if (!variety.trim()) return '';
+    return `${variety.trim()}\x1e${configuredFarmerSeedSizeNames.join('\x1e')}`;
+  }, [variety, configuredFarmerSeedSizeNames]);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- reset and resync quantity rows when variety or configured sizes from preferences change */
+  useEffect(() => {
+    if (!variety.trim()) {
+      setSeedQuantityRows([]);
+      setExtraSeedQuantityRows([]);
+      return;
+    }
+    if (!configuredFarmerSeedSizeNames.length) {
+      setSeedQuantityRows([]);
+      setExtraSeedQuantityRows([]);
+      return;
+    }
+    setSeedQuantityRows((prev) => {
+      const prevByName = new Map(prev.map((r) => [r.name, r.quantity]));
+      return configuredFarmerSeedSizeNames.map((name) => ({
+        name,
+        quantity: prevByName.get(name) ?? 0,
+      }));
+    });
+    setExtraSeedQuantityRows((prev) =>
+      prev.filter((r) => configuredFarmerSeedSizeNames.includes(r.name))
+    );
+  }, [varietySizeSignature, configuredFarmerSeedSizeNames, variety]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const farmerOptions: Option<string>[] = useMemo(() => {
     return farmerLinks
@@ -132,39 +206,49 @@ function FarmerSeedCreateForm() {
     return preferences?.custom.farmerSeedGenerations ?? [];
   }, [preferences?.custom.farmerSeedGenerations]);
 
-  const gradingSizes = useMemo(() => {
-    const sizes = preferences?.bagSizes ?? [];
-    return sizes.length > 0 ? sizes : [...FARMER_SEED_DEFAULT_SIZES];
-  }, [preferences?.bagSizes]);
-
-  const selectedVarietyStandardBagsPerAcre = useMemo(() => {
-    const standardBagsPerAcre = preferences?.custom.standardBagsPerAcre ?? {};
-    if (!variety) return 0;
-    return (
-      standardBagsPerAcre[variety] ??
-      standardBagsPerAcre[variety.trim()] ??
-      standardBagsPerAcre[
-        Object.keys(standardBagsPerAcre).find(
-          (key) => key.toLowerCase() === variety.trim().toLowerCase()
-        ) ?? ''
-      ] ??
-      0
-    );
-  }, [preferences?.custom.standardBagsPerAcre, variety]);
-
-  const allBagSizes = useMemo(() => {
-    const rows = [
-      ...bagSizes,
-      ...extraBagSizeRows.map(({ id: _id, ...rest }) => rest),
+  const displaySeedRows = useMemo(() => {
+    const entries = preferences?.custom.standardSeedBagsPerAcre;
+    const v = variety;
+    const compute = (row: { name: string; quantity: number }) => {
+      const bagsPerAcreFromPrefs = getBagsPerAcreForVarietySize(
+        entries,
+        v,
+        row.name
+      );
+      const rate = getRatePerBagForVarietySize(entries, v, row.name);
+      return {
+        name: row.name,
+        quantity: row.quantity,
+        rate,
+        acres: calculateAcres(row.quantity, bagsPerAcreFromPrefs),
+        bagsPerAcreFromPrefs,
+      } satisfies FarmerSeedComputedRow;
+    };
+    return [
+      ...seedQuantityRows.map((row, index) => ({
+        kind: 'base' as const,
+        index,
+        row,
+        computed: compute(row),
+      })),
+      ...extraSeedQuantityRows.map((row) => ({
+        kind: 'extra' as const,
+        id: row.id,
+        row,
+        computed: compute(row),
+      })),
     ];
-    return rows.map((row) => ({
-      ...row,
-      acres: calculateAcres(
-        row.quantity ?? 0,
-        selectedVarietyStandardBagsPerAcre
-      ),
-    }));
-  }, [bagSizes, extraBagSizeRows, selectedVarietyStandardBagsPerAcre]);
+  }, [
+    seedQuantityRows,
+    extraSeedQuantityRows,
+    preferences?.custom.standardSeedBagsPerAcre,
+    variety,
+  ]);
+
+  const allBagSizes = useMemo(
+    () => displaySeedRows.map((r) => r.computed),
+    [displaySeedRows]
+  );
 
   const totalQty = useMemo(
     () => allBagSizes.reduce((sum, row) => sum + (row.quantity ?? 0), 0),
@@ -184,37 +268,35 @@ function FarmerSeedCreateForm() {
   );
 
   const canSubmit = totalQty > 0 && Boolean(variety) && Boolean(generation);
+  const varietyHasConfiguredBagSizes = configuredFarmerSeedSizeNames.length > 0;
 
-  const addExtraRow = () => {
-    const defaultExtraName = gradingSizes[0] ?? '';
-    setExtraBagSizeRows((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        name: defaultExtraName,
-        quantity: 0,
-        rate: 0,
-        acres: 0,
-      },
-    ]);
-  };
+  const varietyHasStandardEntryButNoRatedSizes =
+    Boolean(variety.trim()) &&
+    Boolean(standardSeedEntryForVariety?.sizes?.length) &&
+    !varietyHasConfiguredBagSizes;
 
-  const updateExtraRow = (
-    id: string,
-    updates: Partial<FarmerSeedExtraBagSizeRow>
-  ) => {
-    setExtraBagSizeRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, ...updates } : row))
-    );
-  };
-
-  const removeExtraRow = (id: string) => {
-    setExtraBagSizeRows((prev) => prev.filter((row) => row.id !== id));
-  };
+  const summaryBagSizes: FarmerSeedSummaryBagSize[] = useMemo(
+    () =>
+      allBagSizes.map((row) => ({
+        name: row.name,
+        quantity: row.quantity,
+        rate: row.rate,
+        acres: row.acres,
+      })),
+    [allBagSizes]
+  );
 
   const handleOpenSummary = () => {
     if (!variety || !generation) {
       toast.error('Please select variety and generation.');
+      return;
+    }
+    if (!varietyHasConfiguredBagSizes) {
+      toast.error(
+        varietyHasStandardEntryButNoRatedSizes
+          ? 'No bag sizes with both rate and bags per acre for this variety. Complete those fields in Settings → Preferences.'
+          : 'This variety has no standard seed bag sizes in preferences.'
+      );
       return;
     }
     if (totalQty <= 0) {
@@ -233,7 +315,7 @@ function FarmerSeedCreateForm() {
         date: formatDateToISO(date),
         variety: variety.trim() || undefined,
         generation: generation.trim() || undefined,
-        bagSizes: allBagSizes
+        bagSizes: summaryBagSizes
           .filter((row) => (row.quantity ?? 0) > 0)
           .map((row) => ({
             name: row.name,
@@ -250,6 +332,27 @@ function FarmerSeedCreateForm() {
           navigate({ to: '/store-admin/daybook' });
         },
       }
+    );
+  };
+
+  const addExtraSeedQuantityRow = () => {
+    const defaultName = configuredFarmerSeedSizeNames[0] ?? '';
+    setExtraSeedQuantityRows((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name: defaultName, quantity: 0 },
+    ]);
+  };
+
+  const removeExtraSeedQuantityRow = (id: string) => {
+    setExtraSeedQuantityRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const updateExtraSeedQuantityRow = (
+    id: string,
+    updates: Partial<Pick<ExtraSeedQuantityRow, 'name' | 'quantity'>>
+  ) => {
+    setExtraSeedQuantityRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
     );
   };
 
@@ -377,161 +480,189 @@ function FarmerSeedCreateForm() {
           <Card className="overflow-hidden">
             <CardHeader className="space-y-1.5 pb-4">
               <CardTitle className="font-custom text-foreground text-xl font-semibold">
-                Enter Bag Sizes
+                Enter bag sizes
               </CardTitle>
               <CardDescription className="font-custom text-muted-foreground text-sm">
-                Add quantity and rate for each size. Acres are auto-calculated
-                from quantity and standard bags/acre in preferences.
+                Only bag sizes with both rate per bag and bags per acre set in
+                preferences appear here. Enter quantity; acres update from bags
+                per acre. Use Add more for an extra line (e.g. same size again).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {bagSizes.map((row, index) => (
-                <div
-                  key={`${row.name}-${index}`}
-                  className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4"
-                >
-                  <label
-                    htmlFor={`farmer-seed-size-${index}`}
-                    className="font-custom text-foreground text-base font-normal"
-                  >
-                    {row.name}
-                  </label>
-                  <Input
-                    id={`farmer-seed-size-${index}`}
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="Qty"
-                    value={row.quantity === 0 ? '' : String(row.quantity)}
-                    onChange={(e) => {
-                      const next = [...bagSizes];
-                      next[index] = {
-                        ...next[index],
-                        quantity: parsePositiveNumber(e.target.value),
-                      };
-                      setBagSizes(next);
-                    }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventNumberInputArrowKeys}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="Rate"
-                    value={row.rate === 0 ? '' : String(row.rate)}
-                    onChange={(e) => {
-                      const next = [...bagSizes];
-                      next[index] = {
-                        ...next[index],
-                        rate: parsePositiveNumber(e.target.value),
-                      };
-                      setBagSizes(next);
-                    }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventNumberInputArrowKeys}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <div className="font-custom text-muted-foreground bg-muted/50 flex h-9 items-center rounded-md border px-3 text-sm">
-                    {formatAcresValue(
-                      calculateAcres(
-                        row.quantity ?? 0,
-                        selectedVarietyStandardBagsPerAcre
-                      )
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {extraBagSizeRows.map((row) => (
-                <div
-                  key={row.id}
-                  className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <select
-                      aria-label="Select bag size"
-                      value={row.name}
-                      onChange={(e) =>
-                        updateExtraRow(row.id, { name: e.target.value })
-                      }
-                      className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 min-w-0 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              {!variety.trim() ? (
+                <p className="text-muted-foreground text-sm">
+                  Select a variety to load bag sizes from preferences.
+                </p>
+              ) : !standardSeedEntryForVariety?.sizes?.length ? (
+                <p className="text-muted-foreground text-sm">
+                  No standard seed configuration for this variety in
+                  preferences. Configure Standard Seed Bags Per Acre in Settings
+                  → Preferences.
+                </p>
+              ) : varietyHasStandardEntryButNoRatedSizes ? (
+                <p className="text-muted-foreground text-sm">
+                  No bag sizes with both a rate and bags per acre for this
+                  variety. Set both values for each size in Settings →
+                  Preferences (Standard Seed Bags Per Acre).
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="flex min-w-0 flex-col gap-3">
+                    <div
+                      className={`text-muted-foreground border-border/60 font-custom border-b pb-2 text-xs font-medium ${bagRowGridClass}`}
+                      aria-hidden
                     >
-                      {gradingSizes.map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
-                      ))}
-                    </select>
+                      <span>Size</span>
+                      <span>Qty</span>
+                      <span>Rate</span>
+                      <span>Acres</span>
+                    </div>
+                    {displaySeedRows.map((entry) => {
+                      if (entry.kind === 'base') {
+                        const { index, row, computed } = entry;
+                        return (
+                          <div
+                            key={`base-${row.name}-${index}`}
+                            className={`font-custom ${bagRowGridClass}`}
+                          >
+                            <label
+                              htmlFor={`farmer-seed-qty-base-${index}`}
+                              className="text-foreground text-base font-normal"
+                            >
+                              {row.name}
+                            </label>
+                            <Input
+                              id={`farmer-seed-qty-base-${index}`}
+                              type="number"
+                              min={0}
+                              step={1}
+                              placeholder="Qty"
+                              value={
+                                seedQuantityRows[index]?.quantity === 0
+                                  ? ''
+                                  : String(
+                                      seedQuantityRows[index]?.quantity ?? ''
+                                    )
+                              }
+                              onChange={(e) => {
+                                const q = parsePositiveNumber(e.target.value);
+                                setSeedQuantityRows((prev) =>
+                                  prev.map((r, i) =>
+                                    i === index ? { ...r, quantity: q } : r
+                                  )
+                                );
+                              }}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              onKeyDown={preventNumberInputArrowKeys}
+                              className="[appearance:textfield] rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                            <Input
+                              readOnly
+                              tabIndex={-1}
+                              aria-label={`Rate from preferences for ${row.name}`}
+                              value={formatPrefRateDisplay(computed.rate)}
+                              placeholder="Rate"
+                              className="bg-muted/40 text-muted-foreground pointer-events-none rounded-lg border-dashed"
+                            />
+                            <Input
+                              readOnly
+                              tabIndex={-1}
+                              aria-label={`Acres for ${row.name}`}
+                              value={formatAcresValue(computed.acres)}
+                              className="bg-muted/40 text-muted-foreground pointer-events-none rounded-lg border-dashed"
+                            />
+                          </div>
+                        );
+                      }
+                      const { id, row, computed } = entry;
+                      return (
+                        <div
+                          key={`extra-${id}`}
+                          className={`font-custom ${bagRowGridClass}`}
+                        >
+                          <div className="flex min-w-0 items-center gap-1">
+                            <select
+                              aria-label="Select bag size"
+                              value={row.name}
+                              onChange={(e) =>
+                                updateExtraSeedQuantityRow(id, {
+                                  name: e.target.value,
+                                })
+                              }
+                              className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 min-w-0 flex-1 rounded-md border px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                            >
+                              {configuredFarmerSeedSizeNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive h-9 w-9 shrink-0"
+                              onClick={() => removeExtraSeedQuantityRow(id)}
+                              aria-label="Remove extra row"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Input
+                            id={`farmer-seed-qty-extra-${id}`}
+                            type="number"
+                            min={0}
+                            step={1}
+                            placeholder="Qty"
+                            value={
+                              row.quantity === 0 ? '' : String(row.quantity)
+                            }
+                            onChange={(e) => {
+                              const q = parsePositiveNumber(e.target.value);
+                              updateExtraSeedQuantityRow(id, { quantity: q });
+                            }}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onKeyDown={preventNumberInputArrowKeys}
+                            className="[appearance:textfield] rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                          <Input
+                            readOnly
+                            tabIndex={-1}
+                            aria-label={`Rate from preferences for ${row.name}`}
+                            value={formatPrefRateDisplay(computed.rate)}
+                            placeholder="Rate"
+                            className="bg-muted/40 text-muted-foreground pointer-events-none rounded-lg border-dashed"
+                          />
+                          <Input
+                            readOnly
+                            tabIndex={-1}
+                            aria-label={`Acres for ${row.name}`}
+                            value={formatAcresValue(computed.acres)}
+                            className="bg-muted/40 text-muted-foreground pointer-events-none rounded-lg border-dashed"
+                          />
+                        </div>
+                      );
+                    })}
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-destructive shrink-0"
-                      onClick={() => removeExtraRow(row.id)}
-                      aria-label={`Remove ${row.name || 'size'} row`}
+                      variant="outline"
+                      size="sm"
+                      onClick={addExtraSeedQuantityRow}
+                      disabled={!varietyHasConfiguredBagSizes}
+                      className="font-custom w-full sm:w-auto"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add more
                     </Button>
                   </div>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    placeholder="Qty"
-                    value={row.quantity === 0 ? '' : String(row.quantity)}
-                    onChange={(e) =>
-                      updateExtraRow(row.id, {
-                        quantity: parsePositiveNumber(e.target.value),
-                      })
-                    }
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventNumberInputArrowKeys}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="Rate"
-                    value={row.rate === 0 ? '' : String(row.rate)}
-                    onChange={(e) =>
-                      updateExtraRow(row.id, {
-                        rate: parsePositiveNumber(e.target.value),
-                      })
-                    }
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={preventNumberInputArrowKeys}
-                    className="font-custom [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <div className="font-custom text-muted-foreground bg-muted/50 flex h-9 items-center rounded-md border px-3 text-sm">
-                    {formatAcresValue(
-                      calculateAcres(
-                        row.quantity ?? 0,
-                        selectedVarietyStandardBagsPerAcre
-                      )
-                    )}
-                  </div>
                 </div>
-              ))}
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addExtraRow}
-                className="font-custom w-full sm:w-auto"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Size
-              </Button>
+              )}
 
               <Separator className="my-4" />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="font-custom text-foreground text-base font-normal">
-                  Total Quantity
+                  Total quantity
                 </span>
                 <span className="font-custom text-foreground text-base font-medium sm:text-right">
                   {totalQty}
@@ -539,7 +670,7 @@ function FarmerSeedCreateForm() {
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="font-custom text-foreground text-base font-normal">
-                  Total Acres
+                  Total acres
                 </span>
                 <span className="font-custom text-foreground text-base font-medium sm:text-right">
                   {formatAcresValue(totalAcres)}
@@ -547,7 +678,7 @@ function FarmerSeedCreateForm() {
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="font-custom text-foreground text-base font-normal">
-                  Total Amount
+                  Total amount
                 </span>
                 <span className="font-custom text-foreground text-base font-medium sm:text-right">
                   {formatSeedAmount(totalAmount)}
@@ -595,7 +726,7 @@ function FarmerSeedCreateForm() {
             : undefined
         }
         remarks={remarks}
-        bagSizes={allBagSizes}
+        bagSizes={summaryBagSizes}
         isPending={isPending}
         onSubmit={handleSubmit}
         description="Review details before creating this entry."
