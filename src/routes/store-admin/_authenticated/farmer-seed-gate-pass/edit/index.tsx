@@ -504,6 +504,11 @@ function FarmerSeedEditForm() {
     setIsSummarySheetOpen(true);
   };
 
+  const handleClearBags = () => {
+    setSeedQuantityRows((prev) => prev.map((row) => ({ ...row, quantity: 0 })));
+    setExtraSeedQuantityRows([]);
+  };
+
   const handleMarkAsNull = () => {
     setIsMarkedAsNull(true);
     setSeedQuantityRows((prev) => prev.map((row) => ({ ...row, quantity: 0 })));
@@ -682,9 +687,23 @@ function FarmerSeedEditForm() {
 
           <Card className="overflow-hidden">
             <CardHeader className="space-y-1.5 pb-4">
-              <CardTitle className="font-custom text-foreground text-xl font-semibold">
-                Enter bag sizes
-              </CardTitle>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <CardTitle className="font-custom text-foreground text-xl font-semibold">
+                  Enter bag sizes
+                </CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="font-custom text-muted-foreground hover:text-foreground shrink-0 transition-colors duration-200"
+                  onClick={handleClearBags}
+                  disabled={
+                    isPending || isMarkedAsNull || !varietyHasConfiguredBagSizes
+                  }
+                >
+                  Clear Bags
+                </Button>
+              </div>
               <CardDescription className="font-custom text-muted-foreground text-sm">
                 Only bag sizes with both rate per bag and bags per acre set in
                 preferences appear here. Enter quantity; rate and acres follow
