@@ -76,10 +76,7 @@ export const TRAILING_TWO_ROW_HEADER_ID_SET = new Set<string>(
 );
 
 /** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
-export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 12;
-
-/** Placeholder column id when the report has no grade headers (matches `buildColumns`). */
-export const NO_GRADES_COLUMN_ID = 'noGrades';
+export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 13;
 
 /**
  * Default leaf order inside the grading section (after buy-back bags / net weight):
@@ -218,7 +215,7 @@ export function buildDefaultContractFarmingColumnOrder(
   const gradingSectionOrder =
     gradeHeaders.length > 0
       ? buildContractFarmingGradingLeafColumnIds(gradeHeaders)
-      : [NO_GRADES_COLUMN_ID];
+      : [];
   return [
     'familyKey',
     'farmer',
@@ -722,22 +719,7 @@ export function buildColumns(
           },
         }),
       ]
-    : [
-        columnHelper.display({
-          id: NO_GRADES_COLUMN_ID,
-          header: 'No grades',
-          enableSorting: false,
-          enableGrouping: false,
-          size: 130,
-          minSize: 110,
-          maxSize: 260,
-          cell: () => (
-            <span className="font-custom text-muted-foreground text-center text-sm">
-              -
-            </span>
-          ),
-        }),
-      ];
+    : [];
 
   return [
     ...baseColumns,

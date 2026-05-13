@@ -210,43 +210,6 @@ export function ContractFarmingViewFiltersSheet({
     Record<string, boolean>
   >({});
 
-  /**
-   * Hidable leaf columns, ordered by the active column order (falls back to default).
-   * `defaultColumnOrder` is included in deps because `table` is a stable reference from
-   * `useReactTable`, so we need a sentinel that changes when dynamic columns (e.g. grade
-   * columns) are added so this memo recomputes — mirrors the "Filters" tab's behavior.
-   */
-  const hidableColumns = React.useMemo(() => {
-    const leafColumns = table.getAllLeafColumns();
-    const leafById = new Map(leafColumns.map((c) => [c.id, c]));
-    const order = table.getState().columnOrder;
-    const canonical = order.length > 0 ? order : defaultColumnOrder;
-    const seen = new Set<string>();
-    const rows: typeof leafColumns = [];
-
-    const pushIfHidable = (id: string) => {
-      if (seen.has(id)) return;
-      const col = leafById.get(id);
-      if (!col?.getCanHide()) return;
-      seen.add(id);
-      rows.push(col);
-    };
-
-    canonical.forEach(pushIfHidable);
-
-    leafColumns.forEach((col) => {
-      if (!seen.has(col.id) && col.getCanHide()) {
-        pushIfHidable(col.id);
-      }
-    });
-
-    return rows;
-  }, [defaultColumnOrder, table]);
-  const hidableColumnIds = React.useMemo(
-    () => hidableColumns.map((column) => column.id),
-    [hidableColumns]
-  );
-
   /** All leaf columns with a filterFn — mirrors the grid (grades, %, totals, ₹, etc.) */
   const filterableColumns = React.useMemo(() => {
     const leafById = new Map(table.getAllLeafColumns().map((c) => [c.id, c]));
@@ -278,22 +241,61 @@ export function ContractFarmingViewFiltersSheet({
     return rows;
   }, [defaultColumnOrder, table]);
 
+  /** Same ids as the Filters tab — Columns tab stays aligned (no extra display-only leaves). */
+  const filterableColumnIds = React.useMemo(
+    () => filterableColumns.map((c) => c.id),
+    [filterableColumns]
+  );
+
   const [draftColumnVisibility, setDraftColumnVisibility] = React.useState<
     Record<string, boolean>
   >(() => {
     const visibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      visibility[column.id] = column.getIsVisible();
+    const leafById = new Map(table.getAllLeafColumns().map((c) => [c.id, c]));
+    const order = table.getState().columnOrder;
+    const canonical = order.length > 0 ? order : defaultColumnOrder;
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    const pushIfFilterable = (id: string) => {
+      if (seen.has(id)) return;
+      const col = leafById.get(id);
+      if (!col?.getCanFilter()) return;
+      seen.add(id);
+      ids.push(id);
+    };
+    canonical.forEach(pushIfFilterable);
+    leafById.forEach((col, id) => {
+      if (!seen.has(id) && col.getCanFilter()) pushIfFilterable(id);
+    });
+    ids.forEach((id) => {
+      const col = table.getColumn(id);
+      if (col) visibility[id] = col.getIsVisible();
     });
     return visibility;
   });
   const [draftColumnOrder, setDraftColumnOrder] = React.useState<string[]>(
     () => {
+      const leafById = new Map(table.getAllLeafColumns().map((c) => [c.id, c]));
+      const order = table.getState().columnOrder;
+      const canonical = order.length > 0 ? order : defaultColumnOrder;
+      const seen = new Set<string>();
+      const filterIds: string[] = [];
+      const pushIfFilterable = (id: string) => {
+        if (seen.has(id)) return;
+        const col = leafById.get(id);
+        if (!col?.getCanFilter()) return;
+        seen.add(id);
+        filterIds.push(id);
+      };
+      canonical.forEach(pushIfFilterable);
+      leafById.forEach((col, id) => {
+        if (!seen.has(id) && col.getCanFilter()) pushIfFilterable(id);
+      });
       const activeOrder = table.getState().columnOrder;
       const validOrder = (
         activeOrder.length ? activeOrder : defaultColumnOrder
-      ).filter((id) => hidableColumnIds.includes(id));
-      const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+      ).filter((id) => filterIds.includes(id));
+      const missing = filterIds.filter((id) => !validOrder.includes(id));
       return [...validOrder, ...missing];
     }
   );
@@ -494,15 +496,18 @@ export function ContractFarmingViewFiltersSheet({
 
   const syncDraftFromTable = React.useCallback(() => {
     const visibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      visibility[column.id] = column.getIsVisible();
+    filterableColumnIds.forEach((id) => {
+      const column = table.getColumn(id);
+      if (column) visibility[id] = column.getIsVisible();
     });
 
     const activeOrder = table.getState().columnOrder;
     const validOrder = (
       activeOrder.length ? activeOrder : defaultColumnOrder
-    ).filter((id) => hidableColumnIds.includes(id));
-    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+    ).filter((id) => filterableColumnIds.includes(id));
+    const missing = filterableColumnIds.filter(
+      (id) => !validOrder.includes(id)
+    );
 
     const nextValueFilters: Record<string, string[]> = {};
     filterableColumns.forEach(({ id }) => {
@@ -531,9 +536,8 @@ export function ContractFarmingViewFiltersSheet({
   }, [
     availableFilterOptions,
     defaultColumnOrder,
+    filterableColumnIds,
     filterableColumns,
-    hidableColumnIds,
-    hidableColumns,
     legacyAdvancedFieldToColumnId,
     table,
   ]);
@@ -547,6 +551,15 @@ export function ContractFarmingViewFiltersSheet({
     [defaultColumnOrder]
   );
   const lastSyncedDefaultsKeyRef = React.useRef(defaultColumnOrderKey);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handle = window.setTimeout(() => {
+      syncDraftFromTable();
+      lastSyncedDefaultsKeyRef.current = defaultColumnOrderKey;
+    }, 0);
+    return () => window.clearTimeout(handle);
+  }, [open, defaultColumnOrderKey, syncDraftFromTable]);
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
@@ -578,13 +591,15 @@ export function ContractFarmingViewFiltersSheet({
     onColumnResizeDirectionChange('ltr');
 
     const visibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      visibility[column.id] = defaultColumnVisibility[column.id] !== false;
+    filterableColumnIds.forEach((id) => {
+      visibility[id] = defaultColumnVisibility[id] !== false;
     });
     const validOrder = defaultColumnOrder.filter((id) =>
-      hidableColumnIds.includes(id)
+      filterableColumnIds.includes(id)
     );
-    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+    const missing = filterableColumnIds.filter(
+      (id) => !validOrder.includes(id)
+    );
     const nextValueFilters: Record<string, string[]> = {};
     filterableColumns.forEach(({ id }) => {
       nextValueFilters[id] = [...(availableFilterOptions[id] ?? [])];
@@ -608,8 +623,7 @@ export function ContractFarmingViewFiltersSheet({
     defaultColumnOrderKey,
     defaultColumnVisibility,
     filterableColumns,
-    hidableColumnIds,
-    hidableColumns,
+    filterableColumnIds,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
     resetFilterUiState,
@@ -640,13 +654,13 @@ export function ContractFarmingViewFiltersSheet({
     // from clobbering layout when the user only changed filters/grouping.
     const currentVisibilityState = table.getState().columnVisibility;
     const currentColumnVisibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      currentColumnVisibility[column.id] = column.getIsVisible();
+    filterableColumnIds.forEach((id) => {
+      const column = table.getColumn(id);
+      if (column) currentColumnVisibility[id] = column.getIsVisible();
     });
-    const visibilityChanged = hidableColumns.some(
-      (column) =>
-        (draftColumnVisibility[column.id] ?? true) !==
-        currentColumnVisibility[column.id]
+    const visibilityChanged = filterableColumnIds.some(
+      (id) =>
+        (draftColumnVisibility[id] ?? true) !== currentColumnVisibility[id]
     );
     if (visibilityChanged) {
       table.setColumnVisibility({
@@ -661,7 +675,7 @@ export function ContractFarmingViewFiltersSheet({
     const normalizedCurrentOrder =
       activeOrder.length > 0 ? activeOrder : defaultColumnOrder;
     const filteredCurrentOrder = normalizedCurrentOrder.filter((id) =>
-      hidableColumnIds.includes(id)
+      filterableColumnIds.includes(id)
     );
     const orderChanged =
       filteredCurrentOrder.length !== draftColumnOrder.length ||
@@ -703,9 +717,8 @@ export function ContractFarmingViewFiltersSheet({
     draftGrouping,
     draftLogicFilter,
     filterableColumns,
+    filterableColumnIds,
     getEffectiveDraftValues,
-    hidableColumnIds,
-    hidableColumns,
     onOpenChange,
     onGroupingChange,
     syncDraftFromTable,
@@ -1120,8 +1133,8 @@ export function ContractFarmingViewFiltersSheet({
                       className="text-primary text-xs font-medium hover:underline"
                       onClick={() => {
                         const next = { ...draftColumnVisibility };
-                        hidableColumns.forEach((col) => {
-                          next[col.id] = true;
+                        filterableColumnIds.forEach((id) => {
+                          next[id] = true;
                         });
                         setDraftColumnVisibility(next);
                       }}
