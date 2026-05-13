@@ -230,7 +230,7 @@ export function normalizePreferences(
   const potatoVarieties =
     custom.potatoVarieties ?? fallbackCustom?.potatoVarieties ?? [];
 
-  const customRecord = custom as Record<string, unknown>;
+  const customRecord = custom as unknown as Record<string, unknown>;
 
   const mergedCustom = {
     ...custom,
@@ -259,13 +259,13 @@ export function normalizePreferences(
   };
 
   const { standardBagsPerAcre: _legacyStandardBags, ...customWithoutLegacy } =
-    mergedCustom as Record<string, unknown>;
+    mergedCustom as unknown as Record<string, unknown>;
 
   return {
     ...preferences,
     bagSizes,
     reportFormat: preferences.reportFormat ?? fallback?.reportFormat ?? '',
-    custom: customWithoutLegacy as PreferencesCustomData,
+    custom: customWithoutLegacy as unknown as PreferencesCustomData,
   };
 }
 
