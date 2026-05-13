@@ -548,9 +548,14 @@ export default function ContractFarmingReportTable() {
 
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
+  // `table` from useReactTable is a stable reference; visibility, order,
+  // grouping, and column definitions all affect visible leaf columns. If we
+  // only depend on `table`, the totals row keeps a stale id list when columns
+  // are toggled or reordered and no longer lines up with the header.
   const visibleColumnIds = React.useMemo(
     () => table.getVisibleLeafColumns().map((column) => column.id),
-    [table]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- TanStack `table` ref is stable; these deps force recomputation when visibility/order/grouping/columns change.
+    [table, columnVisibility, columnOrder, grouping, columns]
   );
 
   const totalsByColumn = React.useMemo(() => {
@@ -575,7 +580,8 @@ export default function ContractFarmingReportTable() {
       for (const columnId of numericVisibleColumnIds) {
         if (
           VARIETY_LEVEL_TOTAL_COLUMN_IDS.has(columnId) ||
-          VARIETY_LEVEL_AVERAGE_COLUMN_IDS.has(columnId)
+          VARIETY_LEVEL_AVERAGE_COLUMN_IDS.has(columnId) ||
+          columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
         ) {
           continue;
         }
@@ -652,6 +658,16 @@ export default function ContractFarmingReportTable() {
     if (numericVisibleColumnIds.includes(OUTPUT_PERCENTAGE_COLUMN_ID)) {
       totals[OUTPUT_PERCENTAGE_COLUMN_ID] = averageOverVarieties(
         varietyRows.map((row) => getOutputPercentage(row))
+      );
+    }
+
+    for (const columnId of numericVisibleColumnIds) {
+      if (!columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) continue;
+      const gradeHeader = columnId.slice(
+        VARIETY_LEVEL_PERCENT_COLUMN_PREFIX.length
+      );
+      totals[columnId] = averageOverVarieties(
+        varietyRows.map((row) => getGradeWeightPercent(row, gradeHeader))
       );
     }
 

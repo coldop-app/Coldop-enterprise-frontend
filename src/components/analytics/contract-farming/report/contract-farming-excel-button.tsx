@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import {
   AVG_QUINTAL_PER_ACRE_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
+  VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
   WASTAGE_KG_COLUMN_ID,
   isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
@@ -145,6 +146,9 @@ function buildTotalsRow(
     WASTAGE_KG_COLUMN_ID,
     OUTPUT_PERCENTAGE_COLUMN_ID,
   ]);
+  const isAverageTotalColumn = (columnId: string) =>
+    AVERAGE_COLUMN_IDS.has(columnId) ||
+    columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX);
   const leafRows = collectUniqueLeafRows(rows);
   const uniqueVarietyLeafRows = Array.from(
     new Map(
@@ -162,7 +166,7 @@ function buildTotalsRow(
       ? leafRows
       : uniqueVarietyLeafRows;
 
-    if (AVERAGE_COLUMN_IDS.has(columnId)) {
+    if (isAverageTotalColumn(columnId)) {
       let sum = 0;
       let count = 0;
       for (const row of sourceRows) {
