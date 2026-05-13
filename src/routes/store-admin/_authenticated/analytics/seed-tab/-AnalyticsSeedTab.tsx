@@ -1,7 +1,9 @@
+import ContractFarmingAnalyticsPage from '@/components/analytics/contract-farming';
+
 const AnalyticsSeedTab = () => {
   return (
     <div className="space-y-6">
-      <div>-AnalyticsSeedTab</div>
+      <ContractFarmingAnalyticsPage />
     </div>
   );
 };

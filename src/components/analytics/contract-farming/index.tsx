@@ -29,6 +29,7 @@ import {
   orderContractFarmingGradeHeaders,
 } from '@/components/analytics/contract-farming/report/contract-farming-report-calculations';
 import type { FlattenedRow } from '@/components/analytics/contract-farming/report/types';
+import ContractFarmingAnalytics from './analytics/index';
 import { Button } from '@/components/ui/button';
 import type { PreferencesData } from '@/services/store-admin/preferences/useGetPreferences';
 import {
@@ -228,22 +229,21 @@ const ContractFarmingAnalyticsPage = () => {
     [flattenedRows, gradeHeaders, preferences]
   );
 
-  const json = React.useMemo(
-    () =>
-      JSON.stringify(
-        rowsWithColumnFields.map(({ columns }) => columns),
-        null,
-        2
-      ),
-    [rowsWithColumnFields]
-  );
+  const nullNetAmountRatio = React.useMemo(() => {
+    const total = rowsWithColumnFields.length;
+    if (total === 0) return 0;
+    const nulls = rowsWithColumnFields.filter(
+      ({ columns }) => columns.netAmount === null
+    ).length;
+    return nulls / total;
+  }, [rowsWithColumnFields]);
 
   return (
     <section className="font-custom px-4 py-6 sm:px-8">
       <div className="mx-auto max-w-[75rem] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold tracking-tight text-[#333] sm:text-2xl">
-            Contract farming analytics (debug)
+            Contract farming analytics
           </h1>
           <Button
             type="button"
@@ -256,13 +256,10 @@ const ContractFarmingAnalyticsPage = () => {
             {isFetching ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
-        <p className="text-sm leading-relaxed text-gray-600">
-          JSON is only the table data: an array of row objects, each keyed by
-          report column id (same values as the table cells).
-        </p>
-        <pre className="border-border max-h-[min(70vh,48rem)] overflow-auto rounded-xl border bg-gray-50/80 p-4 text-xs leading-relaxed text-gray-800 shadow-inner sm:text-sm">
-          {json}
-        </pre>
+        <ContractFarmingAnalytics
+          rows={rowsWithColumnFields.map(({ columns }) => columns)}
+          nullNetAmountRatio={nullNetAmountRatio}
+        />
       </div>
     </section>
   );
