@@ -15,6 +15,12 @@ import type {
 export const dispatchLedgerKeys = {
   all: ['store-admin', 'dispatch-ledger'] as const,
   lists: () => [...dispatchLedgerKeys.all, 'list'] as const,
+  nikasiGatePasses: (dispatchLedgerId: string) =>
+    [
+      ...dispatchLedgerKeys.all,
+      'nikasi-gate-passes',
+      dispatchLedgerId,
+    ] as const,
 };
 
 type DispatchLedgerApiError = {

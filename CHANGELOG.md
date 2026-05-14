@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7] - 2026-05-14
+
+### Added
+- `useGetAllGatePassesOfDispatchLedger` plus `dispatchLedgerKeys.nikasiGatePasses` for fetching and caching nikasi gate passes scoped to a dispatch ledger.
+- Dispatch ledger nikasi API typings and normalized result shapes in `src/types/dispatch-ledger.ts`.
+- Route-local `DispatchLedgerNikasiSection` and `to-nikasi-card-item` helper for listing nikasi vouchers on the dispatch ledger detail screen.
+
+### Changed
+- Dispatch ledger detail route now loads real ledger and nikasi data with skeleton, error, and empty states instead of placeholder UI; wires edit modal and profile header to permissions-aware `FarmerProfileOverview`.
+- `FarmerProfileOverview` gains optional `primaryMetric`, `hideFarmerReportLinks`, and `canShowEditButton`, and displays a mobile line when a number is present.
+- Store-admin topbar page title resolves to **Dispatch Ledger** on `/store-admin/people/dispatch-ledger/:id`.
+- `useGetAllGatePassesOfFarmer` enriches incoming, grading, and farmer-seed rows from the flat `farmerStorageLink` summary on `/passes` so daybook cards see populated farmer names; `FarmerSeedGatePass.farmerStorageLinkId` accepts string or populated link.
+- Project version updated to `0.6.7` for this dispatch ledger detail and farmer passes normalization release.
+
 ## [0.6.6] - 2026-05-14
 
 ### Added

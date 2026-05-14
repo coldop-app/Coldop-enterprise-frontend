@@ -9,6 +9,8 @@ import {
   Hash,
   Layers,
   MapPin,
+  Package,
+  Phone,
   Sprout,
   type LucideIcon,
 } from 'lucide-react';
@@ -94,6 +96,17 @@ export interface FarmerProfileOverviewProps {
   onEdit?: () => void;
   editAriaLabel?: string;
   aggregates: FarmerProfileAggregates;
+  /** When set, replaces the four-metric grid with a single “bags dispatched” card. */
+  primaryMetric?: {
+    label: string;
+    value: number;
+  };
+  /** Hide Farmer report / Accounting report actions (e.g. dispatch ledger profile). */
+  hideFarmerReportLinks?: boolean;
+  /**
+   * When set, controls edit-button visibility instead of `farmer-profile` update permission.
+   */
+  canShowEditButton?: boolean;
 }
 
 export const FarmerProfileOverview = memo(function FarmerProfileOverview({
@@ -105,6 +118,9 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   onEdit,
   editAriaLabel = 'Edit farmer',
   aggregates,
+  primaryMetric,
+  hideFarmerReportLinks = false,
+  canShowEditButton: canShowEditButtonProp,
 }: FarmerProfileOverviewProps) {
   const [editFarmerDialogOpen, setEditFarmerDialogOpen] = useState(false);
 
@@ -114,6 +130,7 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
     'reports'
   );
   const canUpdateFarmerProfile = hasPermission('farmer-profile', 'update');
+  const canShowEditButton = canShowEditButtonProp ?? canUpdateFarmerProfile;
 
   const editFarmerInitialValues = useMemo(
     () => ({
@@ -180,10 +197,19 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
                   />
                   <span className="min-w-0 wrap-break-word">{address}</span>
                 </p>
+                {mobileNumberProp != null && mobileNumberProp.trim() !== '' ? (
+                  <p className="font-custom text-muted-foreground flex items-center gap-1.5 text-sm">
+                    <Phone
+                      className="h-3.5 w-3.5 shrink-0 opacity-60"
+                      aria-hidden
+                    />
+                    <span className="tabular-nums">{mobileNumberProp}</span>
+                  </p>
+                ) : null}
               </div>
             </div>
 
-            {canUpdateFarmerProfile &&
+            {canShowEditButton &&
               (onEdit != null || farmerStorageLinkId != null) && (
                 <div className="flex shrink-0 items-center gap-0.5">
                   <Tooltip>
@@ -207,7 +233,7 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
 
           <Separator />
 
-          {canReadFarmerProfileReports && (
+          {!hideFarmerReportLinks && canReadFarmerProfileReports && (
             <div className="flex flex-wrap gap-2">
               {farmerStorageLinkId ? (
                 <Button type="button" size="sm" className="gap-1.5" asChild>
@@ -263,32 +289,57 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
         </div>
       </TooltipProvider>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {METRICS.map(({ key, label, Icon, color }) => (
-          <div
-            key={key}
-            className="border-border/50 bg-card space-y-2.5 rounded-xl border p-4"
-          >
+      {primaryMetric != null ? (
+        <div className="grid max-w-xs grid-cols-1 gap-2">
+          <div className="border-border/50 bg-card space-y-2.5 rounded-xl border p-4">
             <div className="flex items-center gap-2">
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconWrapperClass[color]}`}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconWrapperClass.info}`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Package className="h-3.5 w-3.5" />
               </div>
               <span className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                {label}
+                {primaryMetric.label}
               </span>
             </div>
-
             <div>
               <p className="text-foreground text-[22px] leading-none font-medium tabular-nums">
-                {aggregates[key].toLocaleString('en-IN')}
+                {primaryMetric.value.toLocaleString('en-IN')}
               </p>
               <p className="text-muted-foreground/60 mt-1 text-[11px]">bags</p>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {METRICS.map(({ key, label, Icon, color }) => (
+            <div
+              key={key}
+              className="border-border/50 bg-card space-y-2.5 rounded-xl border p-4"
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconWrapperClass[color]}`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+                  {label}
+                </span>
+              </div>
+
+              <div>
+                <p className="text-foreground text-[22px] leading-none font-medium tabular-nums">
+                  {aggregates[key].toLocaleString('en-IN')}
+                </p>
+                <p className="text-muted-foreground/60 mt-1 text-[11px]">
+                  bags
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });

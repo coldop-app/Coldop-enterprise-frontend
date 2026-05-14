@@ -132,6 +132,10 @@ const PageTitleComponent = () => {
       return 'Farmer Profile';
     }
 
+    if (pathname.match(/^\/store-admin\/people\/dispatch-ledger\/[^/]+$/)) {
+      return 'Dispatch Ledger';
+    }
+
     const segments = pathname.split('/').filter(Boolean);
     const last = segments.at(-1) ?? '';
 

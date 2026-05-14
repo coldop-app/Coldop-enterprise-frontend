@@ -6,7 +6,10 @@ import {
 import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
-import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
+import type {
+  FarmerStorageLink,
+  IncomingGatePassByFarmerStorageLinkItem,
+} from '@/types/incoming-gate-pass';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 export type { GradingGatePass };
@@ -46,7 +49,8 @@ export interface OutgoingGatePass {
 
 export interface FarmerSeedGatePass {
   _id: string;
-  farmerStorageLinkId: string;
+  /** List APIs often send an id string; farmer profile `/passes` is enriched to a populated link for daybook cards */
+  farmerStorageLinkId: string | FarmerStorageLink;
   gatePassNo: number;
   invoiceNumber: string;
   date: string;
@@ -175,23 +179,106 @@ const EMPTY_NIKASI: NikasiGatePass[] = [];
 const EMPTY_OUTGOING: OutgoingGatePass[] = [];
 const EMPTY_FARMER_SEEDS: FarmerSeedGatePass[] = [];
 
+/**
+ * GET `/farmer-storage-link/:id/passes` returns a flat `farmerStorageLink` summary while
+ * gate pass rows use a string `farmerStorageLinkId`. Daybook cards expect the populated
+ * link shape (`farmerId.name`, etc.) used by list/daybook APIs.
+ */
+function farmerStorageLinkSummaryToNested(
+  link: FarmerStorageLinkInPassesPayload
+): FarmerStorageLink {
+  return {
+    _id: link._id,
+    coldStorageId: '',
+    isActive: true,
+    accountNumber: link.accountNumber,
+    farmerId: {
+      _id: link._id,
+      name: link.name,
+      address: link.address,
+      mobileNumber: link.mobileNumber,
+      accountNumber: link.accountNumber,
+    },
+  };
+}
+
+function nestedFarmerNameIsPresent(farmerStorageLinkRef: unknown): boolean {
+  if (
+    farmerStorageLinkRef == null ||
+    typeof farmerStorageLinkRef !== 'object'
+  ) {
+    return false;
+  }
+  const farmerId = (farmerStorageLinkRef as { farmerId?: unknown }).farmerId;
+  if (farmerId == null || typeof farmerId !== 'object') return false;
+  const name = String((farmerId as { name?: unknown }).name ?? '').trim();
+  return name.length > 0;
+}
+
+function enrichIncomingWithFarmerSummary(
+  passes: IncomingGatePassByFarmerStorageLinkItem[],
+  summary: FarmerStorageLinkInPassesPayload | null
+): IncomingGatePassByFarmerStorageLinkItem[] {
+  if (summary == null || summary._id === '') return passes;
+  const populated = farmerStorageLinkSummaryToNested(summary);
+  return passes.map((pass) => {
+    if (nestedFarmerNameIsPresent(pass.farmerStorageLinkId)) return pass;
+    return { ...pass, farmerStorageLinkId: populated };
+  });
+}
+
+function enrichGradingWithFarmerSummary(
+  passes: GradingGatePass[],
+  summary: FarmerStorageLinkInPassesPayload | null
+): GradingGatePass[] {
+  if (summary == null || summary._id === '') return passes;
+  const populated = farmerStorageLinkSummaryToNested(summary);
+  return passes.map((pass) => {
+    if (nestedFarmerNameIsPresent(pass.farmerStorageLinkId)) return pass;
+    return { ...pass, farmerStorageLinkId: populated };
+  });
+}
+
+function enrichFarmerSeedsWithFarmerSummary(
+  seeds: FarmerSeedGatePass[],
+  summary: FarmerStorageLinkInPassesPayload | null
+): FarmerSeedGatePass[] {
+  if (summary == null || summary._id === '') return seeds;
+  const populated = farmerStorageLinkSummaryToNested(summary);
+  return seeds.map((seed) => {
+    if (nestedFarmerNameIsPresent(seed.farmerStorageLinkId)) return seed;
+    return { ...seed, farmerStorageLinkId: populated };
+  });
+}
+
 function normalizeGatePassesData(
   data: GetAllGatePassesOfFarmerData
 ): GetAllGatePassesOfFarmerData {
   const totals = data.totals;
+  const farmerStorageLink =
+    data.farmerStorageLink != null &&
+    typeof data.farmerStorageLink === 'object' &&
+    '_id' in data.farmerStorageLink
+      ? data.farmerStorageLink
+      : null;
+
+  const incomingRaw = Array.isArray(data.incoming) ? data.incoming : [];
+  const gradingRaw = Array.isArray(data.grading) ? data.grading : [];
+  const farmerSeedsRaw = Array.isArray(data.farmerSeeds)
+    ? data.farmerSeeds
+    : [];
+
   return {
-    farmerStorageLink:
-      data.farmerStorageLink != null &&
-      typeof data.farmerStorageLink === 'object' &&
-      '_id' in data.farmerStorageLink
-        ? data.farmerStorageLink
-        : null,
-    incoming: Array.isArray(data.incoming) ? data.incoming : [],
-    grading: Array.isArray(data.grading) ? data.grading : [],
+    farmerStorageLink,
+    incoming: enrichIncomingWithFarmerSummary(incomingRaw, farmerStorageLink),
+    grading: enrichGradingWithFarmerSummary(gradingRaw, farmerStorageLink),
     dispatch: Array.isArray(data.dispatch) ? data.dispatch : [],
     storage: Array.isArray(data.storage) ? data.storage : [],
     outgoing: Array.isArray(data.outgoing) ? data.outgoing : [],
-    farmerSeeds: Array.isArray(data.farmerSeeds) ? data.farmerSeeds : [],
+    farmerSeeds: enrichFarmerSeedsWithFarmerSummary(
+      farmerSeedsRaw,
+      farmerStorageLink
+    ),
     totals: {
       ...EMPTY_GATE_PASSES_TOTALS,
       ...totals,
