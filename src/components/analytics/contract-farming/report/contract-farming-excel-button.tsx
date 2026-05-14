@@ -3,14 +3,15 @@ import { flexRender, type Row, type Table } from '@tanstack/react-table';
 import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePreferencesStore } from '@/stores/store';
 import {
-  AVG_QUINTAL_PER_ACRE_COLUMN_ID,
-  OUTPUT_PERCENTAGE_COLUMN_ID,
-  VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
-  WASTAGE_KG_COLUMN_ID,
   isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
 } from './columns';
+import {
+  buildContractFarmingExcelFooterRows,
+  computeContractFarmingFooterTotals,
+} from './contract-farming-report-footer-totals';
 import type { FlattenedRow } from './types';
 
 const COLORS = {
@@ -102,91 +103,6 @@ function getRenderedHeaderLabel(
   if (typeof headerDefinition === 'string') return headerDefinition;
   if (typeof column.columnDef.meta === 'string') return column.columnDef.meta;
   return column.id;
-}
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed.replace(/,/g, '').replace(/[₹%]/g, ''));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function collectUniqueLeafRows(rows: Row<FlattenedRow>[]): Row<FlattenedRow>[] {
-  const visited = new Set<string>();
-  const leaves: Row<FlattenedRow>[] = [];
-  const stack = [...rows];
-
-  while (stack.length > 0) {
-    const row = stack.pop();
-    if (!row) continue;
-    if (visited.has(row.id)) continue;
-    visited.add(row.id);
-
-    if (row.subRows.length > 0) {
-      stack.push(...row.subRows);
-      continue;
-    }
-
-    leaves.push(row);
-  }
-
-  return leaves;
-}
-
-function buildTotalsRow(
-  visibleColumnIds: string[],
-  rows: Row<FlattenedRow>[]
-): Array<string | number> {
-  const AVERAGE_COLUMN_IDS = new Set<string>([
-    AVG_QUINTAL_PER_ACRE_COLUMN_ID,
-    WASTAGE_KG_COLUMN_ID,
-    OUTPUT_PERCENTAGE_COLUMN_ID,
-  ]);
-  const isAverageTotalColumn = (columnId: string) =>
-    AVERAGE_COLUMN_IDS.has(columnId) ||
-    columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX);
-  const leafRows = collectUniqueLeafRows(rows);
-  const uniqueVarietyLeafRows = Array.from(
-    new Map(
-      leafRows.map((row) => [
-        `${row.original.accountNumber}|${row.original.varietyName}`,
-        row,
-      ])
-    ).values()
-  );
-  const totals = visibleColumnIds.map((columnId, index) => {
-    if (index === 0) return 'Total';
-    if (!isNumericSortColumnId(columnId)) return '';
-
-    const sourceRows = isContractFarmingSplitSpanColumn(columnId)
-      ? leafRows
-      : uniqueVarietyLeafRows;
-
-    if (isAverageTotalColumn(columnId)) {
-      let sum = 0;
-      let count = 0;
-      for (const row of sourceRows) {
-        const value = toNumber(row.getValue(columnId));
-        if (value != null) {
-          sum += value;
-          count += 1;
-        }
-      }
-      return count > 0 ? sum / count : 0;
-    }
-
-    let sum = 0;
-    for (const row of sourceRows) {
-      const value = toNumber(row.getValue(columnId));
-      if (value != null) sum += value;
-    }
-    return sum;
-  });
-  return totals;
 }
 
 function getExcelBodyRows(
@@ -325,8 +241,10 @@ function applyBorder(cell: ExcelJS.Cell, color: string) {
 function addTotalsRow(
   worksheet: ExcelJS.Worksheet,
   totalsRowValues: Array<string | number>,
-  visibleColumnIds: string[]
+  visibleColumnIds: string[],
+  options?: { bold?: boolean }
 ) {
+  const bold = options?.bold !== false;
   const row = worksheet.addRow(totalsRowValues);
   row.height = 24;
   row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
@@ -336,7 +254,7 @@ function addTotalsRow(
     applyBorder(cell, COLORS.borderColor);
     cell.font = {
       ...FONTS.body,
-      bold: true,
+      bold,
       color: { argb: COLORS.totalRowFg },
     };
     const isNumeric =
@@ -390,10 +308,18 @@ export const ContractFarmingExcelButton = ({
         suppressRepeatedMergedCells
       );
 
-      const totalsRowValues = buildTotalsRow(visibleColumnIds, sourceRows);
+      const preferences = usePreferencesStore.getState().preferences;
+      const footer = computeContractFarmingFooterTotals(
+        t.getFilteredRowModel().rows,
+        preferences,
+        visibleColumnIds
+      );
+      const { totalsRow: totalsRowValues, perAcreRow: perAcreRowValues } =
+        buildContractFarmingExcelFooterRows(visibleColumnIds, footer);
       const allRowsForWidth = [
         ...bodyRows.map((row) => row.values),
         totalsRowValues,
+        ...(perAcreRowValues ? [perAcreRowValues] : []),
       ];
 
       const safeName = safeFilePart(coldStorageName, 'Cold Storage');
@@ -506,6 +432,11 @@ export const ContractFarmingExcelButton = ({
       });
 
       addTotalsRow(worksheet, totalsRowValues, visibleColumnIds);
+      if (perAcreRowValues) {
+        addTotalsRow(worksheet, perAcreRowValues, visibleColumnIds, {
+          bold: false,
+        });
+      }
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {

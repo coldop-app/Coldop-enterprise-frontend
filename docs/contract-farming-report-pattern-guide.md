@@ -2,6 +2,8 @@
 
 This guide documents the architecture used in `src/components/analytics/contract-farming/report`, centered on `contract-farming-report-table.tsx`. It complements [docs/incoming-report-pattern-guide.md](./incoming-report-pattern-guide.md): the same broad ideas (TanStack Table, view-filters sheet, advanced filters, footer totals) apply, but this report adds **dynamic grading columns**, **HTML `rowspan` grouping** for farmer and variety, and a **two-level header** (Buy back / Grading groups).
 
+For **how grade %, “Below 40” / “Above 50” rollups, Output %, and footer % averages** are computed, see [contract-farming-report-percentages.md](./contract-farming-report-percentages.md).
+
 ---
 
 ## Goal of This Module

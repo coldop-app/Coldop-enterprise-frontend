@@ -344,7 +344,9 @@ function getTotalGradeNetWeightKgSum(row: FlattenedRow): number {
 }
 
 /** Buy-back net weight, or incoming net when buy-back is missing (same units as graded net kg). */
-function getInboundNetWeightKgForWastage(row: FlattenedRow): number | null {
+export function getInboundNetWeightKgForReport(
+  row: FlattenedRow
+): number | null {
   const buyBack = row.buyBackNetWeightKg;
   if (buyBack !== null && buyBack !== undefined && !Number.isNaN(buyBack)) {
     return buyBack;
@@ -358,17 +360,36 @@ function getInboundNetWeightKgForWastage(row: FlattenedRow): number | null {
 
 /** Wastage (kg) = inbound net (buy-back or incoming) minus total net weight after grading. */
 export function getWastageKg(row: FlattenedRow): number | null {
-  const inbound = getInboundNetWeightKgForWastage(row);
+  const inbound = getInboundNetWeightKgForReport(row);
   if (inbound === null) return null;
   return inbound - getTotalGradeNetWeightKgSum(row);
 }
 
 /** Output % = net weight after grading ÷ net incoming weight × 100 (incoming = same baseline as wastage). */
 export function getOutputPercentage(row: FlattenedRow): number | null {
-  const netIncoming = getInboundNetWeightKgForWastage(row);
+  const netIncoming = getInboundNetWeightKgForReport(row);
   if (netIncoming === null || netIncoming <= 0) return null;
   const gradedKg = getTotalGradeNetWeightKgSum(row);
   return (gradedKg / netIncoming) * 100;
+}
+
+/**
+ * Portfolio output % over deduped farmer×variety rows: sum(graded kg) ÷ sum(inbound kg) × 100.
+ * Only rows with finite inbound > 0 contribute to both sums.
+ */
+export function getPooledOutputPercentage(
+  rows: readonly FlattenedRow[]
+): number | null {
+  let sumGraded = 0;
+  let sumInbound = 0;
+  for (const row of rows) {
+    const inbound = getInboundNetWeightKgForReport(row);
+    if (inbound === null || inbound <= 0) continue;
+    sumInbound += inbound;
+    sumGraded += getTotalGradeNetWeightKgSum(row);
+  }
+  if (sumInbound <= 0) return null;
+  return (sumGraded / sumInbound) * 100;
 }
 
 /**
@@ -457,7 +478,7 @@ export const aggregateNetAmountPerAcre: AggregationFn<FlattenedRow> = (
   return roundMax2(sumNet / sumAcres);
 };
 
-/** Matches footer weighted average quintal / acre across deduped farmer×variety rows. */
+/** Grouped aggregation: acre-weighted mean of per-variety quintal/acre (Σ q×acres / Σ variety total acres on deduped rows). Table footer Total uses total graded kg ÷ 100 ÷ sum of planted size acres instead when ungrouped. */
 export const aggregateAvgQuintalPerAcre: AggregationFn<FlattenedRow> = (
   _columnId,
   leafRows

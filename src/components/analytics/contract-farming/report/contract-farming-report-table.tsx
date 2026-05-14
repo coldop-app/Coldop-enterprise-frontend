@@ -43,6 +43,7 @@ import {
   getWastageKg,
   orderContractFarmingGradeHeaders,
 } from './contract-farming-report-calculations';
+import { computeContractFarmingFooterTotals } from './contract-farming-report-footer-totals';
 import {
   AVG_QUINTAL_PER_ACRE_COLUMN_ID,
   BUY_BACK_AMOUNT_COLUMN_ID,
@@ -57,7 +58,6 @@ import {
   buildColumns,
   buildDefaultContractFarmingColumnOrder,
   buildDefaultContractFarmingColumnVisibility,
-  isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
 } from './columns';
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
@@ -73,25 +73,8 @@ const WHOLE_NUMBER_TOTAL_COLUMN_IDS = new Set<string>([
   'bbBags',
   TOTAL_GRADED_BAGS_COLUMN_ID,
 ]);
-const VARIETY_LEVEL_TOTAL_COLUMN_IDS = new Set<string>([
-  TOTAL_GRADED_BAGS_COLUMN_ID,
-  TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
-  BUY_BACK_AMOUNT_COLUMN_ID,
-  NET_AMOUNT_COLUMN_ID,
-  NET_AMOUNT_PER_ACRE_COLUMN_ID,
-]);
-const VARIETY_LEVEL_AVERAGE_COLUMN_IDS = new Set<string>([
-  AVG_QUINTAL_PER_ACRE_COLUMN_ID,
-  WASTAGE_KG_COLUMN_ID,
-  OUTPUT_PERCENTAGE_COLUMN_ID,
-]);
-
 /** Stable empty list so `data?.farmers ?? []` does not allocate a new `[]` every render. */
 const EMPTY_FARMERS: ContractFarmingReportFarmer[] = [];
-
-function getVarietyAggregationKey(row: FlattenedRow): string {
-  return `${row.accountNumber}|${row.varietyName}`;
-}
 
 type GlobalFilterValue = string | FilterGroupNode;
 
@@ -558,121 +541,17 @@ export default function ContractFarmingReportTable() {
     [table, columnVisibility, columnOrder, grouping, columns]
   );
 
-  const totalsByColumn = React.useMemo(() => {
-    const totals: Record<string, number> = {};
-    const numericVisibleColumnIds = visibleColumnIds.filter((columnId) =>
-      isNumericSortColumnId(columnId)
-    );
-    const uniqueVarietyRows = new Map<string, FlattenedRow>();
+  const { totalsByColumn, perAcreByColumn, totalPlantedAcres } = React.useMemo(
+    () =>
+      computeContractFarmingFooterTotals(
+        filteredRows,
+        preferences,
+        visibleColumnIds
+      ),
+    [filteredRows, preferences, visibleColumnIds]
+  );
 
-    numericVisibleColumnIds.forEach((columnId) => {
-      totals[columnId] = 0;
-    });
-
-    for (const row of filteredRows) {
-      const key = getVarietyAggregationKey(row.original);
-      if (!uniqueVarietyRows.has(key)) {
-        uniqueVarietyRows.set(key, row.original);
-      }
-    }
-
-    for (const row of filteredRows) {
-      for (const columnId of numericVisibleColumnIds) {
-        if (
-          VARIETY_LEVEL_TOTAL_COLUMN_IDS.has(columnId) ||
-          VARIETY_LEVEL_AVERAGE_COLUMN_IDS.has(columnId) ||
-          columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
-        ) {
-          continue;
-        }
-        if (
-          !isContractFarmingSplitSpanColumn(columnId) &&
-          !row.original.isFirstOfMergedBlock
-        ) {
-          continue;
-        }
-        const raw = row.getValue(columnId);
-        const value = typeof raw === 'number' ? raw : Number(raw);
-        if (Number.isFinite(value)) {
-          totals[columnId] += value;
-        }
-      }
-    }
-
-    const varietyRows = Array.from(uniqueVarietyRows.values());
-
-    if (numericVisibleColumnIds.includes(TOTAL_GRADED_BAGS_COLUMN_ID)) {
-      totals[TOTAL_GRADED_BAGS_COLUMN_ID] = varietyRows.reduce(
-        (sum, row) => sum + (getTotalGradeBags(row) ?? 0),
-        0
-      );
-    }
-    if (numericVisibleColumnIds.includes(TOTAL_GRADED_NET_WEIGHT_COLUMN_ID)) {
-      totals[TOTAL_GRADED_NET_WEIGHT_COLUMN_ID] = varietyRows.reduce(
-        (sum, row) => sum + (getTotalGradeNetWeightKg(row) ?? 0),
-        0
-      );
-    }
-    if (numericVisibleColumnIds.includes(BUY_BACK_AMOUNT_COLUMN_ID)) {
-      totals[BUY_BACK_AMOUNT_COLUMN_ID] = varietyRows.reduce(
-        (sum, row) =>
-          sum + (getBuyBackAmountFromGradeData(row, preferences) ?? 0),
-        0
-      );
-    }
-    if (numericVisibleColumnIds.includes(NET_AMOUNT_COLUMN_ID)) {
-      totals[NET_AMOUNT_COLUMN_ID] = varietyRows.reduce(
-        (sum, row) => sum + (getNetAmountRupee(row, preferences) ?? 0),
-        0
-      );
-    }
-    if (numericVisibleColumnIds.includes(NET_AMOUNT_PER_ACRE_COLUMN_ID)) {
-      totals[NET_AMOUNT_PER_ACRE_COLUMN_ID] = varietyRows.reduce(
-        (sum, row) => sum + (getNetAmountPerAcreRupee(row, preferences) ?? 0),
-        0
-      );
-    }
-
-    const averageOverVarieties = (values: Array<number | null | undefined>) => {
-      let sum = 0;
-      let count = 0;
-      values.forEach((value) => {
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          sum += value;
-          count += 1;
-        }
-      });
-      return count > 0 ? sum / count : 0;
-    };
-
-    if (numericVisibleColumnIds.includes(AVG_QUINTAL_PER_ACRE_COLUMN_ID)) {
-      totals[AVG_QUINTAL_PER_ACRE_COLUMN_ID] = averageOverVarieties(
-        varietyRows.map((row) => getAverageQuintalPerAcre(row))
-      );
-    }
-    if (numericVisibleColumnIds.includes(WASTAGE_KG_COLUMN_ID)) {
-      totals[WASTAGE_KG_COLUMN_ID] = averageOverVarieties(
-        varietyRows.map((row) => getWastageKg(row))
-      );
-    }
-    if (numericVisibleColumnIds.includes(OUTPUT_PERCENTAGE_COLUMN_ID)) {
-      totals[OUTPUT_PERCENTAGE_COLUMN_ID] = averageOverVarieties(
-        varietyRows.map((row) => getOutputPercentage(row))
-      );
-    }
-
-    for (const columnId of numericVisibleColumnIds) {
-      if (!columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)) continue;
-      const gradeHeader = columnId.slice(
-        VARIETY_LEVEL_PERCENT_COLUMN_PREFIX.length
-      );
-      totals[columnId] = averageOverVarieties(
-        varietyRows.map((row) => getGradeWeightPercent(row, gradeHeader))
-      );
-    }
-
-    return totals;
-  }, [filteredRows, preferences, visibleColumnIds]);
+  const showPerAcreRow = totalPlantedAcres > 0;
 
   const hasVisibleNumericTotals = React.useMemo(
     () => visibleColumnIds.some((columnId) => isNumericSortColumnId(columnId)),
@@ -768,6 +647,8 @@ export default function ContractFarmingReportTable() {
             visibleColumnIds={visibleColumnIds}
             hasVisibleNumericTotals={hasVisibleNumericTotals}
             totalsByColumn={totalsByColumn}
+            perAcreByColumn={perAcreByColumn}
+            showPerAcreRow={showPerAcreRow}
             formatTotal={formatTotal}
             isLoading={isLoading}
           />

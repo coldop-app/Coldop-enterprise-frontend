@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2026-05-14
+
+### Added
+- `contract-farming-report-footer-totals.ts` centralizes contract farming report footer totals (column sums, pooled metrics, and a per-planted-acre row) for reuse by the on-screen table and Excel export.
+- `getPooledOutputPercentage` in report calculations for portfolio-level output % (sum of graded kg ÷ sum of inbound kg over deduped farmer×variety rows with valid inbound).
+- Optional **Per acre** footer row in the contract farming data table when total planted acres is positive; Excel export appends a matching second footer row with non-bold styling.
+- `docs/contract-farming-report-percentages.md` documents grade %, rollups, output %, and footer averaging; the contract farming pattern guide links to it.
+
+### Changed
+- Inbound net weight helper for wastage/output/report use is exported as `getInboundNetWeightKgForReport` (replacing the prior internal-only name).
+- Contract farming Excel export reads cold-storage preferences and uses `computeContractFarmingFooterTotals` / `buildContractFarmingExcelFooterRows` so workbook totals align with the UI.
+- Project version updated to `0.6.6` for this contract farming footer and documentation release.
+
 ## [0.6.5] - 2026-05-10
 
 ### Changed

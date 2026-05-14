@@ -28,6 +28,8 @@ type ContractFarmingReportDataTableProps = {
   visibleColumnIds: string[];
   hasVisibleNumericTotals: boolean;
   totalsByColumn: Record<string, number>;
+  perAcreByColumn: Record<string, number>;
+  showPerAcreRow: boolean;
   formatTotal: (columnId: string, value: number) => string;
   isLoading: boolean;
 };
@@ -38,6 +40,8 @@ export function ContractFarmingReportDataTable({
   visibleColumnIds,
   hasVisibleNumericTotals,
   totalsByColumn,
+  perAcreByColumn,
+  showPerAcreRow,
   formatTotal,
   isLoading,
 }: ContractFarmingReportDataTableProps) {
@@ -430,6 +434,41 @@ export function ContractFarmingReportDataTable({
                   );
                 })}
               </TableRow>
+              {showPerAcreRow ? (
+                <TableRow
+                  style={
+                    isGroupedView
+                      ? { display: 'flex', width: '100%' }
+                      : undefined
+                  }
+                  className="hover:bg-transparent"
+                >
+                  {visibleColumnIds.map((columnId, columnIndex) => {
+                    const perAcreValue = perAcreByColumn[columnId];
+                    const hasPerAcre = Number.isFinite(perAcreValue);
+                    const isNumeric = hasPerAcre;
+                    return (
+                      <TableCell
+                        key={`per-acre-${columnId}`}
+                        style={{
+                          display: isGroupedView ? 'flex' : undefined,
+                          width: table.getColumn(columnId)?.getSize(),
+                          minWidth: table.getColumn(columnId)?.getSize(),
+                        }}
+                        className={`font-custom text-muted-foreground border-border/50 h-10 border-r px-3 py-2.5 text-sm font-medium last:border-r-0 ${
+                          isNumeric ? 'justify-end tabular-nums' : ''
+                        }`}
+                      >
+                        {columnIndex === 0
+                          ? 'Per acre'
+                          : hasPerAcre
+                            ? formatTotal(columnId, perAcreValue)
+                            : ''}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ) : null}
             </TableFooter>
           ) : null}
         </table>
