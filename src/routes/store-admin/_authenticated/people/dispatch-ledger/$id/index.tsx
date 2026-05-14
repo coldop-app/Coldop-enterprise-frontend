@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createFileRoute } from '@tanstack/react-router';
-import { Sprout } from 'lucide-react';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { FileText, Sprout } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EditDispatchLedgerModal } from '@/components/forms/edit-dispatch-ledger-modal';
 import { FarmerProfileOverview } from '@/components/people/FarmerProfileOverview';
 import type { FarmerProfileAggregates } from '@/components/people/FarmerProfileOverview';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Empty,
@@ -13,10 +14,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetAllGatePassesOfDispatchLedger } from '@/services/store-admin/dispatch-ledger/useGetAllGatePassesOfDispatchLedger';
 import DispatchLedgerNikasiSection from './-DispatchLedgerNikasiSection';
+
+const DISPATCH_LEDGER_REPORT_LINK_CLASS =
+  'font-custom focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-md';
 
 const DISPATCH_LEDGER_AGGREGATE_PLACEHOLDER: FarmerProfileAggregates = {
   totalBagsSeed: 0,
@@ -44,6 +49,10 @@ function RouteComponent() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
   const canReadFarmerProfile = hasPermission('farmer-profile', 'read');
+  const canReadFarmerProfileReports = hasPermission(
+    'farmer-profile',
+    'reports'
+  );
   const canUpdateFarmerProfile = hasPermission('farmer-profile', 'update');
 
   const ledgerQuery = useGetAllGatePassesOfDispatchLedger({
@@ -105,21 +114,46 @@ function RouteComponent() {
                     </EmptyHeader>
                   </Empty>
                 ) : (
-                  <FarmerProfileOverview
-                    name={ledger?.name}
-                    accountNumber={ledger?._id ?? id}
-                    address={ledger?.address}
-                    mobileNumber={ledger?.mobileNumber}
-                    onEdit={() => setIsEditModalOpen(true)}
-                    editAriaLabel="Edit dispatch ledger"
-                    aggregates={DISPATCH_LEDGER_AGGREGATE_PLACEHOLDER}
-                    primaryMetric={{
-                      label: 'Total dispatched',
-                      value: totalDispatched,
-                    }}
-                    hideFarmerReportLinks
-                    canShowEditButton={canUpdateFarmerProfile}
-                  />
+                  <div className="space-y-4">
+                    <FarmerProfileOverview
+                      name={ledger?.name}
+                      accountNumber={ledger?._id ?? id}
+                      address={ledger?.address}
+                      mobileNumber={ledger?.mobileNumber}
+                      onEdit={() => setIsEditModalOpen(true)}
+                      editAriaLabel="Edit dispatch ledger"
+                      aggregates={DISPATCH_LEDGER_AGGREGATE_PLACEHOLDER}
+                      primaryMetric={{
+                        label: 'Total dispatched',
+                        value: totalDispatched,
+                      }}
+                      hideFarmerReportLinks
+                      canShowEditButton={canUpdateFarmerProfile}
+                    />
+                    {canReadFarmerProfileReports ? (
+                      <>
+                        <Separator />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="gap-1.5"
+                            asChild
+                          >
+                            <Link
+                              to="/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report"
+                              params={{ id }}
+                              preload="intent"
+                              className={DISPATCH_LEDGER_REPORT_LINK_CLASS}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Report
+                            </Link>
+                          </Button>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
                 )}
               </CardContent>
             </Card>

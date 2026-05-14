@@ -46,6 +46,7 @@ import { Route as StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport
 import { Route as StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/farmer-seed/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/index'
 import { Route as StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/contract-farming/index'
+import { Route as StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRouteImport } from './routes/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -273,6 +274,14 @@ const StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute =
       getParentRoute: () => StoreAdminAuthenticatedRoute,
     } as any,
   )
+const StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute =
+  StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRouteImport.update(
+    {
+      id: '/people/dispatch-ledger/$id/dispatch-ledger-report/',
+      path: '/people/dispatch-ledger/$id/dispatch-ledger-report/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -312,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/store-admin/people/$farmerStorageLinkId/accounting-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
   '/store-admin/people/$farmerStorageLinkId/farmer-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   '/store-admin/people/dispatch-ledger/$id/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -351,6 +361,7 @@ export interface FileRoutesByTo {
   '/store-admin/people/$farmerStorageLinkId/accounting-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
   '/store-admin/people/$farmerStorageLinkId/farmer-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   '/store-admin/people/dispatch-ledger/$id': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -391,6 +402,7 @@ export interface FileRoutesById {
   '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   '/store-admin/_authenticated/people/dispatch-ledger/$id/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -432,6 +444,7 @@ export interface FileRouteTypes {
     | '/store-admin/people/$farmerStorageLinkId/accounting-report/'
     | '/store-admin/people/$farmerStorageLinkId/farmer-report/'
     | '/store-admin/people/dispatch-ledger/$id/'
+    | '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -471,6 +484,7 @@ export interface FileRouteTypes {
     | '/store-admin/people/$farmerStorageLinkId/accounting-report'
     | '/store-admin/people/$farmerStorageLinkId/farmer-report'
     | '/store-admin/people/dispatch-ledger/$id'
+    | '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report'
   id:
     | '__root__'
     | '/'
@@ -510,6 +524,7 @@ export interface FileRouteTypes {
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/'
     | '/store-admin/_authenticated/people/dispatch-ledger/$id/'
+    | '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -780,6 +795,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/': {
+      id: '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/'
+      path: '/people/dispatch-ledger/$id/dispatch-ledger-report'
+      fullPath: '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
   }
 }
 
@@ -817,6 +839,7 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 
 const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren =
@@ -887,6 +910,8 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute,
     StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute:
       StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute,
+    StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute:
+      StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute,
   }
 
 const StoreAdminAuthenticatedRouteWithChildren =

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] - 2026-05-14
+
+### Added
+- Dispatch ledger **Report** screen at `/store-admin/people/dispatch-ledger/:id/dispatch-ledger-report` with ledger header, per-variety bag and net-weight breakdowns, and loading, error, and empty states driven by `useGetAllGatePassesOfDispatchLedger`.
+- `dispatch-ledger-report-helpers` for sorting passes, variety keys, size labels, and allocated net kg; `DispatchLedgerReportExcelButton` for Excel export aligned with the on-screen report.
+- **Report** link on the dispatch ledger detail card when the user has `farmer-profile` **reports** permission (uses intent preloading).
+
+### Changed
+- `routeTree.gen.ts` updated for the new dispatch ledger report child route.
+- Project version updated to `0.6.8` for this dispatch ledger reporting release.
+
 ## [0.6.7] - 2026-05-14
 
 ### Added
