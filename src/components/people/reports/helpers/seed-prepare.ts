@@ -25,6 +25,7 @@ function formatDate(isoDate: string): string {
 /**
  * Converts farmer seed gate passes into per-size table rows.
  * Bags/acre = quantity / acres; total amount = quantity * rate.
+ * Omits bag-size lines where `quantity` is 0 so empty brackets do not appear in reports.
  */
 export function prepareDataForFarmerSeedTable(
   farmerSeeds: FarmerSeedGatePass[] | null | undefined
@@ -40,6 +41,8 @@ export function prepareDataForFarmerSeedTable(
     for (let index = 0; index < bagSizes.length; index += 1) {
       const bag = bagSizes[index];
       const quantity = Number(bag.quantity) || 0;
+      if (quantity === 0) continue;
+
       const acres = Number(bag.acres) || 0;
       const rate = Number(bag.rate) || 0;
 
