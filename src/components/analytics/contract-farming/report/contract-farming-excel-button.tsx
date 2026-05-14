@@ -297,10 +297,10 @@ export const ContractFarmingExcelButton = ({
       const headerLabels = visibleColumns.map((column) =>
         getRenderedHeaderLabel(t, column)
       );
-      const sourceRows =
-        t.getState().grouping.length > 0
-          ? t.getPrePaginationRowModel().rows
-          : t.getFilteredRowModel().rows;
+      // Match on-screen row order: filtered → sorted → grouped → expanded
+      // (same as `table.getRowModel().rows` in the report table). Using
+      // `getFilteredRowModel()` alone omits sorting and can disagree with the UI.
+      const sourceRows = t.getRowModel().rows;
       const suppressRepeatedMergedCells = true;
       const bodyRows = getExcelBodyRows(
         sourceRows,
