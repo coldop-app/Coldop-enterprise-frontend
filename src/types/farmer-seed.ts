@@ -118,7 +118,8 @@ export interface GetFarmerSeedAuditApiResponse {
 export interface FarmerSeedReportFarmer {
   _id: string;
   name: string;
-  address: string;
+  address?: string;
+  accountNumber?: number;
 }
 
 export interface FarmerSeedReportFarmerStorageLink {

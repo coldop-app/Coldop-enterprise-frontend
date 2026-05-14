@@ -127,6 +127,7 @@ const EXCEL_HEADER_LABEL_OVERRIDES: Partial<
   Record<keyof FarmerSeedReportRow, string>
 > = {
   farmerName: 'Farmer',
+  farmerAddress: 'Address',
   totalAcres: 'Acres Planted',
   gatePassNo: 'Gate Pass No',
   invoiceNumber: 'Invoice Number',

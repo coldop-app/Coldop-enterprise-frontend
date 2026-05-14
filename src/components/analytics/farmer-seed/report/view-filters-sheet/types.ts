@@ -22,6 +22,7 @@ export type ViewFiltersSheetProps = {
 /** Value-filter columns — IDs match `FarmerSeedReportRow` / table column ids. */
 export type FilterableColumnId =
   | 'farmerName'
+  | 'farmerAddress'
   | 'totalAcres'
   | 'gatePassNo'
   | 'invoiceNumber'

@@ -111,6 +111,19 @@ export const reportColumns = [
     size: 500,
     maxSize: 550,
   }),
+  columnHelper.accessor('farmerAddress', {
+    header: 'Address',
+    sortingFn: 'text',
+    filterFn: multiValueFilterFn,
+    minSize: 140,
+    size: 220,
+    maxSize: 360,
+    cell: (info) => (
+      <div className="font-custom text-foreground/85 w-full min-w-0 text-left text-sm leading-snug wrap-break-word whitespace-normal">
+        {String(info.getValue() ?? '-')}
+      </div>
+    ),
+  }),
   columnHelper.accessor('totalAcres', {
     header: () => <div className="w-full text-right">Acres Planted</div>,
     sortingFn: 'basic',
@@ -290,6 +303,7 @@ export const reportColumns = [
 
 export const defaultColumnOrder: string[] = [
   'farmerName',
+  'farmerAddress',
   'totalAcres',
   'gatePassNo',
   'invoiceNumber',

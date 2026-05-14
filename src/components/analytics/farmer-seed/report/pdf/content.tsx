@@ -14,6 +14,7 @@ const C = {
 
 const WRAP_COLUMN_IDS = new Set([
   'farmerName',
+  'farmerAddress',
   'remarks',
   'bag35to40',
   'bag40to45',

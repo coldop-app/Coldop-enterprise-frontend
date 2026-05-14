@@ -35,6 +35,7 @@ export const filterableColumns: Array<{
   label: string;
 }> = [
   { id: 'farmerName', label: 'Farmer' },
+  { id: 'farmerAddress', label: 'Address' },
   { id: 'totalAcres', label: 'Acres planted' },
   { id: 'gatePassNo', label: 'Gate pass no.' },
   { id: 'invoiceNumber', label: 'Invoice number' },
@@ -54,6 +55,7 @@ export const filterableColumns: Array<{
 
 export const advancedFilterFields: Array<{ id: FilterField; label: string }> = [
   { id: 'farmerName', label: 'Farmer' },
+  { id: 'farmerAddress', label: 'Address' },
   { id: 'totalAcres', label: 'Acres planted' },
   { id: 'gatePassNo', label: 'Gate pass no.' },
   { id: 'invoiceNumber', label: 'Invoice number' },
@@ -76,6 +78,7 @@ export const getInitialSearchQueries = (): Record<
   string
 > => ({
   farmerName: '',
+  farmerAddress: '',
   totalAcres: '',
   gatePassNo: '',
   invoiceNumber: '',
@@ -98,6 +101,7 @@ export const getInitialExpandedFilters = (): Record<
   boolean
 > => ({
   farmerName: false,
+  farmerAddress: false,
   totalAcres: false,
   gatePassNo: false,
   invoiceNumber: false,
@@ -120,6 +124,7 @@ export const getEmptyValueFilters = (): Record<
   string[]
 > => ({
   farmerName: [],
+  farmerAddress: [],
   totalAcres: [],
   gatePassNo: [],
   invoiceNumber: [],

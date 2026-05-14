@@ -83,17 +83,23 @@ function toApiDate(value: string): string | undefined {
 }
 
 function getFarmerData(item: FarmerSeedReportEntry) {
+  const link = item.farmerStorageLinkId;
   if (
-    item.farmerStorageLinkId &&
-    typeof item.farmerStorageLinkId !== 'string' &&
-    item.farmerStorageLinkId.farmerId &&
-    typeof item.farmerStorageLinkId.farmerId !== 'string'
+    link &&
+    typeof link !== 'string' &&
+    link.farmerId &&
+    typeof link.farmerId !== 'string'
   ) {
+    const farmer = link.farmerId;
+    const accountFromLink =
+      typeof link.accountNumber === 'number' ? link.accountNumber : null;
+    const accountFromFarmer =
+      typeof farmer.accountNumber === 'number' ? farmer.accountNumber : null;
     return {
-      farmerId: item.farmerStorageLinkId.farmerId._id,
-      farmerName: item.farmerStorageLinkId.farmerId.name,
-      farmerAddress: item.farmerStorageLinkId.farmerId.address ?? '-',
-      accountNumber: item.farmerStorageLinkId.accountNumber,
+      farmerId: farmer._id,
+      farmerName: farmer.name,
+      farmerAddress: (farmer.address ?? '').trim() || '-',
+      accountNumber: accountFromLink ?? accountFromFarmer,
     };
   }
 
@@ -155,6 +161,7 @@ function getBagSizeColumnOrderFromPreferences(
 function buildDefaultColumnOrder(bagSizeColumnIds: BagSizeKey[]): string[] {
   return [
     'farmerName',
+    'farmerAddress',
     'totalAcres',
     'gatePassNo',
     'invoiceNumber',

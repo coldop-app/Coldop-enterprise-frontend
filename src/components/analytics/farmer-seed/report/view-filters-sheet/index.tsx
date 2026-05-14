@@ -50,6 +50,7 @@ import {
   type FilterGroupNode,
   type FilterOperator,
 } from '@/lib/advanced-filters';
+import type { FarmerSeedReportRow } from '../columns';
 import type { FilterableColumnId, ViewFiltersSheetProps } from './types';
 import {
   advancedFilterFields,
@@ -94,11 +95,35 @@ const columnLabels: Record<string, string> = {
   accountNumber: 'Account #',
 };
 
+function getCellRawValueForOptions(
+  table: ViewFiltersSheetProps['table'],
+  columnId: string,
+  original: FarmerSeedReportRow,
+  rowIndex: number
+): unknown {
+  const column = table.getColumn(columnId);
+  if (!column) {
+    return (original as Record<string, unknown>)[columnId];
+  }
+  const def = column.columnDef as {
+    accessorFn?: (original: FarmerSeedReportRow, index: number) => unknown;
+    accessorKey?: string;
+  };
+  if (typeof def.accessorFn === 'function') {
+    return def.accessorFn(original, rowIndex);
+  }
+  if (def.accessorKey) {
+    return (original as Record<string, unknown>)[def.accessorKey];
+  }
+  return (original as Record<string, unknown>)[columnId];
+}
+
 const getInitialValueFilterTouched = (): Record<
   FilterableColumnId,
   boolean
 > => ({
   farmerName: false,
+  farmerAddress: false,
   totalAcres: false,
   gatePassNo: false,
   invoiceNumber: false,
@@ -179,23 +204,22 @@ export function ViewFiltersSheet({
     useSensor(TouchSensor),
     useSensor(KeyboardSensor)
   );
-  const coreRowCount = table.getCoreRowModel().rows.length;
+  const tableData = table.options.data;
 
   const getUniqueColumnValues = React.useCallback(
     (columnId: string): string[] => {
-      void coreRowCount;
       const facetedValues = table.getColumn(columnId)?.getFacetedUniqueValues();
       let values = facetedValues ? Array.from(facetedValues.keys()) : [];
 
       if (values.length === 0) {
         const uniqueValues = new Set<string>();
-        table.getCoreRowModel().rows.forEach((row) => {
-          const rawValueFromAccessor = row.getValue(columnId);
-          const rawValueFromOriginal = (
-            row.original as Record<string, unknown>
-          )[columnId];
-          const rawValue =
-            rawValueFromAccessor ?? rawValueFromOriginal ?? undefined;
+        tableData.forEach((original, rowIndex) => {
+          const rawValue = getCellRawValueForOptions(
+            table,
+            columnId,
+            original,
+            rowIndex
+          );
           if (rawValue === undefined || rawValue === null) return;
           const normalized = String(rawValue).trim();
           if (normalized.length > 0) {
@@ -209,20 +233,19 @@ export function ViewFiltersSheet({
         .map((value) => String(value))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     },
-    [table, coreRowCount]
+    [table, tableData]
   );
 
   const collectDistinctColumnStringsFromCore = React.useCallback(
     (columnId: string): string[] => {
-      void coreRowCount;
       const uniqueValues = new Set<string>();
-      table.getCoreRowModel().rows.forEach((row) => {
-        const rawValueFromAccessor = row.getValue(columnId);
-        const rawValueFromOriginal = (row.original as Record<string, unknown>)[
-          columnId
-        ];
-        const rawValue =
-          rawValueFromAccessor ?? rawValueFromOriginal ?? undefined;
+      tableData.forEach((original, rowIndex) => {
+        const rawValue = getCellRawValueForOptions(
+          table,
+          columnId,
+          original,
+          rowIndex
+        );
         if (rawValue === undefined || rawValue === null) return;
         const normalized = String(rawValue).trim();
         if (normalized.length > 0) uniqueValues.add(normalized);
@@ -231,7 +254,7 @@ export function ViewFiltersSheet({
         a.localeCompare(b, undefined, { numeric: true })
       );
     },
-    [table, coreRowCount]
+    [table, tableData]
   );
 
   const availableFilterOptions = React.useMemo<
@@ -239,6 +262,7 @@ export function ViewFiltersSheet({
   >(() => {
     const options = {
       farmerName: [],
+      farmerAddress: [],
       totalAcres: [],
       gatePassNo: [],
       invoiceNumber: [],
@@ -260,7 +284,7 @@ export function ViewFiltersSheet({
       options[id] = getUniqueColumnValues(id);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [getUniqueColumnValues, tableData]);
 
   const advancedFieldValueOptions = React.useMemo<
     Record<FilterField, string[]>
@@ -314,13 +338,22 @@ export function ViewFiltersSheet({
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
       onOpenChange(nextOpen);
-      if (!nextOpen) return;
-      syncDraftFromTable();
-      setValueFilterTouched(getInitialValueFilterTouched());
-      setActiveTab('filters');
     },
-    [onOpenChange, syncDraftFromTable]
+    [onOpenChange]
   );
+
+  const hasSyncedOpenSessionRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!open) {
+      hasSyncedOpenSessionRef.current = false;
+      return;
+    }
+    if (hasSyncedOpenSessionRef.current) return;
+    hasSyncedOpenSessionRef.current = true;
+    syncDraftFromTable();
+    setValueFilterTouched(getInitialValueFilterTouched());
+    setActiveTab('filters');
+  }, [open, syncDraftFromTable]);
 
   const handleResetAll = React.useCallback(() => {
     table.setColumnVisibility(defaultColumnVisibility);

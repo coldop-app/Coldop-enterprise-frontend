@@ -228,17 +228,19 @@ export function FarmerSeedReportDataTable({
                     const isGroupedCell = cell.getIsGrouped();
                     const isAggregatedCell = cell.getIsAggregated();
                     const isPlaceholderCell = cell.getIsPlaceholder();
-                    const isRemarksCell = cell.column.id === 'remarks';
+                    const isMultilineTextCell =
+                      cell.column.id === 'remarks' ||
+                      cell.column.id === 'farmerAddress';
                     return (
                       <TableCell
                         key={cell.id}
                         style={{
                           display: 'flex',
                           width: cell.column.getSize(),
-                          minWidth: isRemarksCell ? 0 : undefined,
+                          minWidth: isMultilineTextCell ? 0 : undefined,
                         }}
                         className={`font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle last:border-r-0 ${
-                          isRemarksCell
+                          isMultilineTextCell
                             ? 'whitespace-normal'
                             : 'whitespace-nowrap'
                         }`}
@@ -248,7 +250,7 @@ export function FarmerSeedReportDataTable({
                             type="button"
                             onClick={row.getToggleExpandedHandler()}
                             className={`${
-                              isRemarksCell
+                              isMultilineTextCell
                                 ? 'flex w-full min-w-0 flex-wrap items-start gap-1 whitespace-normal'
                                 : 'inline-flex items-center gap-1 whitespace-nowrap'
                             } text-left transition-colors ${
@@ -372,19 +374,20 @@ export function FarmerSeedReportDataTable({
                       break;
                   }
                   const isRightAligned = numericColumnIds.has(columnId);
-                  const isRemarksColumn = columnId === 'remarks';
+                  const isMultilineTextColumn =
+                    columnId === 'remarks' || columnId === 'farmerAddress';
                   return (
                     <TableCell
                       key={`totals-${columnId}`}
                       style={{
                         display: 'flex',
                         width: table.getColumn(columnId)?.getSize(),
-                        minWidth: isRemarksColumn ? 0 : undefined,
+                        minWidth: isMultilineTextColumn ? 0 : undefined,
                       }}
                       className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
                         isRightAligned
                           ? 'justify-end tabular-nums'
-                          : isRemarksColumn
+                          : isMultilineTextColumn
                             ? 'h-auto min-h-10 items-start py-2 wrap-break-word whitespace-normal'
                             : ''
                       }`}
