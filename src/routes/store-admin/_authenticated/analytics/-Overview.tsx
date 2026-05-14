@@ -489,8 +489,9 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         onGetReportClick={
           canReadNikasiReports
             ? () =>
-                void (setAnalyticsActiveTab('dispatch-pre-outgoing'),
-                navigate({ to: '/store-admin/analytics' }))
+                void navigate({
+                  to: '/store-admin/analytics/reports/dispatch-pre-storage',
+                })
             : undefined
         }
       />

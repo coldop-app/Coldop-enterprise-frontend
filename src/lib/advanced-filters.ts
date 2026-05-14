@@ -41,7 +41,16 @@ export type FilterField =
   | 'netAmount'
   | 'netAmountPerAcre'
   | `grade_bags_${string}`
-  | `grade_weight_pct_${string}`;
+  | `grade_weight_pct_${string}`
+  /** Nikasi (dispatch) gate pass report */
+  | 'linkedByName'
+  | 'createdByName'
+  | 'dispatchLedgerMobile'
+  | 'nikasiFrom'
+  | 'nikasiTo'
+  | 'storageAccountLabel'
+  | 'isInternalTransferLabel'
+  | 'averageWeightPerBag';
 
 export type FilterOperator =
   | 'contains'
@@ -99,6 +108,7 @@ export const numericFilterFields: FilterField[] = [
   'buyBackAmount',
   'netAmount',
   'netAmountPerAcre',
+  'averageWeightPerBag',
 ];
 
 const numericFilterFieldPrefixes: string[] = [
