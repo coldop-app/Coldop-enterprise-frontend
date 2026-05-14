@@ -39,7 +39,6 @@ export const filterableColumns: Array<{
   id: FilterableColumnId;
   label: string;
 }> = [
-  { id: 'farmerAddress', label: 'Farmer address' },
   { id: 'gatePassNo', label: 'System Generated Gate Pass No' },
   { id: 'manualGatePassNumber', label: 'Manual Gate Pass No' },
   { id: 'date', label: 'Date' },
@@ -54,7 +53,6 @@ export const filterableColumns: Array<{
 ];
 
 export const advancedFilterFields: Array<{ id: FilterField; label: string }> = [
-  { id: 'farmerAddress', label: 'Farmer address' },
   { id: 'gatePassNo', label: 'System Generated Gate Pass No' },
   { id: 'manualGatePassNumber', label: 'Manual Gate Pass No' },
   { id: 'date', label: 'Date' },
@@ -78,7 +76,6 @@ export const getInitialSearchQueries = (): Record<
   FilterableColumnId,
   string
 > => ({
-  farmerAddress: '',
   gatePassNo: '',
   manualGatePassNumber: '',
   date: '',
@@ -96,7 +93,6 @@ export const getInitialExpandedFilters = (): Record<
   FilterableColumnId,
   boolean
 > => ({
-  farmerAddress: false,
   gatePassNo: false,
   manualGatePassNumber: false,
   date: false,
@@ -114,7 +110,6 @@ export const getEmptyValueFilters = (): Record<
   FilterableColumnId,
   string[]
 > => ({
-  farmerAddress: [],
   gatePassNo: [],
   manualGatePassNumber: [],
   date: [],
@@ -132,7 +127,6 @@ export const getInitialValueFilterTouched = (): Record<
   FilterableColumnId,
   boolean
 > => ({
-  farmerAddress: false,
   gatePassNo: false,
   manualGatePassNumber: false,
   date: false,

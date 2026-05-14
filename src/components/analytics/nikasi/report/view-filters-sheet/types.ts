@@ -21,7 +21,6 @@ export type ViewFiltersSheetProps = {
 export type InternalTransferFilterValue = 'Yes' | 'No';
 
 export type FilterableColumnId =
-  | 'farmerAddress'
   | 'gatePassNo'
   | 'manualGatePassNumber'
   | 'date'

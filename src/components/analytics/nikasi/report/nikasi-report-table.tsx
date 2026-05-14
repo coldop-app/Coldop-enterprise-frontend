@@ -113,7 +113,6 @@ function mapApiRowToTableRow(item: NikasiApiRow): NikasiReportRow {
     manualGatePassNumber: manualStr,
     date: toDisplayDate(item.date),
     dateSortValue: toSortableDateValue(item.date),
-    farmerAddress: farmer?.address ?? '-',
     farmerMobile: farmer?.mobileNumber ?? '-',
     storageAccountLabel: storageLabel,
     linkedByName: fsl?.linkedById?.name ?? '-',

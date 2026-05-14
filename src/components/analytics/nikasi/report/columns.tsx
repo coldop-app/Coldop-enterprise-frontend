@@ -16,7 +16,6 @@ export type NikasiReportRow = {
   manualGatePassNumber: string;
   date: string;
   dateSortValue: number;
-  farmerAddress: string;
   farmerMobile: string;
   storageAccountLabel: string;
   linkedByName: string;
@@ -64,7 +63,6 @@ export function formatIndianNumber(value: number, precision = 0): string {
 }
 
 export const defaultColumnOrder: string[] = [
-  'farmerAddress',
   'farmerMobile',
   'storageAccountLabel',
   'linkedByName',
@@ -139,13 +137,6 @@ export const nikasiReportColumns = [
       Number(rowA.original.dateSortValue || 0) -
       Number(rowB.original.dateSortValue || 0),
     filterFn: multiValueFilterFn,
-  }),
-  columnHelper.accessor('farmerAddress', {
-    header: 'Address',
-    sortingFn: 'text',
-    filterFn: multiValueFilterFn,
-    minSize: 200,
-    maxSize: 300,
   }),
   columnHelper.accessor('farmerMobile', {
     header: 'Mobile Number',
@@ -328,7 +319,6 @@ export const globalNikasiReportSearchFilterFn: FilterFn<NikasiReportRow> = (
   const haystack = [
     o.gatePassNo,
     o.manualGatePassNumber,
-    o.farmerAddress,
     o.farmerMobile,
     o.location,
     o.truckNumber,

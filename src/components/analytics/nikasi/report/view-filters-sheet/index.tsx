@@ -86,7 +86,6 @@ const columnLabels: Record<string, string> = {
   gatePassNo: 'System Generated Gate Pass No',
   manualGatePassNumber: 'Manual Gate Pass No',
   date: 'Date',
-  farmerAddress: 'Farmer address',
   farmerMobile: 'Mobile Number',
   storageAccountLabel: 'Storage account',
   linkedByName: 'Linked by',
@@ -297,7 +296,6 @@ export function ViewFiltersSheet({
     Record<FilterableColumnId, string[]>
   >(() => {
     const options = {
-      farmerAddress: [],
       gatePassNo: [],
       manualGatePassNumber: [],
       date: [],

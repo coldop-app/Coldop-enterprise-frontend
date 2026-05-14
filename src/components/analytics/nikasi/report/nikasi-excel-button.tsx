@@ -97,7 +97,6 @@ const NIKASI_COLUMN_HEADER_LABELS: Partial<
   gatePassNo: 'Gate Pass No',
   manualGatePassNumber: 'Manual Gate Pass No',
   date: 'Date',
-  farmerAddress: 'Address',
   farmerMobile: 'Mobile Number',
   storageAccountLabel: 'Storage account',
   linkedByName: 'Linked by',
