@@ -5,7 +5,6 @@ import {
   type ColumnResizeMode,
   type GroupingState,
   type PaginationState,
-  type Row,
   type SortingState,
   type VisibilityState,
   getCoreRowModel,
@@ -18,7 +17,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { FileText, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,11 +26,6 @@ import { usePreferencesStore, useStore } from '@/stores/store';
 import { useGetFarmerSeedReport } from '@/services/store-admin/farmer-seed/analytics/useGetFarmerSeedReport';
 import type { FarmerSeedReportEntry } from '@/types/farmer-seed';
 import { ViewFiltersSheet } from '@/components/analytics/farmer-seed/report/view-filters-sheet/index';
-import PdfWorker from './pdf.worker?worker';
-import type {
-  FarmerSeedPdfWorkerRequest,
-  FarmerSeedPdfWorkerResponse,
-} from '@/components/analytics/farmer-seed/report/pdf.worker';
 import { FarmerSeedExcelButton } from './farmer-seed-excel-button';
 import {
   defaultFarmerSeedColumnVisibility,
@@ -265,106 +259,6 @@ function getBagSizeMetrics(
   return metrics;
 }
 
-function getLeafRowsForPdf(
-  rows: Row<FarmerSeedReportRow>[]
-): FarmerSeedReportRow[] {
-  return rows.flatMap((row) =>
-    row.getIsGrouped()
-      ? row.getLeafRows().map((leaf) => leaf.original)
-      : row.original
-  );
-}
-
-type FarmerSeedPdfButtonProps = {
-  buildPayload: (generatedAt: string) => FarmerSeedPdfWorkerRequest;
-};
-
-const FarmerSeedPdfButton = ({ buildPayload }: FarmerSeedPdfButtonProps) => {
-  const objectUrlRef = React.useRef<string | null>(null);
-  const workerRef = React.useRef<Worker | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
-
-  React.useEffect(
-    () => () => {
-      if (workerRef.current) workerRef.current.terminate();
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    },
-    []
-  );
-
-  const handleGenerate = async () => {
-    if (isGeneratingPdf) return;
-    const previewTab = window.open('', '_blank');
-    if (!previewTab) {
-      window.alert(
-        'Popup blocked by your browser. Please allow popups and try again.'
-      );
-      return;
-    }
-    previewTab.opener = null;
-    previewTab.document.write(
-      '<!doctype html><html><body style="font-family:Inter,sans-serif;padding:24px">Generating PDF...</body></html>'
-    );
-    previewTab.document.close();
-    setIsGeneratingPdf(true);
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      const generatedAt = new Date().toLocaleString('en-IN');
-      const worker = new PdfWorker();
-      workerRef.current = worker;
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        worker.onmessage = (
-          event: MessageEvent<FarmerSeedPdfWorkerResponse>
-        ) => {
-          if (event.data.status === 'success') resolve(event.data.blob);
-          else reject(new Error(event.data.message));
-        };
-        worker.onerror = (event) =>
-          reject(new Error(event.message || 'PDF worker execution failed'));
-        worker.postMessage(buildPayload(generatedAt));
-      });
-      const nextUrl = URL.createObjectURL(blob);
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = nextUrl;
-      if (!previewTab.closed) previewTab.location.replace(nextUrl);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      if (!previewTab.closed) {
-        previewTab.document.open();
-        previewTab.document.write(
-          `<!doctype html><html><body style="font-family:Inter,sans-serif;padding:24px;color:#991b1b">Failed to generate PDF<br/><pre>${message}</pre></body></html>`
-        );
-        previewTab.document.close();
-      }
-      window.alert(`Failed to generate PDF: ${message}`);
-    } finally {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
-      setIsGeneratingPdf(false);
-    }
-  };
-
-  return (
-    <Button
-      variant="default"
-      className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingPdf}
-      onClick={() => void handleGenerate()}
-    >
-      {isGeneratingPdf ? (
-        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <FileText className="h-3.5 w-3.5" />
-      )}
-      {isGeneratingPdf ? 'Generating...' : 'Pdf'}
-    </Button>
-  );
-};
-
 const FarmerSeedReportTable = () => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
@@ -553,7 +447,6 @@ const FarmerSeedReportTable = () => {
     (currentPageIndex + 1) * currentPageSize,
     totalFilteredEntries
   );
-  const sortedRows = table.getSortedRowModel().rows;
   const visibleColumns = table.getVisibleLeafColumns();
   const visibleColumnIds = React.useMemo(
     () => visibleColumns.map((column) => column.id),
@@ -604,18 +497,6 @@ const FarmerSeedReportTable = () => {
     setAppliedFromDate('');
     setAppliedToDate('');
   };
-
-  const buildPdfWorkerPayload = React.useCallback(
-    (generatedAt: string) =>
-      ({
-        rows: getLeafRowsForPdf(sortedRows),
-        visibleColumnIds,
-        grouping,
-        coldStorageName,
-        generatedAt,
-      }) satisfies FarmerSeedPdfWorkerRequest,
-    [coldStorageName, grouping, sortedRows, visibleColumnIds]
-  );
 
   return (
     <>
@@ -690,7 +571,6 @@ const FarmerSeedReportTable = () => {
                   table={table}
                   coldStorageName={coldStorageName}
                 />
-                <FarmerSeedPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 w-8 rounded-lg p-0 leading-none"

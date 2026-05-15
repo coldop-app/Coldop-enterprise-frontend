@@ -5,7 +5,6 @@ import {
   type ColumnResizeMode,
   type GroupingState,
   type PaginationState,
-  type Row,
   type SortingState,
   type VisibilityState,
   getCoreRowModel,
@@ -18,7 +17,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { FileText, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,11 +27,6 @@ import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
 import { resolveBagSizeColumnId } from '@/lib/bag-size-columns';
 import { usePreferencesStore, useStore } from '@/stores/store';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
-import PdfWorker from './pdf.worker?worker';
-import type {
-  IncomingPdfWorkerRequest,
-  IncomingPdfWorkerResponse,
-} from './pdf-worker.types';
 import { StorageExcelButton } from './storage-excel-button';
 import {
   getBagSizeColumnConfig,
@@ -46,16 +40,6 @@ import {
   type IncomingReportRow,
 } from './columns';
 import { StorageReportDataTable } from './storage-report-data-table';
-
-function getLeafRowsForPdf(
-  rows: Row<IncomingReportRow>[]
-): IncomingReportRow[] {
-  return rows.flatMap((row) => {
-    if (row.getIsGrouped())
-      return row.getLeafRows().map((leaf) => leaf.original);
-    return row.original;
-  });
-}
 
 function getFarmerId(gatePass: StorageGatePassWithLink): string {
   if (
@@ -163,69 +147,6 @@ function toApiDate(value: string): string | undefined {
   if (year.length !== 4) return undefined;
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
-
-type IncomingPdfButtonProps = {
-  buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
-};
-
-const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
-  const objectUrlRef = React.useRef<string | null>(null);
-  const workerRef = React.useRef<Worker | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
-
-  React.useEffect(() => {
-    return () => {
-      if (workerRef.current) workerRef.current.terminate();
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    };
-  }, []);
-
-  const handleGenerate = async () => {
-    if (isGeneratingPdf) return;
-    const previewTab = window.open('', '_blank');
-    if (!previewTab) return;
-    setIsGeneratingPdf(true);
-    try {
-      const generatedAt = new Date().toLocaleString('en-IN');
-      const payload = buildPayload(generatedAt);
-      const worker = new PdfWorker();
-      workerRef.current = worker;
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        worker.onmessage = (event: MessageEvent<IncomingPdfWorkerResponse>) => {
-          const data = event.data;
-          if (data.status === 'success') resolve(data.blob);
-          else reject(new Error(data.message));
-        };
-        worker.onerror = (event) => reject(new Error(event.message));
-        worker.postMessage(payload);
-      });
-      const nextUrl = URL.createObjectURL(blob);
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = nextUrl;
-      previewTab.location.replace(nextUrl);
-    } finally {
-      if (workerRef.current) workerRef.current.terminate();
-      workerRef.current = null;
-      setIsGeneratingPdf(false);
-    }
-  };
-
-  return (
-    <Button
-      variant="default"
-      className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingPdf}
-      onClick={() => void handleGenerate()}
-    >
-      {isGeneratingPdf ? (
-        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <FileText className="h-3.5 w-3.5" />
-      )}
-      {isGeneratingPdf ? 'Generating...' : 'Pdf'}
-    </Button>
-  );
-};
 
 const StorageReportTable = () => {
   const coldStorageName = useStore(
@@ -437,18 +358,6 @@ const StorageReportTable = () => {
     [numericColumnIds, visibleColumnIds]
   );
 
-  const buildPdfWorkerPayload = React.useCallback(
-    (generatedAt: string) =>
-      ({
-        rows: getLeafRowsForPdf(table.getSortedRowModel().rows),
-        visibleColumnIds,
-        grouping,
-        coldStorageName,
-        generatedAt,
-      }) satisfies IncomingPdfWorkerRequest,
-    [coldStorageName, grouping, table, visibleColumnIds]
-  );
-
   return (
     <>
       <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -529,7 +438,6 @@ const StorageReportTable = () => {
                   table={table}
                   coldStorageName={coldStorageName}
                 />
-                <IncomingPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 rounded-lg px-2 leading-none"

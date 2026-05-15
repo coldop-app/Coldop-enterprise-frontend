@@ -5,7 +5,6 @@ import {
   type ColumnResizeMode,
   type GroupingState,
   type PaginationState,
-  type Row,
   type SortingState,
   type VisibilityState,
   getCoreRowModel,
@@ -18,7 +17,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { FileText, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
 import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
@@ -28,11 +27,6 @@ import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import { useStore } from '@/stores/store';
 import { IncomingExcelButton } from './incoming-excel-button';
 import { ViewFiltersSheet } from './view-filters-sheet';
-import PdfWorker from './pdf.worker?worker';
-import type {
-  IncomingPdfWorkerRequest,
-  IncomingPdfWorkerResponse,
-} from './pdf.worker';
 import {
   defaultColumnOrder,
   defaultIncomingReportColumnVisibility,
@@ -49,10 +43,6 @@ import { IncomingReportDataTable } from './incoming-report-data-table';
 const DEFAULT_COLUMN_SIZE = 170;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
 const DEFAULT_COLUMN_MAX_SIZE = 550;
-
-type IncomingPdfButtonProps = {
-  buildPayload: (generatedAt: string) => IncomingPdfWorkerRequest;
-};
 
 type IncomingReportTableProps = {
   enforcedStatus?: string;
@@ -76,17 +66,6 @@ function getFarmerName(gatePass: IncomingGatePassWithLink): string {
   }
 
   return '-';
-}
-
-function getLeafRowsForPdf(
-  rows: Row<IncomingReportRow>[]
-): IncomingReportRow[] {
-  return rows.flatMap((row) => {
-    if (row.getIsGrouped()) {
-      return row.getLeafRows().map((leafRow) => leafRow.original);
-    }
-    return row.original;
-  });
 }
 
 function getFarmerId(gatePass: IncomingGatePassWithLink): string {
@@ -188,110 +167,6 @@ function subtractWithPrecision(
 function normalizeStatusValue(value: string): string {
   return value.trim().replace(/_/g, ' ').toUpperCase();
 }
-
-const IncomingPdfButton = ({ buildPayload }: IncomingPdfButtonProps) => {
-  const objectUrlRef = React.useRef<string | null>(null);
-  const workerRef = React.useRef<Worker | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
-
-  React.useEffect(() => {
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-      }
-    };
-  }, []);
-
-  const handleGenerate = async () => {
-    if (isGeneratingPdf) return;
-
-    const previewTab = window.open('', '_blank');
-    if (!previewTab) {
-      window.alert(
-        'Popup blocked by your browser. Please allow popups and try again.'
-      );
-      return;
-    }
-    previewTab.opener = null;
-    previewTab.document.write(
-      `<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>`
-    );
-    previewTab.document.close();
-
-    setIsGeneratingPdf(true);
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      const generatedAt = new Date().toLocaleString('en-IN');
-      const payload = buildPayload(generatedAt);
-      const worker = new PdfWorker();
-      workerRef.current = worker;
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        worker.onmessage = (event: MessageEvent<IncomingPdfWorkerResponse>) => {
-          const data = event.data;
-          if (data.status === 'success') {
-            resolve(data.blob);
-            return;
-          }
-          reject(new Error(data.message));
-        };
-        worker.onmessageerror = () => {
-          reject(new Error('PDF worker message channel failed.'));
-        };
-        worker.onerror = (event) => {
-          reject(
-            new Error(
-              `PDF worker execution failed: ${event.message || 'Unknown worker error'}`
-            )
-          );
-        };
-        worker.postMessage(payload);
-      });
-      const nextUrl = URL.createObjectURL(blob);
-
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-      }
-      objectUrlRef.current = nextUrl;
-
-      if (!previewTab.closed) {
-        previewTab.location.replace(nextUrl);
-      } else {
-        window.open(nextUrl, '_blank');
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate PDF: ${message}`);
-    } finally {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
-      setIsGeneratingPdf(false);
-    }
-  };
-
-  return (
-    <Button
-      variant="default"
-      className="h-8 rounded-lg px-4 text-sm leading-none"
-      disabled={isGeneratingPdf}
-      onClick={() => void handleGenerate()}
-    >
-      {isGeneratingPdf ? (
-        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <FileText className="h-3.5 w-3.5" />
-      )}
-      {isGeneratingPdf ? 'Generating...' : 'Pdf'}
-    </Button>
-  );
-};
 
 const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
   const coldStorageName = useStore(
@@ -435,7 +310,6 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
     (currentPageIndex + 1) * currentPageSize,
     totalFilteredEntries
   );
-  const sortedRows = table.getSortedRowModel().rows;
   const visibleColumns = table.getVisibleLeafColumns();
   const visibleColumnIds = React.useMemo(
     () => visibleColumns.map((column) => column.id),
@@ -479,18 +353,6 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
   const hasVisibleNumericTotals = React.useMemo(
     () => visibleColumnIds.some((columnId) => numericColumnIds.has(columnId)),
     [visibleColumnIds]
-  );
-
-  const buildPdfWorkerPayload = React.useCallback(
-    (generatedAt: string) =>
-      ({
-        rows: getLeafRowsForPdf(sortedRows),
-        visibleColumnIds,
-        grouping,
-        coldStorageName,
-        generatedAt,
-      }) satisfies IncomingPdfWorkerRequest,
-    [coldStorageName, grouping, sortedRows, visibleColumnIds]
   );
 
   return (
@@ -578,7 +440,6 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
                   table={table}
                   coldStorageName={coldStorageName}
                 />
-                <IncomingPdfButton buildPayload={buildPdfWorkerPayload} />
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 w-8 rounded-lg p-0 leading-none"
