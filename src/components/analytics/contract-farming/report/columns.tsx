@@ -10,6 +10,7 @@ import {
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
   getGradeBagCount,
+  getGradeNetWeightKg,
   getGradeWeightPercent,
   getNetAmountPerAcreRupee,
   getNetAmountRupee,
@@ -20,9 +21,11 @@ import {
   sumVarietyMetrics,
 } from './contract-farming-report-calculations';
 import type { FlattenedRow } from './types';
+import { GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX } from './types';
 import {
   FILTER_VARIETY_LEVEL_PREFIX,
   formatContractFarmingGradeColumnLabel,
+  formatContractFarmingGradeNetWeightColumnLabel,
 } from './view-filters-sheet/constants';
 import type { VisibilityState } from '@tanstack/react-table';
 
@@ -48,6 +51,8 @@ const columnHelper = createColumnHelper<FlattenedRow>();
 
 export const VARIETY_LEVEL_COLUMN_PREFIX = FILTER_VARIETY_LEVEL_PREFIX;
 export const VARIETY_LEVEL_PERCENT_COLUMN_PREFIX = 'grade_weight_pct_';
+export const VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX =
+  GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX;
 export const TOTAL_GRADED_BAGS_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__totalAfterGrading`;
 export const TOTAL_GRADED_NET_WEIGHT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__netWeightAfterGrading`;
 export const AVG_QUINTAL_PER_ACRE_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__avgQuintalPerAcre`;
@@ -76,17 +81,20 @@ export const TRAILING_TWO_ROW_HEADER_ID_SET = new Set<string>(
 );
 
 /** Bump when grading leaf column semantics/order change — busts defaultColumnOrder memo on same gradeHeaders. */
-export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 13;
+export const CONTRACT_FARMING_GRADING_COLUMN_LAYOUT_VERSION = 14;
 
 /**
  * Default leaf order inside the grading section (after buy-back bags / net weight):
- * all bag quantities by grade → all weight‑% by grade → totals and metrics → grading buy‑back ₹.
+ * all bag quantities by grade → all net weight (kg) by grade → all weight‑% by grade → totals and metrics → grading buy‑back ₹.
  */
 export function buildContractFarmingGradingLeafColumnIds(
   gradeHeaders: readonly string[]
 ): string[] {
   return [
     ...gradeHeaders.map((grade) => `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`),
+    ...gradeHeaders.map(
+      (grade) => `${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`
+    ),
     ...gradeHeaders.map(
       (grade) => `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`
     ),
@@ -148,12 +156,50 @@ export function buildDefaultContractFarmingColumnVisibility(
   };
   gradeHeaders.forEach((grade) => {
     visibility[`${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`] = false;
+    visibility[`${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`] = false;
   });
   return visibility;
 }
 
 export function isContractFarmingSplitSpanColumn(columnId: string): boolean {
   return CONTRACT_FARMING_SPLIT_SPAN_COLUMN_IDS.has(columnId);
+}
+
+export function getContractFarmingGradeBagColumnId(grade: string): string {
+  return `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`;
+}
+
+/** Per-grade bag columns (`grade_bags_<grade>`), excluding variety-level metric columns. */
+export function isContractFarmingGradeBagColumnId(columnId: string): boolean {
+  if (!columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX)) return false;
+  const suffix = columnId.slice(VARIETY_LEVEL_COLUMN_PREFIX.length);
+  return suffix.length > 0 && !suffix.startsWith('__');
+}
+
+export function getContractFarmingGradeFromBagColumnId(
+  columnId: string
+): string | null {
+  if (!isContractFarmingGradeBagColumnId(columnId)) return null;
+  return columnId.slice(VARIETY_LEVEL_COLUMN_PREFIX.length);
+}
+
+export function getContractFarmingGradeNetWeightColumnId(
+  grade: string
+): string {
+  return `${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`;
+}
+
+export function isContractFarmingGradeNetWeightColumnId(
+  columnId: string
+): boolean {
+  return columnId.startsWith(VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX);
+}
+
+export function getContractFarmingGradeFromNetWeightColumnId(
+  columnId: string
+): string | null {
+  if (!isContractFarmingGradeNetWeightColumnId(columnId)) return null;
+  return columnId.slice(VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX.length);
 }
 
 function StrongNum({
@@ -205,6 +251,7 @@ export function isNumericSortColumnId(columnId: string) {
     columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID ||
     BUY_BACK_COLUMN_IDS.has(columnId) ||
     columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
+    columnId.startsWith(VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX) ||
     columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
   );
 }
@@ -552,6 +599,30 @@ export function buildColumns(
               return (
                 <span className="font-custom text-right tabular-nums">
                   {v !== null ? formatNumber(v, 0) : '-'}
+                </span>
+              );
+            },
+          })
+        ),
+        ...gradeHeaders.map((grade) =>
+          columnHelper.accessor((row) => getGradeNetWeightKg(row, grade), {
+            id: `${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`,
+            header: formatContractFarmingGradeNetWeightColumnLabel(grade),
+            sortingFn: 'basic',
+            size: 130,
+            minSize: 110,
+            maxSize: 260,
+            enableGrouping: false,
+            filterFn: multiValueFilterFn,
+            aggregationFn: sumVarietyMetrics,
+            aggregatedCell: ({ getValue }) => (
+              <StrongNum decimals={2} value={getValue() as number | null} />
+            ),
+            cell: ({ getValue }) => {
+              const v = getValue() as number | null;
+              return (
+                <span className="font-custom text-right tabular-nums">
+                  {v !== null ? formatNumber(v) : '-'}
                 </span>
               );
             },

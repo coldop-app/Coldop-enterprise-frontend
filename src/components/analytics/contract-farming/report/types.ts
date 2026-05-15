@@ -1,6 +1,10 @@
 /** Must match {@link FILTER_VARIETY_LEVEL_PREFIX} in view-filters-sheet/constants. */
 export const GRADE_BAG_COLUMN_KEY_PREFIX = 'grade_bags_' as const;
 
+/** Per-grade net-weight columns (`grade_net_weight_kg_<grade>`). */
+export const GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX =
+  'grade_net_weight_kg_' as const;
+
 /** Dynamic per-grade bag column keys on each row (matches TanStack column ids). */
 export type GradeBagFlatKey = `${typeof GRADE_BAG_COLUMN_KEY_PREFIX}${string}`;
 

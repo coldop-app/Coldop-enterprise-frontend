@@ -166,6 +166,8 @@ const ABOVE_50_GRADE_VALUES = new Set([
 ]);
 
 const BELOW_40_GROUP_GRADE = 'Below 40';
+/** Grouped bag-size column id suffix — bags + net weight (kg) render stacked in the report. */
+export const CONTRACT_FARMING_BELOW_40_GROUP_GRADE = BELOW_40_GROUP_GRADE;
 const ABOVE_50_GROUP_GRADE = 'Above 50';
 
 function toGroupedGrade(grade: string): string {

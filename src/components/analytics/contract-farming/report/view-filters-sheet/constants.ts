@@ -12,6 +12,14 @@ export function formatContractFarmingGradeColumnLabel(grade: string): string {
   return `${grade} (MM)`;
 }
 
+/** Per-grade net-weight column headers (hidden by default, like bag columns). */
+export function formatContractFarmingGradeNetWeightColumnLabel(
+  grade: string
+): string {
+  if (isContractFarmingCutGrade(grade)) return 'Cut (kg)';
+  return `${grade} (kg)`;
+}
+
 export {
   filterOperatorLabels,
   numberOperators,

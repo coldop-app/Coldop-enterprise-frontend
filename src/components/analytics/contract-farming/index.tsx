@@ -9,6 +9,7 @@ import {
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   VARIETY_LEVEL_COLUMN_PREFIX,
+  VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX,
   VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
   WASTAGE_KG_COLUMN_ID,
 } from '@/components/analytics/contract-farming/report/columns';
@@ -18,6 +19,7 @@ import {
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
   getGradeBagCount,
+  getGradeNetWeightKg,
   getGradeWeightPercent,
   getNetAmountPerAcreRupee,
   getNetAmountRupee,
@@ -162,6 +164,8 @@ function buildContractFarmingRowColumnFields(
       row,
       grade
     );
+    columns[`${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`] =
+      getGradeNetWeightKg(row, grade);
     columns[`${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`] =
       getGradeWeightPercent(row, grade);
   }

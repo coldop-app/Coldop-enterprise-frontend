@@ -34,6 +34,7 @@ import {
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
   getGradeBagCount,
+  getGradeNetWeightKg,
   getGradeWeightPercent,
   getNetAmountPerAcreRupee,
   getNetAmountRupee,
@@ -53,6 +54,7 @@ import {
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   VARIETY_LEVEL_COLUMN_PREFIX,
+  VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX,
   VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
   WASTAGE_KG_COLUMN_ID,
   buildColumns,
@@ -276,8 +278,12 @@ function createGlobalContractFarmingFilterFn(
 
       gradeHeaders.forEach((grade) => {
         const bagsKey = `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`;
+        const kgKey = `${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`;
         const pctKey = `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`;
         rowRecord[bagsKey] = Number(getGradeBagCount(row.original, grade) ?? 0);
+        rowRecord[kgKey] = Number(
+          getGradeNetWeightKg(row.original, grade) ?? 0
+        );
         rowRecord[pctKey] = getGradeWeightPercent(row.original, grade);
       });
 
@@ -436,6 +442,13 @@ export default function ContractFarmingReportTable() {
       ),
     [gradeHeaders]
   );
+  const gradeNetWeightColumnIds = React.useMemo(
+    () =>
+      gradeHeaders.map(
+        (grade) => `${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`
+      ),
+    [gradeHeaders]
+  );
   const emptyGradeBagColumnIds = React.useMemo(() => {
     const emptyColumns = new Set<string>();
     gradeHeaders.forEach((grade) => {
@@ -444,6 +457,7 @@ export default function ContractFarmingReportTable() {
       );
       if (!hasAnyValue) {
         emptyColumns.add(`${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`);
+        emptyColumns.add(`${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`);
       }
     });
     return emptyColumns;
@@ -471,11 +485,18 @@ export default function ContractFarmingReportTable() {
       const next = { ...defaultColumnVisibility, ...current };
       gradePercentColumnIds.forEach((columnId, index) => {
         const bagColumnId = gradeBagColumnIds[index]!;
+        const kgColumnId = gradeNetWeightColumnIds[index]!;
         if (
           emptyGradeBagColumnIds.has(bagColumnId) &&
           next[columnId] !== true
         ) {
           next[columnId] = false;
+        }
+        if (
+          emptyGradeBagColumnIds.has(bagColumnId) &&
+          next[kgColumnId] !== true
+        ) {
+          next[kgColumnId] = false;
         }
       });
       return next;
@@ -486,6 +507,7 @@ export default function ContractFarmingReportTable() {
     emptyGradeBagColumnIds,
     flattenedData.length,
     gradeBagColumnIds,
+    gradeNetWeightColumnIds,
     gradePercentColumnIds,
   ]);
 
