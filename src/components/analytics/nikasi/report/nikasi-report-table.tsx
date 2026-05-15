@@ -26,22 +26,26 @@ import {
   useGetNikasiGatePassReport,
   type NikasiGatePassReportRow as NikasiApiRow,
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
-import type { NikasiGatePassBagSize } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
-import { useStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
+import {
+  getBagSizeColumnConfig,
+  type BagSizeColumnId,
+} from '@/components/analytics/storage/report/columns';
 import { NikasiExcelButton } from './nikasi-excel-button';
 import { ViewFiltersSheet } from './view-filters-sheet';
 import {
-  defaultColumnOrder,
   defaultNikasiReportColumnVisibility,
   formatIndianNumber,
   getDecimalPlaces,
+  getNikasiDefaultColumnOrder,
+  getNikasiNumericColumnIds,
+  getNikasiReportColumns,
   globalNikasiReportSearchFilterFn,
-  nikasiReportColumns,
-  numericColumnIds,
   type GlobalFilterValue,
   type NikasiReportRow,
 } from './columns';
 import { NikasiReportDataTable } from './nikasi-report-data-table';
+import { flattenNikasiGatePassToRows } from './nikasi-report-flatten';
 
 const DEFAULT_COLUMN_SIZE = 170;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
@@ -72,72 +76,31 @@ function toApiDate(value: string): string | undefined {
   return `${year}-${normalizedMonth}-${normalizedDay}`;
 }
 
-function summarizeBagLines(bagSize?: NikasiGatePassBagSize[]): string {
-  if (!bagSize?.length) return '-';
-  return bagSize
-    .map(
-      (b) =>
-        `${b.variety} (${b.size}): ${b.quantityIssued.toLocaleString('en-IN')}`
-    )
-    .join('; ');
-}
-
-function totalBagsIssued(bagSize?: NikasiGatePassBagSize[]): number {
-  if (!bagSize?.length) return 0;
-  return bagSize.reduce((sum, b) => sum + (Number(b.quantityIssued) || 0), 0);
-}
-
-function mapApiRowToTableRow(item: NikasiApiRow): NikasiReportRow {
-  const fsl = item.farmerStorageLinkId;
-  const farmer = fsl?.farmerId;
-  const dispatch = item.dispatchLedgerId;
-  const manual = item.manualGatePassNumber;
-  const manualStr =
-    manual !== undefined && manual !== null && String(manual) !== ''
-      ? String(manual)
-      : '-';
-
-  const net = Number(item.netWeight ?? 0);
-  const netPrecision = getDecimalPlaces(net);
-  const avg = Number(item.averageWeightPerBag ?? 0);
-  const avgPrecision = getDecimalPlaces(avg);
-
-  const storageLabel =
-    fsl?.accountNumber !== undefined && fsl?.accountNumber !== null
-      ? String(fsl.accountNumber)
-      : '-';
-
-  return {
-    id: item._id,
-    gatePassNo: item.gatePassNo,
-    manualGatePassNumber: manualStr,
-    date: toDisplayDate(item.date),
-    dateSortValue: toSortableDateValue(item.date),
-    farmerMobile: farmer?.mobileNumber ?? '-',
-    storageAccountLabel: storageLabel,
-    linkedByName: fsl?.linkedById?.name ?? '-',
-    location: dispatch?.name ?? '-',
-    dispatchLedgerMobile: dispatch?.mobileNumber ?? '-',
-    createdByName: item.createdBy?.name ?? '-',
-    nikasiFrom: item.from ?? '-',
-    nikasiTo: item.to ?? '-',
-    truckNumber: item.truckNumber ?? '-',
-    variety: summarizeBagLines(item.bagSize),
-    bagsReceived: totalBagsIssued(item.bagSize),
-    netWeightKg: net,
-    netWeightPrecision: netPrecision,
-    averageWeightPerBag: avg,
-    averageWeightPrecision: avgPrecision,
-    remarks: item.remarks ?? '-',
-    isInternalTransferLabel: item.isInternalTransfer ? 'Yes' : 'No',
-    createdAt: toDisplayDate(item.createdAt),
-    updatedAt: toDisplayDate(item.updatedAt),
-  };
-}
-
 const NikasiReportTable = () => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
+
+  const preferences = usePreferencesStore((state) => state.preferences);
+  const bagSizeColumnConfig = React.useMemo(
+    () => getBagSizeColumnConfig(preferences?.bagSizes),
+    [preferences?.bagSizes]
+  );
+  const bagSizeColumnIds = React.useMemo<BagSizeColumnId[]>(
+    () => bagSizeColumnConfig.map((item) => item.id),
+    [bagSizeColumnConfig]
+  );
+  const defaultColumnOrder = React.useMemo(
+    () => getNikasiDefaultColumnOrder(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const numericColumnIds = React.useMemo(
+    () => getNikasiNumericColumnIds(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const nikasiReportColumns = React.useMemo(
+    () => getNikasiReportColumns(bagSizeColumnConfig),
+    [bagSizeColumnConfig]
   );
 
   const [fromDate, setFromDate] = React.useState('');
@@ -165,6 +128,9 @@ const NikasiReportTable = () => {
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
 
+  const hasInitializedColumnOrderRef = React.useRef(false);
+  const hasInitializedBagVisibilityRef = React.useRef(false);
+
   const hasDateFilters = Boolean(fromDate && toDate);
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
   const canApply = Boolean(fromDate && toDate);
@@ -178,10 +144,48 @@ const NikasiReportTable = () => {
       { enabled: true }
     );
 
-  const reportRows = React.useMemo<NikasiReportRow[]>(
-    () => (data ?? []).map(mapApiRowToTableRow),
-    [data]
+  const rowCtx = React.useMemo(
+    () => ({ toDisplayDate, toSortableDateValue }),
+    []
   );
+
+  const reportRows = React.useMemo<NikasiReportRow[]>(() => {
+    const list = data ?? [];
+    return list.flatMap((item: NikasiApiRow) =>
+      flattenNikasiGatePassToRows(item, rowCtx)
+    );
+  }, [data, rowCtx]);
+
+  const emptyBagSizeColumnIds = React.useMemo(() => {
+    const emptyColumns = new Set<string>();
+    bagSizeColumnIds.forEach((columnId) => {
+      const hasAnyValue = reportRows.some(
+        (row) => Number(row[columnId as keyof NikasiReportRow] ?? 0) > 0
+      );
+      if (!hasAnyValue) emptyColumns.add(columnId);
+    });
+    return emptyColumns;
+  }, [bagSizeColumnIds, reportRows]);
+
+  React.useEffect(() => {
+    if (hasInitializedColumnOrderRef.current) return;
+    setColumnOrder(defaultColumnOrder);
+    hasInitializedColumnOrderRef.current = true;
+  }, [defaultColumnOrder]);
+
+  React.useEffect(() => {
+    if (hasInitializedBagVisibilityRef.current || reportRows.length === 0)
+      return;
+
+    setColumnVisibility((current) => {
+      const next = { ...current };
+      bagSizeColumnIds.forEach((columnId) => {
+        next[columnId] = !emptyBagSizeColumnIds.has(columnId);
+      });
+      return next;
+    });
+    hasInitializedBagVisibilityRef.current = true;
+  }, [bagSizeColumnIds, emptyBagSizeColumnIds, reportRows.length]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<NikasiReportRow>({
@@ -240,23 +244,36 @@ const NikasiReportTable = () => {
   );
 
   const totalsByColumn = React.useMemo(() => {
+    const bagColumnTotals: Record<string, number> = {};
+    for (const id of bagSizeColumnIds) {
+      bagColumnTotals[id] = 0;
+    }
+
+    for (const row of filteredRows) {
+      for (const id of bagSizeColumnIds) {
+        bagColumnTotals[id] += Number(row.original[id] ?? 0);
+      }
+    }
+
     let bagsReceived = 0;
     let netPrecision = 0;
 
     for (const row of filteredRows) {
-      const original = row.original;
-      bagsReceived += Number(original.bagsReceived ?? 0);
+      if (row.original.varietyRowIndex !== 0) continue;
+      bagsReceived += Number(row.original.bagsReceived ?? 0);
       netPrecision = Math.max(
         netPrecision,
-        Number(original.netWeightPrecision ?? 0)
+        Number(row.original.netWeightPrecision ?? 0)
       );
     }
 
     const factor = 10 ** netPrecision;
-    const scaledNetSum = filteredRows.reduce((sum, row) => {
+    let scaledNetSum = 0;
+    for (const row of filteredRows) {
+      if (row.original.varietyRowIndex !== 0) continue;
       const value = Number(row.original.netWeightKg ?? 0);
-      return sum + Math.round(value * factor);
-    }, 0);
+      scaledNetSum += Math.round(value * factor);
+    }
     const netTotal = scaledNetSum / factor;
 
     const averageWeightPerBag =
@@ -272,12 +289,13 @@ const NikasiReportTable = () => {
       netPrecision,
       averageWeightPerBag,
       averagePrecision,
+      bagColumnTotals,
     };
-  }, [filteredRows]);
+  }, [bagSizeColumnIds, filteredRows]);
 
   const hasVisibleNumericTotals = React.useMemo(
     () => visibleColumnIds.some((columnId) => numericColumnIds.has(columnId)),
-    [visibleColumnIds]
+    [numericColumnIds, visibleColumnIds]
   );
 
   return (
@@ -364,6 +382,7 @@ const NikasiReportTable = () => {
                 <NikasiExcelButton
                   table={table}
                   coldStorageName={coldStorageName}
+                  bagSizeColumnIds={bagSizeColumnIds}
                 />
                 <Button
                   variant="ghost"
@@ -431,7 +450,7 @@ const NikasiReportTable = () => {
                 <span className="text-foreground font-semibold">
                   {totalFilteredEntries}
                 </span>{' '}
-                entries
+                rows
               </p>
               <Button
                 type="button"

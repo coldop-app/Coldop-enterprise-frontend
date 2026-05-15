@@ -6,5 +6,7 @@ declare module '@tanstack/react-table' {
     gradingReportRowSpan?: 'split' | 'merge';
     /** Left border emphasizes where incoming-linked columns end and grading gate pass columns begin */
     gradingReportGradingSectionStart?: boolean;
+    /** Nikasi report-2 and similar: numeric / quantity columns */
+    align?: 'left' | 'right';
   }
 }

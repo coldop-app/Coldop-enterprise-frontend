@@ -86,6 +86,7 @@ const columnLabels: Record<string, string> = {
   gatePassNo: 'System Generated Gate Pass No',
   manualGatePassNumber: 'Manual Gate Pass No',
   date: 'Date',
+  farmerName: 'Farmer',
   farmerMobile: 'Mobile Number',
   storageAccountLabel: 'Storage account',
   linkedByName: 'Linked by',
@@ -94,7 +95,7 @@ const columnLabels: Record<string, string> = {
   createdByName: 'Created by',
   nikasiFrom: 'From',
   nikasiTo: 'To',
-  variety: 'Variety / bags',
+  variety: 'Variety',
   bagsReceived: 'Bags issued',
   netWeightKg: 'Net (kg)',
   averageWeightPerBag: 'Avg / bag (kg)',
@@ -199,7 +200,7 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
   );
 });
 
-export function ViewFiltersSheet({
+export function ViewFiltersSheet<TData = NikasiReportRow>({
   open,
   onOpenChange,
   table,
@@ -207,7 +208,7 @@ export function ViewFiltersSheet({
   defaultColumnVisibility,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
-}: ViewFiltersSheetProps) {
+}: ViewFiltersSheetProps<TData>) {
   const [activeTab, setActiveTab] = React.useState('filters');
   const [searchQueries, setSearchQueries] = React.useState<
     Record<FilterableColumnId, string>

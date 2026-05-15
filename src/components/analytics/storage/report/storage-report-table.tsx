@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Item } from '@/components/ui/item';
 import { useGetStorageGatePassReport } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageGatePassReport';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
+import { resolveBagSizeColumnId } from '@/lib/bag-size-columns';
 import { usePreferencesStore, useStore } from '@/stores/store';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
 import PdfWorker from './pdf.worker?worker';
@@ -123,37 +124,10 @@ function createEmptyBagSizeValues(): BagSizeValues {
   };
 }
 
-function normalizeBagSize(value: string): string {
-  return value
-    .replace(/\bmm\b/gi, '')
-    .replace(/[()]/g, ' ')
-    .replace(/[–—−-]/g, '-')
-    .replace(/\s*-\s*/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-const BAG_SIZE_LABEL_TO_COLUMN_ID = new Map([
-  [normalizeBagSize('Below 25'), 'bagBelow25'],
-  [normalizeBagSize('25–30'), 'bag25to30'],
-  [normalizeBagSize('Below 30'), 'bagBelow30'],
-  [normalizeBagSize('30–35'), 'bag30to35'],
-  [normalizeBagSize('30–40'), 'bag30to40'],
-  [normalizeBagSize('35–40'), 'bag35to40'],
-  [normalizeBagSize('40–45'), 'bag40to45'],
-  [normalizeBagSize('45–50'), 'bag45to50'],
-  [normalizeBagSize('50–55'), 'bag50to55'],
-  [normalizeBagSize('Above 50'), 'bagAbove50'],
-  [normalizeBagSize('Above 55'), 'bagAbove55'],
-  [normalizeBagSize('Cut'), 'bagCut'],
-]);
-
 function getBagSizeValues(gatePass: StorageGatePassWithLink): BagSizeValues {
   const values = createEmptyBagSizeValues();
   for (const bagSize of gatePass.bagSizes ?? []) {
-    const normalizedSize = normalizeBagSize(String(bagSize.size || ''));
-    const columnId = BAG_SIZE_LABEL_TO_COLUMN_ID.get(normalizedSize);
+    const columnId = resolveBagSizeColumnId(String(bagSize.size || ''));
     if (!columnId) continue;
     values[columnId as keyof BagSizeValues] += Number(
       bagSize.initialQuantity || 0

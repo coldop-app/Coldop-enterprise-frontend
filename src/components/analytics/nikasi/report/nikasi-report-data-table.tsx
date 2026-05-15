@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { type Row, type Table, flexRender } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -11,14 +10,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { NikasiReportRow } from './columns';
+import {
+  NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS,
+  type NikasiReportRow,
+} from './columns';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
 const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
-const isFirefoxBrowser =
-  typeof window !== 'undefined' &&
-  window.navigator.userAgent.includes('Firefox');
 
 export type NikasiReportTotals = {
   bagsReceived: number;
@@ -26,6 +25,7 @@ export type NikasiReportTotals = {
   netPrecision: number;
   averageWeightPerBag: number | null;
   averagePrecision: number;
+  bagColumnTotals: Record<string, number>;
 };
 
 type NikasiReportDataTableProps = {
@@ -50,18 +50,6 @@ export function NikasiReportDataTable({
   isLoading,
 }: NikasiReportDataTableProps) {
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
-
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
-    count: rows.length,
-    estimateSize: () => 42,
-    getScrollElement: () => tableContainerRef.current,
-    measureElement: isFirefoxBrowser
-      ? undefined
-      : (element) => element?.getBoundingClientRect().height,
-    overscan: 8,
-  });
-  const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
     <div
@@ -111,36 +99,24 @@ export function NikasiReportDataTable({
         </div>
       ) : (
         <table
-          style={{ display: 'grid', width: table.getTotalSize() }}
-          className="font-custom text-sm"
+          className="font-custom w-full min-w-max border-collapse text-sm"
+          style={{ tableLayout: 'fixed', width: table.getTotalSize() }}
         >
-          <TableHeader
-            className="bg-secondary border-border/60 text-secondary-foreground border-b backdrop-blur-sm"
-            style={{
-              display: 'grid',
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-            }}
-          >
+          <colgroup>
+            {table.getVisibleLeafColumns().map((column) => (
+              <col key={column.id} style={{ width: column.getSize() }} />
+            ))}
+          </colgroup>
+          <TableHeader className="bg-secondary border-border/60 text-secondary-foreground sticky top-0 z-10 border-b backdrop-blur-sm [&_tr]:border-b-0">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow
-                key={headerGroup.id}
-                style={{ display: 'flex', width: '100%' }}
-                className="hover:bg-transparent"
-              >
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   if (header.isPlaceholder) return null;
                   const isRightAligned = numericColumnIds.has(header.id);
                   return (
                     <TableHead
                       key={header.id}
-                      style={{
-                        display: 'flex',
-                        width: header.getSize(),
-                        position: 'relative',
-                      }}
-                      className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
+                      className="font-custom border-border/50 text-foreground/75 relative h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
                     >
                       <div
                         className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors ${
@@ -189,48 +165,46 @@ export function NikasiReportDataTable({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody
-            style={{
-              display: 'grid',
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              position: 'relative',
-            }}
-          >
-            {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index] as Row<NikasiReportRow>;
+          <TableBody>
+            {rows.map((row) => {
+              const { varietyRowIndex, varietyRowSpan } = row.original;
               return (
                 <TableRow
                   key={row.id}
-                  data-index={virtualRow.index}
-                  ref={(node) => rowVirtualizer.measureElement(node)}
                   className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
-                    virtualRow.index % 2 === 0 ? 'bg-background' : 'bg-muted/25'
+                    row.index % 2 === 0 ? 'bg-background' : 'bg-muted/25'
                   }`}
-                  style={{
-                    display: 'flex',
-                    position: 'absolute',
-                    transform: `translateY(${virtualRow.start}px)`,
-                    width: '100%',
-                  }}
                 >
                   {row.getVisibleCells().map((cell) => {
+                    const colId = cell.column.id;
+                    if (
+                      NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(colId) &&
+                      varietyRowIndex > 0
+                    ) {
+                      return null;
+                    }
+
                     const isGroupedCell = cell.getIsGrouped();
                     const isAggregatedCell = cell.getIsAggregated();
                     const isPlaceholderCell = cell.getIsPlaceholder();
-                    const isRightAligned = numericColumnIds.has(cell.column.id);
+                    const isRightAligned = numericColumnIds.has(colId);
                     const shouldSuppressAggregation =
                       isAggregatedCell &&
-                      (cell.column.id === 'gatePassNo' ||
-                        cell.column.id === 'manualGatePassNumber');
+                      (colId === 'gatePassNo' ||
+                        colId === 'manualGatePassNumber');
+
+                    const rowSpan =
+                      NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(colId) &&
+                      varietyRowIndex === 0
+                        ? varietyRowSpan
+                        : undefined;
+
                     return (
                       <TableCell
                         key={cell.id}
-                        style={{
-                          display: 'flex',
-                          width: cell.column.getSize(),
-                        }}
+                        rowSpan={rowSpan}
                         className={`font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle wrap-break-word whitespace-normal last:border-r-0 ${
-                          isRightAligned ? 'justify-end tabular-nums' : ''
+                          isRightAligned ? 'text-right tabular-nums' : ''
                         }`}
                       >
                         {isGroupedCell ? (
@@ -279,19 +253,15 @@ export function NikasiReportDataTable({
           </TableBody>
           {rows.length > 0 && hasVisibleNumericTotals ? (
             <TableFooter
-              className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
+              className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm [&>tr]:border-t-0"
               style={{
-                display: 'grid',
                 position: 'sticky',
                 bottom: 0,
                 paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
                 zIndex: 9,
               }}
             >
-              <TableRow
-                style={{ display: 'flex', width: '100%' }}
-                className="hover:bg-transparent"
-              >
+              <TableRow className="hover:bg-transparent">
                 {visibleColumnIds.map((columnId, columnIndex) => {
                   let cellValue = '';
                   if (columnId === 'bagsReceived') {
@@ -309,18 +279,22 @@ export function NikasiReportDataTable({
                             totalsByColumn.averagePrecision
                           )
                         : '';
+                  } else if (
+                    Object.prototype.hasOwnProperty.call(
+                      totalsByColumn.bagColumnTotals,
+                      columnId
+                    )
+                  ) {
+                    const v = totalsByColumn.bagColumnTotals[columnId] ?? 0;
+                    cellValue = v === 0 ? '' : formatTotal(v, 0);
                   }
                   const isRightAligned = numericColumnIds.has(columnId);
 
                   return (
                     <TableCell
                       key={`totals-${columnId}`}
-                      style={{
-                        display: 'flex',
-                        width: table.getColumn(columnId)?.getSize(),
-                      }}
                       className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${
-                        isRightAligned ? 'justify-end tabular-nums' : ''
+                        isRightAligned ? 'text-right tabular-nums' : ''
                       }`}
                     >
                       {columnIndex === 0 ? 'Total' : cellValue}

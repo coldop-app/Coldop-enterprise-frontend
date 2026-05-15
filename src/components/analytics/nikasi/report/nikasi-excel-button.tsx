@@ -3,7 +3,11 @@ import type { Row, Table } from '@tanstack/react-table';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { Button } from '@/components/ui/button';
-import type { NikasiReportRow } from './columns';
+import type { BagSizeColumnId } from '@/components/analytics/storage/report/columns';
+import {
+  NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS,
+  type NikasiReportRow,
+} from './columns';
 
 const COLORS = {
   titleBg: 'FFFFFFFF',
@@ -31,12 +35,22 @@ const FONTS = {
 
 const SMART_NUMBER_FORMAT = '#,##0.##';
 
-/** Must match quantity / weight columns on `NikasiReportRow` (not gate pass ids). */
-const NIKASI_SUM_COLUMN_IDS = new Set([
+const GATE_PASS_DEDUPED_SUM_IDS = new Set([
   'bagsReceived',
   'netWeightKg',
   'averageWeightPerBag',
 ]);
+
+function getNikasiSumColumnIds(
+  bagSizeColumnIds: BagSizeColumnId[]
+): Set<string> {
+  return new Set([
+    ...bagSizeColumnIds,
+    'bagsReceived',
+    'netWeightKg',
+    'averageWeightPerBag',
+  ]);
+}
 
 function toSumNumber(value: unknown): number {
   if (value == null) return 0;
@@ -52,7 +66,8 @@ function toSumNumber(value: unknown): number {
 
 function collectNikasiLeafColumnSums(
   rows: Row<NikasiReportRow>[],
-  sums: Record<string, number>
+  sums: Record<string, number>,
+  sumColumnIds: Set<string>
 ): void {
   const visitedRowIds = new Set<string>();
   for (const row of rows) {
@@ -68,7 +83,13 @@ function collectNikasiLeafColumnSums(
         continue;
       }
 
-      for (const id of NIKASI_SUM_COLUMN_IDS) {
+      for (const id of sumColumnIds) {
+        if (
+          GATE_PASS_DEDUPED_SUM_IDS.has(id) &&
+          current.original.varietyRowIndex !== 0
+        ) {
+          continue;
+        }
         sums[id] = (sums[id] ?? 0) + toSumNumber(current.getValue(id));
       }
     }
@@ -77,11 +98,12 @@ function collectNikasiLeafColumnSums(
 
 function buildNikasiTotalsRowValues(
   visibleColumns: ReturnType<Table<NikasiReportRow>['getVisibleLeafColumns']>,
-  sums: Record<string, number>
+  sums: Record<string, number>,
+  sumColumnIds: Set<string>
 ): Array<string | number> {
   return visibleColumns.map((col, idx) => {
     if (idx === 0) return 'Total';
-    if (NIKASI_SUM_COLUMN_IDS.has(col.id)) return sums[col.id] ?? 0;
+    if (sumColumnIds.has(col.id)) return sums[col.id] ?? 0;
     return '';
   });
 }
@@ -89,6 +111,7 @@ function buildNikasiTotalsRowValues(
 type NikasiExcelButtonProps = {
   table: Table<NikasiReportRow>;
   coldStorageName: string;
+  bagSizeColumnIds: BagSizeColumnId[];
 };
 
 const NIKASI_COLUMN_HEADER_LABELS: Partial<
@@ -106,12 +129,14 @@ const NIKASI_COLUMN_HEADER_LABELS: Partial<
   nikasiFrom: 'From',
   nikasiTo: 'To',
   truckNumber: 'Truck No.',
-  variety: 'Variety / bags',
+  variety: 'Variety',
   bagsReceived: 'Bags issued',
   netWeightKg: 'Net (kg)',
   averageWeightPerBag: 'Avg / bag (kg)',
   isInternalTransferLabel: 'Internal',
   remarks: 'Remarks',
+  createdAt: 'Created',
+  updatedAt: 'Updated',
 };
 
 function getColumnHeaderLabel(
@@ -273,14 +298,17 @@ function buildReportHeader(
   ws.addRow([]);
 }
 
-function addStyledTable(
+function addStyledNikasiTableBody(
   ws: ExcelJS.Worksheet,
   headers: string[],
   rows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
-  }>
+    varietyRowIndex: number;
+    varietyRowSpan: number;
+  }>,
+  mergeColumnIndexes1Based: number[]
 ) {
   const headerRow = ws.addRow(headers);
   headerRow.height = 36;
@@ -295,12 +323,20 @@ function addStyledTable(
     };
   });
 
-  rows.forEach((dataRow) => {
+  let groupStartRow = 0;
+
+  rows.forEach((dataRow, rowIndex) => {
+    if (dataRow.varietyRowIndex === 0) {
+      groupStartRow = ws.lastRow.number + 1;
+    }
+
     const exRow = ws.addRow(dataRow.values);
     exRow.height = 22;
     const bgArgb = dataRow.isGroupedOrAggregatedRow
       ? COLORS.rowEven
-      : COLORS.rowOdd;
+      : rowIndex % 2 === 0
+        ? COLORS.rowEven
+        : COLORS.rowOdd;
     exRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
       applyFill(cell, bgArgb);
       applyBorder(cell, COLORS.borderColor);
@@ -316,6 +352,18 @@ function addStyledTable(
         cell.numFmt = SMART_NUMBER_FORMAT;
       }
     });
+
+    const currentRow = ws.lastRow.number;
+    if (
+      dataRow.varietyRowSpan > 1 &&
+      dataRow.varietyRowIndex === dataRow.varietyRowSpan - 1
+    ) {
+      for (const col of mergeColumnIndexes1Based) {
+        if (currentRow > groupStartRow) {
+          ws.mergeCells(groupStartRow, col, currentRow, col);
+        }
+      }
+    }
   });
 }
 
@@ -384,12 +432,16 @@ function getExcelBodyRows(
   values: Array<string | number>;
   boldByColumn: boolean[];
   isGroupedOrAggregatedRow: boolean;
+  varietyRowIndex: number;
+  varietyRowSpan: number;
 }> {
   const columnIndexById = new Map(visibleColumns.map((col, i) => [col.id, i]));
   const bodyRows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
+    varietyRowIndex: number;
+    varietyRowSpan: number;
   }> = [];
   const visitedRowIds = new Set<string>();
 
@@ -441,6 +493,8 @@ function getExcelBodyRows(
         boldByColumn,
         isGroupedOrAggregatedRow:
           row.getIsGrouped() || hasGroupedOrAggregatedCell,
+        varietyRowIndex: row.original.varietyRowIndex,
+        varietyRowSpan: row.original.varietyRowSpan,
       });
       if (row.getIsGrouped() && row.subRows.length > 0) appendRows(row.subRows);
     }
@@ -453,6 +507,7 @@ function getExcelBodyRows(
 export const NikasiExcelButton = ({
   table,
   coldStorageName,
+  bagSizeColumnIds,
 }: NikasiExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
   const tableRef = React.useRef(table);
@@ -482,12 +537,27 @@ export const NikasiExcelButton = ({
         values: coerceRows([row.values])[0],
         boldByColumn: row.boldByColumn,
         isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
+        varietyRowIndex: row.varietyRowIndex,
+        varietyRowSpan: row.varietyRowSpan,
       }));
       const rawBodyRows = styledBodyRows.map((row) => row.values);
 
+      const sumColumnIds = getNikasiSumColumnIds(bagSizeColumnIds);
       const sums: Record<string, number> = {};
-      collectNikasiLeafColumnSums(sourceRows, sums);
-      const totalsRowValues = buildNikasiTotalsRowValues(visibleColumns, sums);
+      for (const id of sumColumnIds) {
+        sums[id] = 0;
+      }
+      collectNikasiLeafColumnSums(sourceRows, sums, sumColumnIds);
+      const totalsRowValues = buildNikasiTotalsRowValues(
+        visibleColumns,
+        sums,
+        sumColumnIds
+      );
+
+      const mergeColumnIndexes1Based = visibleColumns
+        .map((col, i) => ({ id: col.id, excelCol: i + 1 }))
+        .filter(({ id }) => NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(id))
+        .map(({ excelCol }) => excelCol);
 
       const safeName = safeFilePart(coldStorageName, 'Cold Storage');
       const dateLabel = getDateLabel(new Date());
@@ -513,7 +583,12 @@ export const NikasiExcelButton = ({
       );
 
       addSectionTitle(ws, 'Dispatch (Pre Storage)', colCount);
-      addStyledTable(ws, headerLabels, styledBodyRows);
+      addStyledNikasiTableBody(
+        ws,
+        headerLabels,
+        styledBodyRows,
+        mergeColumnIndexes1Based
+      );
       addTotalsRow(ws, totalsRowValues);
 
       const buffer = await wb.xlsx.writeBuffer();
@@ -534,7 +609,7 @@ export const NikasiExcelButton = ({
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);
     }
-  }, [coldStorageName]);
+  }, [coldStorageName, bagSizeColumnIds]);
 
   return (
     <Button

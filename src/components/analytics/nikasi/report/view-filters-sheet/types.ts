@@ -6,10 +6,10 @@ import type {
 } from '@tanstack/react-table';
 import type { NikasiReportRow } from '../columns';
 
-export type ViewFiltersSheetProps = {
+export type ViewFiltersSheetProps<TData = NikasiReportRow> = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  table: TanstackTable<NikasiReportRow>;
+  table: TanstackTable<TData>;
   defaultColumnOrder: string[];
   defaultColumnVisibility: VisibilityState;
   columnResizeMode: ColumnResizeMode;
@@ -24,6 +24,7 @@ export type FilterableColumnId =
   | 'gatePassNo'
   | 'manualGatePassNumber'
   | 'date'
+  | 'farmerName'
   | 'variety'
   | 'truckNumber'
   | 'bagsReceived'

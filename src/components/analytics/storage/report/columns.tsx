@@ -8,6 +8,7 @@ import {
   isAdvancedFilterGroup,
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
+import { normalizeBagSizeLabel } from '@/lib/bag-size-columns';
 
 export type IncomingReportRow = {
   id: string;
@@ -94,17 +95,6 @@ export const defaultStorageReportColumnVisibility: VisibilityState = {
   gatePassNo: false,
   accountNumber: false,
 };
-
-function normalizeBagSizeLabel(value: string): string {
-  return value
-    .replace(/\bmm\b/gi, '')
-    .replace(/[()]/g, ' ')
-    .replace(/[–—−-]/g, '-')
-    .replace(/\s*-\s*/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
 
 export function getBagSizeColumnConfig(
   preferenceBagSizes: string[] | undefined
