@@ -184,7 +184,7 @@ function addSectionTitle(
 
 function addStyledTable(
   ws: ExcelJS.Worksheet,
-  headers: string[],
+  headers: Array<string | number>,
   rows: Array<{ values: Array<string | number> }>
 ) {
   const headerRow = ws.addRow(headers);
@@ -266,12 +266,12 @@ function estimateColWidth(
 
 function applySmartColumnWidths(
   ws: ExcelJS.Worksheet,
-  headers: string[],
+  headers: Array<string | number>,
   allBodyRows: Array<Array<string | number>>
 ) {
   ws.columns = headers.map((header, i) => ({
     key: `c${i}`,
-    width: estimateColWidth(header, allBodyRows, i),
+    width: estimateColWidth(String(header), allBodyRows, i),
   }));
 }
 
@@ -498,8 +498,7 @@ export function DispatchLedgerReportExcelButton({
     <Button
       type="button"
       variant="default"
-      weight="bold"
-      className="font-custom focus-visible:ring-primary h-9 shrink-0 rounded-lg px-4 text-sm shadow-sm transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+      className="font-custom focus-visible:ring-primary h-9 shrink-0 rounded-lg px-4 text-sm font-bold shadow-sm transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
       disabled={isGeneratingExcel || !canExport}
       onClick={handleGenerate}
     >

@@ -58,6 +58,7 @@ import type {
   InternalTransferFilterValue,
   ViewFiltersSheetProps,
 } from './types';
+import type { NikasiReportRow } from '../columns';
 import {
   advancedFilterFields,
   filterableColumns,
@@ -296,19 +297,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   const availableFilterOptions = React.useMemo<
     Record<FilterableColumnId, string[]>
   >(() => {
-    const options = {
-      gatePassNo: [],
-      manualGatePassNumber: [],
-      date: [],
-      variety: [],
-      truckNumber: [],
-      bagsReceived: [],
-      netWeightKg: [],
-      remarks: [],
-      location: [],
-      nikasiFrom: [],
-      nikasiTo: [],
-    } as Record<FilterableColumnId, string[]>;
+    const options = { ...getEmptyValueFilters() };
 
     filterableColumns.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);

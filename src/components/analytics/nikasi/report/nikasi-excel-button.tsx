@@ -327,7 +327,8 @@ function addStyledNikasiTableBody(
 
   rows.forEach((dataRow, rowIndex) => {
     if (dataRow.varietyRowIndex === 0) {
-      groupStartRow = ws.lastRow.number + 1;
+      const lastNum = ws.lastRow?.number ?? headerRow.number;
+      groupStartRow = lastNum + 1;
     }
 
     const exRow = ws.addRow(dataRow.values);
@@ -353,7 +354,7 @@ function addStyledNikasiTableBody(
       }
     });
 
-    const currentRow = ws.lastRow.number;
+    const currentRow = exRow.number;
     if (
       dataRow.varietyRowSpan > 1 &&
       dataRow.varietyRowIndex === dataRow.varietyRowSpan - 1
