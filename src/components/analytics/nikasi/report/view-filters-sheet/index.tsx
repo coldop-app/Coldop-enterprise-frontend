@@ -497,6 +497,9 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     table.setColumnVisibility(draftColumnVisibility);
     table.setColumnOrder(draftColumnOrder);
     table.setGrouping(draftGrouping);
+    if (draftGrouping.length > 0) {
+      table.setSorting(draftGrouping.map((id) => ({ id, desc: false })));
+    }
 
     const internalTransferColumn = table.getColumn('isInternalTransferLabel');
     internalTransferColumn?.setFilterValue(

@@ -37,6 +37,7 @@ type NikasiReportDataTableProps = {
   totalsByColumn: NikasiReportTotals;
   formatTotal: (value: number, precision?: number) => string;
   isLoading: boolean;
+  isGroupingActive: boolean;
 };
 
 export function NikasiReportDataTable({
@@ -48,6 +49,7 @@ export function NikasiReportDataTable({
   totalsByColumn,
   formatTotal,
   isLoading,
+  isGroupingActive,
 }: NikasiReportDataTableProps) {
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -178,6 +180,7 @@ export function NikasiReportDataTable({
                   {row.getVisibleCells().map((cell) => {
                     const colId = cell.column.id;
                     if (
+                      !isGroupingActive &&
                       NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(colId) &&
                       varietyRowIndex > 0
                     ) {
@@ -194,6 +197,7 @@ export function NikasiReportDataTable({
                         colId === 'manualGatePassNumber');
 
                     const rowSpan =
+                      !isGroupingActive &&
                       NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(colId) &&
                       varietyRowIndex === 0
                         ? varietyRowSpan

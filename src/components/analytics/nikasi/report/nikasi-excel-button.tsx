@@ -555,10 +555,13 @@ export const NikasiExcelButton = ({
         sumColumnIds
       );
 
-      const mergeColumnIndexes1Based = visibleColumns
-        .map((col, i) => ({ id: col.id, excelCol: i + 1 }))
-        .filter(({ id }) => NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(id))
-        .map(({ excelCol }) => excelCol);
+      const isGroupingActive = t.getState().grouping.length > 0;
+      const mergeColumnIndexes1Based = isGroupingActive
+        ? []
+        : visibleColumns
+            .map((col, i) => ({ id: col.id, excelCol: i + 1 }))
+            .filter(({ id }) => NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(id))
+            .map(({ excelCol }) => excelCol);
 
       const safeName = safeFilePart(coldStorageName, 'Cold Storage');
       const dateLabel = getDateLabel(new Date());

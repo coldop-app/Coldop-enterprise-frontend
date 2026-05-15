@@ -223,8 +223,12 @@ const NikasiReportTable = () => {
     getGroupedRowModel: getGroupedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    // Keep grouped labels in their configured columns (not reordered to front).
+    groupedColumnMode: false,
     getRowId: (row) => row.id,
   });
+
+  const isGroupingActive = grouping.length > 0;
 
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
@@ -416,6 +420,7 @@ const NikasiReportTable = () => {
             totalsByColumn={totalsByColumn}
             formatTotal={formatIndianNumber}
             isLoading={isLoading}
+            isGroupingActive={isGroupingActive}
           />
           <div className="border-border/50 bg-background/70 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">

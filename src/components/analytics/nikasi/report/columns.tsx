@@ -201,6 +201,7 @@ export const defaultNikasiReportColumnVisibility: VisibilityState = {
   averageWeightPerBag: false,
   createdAt: false,
   updatedAt: false,
+  nikasiFrom: false,
 };
 
 export function getNikasiNumericColumnIds(
@@ -232,11 +233,22 @@ const multiValueFilterFn = (
 
 const columnHelper = createColumnHelper<NikasiReportRow>();
 
+const nikasiGroupableColumn = {
+  enableGrouping: true,
+  aggregationFn: 'count' as const,
+  aggregatedCell: () => null,
+};
+
+const nikasiNonGroupableColumn = {
+  enableGrouping: false,
+};
+
 export function getNikasiReportColumns(
   bagSizeColumnConfig: Array<{ id: BagSizeColumnId; label: string }>
 ) {
   return [
     columnHelper.accessor('gatePassNo', {
+      ...nikasiNonGroupableColumn,
       header: 'Gate Pass No',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -250,6 +262,7 @@ export function getNikasiReportColumns(
       ),
     }),
     columnHelper.accessor('manualGatePassNumber', {
+      ...nikasiNonGroupableColumn,
       header: 'Manual Gate Pass No',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -262,6 +275,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('date', {
+      ...nikasiGroupableColumn,
       header: 'Date',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -273,6 +287,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('farmerMobile', {
+      ...nikasiGroupableColumn,
       header: 'Mobile Number',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -283,6 +298,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('storageAccountLabel', {
+      ...nikasiGroupableColumn,
       header: 'Storage account',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -295,6 +311,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('linkedByName', {
+      ...nikasiGroupableColumn,
       header: 'Linked by',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -305,6 +322,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('location', {
+      ...nikasiGroupableColumn,
       header: 'Dispatch ledger',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -315,6 +333,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('dispatchLedgerMobile', {
+      ...nikasiGroupableColumn,
       header: 'Ledger mobile',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -327,6 +346,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('createdByName', {
+      ...nikasiGroupableColumn,
       header: 'Created by',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -337,6 +357,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('nikasiFrom', {
+      ...nikasiGroupableColumn,
       header: 'From',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -347,6 +368,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('nikasiTo', {
+      ...nikasiGroupableColumn,
       header: 'To',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -357,6 +379,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('truckNumber', {
+      ...nikasiGroupableColumn,
       header: 'Truck No.',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -367,6 +390,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('variety', {
+      ...nikasiGroupableColumn,
       header: 'Variety',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -380,6 +404,7 @@ export function getNikasiReportColumns(
     }),
     ...bagSizeColumnConfig.map(({ id, label }) =>
       columnHelper.accessor(id as keyof NikasiReportRow, {
+        ...nikasiNonGroupableColumn,
         id,
         meta: `${label} (mm)`,
         header: () => <div className="w-full text-right">{label} (mm)</div>,
@@ -406,6 +431,7 @@ export function getNikasiReportColumns(
       })
     ),
     columnHelper.accessor('bagsReceived', {
+      ...nikasiNonGroupableColumn,
       header: () => <div className="w-full text-right">Bags issued</div>,
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -424,6 +450,7 @@ export function getNikasiReportColumns(
       ),
     }),
     columnHelper.accessor('netWeightKg', {
+      ...nikasiNonGroupableColumn,
       header: () => <div className="w-full text-right">Net (kg)</div>,
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -475,6 +502,7 @@ export function getNikasiReportColumns(
       },
     }),
     columnHelper.accessor('averageWeightPerBag', {
+      ...nikasiNonGroupableColumn,
       header: () => <div className="w-full text-right">Avg / bag (kg)</div>,
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -500,6 +528,7 @@ export function getNikasiReportColumns(
       },
     }),
     columnHelper.accessor('isInternalTransferLabel', {
+      ...nikasiGroupableColumn,
       header: 'Internal',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -533,6 +562,7 @@ export function getNikasiReportColumns(
       },
     }),
     columnHelper.accessor('remarks', {
+      ...nikasiGroupableColumn,
       header: 'Remarks',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -545,6 +575,7 @@ export function getNikasiReportColumns(
       maxSize: 500,
     }),
     columnHelper.accessor('createdAt', {
+      ...nikasiGroupableColumn,
       header: 'Created',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
@@ -555,6 +586,7 @@ export function getNikasiReportColumns(
       filterFn: multiValueFilterFn,
     }),
     columnHelper.accessor('updatedAt', {
+      ...nikasiGroupableColumn,
       header: 'Updated',
       sortingFn: (rowA, rowB) =>
         tieBreakNikasiSort(
