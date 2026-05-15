@@ -20,6 +20,7 @@ import {
   getWastageKg,
   sumVarietyMetrics,
 } from './contract-farming-report-calculations';
+import { ReportMetricCalculationCell } from './report-metric-calculation-cell';
 import type { FlattenedRow } from './types';
 import { GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX } from './types';
 import {
@@ -511,12 +512,16 @@ export function buildColumns(
         </strong>
       );
     },
-    cell: ({ getValue }) => {
+    cell: ({ row, getValue }) => {
       const v = getValue() as number;
+      const display = v > 0 ? `₹${formatNumber(v)}` : '-';
       return (
-        <span className="font-custom text-right tabular-nums">
-          {v > 0 ? `₹${formatNumber(v)}` : '-'}
-        </span>
+        <ReportMetricCalculationCell
+          row={row.original}
+          metric={{ type: 'seedAmount' }}
+          displayValue={display}
+          ariaLabel={`View seed amount calculation: ${display}`}
+        />
       );
     },
   });
@@ -562,12 +567,16 @@ export function buildColumns(
       aggregatedCell: ({ getValue }) => (
         <StrongRupee value={getValue() as number | null} />
       ),
-      cell: ({ getValue }) => {
+      cell: ({ row, getValue }) => {
         const v = getValue() as number | null;
+        const display = v !== null ? `₹${formatNumber(v)}` : '-';
         return (
-          <span className="font-custom text-right tabular-nums">
-            {v !== null ? `₹${formatNumber(v)}` : '-'}
-          </span>
+          <ReportMetricCalculationCell
+            row={row.original}
+            metric={{ type: 'netAmountPerAcre' }}
+            displayValue={display}
+            ariaLabel={`View net amount per acre calculation: ${display}`}
+          />
         );
       },
     }
@@ -642,12 +651,17 @@ export function buildColumns(
             aggregatedCell: ({ getValue }) => (
               <StrongPct value={getValue() as number | null} />
             ),
-            cell: ({ getValue }) => {
+            cell: ({ row, getValue }) => {
               const v = getValue() as number | null;
+              const gradeLabel = formatContractFarmingGradeColumnLabel(grade);
+              const display = v !== null ? `${formatNumber(v, 2)}%` : '-';
               return (
-                <span className="font-custom text-right tabular-nums">
-                  {v !== null ? `${formatNumber(v, 2)}%` : '-'}
-                </span>
+                <ReportMetricCalculationCell
+                  row={row.original}
+                  metric={{ type: 'gradeWeightPercent', grade }}
+                  displayValue={display}
+                  ariaLabel={`View ${gradeLabel} weight percent calculation: ${display}`}
+                />
               );
             },
           })
@@ -714,12 +728,16 @@ export function buildColumns(
           aggregatedCell: ({ getValue }) => (
             <StrongNum decimals={2} value={getValue() as number | null} />
           ),
-          cell: ({ getValue }) => {
+          cell: ({ row, getValue }) => {
             const v = getValue() as number | null;
+            const display = v !== null ? formatNumber(v) : '-';
             return (
-              <span className="font-custom text-right tabular-nums">
-                {v !== null ? formatNumber(v) : '-'}
-              </span>
+              <ReportMetricCalculationCell
+                row={row.original}
+                metric={{ type: 'averageQuintalPerAcre' }}
+                displayValue={display}
+                ariaLabel={`View average quintal per acre calculation: ${display}`}
+              />
             );
           },
         }),
@@ -736,12 +754,16 @@ export function buildColumns(
           aggregatedCell: ({ getValue }) => (
             <StrongNum decimals={2} value={getValue() as number | null} />
           ),
-          cell: ({ getValue }) => {
+          cell: ({ row, getValue }) => {
             const v = getValue() as number | null;
+            const display = v !== null ? formatNumber(v) : '-';
             return (
-              <span className="font-custom text-right tabular-nums">
-                {v !== null ? formatNumber(v) : '-'}
-              </span>
+              <ReportMetricCalculationCell
+                row={row.original}
+                metric={{ type: 'wastage' }}
+                displayValue={display}
+                ariaLabel={`View wastage calculation: ${display}`}
+              />
             );
           },
         }),
@@ -758,12 +780,16 @@ export function buildColumns(
           aggregatedCell: ({ getValue }) => (
             <StrongPct value={getValue() as number | null} />
           ),
-          cell: ({ getValue }) => {
+          cell: ({ row, getValue }) => {
             const v = getValue() as number | null;
+            const display = v !== null ? `${formatNumber(v, 2)}%` : '-';
             return (
-              <span className="font-custom text-right tabular-nums">
-                {v !== null ? `${formatNumber(v, 2)}%` : '-'}
-              </span>
+              <ReportMetricCalculationCell
+                row={row.original}
+                metric={{ type: 'outputPercentage' }}
+                displayValue={display}
+                ariaLabel={`View output percentage calculation: ${display}`}
+              />
             );
           },
         }),
@@ -780,12 +806,16 @@ export function buildColumns(
           aggregatedCell: ({ getValue }) => (
             <StrongRupee value={getValue() as number | null} />
           ),
-          cell: ({ getValue }) => {
+          cell: ({ row, getValue }) => {
             const v = getValue() as number | null;
+            const display = v !== null ? `₹${formatNumber(v)}` : '-';
             return (
-              <span className="font-custom text-right tabular-nums">
-                {v !== null ? `₹${formatNumber(v)}` : '-'}
-              </span>
+              <ReportMetricCalculationCell
+                row={row.original}
+                metric={{ type: 'buyBackAmount' }}
+                displayValue={display}
+                ariaLabel={`View buy back amount calculation: ${display}`}
+              />
             );
           },
         }),

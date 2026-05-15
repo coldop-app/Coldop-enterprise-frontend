@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2026-05-15
+
+### Added
+- Contract farming report **calculation breakdown** dialogs for seed amount, net amount per acre, grade weight %, average quintal per acre, wastage, output %, and buy back amount; key metrics open a step-by-step explanation from the table.
+- `contract-farming-report-calculations` breakdown helpers (`getGradeWeightPercentBreakdown`, `getWastageKgBreakdown`, `getBuyBackAmountBreakdown`, and related types) to expose inputs and intermediate values for the dialogs.
+- Shared `ReportMetricCalculationCell` and `report-calculation-dialog-shared` UI for clickable metric cells with accessible labels.
+
+### Changed
+- Contract farming report columns wire calculated metrics through `ReportMetricCalculationCell` instead of plain text spans.
+- Project version updated to `0.6.9` for this contract farming calculation transparency release.
+
 ## [0.6.8] - 2026-05-14
 
 ### Added

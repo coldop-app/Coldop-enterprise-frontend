@@ -457,6 +457,356 @@ export function getAverageQuintalPerAcre(row: FlattenedRow): number | null {
   return netKg / 100 / acres;
 }
 
+export type AverageQuintalPerAcreBreakdownGradeLine = {
+  grade: string;
+  netWeightKg: number;
+};
+
+export type AverageQuintalPerAcreBreakdownIssue =
+  | 'none'
+  | 'no_graded_weight'
+  | 'no_acres';
+
+export type AverageQuintalPerAcreBreakdown = {
+  farmerName: string;
+  varietyName: string;
+  accountNumber: number;
+  gradeLines: AverageQuintalPerAcreBreakdownGradeLine[];
+  totalNetWeightKg: number;
+  quintals: number;
+  varietyTotalAcres: number;
+  result: number | null;
+  issue: AverageQuintalPerAcreBreakdownIssue;
+};
+
+/** Inputs and steps behind {@link getAverageQuintalPerAcre} for the calculation dialog. */
+export function getAverageQuintalPerAcreBreakdown(
+  row: FlattenedRow
+): AverageQuintalPerAcreBreakdown {
+  const gradeLines = Object.entries(row.gradeData)
+    .map(([grade, value]) => ({
+      grade,
+      netWeightKg: Number(value?.netWeightKg ?? 0),
+    }))
+    .filter((line) => line.netWeightKg > 0)
+    .sort((a, b) => b.netWeightKg - a.netWeightKg);
+
+  const totalNetWeightKg = getTotalGradeNetWeightKgSum(row);
+  const quintals = totalNetWeightKg / 100;
+  const varietyTotalAcres = row.varietyTotalAcres;
+  const result = getAverageQuintalPerAcre(row);
+
+  let issue: AverageQuintalPerAcreBreakdownIssue = 'none';
+  if (totalNetWeightKg <= 0) issue = 'no_graded_weight';
+  else if (!varietyTotalAcres || varietyTotalAcres <= 0) issue = 'no_acres';
+
+  return {
+    farmerName: row.farmerName,
+    varietyName: row.varietyName,
+    accountNumber: row.accountNumber,
+    gradeLines,
+    totalNetWeightKg,
+    quintals,
+    varietyTotalAcres,
+    result,
+    issue,
+  };
+}
+
+export type ContractFarmingReportRowContext = {
+  farmerName: string;
+  varietyName: string;
+  accountNumber: number;
+};
+
+function reportRowContext(row: FlattenedRow): ContractFarmingReportRowContext {
+  return {
+    farmerName: row.farmerName,
+    varietyName: row.varietyName,
+    accountNumber: row.accountNumber,
+  };
+}
+
+type GradeNetWeightContributor = { grade: string; netWeightKg: number };
+
+function getGradeNetWeightContributors(
+  row: FlattenedRow,
+  gradeHeader: string
+): GradeNetWeightContributor[] {
+  const lines: GradeNetWeightContributor[] = [];
+
+  if (gradeHeader === BELOW_40_GROUP_GRADE) {
+    for (const [grade, value] of Object.entries(row.gradeData)) {
+      if (!BELOW_40_GRADE_VALUES.has(normalizeRangeLabel(grade))) continue;
+      const netWeightKg = Number(value?.netWeightKg ?? 0);
+      if (netWeightKg > 0) lines.push({ grade, netWeightKg });
+    }
+  } else if (gradeHeader === ABOVE_50_GROUP_GRADE) {
+    for (const [grade, value] of Object.entries(row.gradeData)) {
+      if (!ABOVE_50_GRADE_VALUES.has(normalizeRangeLabel(grade))) continue;
+      const netWeightKg = Number(value?.netWeightKg ?? 0);
+      if (netWeightKg > 0) lines.push({ grade, netWeightKg });
+    }
+  } else {
+    const direct = row.gradeData[gradeHeader];
+    if (direct && Number(direct.netWeightKg ?? 0) > 0) {
+      lines.push({
+        grade: gradeHeader,
+        netWeightKg: Number(direct.netWeightKg),
+      });
+    } else {
+      for (const [grade, value] of Object.entries(row.gradeData)) {
+        if (normalizeRangeLabel(grade) !== normalizeRangeLabel(gradeHeader)) {
+          continue;
+        }
+        const netWeightKg = Number(value?.netWeightKg ?? 0);
+        if (netWeightKg > 0) lines.push({ grade, netWeightKg });
+      }
+    }
+  }
+
+  return lines.sort((a, b) => b.netWeightKg - a.netWeightKg);
+}
+
+export type GradeWeightPercentBreakdownIssue = 'none' | 'no_total_weight';
+
+export type GradeWeightPercentBreakdown = ContractFarmingReportRowContext & {
+  gradeHeader: string;
+  contributors: GradeNetWeightContributor[];
+  gradeNetWeightKg: number;
+  totalNetWeightKg: number;
+  result: number | null;
+  issue: GradeWeightPercentBreakdownIssue;
+};
+
+export function getGradeWeightPercentBreakdown(
+  row: FlattenedRow,
+  gradeHeader: string
+): GradeWeightPercentBreakdown {
+  const contributors = getGradeNetWeightContributors(row, gradeHeader);
+  const gradeNetWeightKg = contributors.reduce((s, c) => s + c.netWeightKg, 0);
+  const totalNetWeightKg = getTotalGradeNetWeightKgSum(row);
+  const result = getGradeWeightPercent(row, gradeHeader);
+  const issue: GradeWeightPercentBreakdownIssue =
+    totalNetWeightKg <= 0 ? 'no_total_weight' : 'none';
+
+  return {
+    ...reportRowContext(row),
+    gradeHeader,
+    contributors,
+    gradeNetWeightKg,
+    totalNetWeightKg,
+    result,
+    issue,
+  };
+}
+
+export type WastageBreakdownIssue = 'none' | 'no_inbound';
+
+export type WastageBreakdown = ContractFarmingReportRowContext & {
+  inboundKg: number | null;
+  inboundSource: 'buyBack' | 'incoming' | null;
+  totalGradedKg: number;
+  result: number | null;
+  issue: WastageBreakdownIssue;
+};
+
+export function getWastageKgBreakdown(row: FlattenedRow): WastageBreakdown {
+  const buyBack = row.buyBackNetWeightKg;
+  const incoming = row.incomingNetWeightKg;
+  let inboundSource: WastageBreakdown['inboundSource'] = null;
+  let inboundKg: number | null = null;
+
+  if (buyBack !== null && buyBack !== undefined && !Number.isNaN(buyBack)) {
+    inboundSource = 'buyBack';
+    inboundKg = buyBack;
+  } else if (
+    incoming !== null &&
+    incoming !== undefined &&
+    !Number.isNaN(incoming)
+  ) {
+    inboundSource = 'incoming';
+    inboundKg = incoming;
+  }
+
+  const totalGradedKg = getTotalGradeNetWeightKgSum(row);
+  const result = getWastageKg(row);
+  const issue: WastageBreakdownIssue =
+    inboundKg === null ? 'no_inbound' : 'none';
+
+  return {
+    ...reportRowContext(row),
+    inboundKg,
+    inboundSource,
+    totalGradedKg,
+    result,
+    issue,
+  };
+}
+
+export type OutputPercentageBreakdownIssue = 'none' | 'no_inbound';
+
+export type OutputPercentageBreakdown = ContractFarmingReportRowContext & {
+  inboundKg: number | null;
+  inboundSource: 'buyBack' | 'incoming' | null;
+  totalGradedKg: number;
+  result: number | null;
+  issue: OutputPercentageBreakdownIssue;
+};
+
+export function getOutputPercentageBreakdown(
+  row: FlattenedRow
+): OutputPercentageBreakdown {
+  const wastage = getWastageKgBreakdown(row);
+  return {
+    ...reportRowContext(row),
+    inboundKg: wastage.inboundKg,
+    inboundSource: wastage.inboundSource,
+    totalGradedKg: wastage.totalGradedKg,
+    result: getOutputPercentage(row),
+    issue:
+      wastage.inboundKg === null || wastage.inboundKg <= 0
+        ? 'no_inbound'
+        : 'none',
+  };
+}
+
+export type BuyBackAmountBreakdownLine = {
+  grade: string;
+  netWeightKg: number;
+  ratePerKg: number | null;
+  lineAmount: number | null;
+};
+
+export type BuyBackAmountBreakdownIssue =
+  | 'none'
+  | 'no_graded_weight'
+  | 'missing_rate';
+
+export type BuyBackAmountBreakdown = ContractFarmingReportRowContext & {
+  lines: BuyBackAmountBreakdownLine[];
+  result: number | null;
+  issue: BuyBackAmountBreakdownIssue;
+};
+
+export function getBuyBackAmountBreakdown(
+  row: FlattenedRow,
+  preferencesOverride?: PreferencesData | null
+): BuyBackAmountBreakdown {
+  const preferences =
+    preferencesOverride ?? usePreferencesStore.getState().preferences;
+  const lines: BuyBackAmountBreakdownLine[] = [];
+  let missingRate = false;
+  let hasPositiveNet = false;
+
+  for (const [grade, value] of Object.entries(row.gradeData)) {
+    const netWeightKg = Number(value?.netWeightKg ?? 0);
+    if (!Number.isFinite(netWeightKg) || netWeightKg <= 0) continue;
+    hasPositiveNet = true;
+    const ratePerKg = resolveBuyBackRateFromPreferences(
+      preferences,
+      row.varietyName,
+      grade
+    );
+    if (ratePerKg === null) missingRate = true;
+    const lineAmount =
+      ratePerKg === null ? null : roundMax2(netWeightKg * Number(ratePerKg));
+    lines.push({ grade, netWeightKg, ratePerKg, lineAmount });
+  }
+
+  lines.sort((a, b) => b.netWeightKg - a.netWeightKg);
+
+  let issue: BuyBackAmountBreakdownIssue = 'none';
+  if (!hasPositiveNet) issue = 'no_graded_weight';
+  else if (missingRate) issue = 'missing_rate';
+
+  return {
+    ...reportRowContext(row),
+    lines,
+    result: getBuyBackAmountFromGradeData(row, preferencesOverride),
+    issue,
+  };
+}
+
+export type SeedAmountBreakdownIssue = 'none' | 'zero_amount';
+
+export type SeedAmountBreakdown = ContractFarmingReportRowContext & {
+  sizeName: string;
+  sizeQuantity: number;
+  sizeAcres: number;
+  sizeAmountPayable: number;
+  varietyTotalSeedAmountPayable: number;
+  result: number | null;
+  issue: SeedAmountBreakdownIssue;
+};
+
+export function getSeedAmountBreakdown(row: FlattenedRow): SeedAmountBreakdown {
+  const sizeAmountPayable = Number(row.sizeAmountPayable ?? 0);
+  const varietyTotalSeedAmountPayable = Number(
+    row.varietyTotalSeedAmountPayable ?? 0
+  );
+  const result = sizeAmountPayable > 0 ? sizeAmountPayable : null;
+
+  return {
+    ...reportRowContext(row),
+    sizeName: row.sizeName,
+    sizeQuantity: row.sizeQuantity,
+    sizeAcres: row.sizeAcres,
+    sizeAmountPayable,
+    varietyTotalSeedAmountPayable: Number.isFinite(
+      varietyTotalSeedAmountPayable
+    )
+      ? varietyTotalSeedAmountPayable
+      : 0,
+    result,
+    issue: sizeAmountPayable > 0 ? 'none' : 'zero_amount',
+  };
+}
+
+export type NetAmountPerAcreBreakdownIssue =
+  | 'none'
+  | 'missing_buy_back'
+  | 'no_acres';
+
+export type NetAmountPerAcreBreakdown = ContractFarmingReportRowContext & {
+  buyBackAmount: number | null;
+  varietyTotalSeedAmountPayable: number;
+  netAmount: number | null;
+  varietyTotalAcres: number;
+  result: number | null;
+  issue: NetAmountPerAcreBreakdownIssue;
+};
+
+export function getNetAmountPerAcreBreakdown(
+  row: FlattenedRow,
+  preferencesOverride?: PreferencesData | null
+): NetAmountPerAcreBreakdown {
+  const buyBack = getBuyBackAmountFromGradeData(row, preferencesOverride);
+  const varietyTotalSeedAmountPayable = Number(
+    row.varietyTotalSeedAmountPayable ?? 0
+  );
+  const safeSeed = Number.isFinite(varietyTotalSeedAmountPayable)
+    ? varietyTotalSeedAmountPayable
+    : 0;
+  const netAmount = buyBack !== null ? roundMax2(buyBack - safeSeed) : null;
+  const varietyTotalAcres = row.varietyTotalAcres;
+  const result = getNetAmountPerAcreRupee(row, preferencesOverride);
+
+  let issue: NetAmountPerAcreBreakdownIssue = 'none';
+  if (buyBack === null) issue = 'missing_buy_back';
+  else if (!varietyTotalAcres || varietyTotalAcres <= 0) issue = 'no_acres';
+
+  return {
+    ...reportRowContext(row),
+    buyBackAmount: buyBack,
+    varietyTotalSeedAmountPayable: safeSeed,
+    netAmount,
+    varietyTotalAcres,
+    result,
+    issue,
+  };
+}
+
 /** Matches footer: total deduped net ₹ ÷ sum of size acres on all leaf rows. */
 export const aggregateNetAmountPerAcre: AggregationFn<FlattenedRow> = (
   _columnId,
