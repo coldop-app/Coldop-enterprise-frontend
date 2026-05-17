@@ -103,6 +103,15 @@ export type FinanceGradingVarietyTotals = {
   saleAmount: number;
 };
 
+export type FinanceReportSummary = {
+  totalGradingSaleAmount: number;
+  totalPlantingNetAmount: number;
+  netRevenue: number;
+  totalAcresPlanted: number;
+  /** `null` when no acres are planted. */
+  netAmountPerAcre: number | null;
+};
+
 function sumFinanceGradingNumeric(
   rows: FinanceGradingRow[],
   pick: (row: FinanceGradingRow) => number | null | undefined
@@ -160,6 +169,41 @@ export function computePlantingVarietyNetAmount(
   }
 
   return roundMax2(buyBackPayable - totalOutflow);
+}
+
+/** Report-level totals: grading sale amount minus planting net, and per-acre net. */
+export function computeFinanceReportSummary(
+  plantingGroups: FinancePlantingVarietyGroup[],
+  gradingGroups: FinanceGradingVarietyGroup[]
+): FinanceReportSummary {
+  let totalPlantingNetAmount = 0;
+  let totalAcresPlanted = 0;
+  for (const group of plantingGroups) {
+    totalPlantingNetAmount += group.netAmount;
+    totalAcresPlanted += aggregateVarietyNetAcres(group.seedRows);
+  }
+  totalPlantingNetAmount = roundMax2(totalPlantingNetAmount);
+  totalAcresPlanted = roundMax2(totalAcresPlanted);
+
+  let totalGradingSaleAmount = 0;
+  for (const group of gradingGroups) {
+    totalGradingSaleAmount += computeFinanceGradingVarietyTotals(
+      group.gradingRows
+    ).saleAmount;
+  }
+  totalGradingSaleAmount = roundMax2(totalGradingSaleAmount);
+
+  const netRevenue = roundMax2(totalGradingSaleAmount - totalPlantingNetAmount);
+  const netAmountPerAcre =
+    totalAcresPlanted > 0 ? roundMax2(netRevenue / totalAcresPlanted) : null;
+
+  return {
+    totalGradingSaleAmount,
+    totalPlantingNetAmount,
+    netRevenue,
+    totalAcresPlanted,
+    netAmountPerAcre,
+  };
 }
 
 function normalizeSizeToken(raw: string): string {
@@ -366,7 +410,7 @@ export function mapFarmerSeedRowToFinancePlantingRow(
 
 /** Sum of acres across seed bag-size lines for a variety (matches farmer seed totalAcres). */
 export function aggregateVarietyNetAcres(
-  seedRows: Pick<FarmerSeedRow, 'areaPlantedAcres'>[]
+  seedRows: { areaPlantedAcres?: number | null }[]
 ): number {
   let sum = 0;
   for (const row of seedRows) {

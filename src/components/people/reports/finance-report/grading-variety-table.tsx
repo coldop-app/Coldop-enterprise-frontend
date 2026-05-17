@@ -46,7 +46,7 @@ function formatTotalAmount(value: number): string {
 
 function GradingTableShell({ children }: { children: ReactNode }) {
   return (
-    <div className="border-primary/15 bg-card/95 ring-primary/5 subtle-scrollbar max-h-[560px] overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1">
+    <div className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative max-h-[560px] overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1">
       {children}
     </div>
   );

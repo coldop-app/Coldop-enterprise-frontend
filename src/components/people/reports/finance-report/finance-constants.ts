@@ -92,19 +92,19 @@ export const PARTICULARS = [
   },
   {
     name: ROUGHING_CHARGES_PARTICULAR_NAME,
-    rate: 20,
+    rate: 1000,
   },
   {
     name: PALADAAR_FROM_FIELD_PARTICULAR_NAME,
-    rate: 1000,
+    rate: 5.5,
   },
   {
     name: BARDANA_FROM_FIELD_PARTICULAR_NAME,
-    rate: 1000,
+    rate: 33.6,
   },
   {
     name: SUTLI_INCOMING_BAGS_PARTICULAR_NAME,
-    rate: 0.96,
+    rate: 0.95,
   },
   {
     name: MARKA_INCOMING_JUTE_BAGS_PARTICULAR_NAME,
