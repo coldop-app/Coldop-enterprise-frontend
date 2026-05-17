@@ -255,34 +255,65 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
               )}
 
               {farmerStorageLinkId ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  asChild
-                >
-                  <Link
-                    to="/store-admin/people/$farmerStorageLinkId/accounting-report"
-                    params={{ farmerStorageLinkId }}
-                    preload="intent"
-                    className={reportLinkClassName}
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    asChild
+                  >
+                    <Link
+                      to="/store-admin/people/$farmerStorageLinkId/accounting-report"
+                      params={{ farmerStorageLinkId }}
+                      preload="intent"
+                      className={reportLinkClassName}
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Accounting report
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    asChild
+                  >
+                    <Link
+                      to="/store-admin/people/$farmerStorageLinkId/finance-report"
+                      params={{ farmerStorageLinkId }}
+                      preload="intent"
+                      className={reportLinkClassName}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Finance report
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled
                   >
                     <BookOpen className="h-3.5 w-3.5" />
                     Accounting report
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  disabled
-                >
-                  <BookOpen className="h-3.5 w-3.5" />
-                  Accounting report
-                </Button>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Finance report
+                  </Button>
+                </>
               )}
             </div>
           )}
