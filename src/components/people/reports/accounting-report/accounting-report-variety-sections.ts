@@ -42,7 +42,9 @@ function sortVarietyKeys(keys: string[]): string[] {
   });
 }
 
-function incomingIdsLinkedFromGradings(passes: GradingGatePass[]): Set<string> {
+export function incomingIdsLinkedFromGradings(
+  passes: GradingGatePass[]
+): Set<string> {
   const ids = new Set<string>();
   for (const pass of passes) {
     for (const ref of pass.incomingGatePassIds ?? []) {

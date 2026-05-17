@@ -248,6 +248,57 @@ export function computeGradingTableTotals(
   };
 }
 
+export type GradingTableFinanceTotals = {
+  totalBags: number;
+  /** Net graded kg after bardana (matches accounting summary Actual Weight footer). */
+  totalActualWeightKg: number;
+};
+
+function normalizeGradingSizeTokenForFilter(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\u2013/g, '-')
+    .replace(/\u2014/g, '-')
+    .replace(/\s+/g, ' ');
+}
+
+/** Total bags from accounting grading table totals (`computeGradingTableTotals`). */
+export function aggregateGradingTableTotalBagsForPasses(
+  gradingGatePasses: GradingGatePass[] | null | undefined
+): number {
+  const rows = prepareDataForGradingTable(gradingGatePasses);
+  if (rows.length === 0) return 0;
+  const sizeLabelsOrdered = [
+    ...ACCOUNTING_GRADING_BAG_SIZE_ORDER,
+    ...extraGradingSizeLabelsFromRows(rows),
+  ];
+  return computeGradingTableTotals(rows, sizeLabelsOrdered).totalBags;
+}
+
+/** Total bags for passes, counting only sizes in `allowedSizeLabels` (grading table bySize). */
+export function aggregateGradingTableTotalBagsForPassesAndSizes(
+  gradingGatePasses: GradingGatePass[] | null | undefined,
+  allowedSizeLabels: readonly string[]
+): number {
+  const rows = prepareDataForGradingTable(gradingGatePasses);
+  if (rows.length === 0) return 0;
+  const sizeLabelsOrdered = [
+    ...ACCOUNTING_GRADING_BAG_SIZE_ORDER,
+    ...extraGradingSizeLabelsFromRows(rows),
+  ];
+  const totals = computeGradingTableTotals(rows, sizeLabelsOrdered);
+  const allowed = new Set(
+    allowedSizeLabels.map((label) => normalizeGradingSizeTokenForFilter(label))
+  );
+  let sum = 0;
+  for (const [label, bucket] of Object.entries(totals.bySize)) {
+    if (allowed.has(normalizeGradingSizeTokenForFilter(label))) {
+      sum += Number(bucket.bags) || 0;
+    }
+  }
+  return sum;
+}
+
 /** Weight (Kg) footer/subtotal: weighted-average kg per bag for that size column. */
 export function gradingTotalsAverageWeightPerBagKg(
   totals: GradingTableTotals,

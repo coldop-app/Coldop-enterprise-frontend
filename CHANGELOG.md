@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-05-17
+
+### Added
+- Farmer **finance report** with per-variety **planting** and **grading** tables driven by gate-pass data, cold-storage preferences, and accounting report helpers.
+- `finance-calculations` to build planting particulars (seed lines, freight, grading charges, storage, multiplication expenses) and grading rows with 6% shortage below 40 mm, 50 kg post-storage bags, and sale amounts from rate tables.
+- `PlantingVarietyTable` and `GradingVarietyTable` components with Indian number formatting, variety footers, and net-amount summary for planting blocks.
+- Shared exports on report prepare helpers (`aggregateIncomingTableTotals`, grading bag/weight aggregates, summary amount payable) and `incomingIdsLinkedFromGradings` for reuse across accounting and finance flows.
+
+### Changed
+- Finance report route loads farmer seed, incoming, and grading passes with loading and error states; renders paired planting and grading sections per variety key.
+- `finance-constants` expanded with particulars rate rules, bag-size bands for ≥40 mm grading, and variety/size rate lookup tables.
+- Project version updated to `0.7.0` for this finance report release.
+
 ## [0.6.9] - 2026-05-15
 
 ### Added

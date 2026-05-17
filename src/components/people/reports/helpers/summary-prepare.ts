@@ -289,6 +289,102 @@ function typeLabelForRow(typeSeg: string): string {
 }
 
 /** Footer / visibility: summed across aggregated summary rows (= grouped map totals by size). */
+function normalizeSummarySizeToken(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\u2013/g, '-')
+    .replace(/\u2014/g, '-')
+    .replace(/\s+/g, ' ');
+}
+
+function buildAllowedSizeNormSet(
+  allowedSizeLabels: readonly string[]
+): Set<string> {
+  return new Set(
+    allowedSizeLabels.map((label) => normalizeSummarySizeToken(label))
+  );
+}
+
+/** Sum of Actual Weight (kg) across summary rows (matches summary table footer). */
+export function aggregateSummaryActualWeightKg(
+  rows: GradingBagTypeQtySummaryRow[]
+): number {
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number(row.actualWeightKg) || 0;
+  }
+  return Math.round((sum + Number.EPSILON) * 100) / 100;
+}
+
+/** Sum of Amount Payable (₹) across summary rows (matches summary table footer). */
+export function aggregateSummaryAmountPayable(
+  rows: GradingBagTypeQtySummaryRow[]
+): number {
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number(row.amountPayable) || 0;
+  }
+  return Math.round((sum + Number.EPSILON) * 100) / 100;
+}
+
+/** Actual Weight (kg) for summary rows whose size is in `allowedSizeLabels`. */
+export function aggregateSummaryActualWeightKgForSizeLabels(
+  rows: GradingBagTypeQtySummaryRow[],
+  allowedSizeLabels: readonly string[]
+): number {
+  const allowed = buildAllowedSizeNormSet(allowedSizeLabels);
+  let sum = 0;
+  for (const row of rows) {
+    const sizeKeys = Object.keys(row.bagsBySize);
+    const matches = sizeKeys.some((k) =>
+      allowed.has(normalizeSummarySizeToken(k))
+    );
+    if (matches) {
+      sum += Number(row.actualWeightKg) || 0;
+    }
+  }
+  return Math.round((sum + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Net actual weight (kg) per size across all bag types (JUTE + LENO, etc.).
+ * Matches summing the summary table Actual Weight (kg) column for rows of each size.
+ */
+export function aggregateSummaryActualWeightKgBySize(
+  rows: GradingBagTypeQtySummaryRow[]
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    for (const [sizeLabel, qty] of Object.entries(row.bagsBySize)) {
+      const bags = Number(qty) || 0;
+      if (bags === 0) continue;
+      totals[sizeLabel] =
+        (totals[sizeLabel] ?? 0) + (Number(row.actualWeightKg) || 0);
+    }
+  }
+  for (const k of Object.keys(totals)) {
+    totals[k] = roundMax2(totals[k]);
+  }
+  return totals;
+}
+
+/** Resolves per-size actual weight; tolerates dash/spacing differences in size labels. */
+export function summaryActualWeightKgForSizeLabel(
+  bySize: Record<string, number>,
+  sizeLabel: string
+): number {
+  if (Object.prototype.hasOwnProperty.call(bySize, sizeLabel)) {
+    return Number(bySize[sizeLabel]) || 0;
+  }
+  const target = normalizeSummarySizeToken(sizeLabel);
+  for (const [k, v] of Object.entries(bySize)) {
+    if (normalizeSummarySizeToken(k) === target) {
+      return Number(v) || 0;
+    }
+  }
+  return 0;
+}
+
 export function aggregateSummaryBagsTotals(
   rows: GradingBagTypeQtySummaryRow[],
   allLabelsOrdered: readonly string[]

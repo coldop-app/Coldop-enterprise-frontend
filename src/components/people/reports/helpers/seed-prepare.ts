@@ -7,6 +7,8 @@ export type FarmerSeedRow = {
   seedSize: string;
   /** Bags issued for this line (`bagSizes[].quantity`). */
   totalBagsGiven: number;
+  /** Acres planted for this line (`bagSizes[].acres`). */
+  areaPlantedAcres: number;
   bagsPerAcre: number;
   seedRatePerBag: number;
   totalSeedAmount: number;
@@ -51,6 +53,7 @@ export function prepareDataForFarmerSeedTable(
         date: dateLabel,
         seedSize: bag.name ?? '',
         totalBagsGiven: quantity,
+        areaPlantedAcres: roundMax2(acres),
         bagsPerAcre: acres > 0 ? roundMax2(quantity / acres) : 0,
         seedRatePerBag: roundMax2(rate),
         totalSeedAmount: roundMax2(quantity * rate),

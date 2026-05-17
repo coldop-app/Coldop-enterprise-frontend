@@ -63,3 +63,24 @@ export function prepareDataForIncomingTable(
   }
   return out;
 }
+
+export type IncomingTableTotals = {
+  totalBags: number;
+  totalActualKg: number;
+};
+
+/** Totals for accounting incoming footer / finance buy-back row (matches incoming-table subtotal). */
+export function aggregateIncomingTableTotals(
+  rows: AccountingIncomingRow[]
+): IncomingTableTotals {
+  let totalBags = 0;
+  let totalActualKg = 0;
+  for (const row of rows) {
+    totalBags += Number(row.bags) || 0;
+    totalActualKg += Number(row.actualKg) || 0;
+  }
+  return {
+    totalBags,
+    totalActualKg: Math.round((totalActualKg + Number.EPSILON) * 100) / 100,
+  };
+}
