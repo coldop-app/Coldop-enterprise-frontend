@@ -67,6 +67,9 @@ function resolveBuyBackRateFromPreferences(
 
 /** Dedupe key for variety-level metrics (must match footer rollup). */
 export function varietyMetricDedupeKey(row: FlattenedRow): string {
+  if (row.varietyRowKey.startsWith('family-')) {
+    return row.varietyRowKey;
+  }
   return `${String(row.accountNumber)}\x00${row.varietyName}`;
 }
 
@@ -917,6 +920,7 @@ export function flattenRows(
         const base: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${sizeIndex}-${farmerIndex}-${varietyIndex}`,
           varietyRowKey,
+          farmerId: farmer.id,
           mergedRowSpan,
           isFirstOfMergedBlock: sizeIndex === 0,
           sizeRowIndex: sizeIndex,
@@ -955,3 +959,6 @@ export function flattenRows(
 
   return rows;
 }
+
+// recomputeSpanMetadata is applied by report table flattenFarmers; index page
+// should import from family-grouping if it needs merged farmer cells.

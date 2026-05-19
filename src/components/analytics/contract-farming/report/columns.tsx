@@ -21,6 +21,7 @@ import {
   sumVarietyMetrics,
 } from './contract-farming-report-calculations';
 import { ReportMetricCalculationCell } from './report-metric-calculation-cell';
+import { formatFamilyAccountNumber } from './contract-farming-family-grouping';
 import type { FlattenedRow } from './types';
 import { GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX } from './types';
 import {
@@ -164,6 +165,18 @@ export function buildDefaultContractFarmingColumnVisibility(
 
 export function isContractFarmingSplitSpanColumn(columnId: string): boolean {
   return CONTRACT_FARMING_SPLIT_SPAN_COLUMN_IDS.has(columnId);
+}
+
+const CONTRACT_FARMING_FAMILY_SPAN_COLUMN_IDS = new Set<string>([
+  'familyKey',
+  'farmer',
+  'farmerMobile',
+  'accountNumber',
+  'address',
+]);
+
+export function isContractFarmingFamilySpanColumn(columnId: string): boolean {
+  return CONTRACT_FARMING_FAMILY_SPAN_COLUMN_IDS.has(columnId);
 }
 
 export function getContractFarmingGradeBagColumnId(grade: string): string {
@@ -316,19 +329,31 @@ export function buildColumns(
       aggregationFn: 'count',
       aggregatedCell: () => null,
       cell: ({ row }) => {
-        const groupedNames = row.original.clubbedFarmerNames ?? [];
-        const hasGroupedNames = groupedNames.length > 0;
+        const familyMembers = row.original.familyMembers ?? [];
+        const hasFamilyMembers =
+          (row.original.familyKey ?? 0) > 0 && familyMembers.length > 0;
+
+        if (hasFamilyMembers) {
+          return (
+            <div className="font-custom space-y-2 font-medium">
+              {familyMembers.map((member) => (
+                <div key={member.farmerId}>
+                  {member.farmerName}
+                  <span className="text-muted-foreground ml-1 text-sm font-normal">
+                    (#{formatFamilyAccountNumber(member.accountNumber)})
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
         return (
           <div className="font-custom font-medium">
             {row.original.farmerName}
             <span className="text-muted-foreground ml-1 text-sm font-normal">
-              (#{row.original.accountNumber})
+              (#{formatFamilyAccountNumber(row.original.accountNumber)})
             </span>
-            {hasGroupedNames ? (
-              <p className="text-muted-foreground mt-0.5 text-xs font-normal">
-                {groupedNames.join(', ')}
-              </p>
-            ) : null}
           </div>
         );
       },

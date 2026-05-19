@@ -41,6 +41,9 @@ const VARIETY_LEVEL_AVERAGE_COLUMN_IDS = new Set<string>([
 ]);
 
 function getVarietyAggregationKey(row: FlattenedRow): string {
+  if (row.varietyRowKey.startsWith('family-')) {
+    return row.varietyRowKey;
+  }
   return `${row.accountNumber}|${row.varietyName}`;
 }
 

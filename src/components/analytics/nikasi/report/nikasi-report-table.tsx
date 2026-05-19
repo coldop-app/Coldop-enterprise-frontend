@@ -508,6 +508,7 @@ const NikasiReportTable = () => {
         table={table}
         defaultColumnOrder={defaultColumnOrder}
         defaultColumnVisibility={defaultNikasiReportColumnVisibility}
+        bagSizeColumnConfig={bagSizeColumnConfig}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}

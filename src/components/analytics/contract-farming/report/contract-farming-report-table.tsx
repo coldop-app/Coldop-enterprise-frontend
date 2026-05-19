@@ -62,6 +62,10 @@ import {
   buildDefaultContractFarmingColumnVisibility,
   isNumericSortColumnId,
 } from './columns';
+import {
+  prepareFamilyGroupedRows,
+  recomputeSpanMetadata,
+} from './contract-farming-family-grouping';
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
 import { GRADE_BAG_COLUMN_KEY_PREFIX, type FlattenedRow } from './types';
 import { ContractFarmingExcelButton } from './contract-farming-excel-button';
@@ -191,6 +195,7 @@ function flattenFarmers(
         const row: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${size?.name ?? 'no-size'}-${sizeIndex}`,
           varietyRowKey,
+          farmerId: farmer.id,
           mergedRowSpan,
           isFirstOfMergedBlock: sizeIndex === 0,
           sizeRowIndex: sizeIndex,
@@ -230,7 +235,7 @@ function flattenFarmers(
     });
   });
 
-  return rows;
+  return recomputeSpanMetadata(rows);
 }
 
 function createGlobalContractFarmingFilterFn(
@@ -328,6 +333,7 @@ export default function ContractFarmingReportTable() {
     []
   );
   const [grouping, setGrouping] = React.useState<GroupingState>([]);
+  const [groupFamiliesEnabled, setGroupFamiliesEnabled] = React.useState(false);
   const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
   const [columnResizeMode, setColumnResizeMode] =
     React.useState<ColumnResizeMode>('onChange');
@@ -427,6 +433,20 @@ export default function ContractFarmingReportTable() {
     () => flattenFarmers(farmers, gradeHeaders),
     [farmers, gradeHeaders]
   );
+  const tableData = React.useMemo(
+    () =>
+      groupFamiliesEnabled
+        ? prepareFamilyGroupedRows(flattenedData, gradeHeaders)
+        : flattenedData,
+    [flattenedData, gradeHeaders, groupFamiliesEnabled]
+  );
+
+  React.useEffect(() => {
+    setColumnVisibility((current) => ({
+      ...current,
+      familyKey: groupFamiliesEnabled,
+    }));
+  }, [groupFamiliesEnabled]);
   const globalContractFarmingFilterFn = React.useMemo(
     () => createGlobalContractFarmingFilterFn(preferences, gradeHeaders),
     [preferences, gradeHeaders]
@@ -513,7 +533,7 @@ export default function ContractFarmingReportTable() {
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<FlattenedRow>({
-    data: flattenedData,
+    data: tableData,
     columns,
     defaultColumn: {
       size: DEFAULT_COLUMN_SIZE,
@@ -640,6 +660,20 @@ export default function ContractFarmingReportTable() {
                   table={table}
                   coldStorageName={coldStorageName}
                 />
+                <Button
+                  type="button"
+                  variant="default"
+                  className="font-custom h-8 rounded-lg px-4 text-sm leading-none"
+                  onClick={() => {
+                    setGroupFamiliesEnabled((enabled) => {
+                      const next = !enabled;
+                      if (next) setGrouping([]);
+                      return next;
+                    });
+                  }}
+                >
+                  {groupFamiliesEnabled ? 'Ungroup' : 'Group Families'}
+                </Button>
                 <Button
                   variant="ghost"
                   className="text-muted-foreground h-8 w-8 rounded-lg p-0 leading-none"

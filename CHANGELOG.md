@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-05-20
+
+### Added
+- Contract farming report **family grouping** (`contract-farming-family-grouping.ts`) to merge rows for farmers sharing a `familyKey`, with rowspan cells for farmer/account/address columns, stacked member names in the farmer column, and merged grade metrics per family×variety×size.
+- **Group Families** toggle on the contract farming report toolbar; enabling it shows `familyKey` and clears table grouping to avoid conflicting layouts.
+- Nikasi report view filters support **bag-size column** advanced filter fields (`bagBelow25`, `bag25to30`, `bagAbove50`, `bagCut`, and related bands) via configurable `bagSizeColumnConfig` and `isNumericFilterField`.
+- shadcn `InputGroup` UI component for composable search/filter inputs.
+
+### Changed
+- Contract farming report Excel export suppresses repeated family-span cells separately from variety-span cells so merged family blocks export cleanly.
+- Footer totals and variety metric dedupe keys recognize `family-*` variety row keys so pooled metrics stay correct when families are grouped.
+- Nikasi `ViewFiltersSheet` accepts dynamic column labels and filter field lists so bag-size columns from storage config appear in column filters, ordering, grouping, and the logic builder.
+- Project version updated to `0.7.1` for this contract farming family grouping and nikasi filter release.
+
 ## [0.7.0] - 2026-05-17
 
 ### Added

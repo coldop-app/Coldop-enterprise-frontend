@@ -13,7 +13,10 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { FlattenedRow } from './types';
-import { isContractFarmingSplitSpanColumn } from './columns';
+import {
+  isContractFarmingFamilySpanColumn,
+  isContractFarmingSplitSpanColumn,
+} from './columns';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
@@ -330,8 +333,11 @@ export function ContractFarmingReportDataTable({
 
               const expanded = row.original;
               const cellsToRender = row.getVisibleCells().filter((cell) => {
-                if (isContractFarmingSplitSpanColumn(cell.column.id))
-                  return true;
+                const columnId = cell.column.id;
+                if (isContractFarmingSplitSpanColumn(columnId)) return true;
+                if (isContractFarmingFamilySpanColumn(columnId)) {
+                  return expanded.isFirstOfFamilyBlock !== false;
+                }
                 return expanded.isFirstOfMergedBlock;
               });
 
@@ -348,12 +354,20 @@ export function ContractFarmingReportDataTable({
                   )}
                 >
                   {cellsToRender.map((cell) => {
-                    const rowSpan =
-                      !isContractFarmingSplitSpanColumn(cell.column.id) &&
+                    const columnId = cell.column.id;
+                    let rowSpan: number | undefined;
+                    if (isContractFarmingFamilySpanColumn(columnId)) {
+                      const span = expanded.familyMergedRowSpan ?? 1;
+                      if (expanded.isFirstOfFamilyBlock !== false && span > 1) {
+                        rowSpan = span;
+                      }
+                    } else if (
+                      !isContractFarmingSplitSpanColumn(columnId) &&
                       expanded.isFirstOfMergedBlock &&
                       expanded.mergedRowSpan > 1
-                        ? expanded.mergedRowSpan
-                        : undefined;
+                    ) {
+                      rowSpan = expanded.mergedRowSpan;
+                    }
                     const isRemarksCell = cell.column.id === 'remarks';
                     const isLongTextCell =
                       cell.column.id === 'farmer' ||

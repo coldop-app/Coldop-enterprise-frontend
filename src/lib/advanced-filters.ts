@@ -25,11 +25,19 @@ export type FilterField =
   | 'totalAcres'
   | 'averageRate'
   | 'totalAmount'
+  | 'bagBelow25'
+  | 'bag25to30'
+  | 'bagBelow30'
+  | 'bag30to35'
+  | 'bag30to40'
   | 'bag35to40'
   | 'bag40to45'
   | 'bag40to50'
   | 'bag45to50'
   | 'bag50to55'
+  | 'bagAbove50'
+  | 'bagAbove55'
+  | 'bagCut'
   | 'familyKey'
   | 'accountNumber'
   | 'totalGradeBags'
@@ -80,6 +88,22 @@ export type FilterGroupNode = {
 
 export type FilterNode = FilterConditionNode | FilterGroupNode;
 
+export const bagSizeFilterFieldIds = [
+  'bagBelow25',
+  'bag25to30',
+  'bagBelow30',
+  'bag30to35',
+  'bag30to40',
+  'bag35to40',
+  'bag40to45',
+  'bag40to50',
+  'bag45to50',
+  'bag50to55',
+  'bagAbove50',
+  'bagAbove55',
+  'bagCut',
+] as const satisfies readonly FilterField[];
+
 export const numericFilterFields: FilterField[] = [
   'gatePassNo',
   'totalBags',
@@ -88,11 +112,7 @@ export const numericFilterFields: FilterField[] = [
   'totalAcres',
   'averageRate',
   'totalAmount',
-  'bag35to40',
-  'bag40to45',
-  'bag40to50',
-  'bag45to50',
-  'bag50to55',
+  ...bagSizeFilterFieldIds,
   'sizeQuantity',
   'sizeAcres',
   'sizeAmount',

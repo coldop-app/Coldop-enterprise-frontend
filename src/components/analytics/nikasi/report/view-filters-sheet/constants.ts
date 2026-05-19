@@ -145,3 +145,61 @@ export const getInitialValueFilterTouched = (): Record<
   nikasiFrom: false,
   nikasiTo: false,
 });
+
+export function buildAllAdvancedFilterFields(
+  bagSizeColumnConfig: Array<{ id: string; label: string }>
+): Array<{ id: FilterField; label: string }> {
+  const bagFields = bagSizeColumnConfig.map(({ id, label }) => ({
+    id: id as FilterField,
+    label: `${label} (mm)`,
+  }));
+  const varietyIndex = advancedFilterFields.findIndex(
+    (c) => c.id === 'variety'
+  );
+  if (varietyIndex < 0) {
+    return [...advancedFilterFields, ...bagFields];
+  }
+  const insertAt = varietyIndex + 1;
+  return [
+    ...advancedFilterFields.slice(0, insertAt),
+    ...bagFields,
+    ...advancedFilterFields.slice(insertAt),
+  ];
+}
+
+export function buildAllFilterableColumns(
+  bagSizeColumnConfig: Array<{ id: string; label: string }>
+): Array<{ id: string; label: string }> {
+  const bagFilters = bagSizeColumnConfig.map(({ id, label }) => ({
+    id,
+    label: `${label} (mm)`,
+  }));
+  const varietyIndex = filterableColumns.findIndex((c) => c.id === 'variety');
+  if (varietyIndex < 0) {
+    return [...filterableColumns, ...bagFilters];
+  }
+  return [
+    ...filterableColumns.slice(0, varietyIndex + 1),
+    ...bagFilters,
+    ...filterableColumns.slice(varietyIndex + 1),
+  ];
+}
+
+export function buildFilterStateRecord<T>(
+  columnIds: string[],
+  valueForKey: () => T
+): Record<string, T> {
+  return Object.fromEntries(columnIds.map((id) => [id, valueForKey()]));
+}
+
+export function mergeFilterStateRecord<T>(
+  prev: Record<string, T>,
+  columnIds: string[],
+  valueForKey: () => T
+): Record<string, T> {
+  const next = { ...prev };
+  for (const id of columnIds) {
+    if (!(id in next)) next[id] = valueForKey();
+  }
+  return next;
+}

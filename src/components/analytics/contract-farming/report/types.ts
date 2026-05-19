@@ -8,6 +8,13 @@ export const GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX =
 /** Dynamic per-grade bag column keys on each row (matches TanStack column ids). */
 export type GradeBagFlatKey = `${typeof GRADE_BAG_COLUMN_KEY_PREFIX}${string}`;
 
+/** One farmer account line shown in a merged family block. */
+export type FamilyMemberSummary = {
+  farmerId: string;
+  farmerName: string;
+  accountNumber: number;
+};
+
 /**
  * One physical row per size line; variety- and farmer-level metrics are duplicated
  * on every size row for TanStack grouping. Use `accountNumber` + `varietyName` as
@@ -23,10 +30,21 @@ export type FlattenedRow = {
   isFirstOfMergedBlock: boolean;
   /** Zero-based index of this seed-size row within the merged farmer × variety block. */
   sizeRowIndex: number;
+  /** Stable farmer id from API (`farmer.id`). */
+  farmerId: string;
   /** Group key by account-number family (base + decimal variants). */
   familyKey?: number;
+  /** Total physical rows for this family when Group Families is enabled. */
+  familyMergedRowSpan?: number;
+  /** First row of a family block (farmer-level columns rowSpan). */
+  isFirstOfFamilyBlock?: boolean;
   farmerName: string;
-  /** Present for clubbed-family display rows: unique farmer names grouped under one base account. */
+  /**
+   * When Group Families is enabled: all accounts in this family (e.g. 68, 68.1, 68.2)
+   * for display in the merged farmer cell.
+   */
+  familyMembers?: FamilyMemberSummary[];
+  /** @deprecated Use {@link familyMembers} */
   clubbedFarmerNames?: string[];
   mobileNumber: string;
   /** Same as {@link mobileNumber}; supports legacy advanced filter `farmerMobile`. */

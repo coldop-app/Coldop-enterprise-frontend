@@ -5,6 +5,7 @@ import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePreferencesStore } from '@/stores/store';
 import {
+  isContractFarmingFamilySpanColumn,
   isContractFarmingSplitSpanColumn,
   isNumericSortColumnId,
 } from './columns';
@@ -165,10 +166,17 @@ function getExcelBodyRows(
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
         } else {
-          const hideRepeatedMergedCell =
+          const hideRepeatedFamilyCell =
+            suppressRepeatedMergedCells &&
+            isContractFarmingFamilySpanColumn(columnId) &&
+            row.original.isFirstOfFamilyBlock === false;
+          const hideRepeatedVarietyCell =
             suppressRepeatedMergedCells &&
             !isContractFarmingSplitSpanColumn(columnId) &&
+            !isContractFarmingFamilySpanColumn(columnId) &&
             !row.original.isFirstOfMergedBlock;
+          const hideRepeatedMergedCell =
+            hideRepeatedFamilyCell || hideRepeatedVarietyCell;
           if (hideRepeatedMergedCell) {
             nextRow[columnIndex] = '';
             continue;

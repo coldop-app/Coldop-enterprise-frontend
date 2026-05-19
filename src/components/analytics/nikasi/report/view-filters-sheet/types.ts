@@ -4,6 +4,7 @@ import type {
   ColumnResizeMode,
   VisibilityState,
 } from '@tanstack/react-table';
+import type { BagSizeColumnId } from '@/components/analytics/storage/report/columns';
 import type { NikasiReportRow } from '../columns';
 
 export type ViewFiltersSheetProps<TData = NikasiReportRow> = {
@@ -12,6 +13,7 @@ export type ViewFiltersSheetProps<TData = NikasiReportRow> = {
   table: TanstackTable<TData>;
   defaultColumnOrder: string[];
   defaultColumnVisibility: VisibilityState;
+  bagSizeColumnConfig: Array<{ id: BagSizeColumnId; label: string }>;
   columnResizeMode: ColumnResizeMode;
   columnResizeDirection: ColumnResizeDirection;
   onColumnResizeModeChange: (mode: ColumnResizeMode) => void;

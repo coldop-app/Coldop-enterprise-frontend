@@ -54,19 +54,20 @@ import {
   type FilterOperator,
 } from '@/lib/advanced-filters';
 import type {
-  FilterableColumnId,
   InternalTransferFilterValue,
   ViewFiltersSheetProps,
 } from './types';
 import type { NikasiReportRow } from '../columns';
 import {
-  advancedFilterFields,
-  filterableColumns,
+  buildAllAdvancedFilterFields,
+  buildAllFilterableColumns,
+  buildFilterStateRecord,
   getEmptyValueFilters,
   getInitialExpandedFilters,
   getInitialSearchQueries,
   getInitialValueFilterTouched,
   internalTransferFilterOptions,
+  mergeFilterStateRecord,
 } from './constants';
 import {
   mutateFilterNodeById,
@@ -107,6 +108,7 @@ const columnLabels: Record<string, string> = {
 
 type AdvancedTabContentProps = {
   draftLogicFilter: FilterGroupNode;
+  advancedFilterFieldsList: Array<{ id: FilterField; label: string }>;
   advancedFieldValueOptions: Record<FilterField, string[]>;
   onResetLogicBuilder: () => void;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
@@ -125,6 +127,7 @@ type AdvancedTabContentProps = {
 
 const AdvancedTabContent = React.memo(function AdvancedTabContent({
   draftLogicFilter,
+  advancedFilterFieldsList,
   advancedFieldValueOptions,
   onResetLogicBuilder,
   onSetGroupOperator,
@@ -160,6 +163,7 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
           </p>
           <LogicBuilder
             group={draftLogicFilter}
+            advancedFilterFields={advancedFilterFieldsList}
             advancedFieldValueOptions={advancedFieldValueOptions}
             onSetGroupOperator={onSetGroupOperator}
             onAddConditionToGroup={onAddConditionToGroup}
@@ -207,16 +211,82 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   table,
   defaultColumnOrder,
   defaultColumnVisibility,
+  bagSizeColumnConfig,
   onColumnResizeModeChange,
   onColumnResizeDirectionChange,
 }: ViewFiltersSheetProps<TData>) {
+  const allFilterableColumns = React.useMemo(
+    () => buildAllFilterableColumns(bagSizeColumnConfig),
+    [bagSizeColumnConfig]
+  );
+  const allAdvancedFilterFields = React.useMemo(
+    () => buildAllAdvancedFilterFields(bagSizeColumnConfig),
+    [bagSizeColumnConfig]
+  );
+  const allFilterableColumnIds = React.useMemo(
+    () => allFilterableColumns.map((column) => column.id),
+    [allFilterableColumns]
+  );
+  const mergedColumnLabels = React.useMemo(() => {
+    const labels = { ...columnLabels };
+    bagSizeColumnConfig.forEach(({ id, label }) => {
+      labels[id] = `${label} (mm)`;
+    });
+    return labels;
+  }, [bagSizeColumnConfig]);
+
   const [activeTab, setActiveTab] = React.useState('filters');
-  const [searchQueries, setSearchQueries] = React.useState<
-    Record<FilterableColumnId, string>
-  >(getInitialSearchQueries());
-  const [expandedFilters, setExpandedFilters] = React.useState<
-    Record<FilterableColumnId, boolean>
-  >(getInitialExpandedFilters());
+  const [searchQueriesState, setSearchQueriesState] = React.useState<
+    Record<string, string>
+  >(() => getInitialSearchQueries());
+  const searchQueries = React.useMemo(
+    () =>
+      mergeFilterStateRecord(
+        searchQueriesState,
+        allFilterableColumnIds,
+        () => ''
+      ),
+    [searchQueriesState, allFilterableColumnIds]
+  );
+  const setSearchQueries = React.useCallback(
+    (value: React.SetStateAction<Record<string, string>>) => {
+      setSearchQueriesState((prev) => {
+        const merged = mergeFilterStateRecord(
+          prev,
+          allFilterableColumnIds,
+          () => ''
+        );
+        return typeof value === 'function' ? value(merged) : value;
+      });
+    },
+    [allFilterableColumnIds]
+  );
+
+  const [expandedFiltersState, setExpandedFiltersState] = React.useState<
+    Record<string, boolean>
+  >(() => getInitialExpandedFilters());
+  const expandedFilters = React.useMemo(
+    () =>
+      mergeFilterStateRecord(
+        expandedFiltersState,
+        allFilterableColumnIds,
+        () => false
+      ),
+    [expandedFiltersState, allFilterableColumnIds]
+  );
+  const setExpandedFilters = React.useCallback(
+    (value: React.SetStateAction<Record<string, boolean>>) => {
+      setExpandedFiltersState((prev) => {
+        const merged = mergeFilterStateRecord(
+          prev,
+          allFilterableColumnIds,
+          () => false
+        );
+        return typeof value === 'function' ? value(merged) : value;
+      });
+    },
+    [allFilterableColumnIds]
+  );
 
   const hidableColumns = React.useMemo(
     () => table.getAllLeafColumns().filter((column) => column.getCanHide()),
@@ -253,12 +323,56 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     );
   const [draftLogicFilter, setDraftLogicFilter] =
     React.useState<FilterGroupNode>(createDefaultFilterGroup());
-  const [draftValueFilters, setDraftValueFilters] = React.useState<
-    Record<FilterableColumnId, string[]>
-  >(getEmptyValueFilters());
-  const [valueFilterTouched, setValueFilterTouched] = React.useState<
-    Record<FilterableColumnId, boolean>
-  >(getInitialValueFilterTouched());
+  const [draftValueFiltersState, setDraftValueFiltersState] =
+    React.useState<Record<string, string[]>>(getEmptyValueFilters);
+  const draftValueFilters = React.useMemo(
+    () =>
+      mergeFilterStateRecord(
+        draftValueFiltersState,
+        allFilterableColumnIds,
+        () => [] as string[]
+      ),
+    [draftValueFiltersState, allFilterableColumnIds]
+  );
+  const setDraftValueFilters = React.useCallback(
+    (value: React.SetStateAction<Record<string, string[]>>) => {
+      setDraftValueFiltersState((prev) => {
+        const merged = mergeFilterStateRecord(
+          prev,
+          allFilterableColumnIds,
+          () => [] as string[]
+        );
+        return typeof value === 'function' ? value(merged) : value;
+      });
+    },
+    [allFilterableColumnIds]
+  );
+
+  const [valueFilterTouchedState, setValueFilterTouchedState] = React.useState<
+    Record<string, boolean>
+  >(getInitialValueFilterTouched);
+  const valueFilterTouched = React.useMemo(
+    () =>
+      mergeFilterStateRecord(
+        valueFilterTouchedState,
+        allFilterableColumnIds,
+        () => false
+      ),
+    [valueFilterTouchedState, allFilterableColumnIds]
+  );
+  const setValueFilterTouched = React.useCallback(
+    (value: React.SetStateAction<Record<string, boolean>>) => {
+      setValueFilterTouchedState((prev) => {
+        const merged = mergeFilterStateRecord(
+          prev,
+          allFilterableColumnIds,
+          () => false
+        );
+        return typeof value === 'function' ? value(merged) : value;
+      });
+    },
+    [allFilterableColumnIds]
+  );
 
   const sensors = useSensors(
     useSensor(MouseSensor),
@@ -294,29 +408,30 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     [table, coreRowCount]
   );
 
-  const availableFilterOptions = React.useMemo<
-    Record<FilterableColumnId, string[]>
-  >(() => {
-    const options = { ...getEmptyValueFilters() };
+  const availableFilterOptions = React.useMemo<Record<string, string[]>>(() => {
+    const options = buildFilterStateRecord(
+      allFilterableColumnIds,
+      () => [] as string[]
+    );
 
-    filterableColumns.forEach(({ id }) => {
+    allFilterableColumns.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [allFilterableColumnIds, allFilterableColumns, getUniqueColumnValues]);
 
   const advancedFieldValueOptions = React.useMemo<
     Record<FilterField, string[]>
   >(() => {
     const options = {} as Record<FilterField, string[]>;
-    advancedFilterFields.forEach(({ id }) => {
+    allAdvancedFilterFields.forEach(({ id }) => {
       options[id] =
         id === 'isInternalTransferLabel'
           ? [...internalTransferFilterOptions]
           : getUniqueColumnValues(id);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [allAdvancedFilterFields, getUniqueColumnValues]);
 
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
@@ -324,13 +439,15 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
       draftInternalTransferFilters.length < internalTransferFilterOptions.length
     )
       count++;
-    filterableColumns.forEach(({ id }) => {
+    allFilterableColumns.forEach(({ id }) => {
       const all = availableFilterOptions[id];
-      if (all.length > 0 && draftValueFilters[id].length < all.length) count++;
+      const selected = draftValueFilters[id] ?? [];
+      if (all.length > 0 && selected.length < all.length) count++;
     });
     if (hasAnyUsableFilter(draftLogicFilter)) count++;
     return count;
   }, [
+    allFilterableColumns,
     draftInternalTransferFilters,
     draftValueFilters,
     draftLogicFilter,
@@ -392,9 +509,12 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     ).filter((id) => hidableColumnIds.includes(id));
     const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
 
-    const nextValueFilters = getEmptyValueFilters();
+    const nextValueFilters: Record<string, string[]> = buildFilterStateRecord(
+      allFilterableColumnIds,
+      () => []
+    );
 
-    filterableColumns.forEach(({ id }) => {
+    allFilterableColumns.forEach(({ id }) => {
       const rawFilter = table.getColumn(id)?.getFilterValue();
       nextValueFilters[id] = Array.isArray(rawFilter)
         ? rawFilter.map((value) => String(value))
@@ -421,6 +541,8 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
         : createDefaultFilterGroup()
     );
   }, [
+    allFilterableColumnIds,
+    allFilterableColumns,
     availableFilterOptions,
     defaultColumnOrder,
     hidableColumnIds,
@@ -463,8 +585,11 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     setDraftColumnOrder([...validOrder, ...missing]);
     setDraftGrouping([]);
     setDraftInternalTransferFilters([...internalTransferFilterOptions]);
-    const nextValueFilters = getEmptyValueFilters();
-    filterableColumns.forEach(({ id }) => {
+    const nextValueFilters: Record<string, string[]> = buildFilterStateRecord(
+      allFilterableColumnIds,
+      () => []
+    );
+    allFilterableColumns.forEach(({ id }) => {
       nextValueFilters[id] = [...availableFilterOptions[id]];
     });
     setDraftValueFilters(nextValueFilters);
@@ -474,6 +599,8 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     setValueFilterTouched(getInitialValueFilterTouched());
     setActiveTab('filters');
   }, [
+    allFilterableColumnIds,
+    allFilterableColumns,
     availableFilterOptions,
     defaultColumnOrder,
     defaultColumnVisibility,
@@ -485,10 +612,10 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   ]);
 
   const getEffectiveDraftValues = React.useCallback(
-    (columnId: FilterableColumnId) => {
-      const selected = draftValueFilters[columnId];
+    (columnId: string) => {
+      const selected = draftValueFilters[columnId] ?? [];
       if (valueFilterTouched[columnId] || selected.length > 0) return selected;
-      return availableFilterOptions[columnId];
+      return availableFilterOptions[columnId] ?? [];
     },
     [availableFilterOptions, draftValueFilters, valueFilterTouched]
   );
@@ -509,7 +636,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
         : draftInternalTransferFilters
     );
 
-    filterableColumns.forEach(({ id }) => {
+    allFilterableColumns.forEach(({ id }) => {
       const allValues = availableFilterOptions[id];
       const selected = getEffectiveDraftValues(id);
       table
@@ -526,6 +653,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     }
     onOpenChange(false);
   }, [
+    allFilterableColumns,
     availableFilterOptions,
     draftColumnOrder,
     draftColumnVisibility,
@@ -625,12 +753,13 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   );
 
   const toggleValueDraft = React.useCallback(
-    (columnId: FilterableColumnId, value: string, checked: boolean) => {
+    (columnId: string, value: string, checked: boolean) => {
       setDraftValueFilters((current) => {
         const hasTouchedFilter = valueFilterTouched[columnId];
+        const columnValues = current[columnId] ?? [];
         const currentValues =
-          hasTouchedFilter || current[columnId].length > 0
-            ? current[columnId]
+          hasTouchedFilter || columnValues.length > 0
+            ? columnValues
             : availableFilterOptions[columnId];
         if (checked) {
           return currentValues.includes(value)
@@ -648,7 +777,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   );
 
   const handleToggleAllValues = React.useCallback(
-    (columnId: FilterableColumnId) => {
+    (columnId: string) => {
       setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
       const allValues = availableFilterOptions[columnId];
       const areAllSelected =
@@ -663,8 +792,8 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   );
 
   const getFilteredOptionsForColumn = React.useCallback(
-    (columnId: FilterableColumnId) => {
-      const query = searchQueries[columnId].trim().toLowerCase();
+    (columnId: string) => {
+      const query = (searchQueries[columnId] ?? '').trim().toLowerCase();
       const allValues = availableFilterOptions[columnId];
       return query
         ? allValues.filter((option) => option.toLowerCase().includes(query))
@@ -878,7 +1007,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
                   <div className="space-y-2">
                     <SectionLabel>Column Filters</SectionLabel>
                     <div className="divide-border bg-background divide-y overflow-hidden rounded-lg border">
-                      {filterableColumns.map(({ id, label }) => {
+                      {allFilterableColumns.map(({ id, label }) => {
                         const effectiveDraftValues =
                           getEffectiveDraftValues(id);
                         const selectedValuesSet = new Set(effectiveDraftValues);
@@ -1033,7 +1162,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
                           <SortableColumnRow
                             key={columnId}
                             columnId={columnId}
-                            label={columnLabels[columnId] ?? columnId}
+                            label={mergedColumnLabels[columnId] ?? columnId}
                             visible={draftColumnVisibility[columnId] ?? true}
                             onToggle={(checked) =>
                               setDraftColumnVisibility((c) => ({
@@ -1085,7 +1214,8 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
                       >
                         <div className="space-y-1">
                           {draftGrouping.map((columnId, index) => {
-                            const label = columnLabels[columnId] ?? columnId;
+                            const label =
+                              mergedColumnLabels[columnId] ?? columnId;
                             return (
                               <React.Fragment key={columnId}>
                                 <GroupingDropZone
@@ -1141,7 +1271,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
                               className="bg-background flex items-center justify-between rounded-lg border px-3 py-2.5"
                             >
                               <span className="text-foreground text-sm">
-                                {columnLabels[column.id] ?? column.id}
+                                {mergedColumnLabels[column.id] ?? column.id}
                               </span>
                               <button
                                 type="button"
@@ -1162,6 +1292,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
 
               <AdvancedTabContent
                 draftLogicFilter={draftLogicFilter}
+                advancedFilterFieldsList={allAdvancedFilterFields}
                 advancedFieldValueOptions={advancedFieldValueOptions}
                 onResetLogicBuilder={handleResetLogicBuilder}
                 onSetGroupOperator={setGroupOperator}
