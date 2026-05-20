@@ -16,21 +16,6 @@ import type {
   FinancePlantingRow,
 } from '@/components/people/reports/finance-report/columns';
 import {
-  ACTUAL_COST_WITHOUT_SUBSIDY,
-  ACRES_TIMES_RATE_PARTICULAR_NAMES,
-  GRADING_BAG_SIZES_40MM_AND_ABOVE,
-  BUY_BACK_FREIGHT_PARTICULAR_NAME,
-  FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME,
-  GRADING_BAGS_TIMES_RATE_PARTICULAR_NAMES,
-  INCOMING_BAGS_TIMES_RATE_PARTICULAR_NAMES,
-  GRADING_CHARGES_PARTICULAR_NAME,
-  MULTIPLICATION_EXPENSES_PARTICULAR_NAME,
-  PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME,
-  PARTICULARS,
-  SALE_PRICE_PER_BAG,
-  STORAGE_CHARGES_PARTICULAR_NAME,
-} from '@/components/people/reports/finance-report/finance-constants';
-import {
   ACCOUNTING_GRADING_BAG_SIZE_ORDER,
   aggregateGradingTableTotalBagsForPasses,
   aggregateGradingTableTotalBagsForPassesAndSizes,
@@ -48,32 +33,59 @@ import {
   prepareAccountingGradingSummary,
   summaryActualWeightKgForSizeLabel,
 } from '@/components/people/reports/helpers/summary-prepare';
-import type { PreferencesData } from '@/services/store-admin/preferences/useGetPreferences';
+import {
+  getFinanceConstants,
+  type FinanceConstantsData,
+  type FinanceParticularRow,
+  type PreferencesData,
+} from '@/services/store-admin/preferences/useGetPreferences';
 import type { FarmerSeedGatePass } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
-const GRADING_CHARGES_PARTICULAR_INDEX = PARTICULARS.findIndex(
-  (item) => item.name === GRADING_CHARGES_PARTICULAR_NAME
-);
+/** Must match particulars row names from preferences / API. */
+const FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME = 'Freight: Seed (Dispatched)';
+const BUY_BACK_FREIGHT_PARTICULAR_NAME =
+  'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)';
+const MULTIPLICATION_EXPENSES_PARTICULAR_NAME = 'Multiplication Expenses';
+const PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME =
+  'Paladaar Charges after loading after grading';
+const STORAGE_CHARGES_PARTICULAR_NAME = 'Storage Charges';
+const GRADING_CHARGES_PARTICULAR_NAME = 'Grading Charges';
 
-const STORAGE_CHARGES_PARTICULAR_INDEX = PARTICULARS.findIndex(
-  (item) => item.name === STORAGE_CHARGES_PARTICULAR_NAME
-);
+function getParticularBoundaryIndices(fc: FinanceConstantsData): {
+  gradingIdx: number;
+  storageIdx: number;
+} {
+  const particulars = fc.particulars;
+  return {
+    gradingIdx: particulars.findIndex(
+      (item) => item.name === GRADING_CHARGES_PARTICULAR_NAME
+    ),
+    storageIdx: particulars.findIndex(
+      (item) => item.name === STORAGE_CHARGES_PARTICULAR_NAME
+    ),
+  };
+}
 
-function particularsRowUsesIncomingBagsAndWeight(index: number): boolean {
-  if (GRADING_CHARGES_PARTICULAR_INDEX < 0) return true;
-  return index < GRADING_CHARGES_PARTICULAR_INDEX;
+function particularsRowUsesIncomingBagsAndWeight(
+  index: number,
+  fc: FinanceConstantsData
+): boolean {
+  const { gradingIdx } = getParticularBoundaryIndices(fc);
+  if (gradingIdx < 0) return true;
+  return index < gradingIdx;
 }
 
 /** From Grading Charges through the row before Storage Charges (inclusive). */
-function particularsRowUsesGradingBagsAndWeight(index: number): boolean {
-  if (GRADING_CHARGES_PARTICULAR_INDEX < 0) return false;
-  if (index < GRADING_CHARGES_PARTICULAR_INDEX) return false;
-  if (
-    STORAGE_CHARGES_PARTICULAR_INDEX >= 0 &&
-    index >= STORAGE_CHARGES_PARTICULAR_INDEX
-  ) {
+function particularsRowUsesGradingBagsAndWeight(
+  index: number,
+  fc: FinanceConstantsData
+): boolean {
+  const { gradingIdx, storageIdx } = getParticularBoundaryIndices(fc);
+  if (gradingIdx < 0) return false;
+  if (index < gradingIdx) return false;
+  if (storageIdx >= 0 && index >= storageIdx) {
     return false;
   }
   return true;
@@ -218,15 +230,20 @@ function compactSizeKey(raw: string): string {
   return normalizeSizeToken(raw).replace(/\s+/g, '').toLowerCase();
 }
 
-const GRADING_SIZE_40MM_AND_ABOVE_NORM = new Set(
-  GRADING_BAG_SIZES_40MM_AND_ABOVE.map((label) => normalizeSizeToken(label))
-);
+function gradingSizes40mmNormSet(fc: FinanceConstantsData): Set<string> {
+  return new Set(
+    fc.gradingBagSizes40mmAndAbove.map((label) => normalizeSizeToken(label))
+  );
+}
 
 const GRADING_SHORTAGE_RATE = 0.06;
 
-/** True when size is not in the ≥40 mm band (see `GRADING_BAG_SIZES_40MM_AND_ABOVE`). */
-function isGradingSizeBelow40Mm(sizeLabel: string): boolean {
-  return !GRADING_SIZE_40MM_AND_ABOVE_NORM.has(normalizeSizeToken(sizeLabel));
+/** True when size is not in the ≥40 mm band (from preferences). */
+function isGradingSizeBelow40Mm(
+  sizeLabel: string,
+  fc: FinanceConstantsData
+): boolean {
+  return !gradingSizes40mmNormSet(fc).has(normalizeSizeToken(sizeLabel));
 }
 
 function sortVarietyKeys(keys: string[]): string[] {
@@ -261,6 +278,7 @@ function buildFinanceGradingRowsForPasses(
   varietyKey: string,
   preferences: PreferencesData | null | undefined = undefined
 ): FinanceGradingRow[] {
+  const fc = getFinanceConstants(preferences);
   const accountingRows = prepareDataForGradingTable(passes);
   if (accountingRows.length === 0) return [];
 
@@ -288,14 +306,18 @@ function buildFinanceGradingRowsForPasses(
         ? roundMax2(weightStoredOrDispatchedKg / postStorageBagKg)
         : null;
     const shortageAtSixPercent =
-      readyBagsPostStorage50kg != null && isGradingSizeBelow40Mm(label)
+      readyBagsPostStorage50kg != null && isGradingSizeBelow40Mm(label, fc)
         ? roundMax2(readyBagsPostStorage50kg * GRADING_SHORTAGE_RATE)
         : null;
     const afterShortageBag =
       readyBagsPostStorage50kg != null
         ? roundMax2(readyBagsPostStorage50kg - (shortageAtSixPercent ?? 0))
         : null;
-    const salePricePerBag = resolveSalePricePerBagRate(varietyKey, label);
+    const salePricePerBag = resolveSalePricePerBagRate(
+      varietyKey,
+      label,
+      preferences
+    );
     const saleAmount =
       afterShortageBag != null && salePricePerBag != null
         ? roundMax2(afterShortageBag * salePricePerBag)
@@ -362,25 +384,29 @@ function resolveRateFromVarietySizeRateTable(
   return resolveRateFromSizeRates(entry.sizeRates, sizeTrim);
 }
 
-/** Rate from {@link ACTUAL_COST_WITHOUT_SUBSIDY} for variety + bag size (tolerates en-dash vs hyphen). */
+/** Rate from preferences (`actualCostWithoutSubsidy`) for variety + bag size. */
 export function resolveActualCostWithoutSubsidyRate(
   varietyRaw: string,
-  sizeLabel: string
+  sizeLabel: string,
+  preferences: PreferencesData | null | undefined
 ): number | null {
+  const fc = getFinanceConstants(preferences);
   return resolveRateFromVarietySizeRateTable(
-    ACTUAL_COST_WITHOUT_SUBSIDY,
+    fc.actualCostWithoutSubsidy,
     varietyRaw,
     sizeLabel
   );
 }
 
-/** Sale price per bag from {@link SALE_PRICE_PER_BAG} (preferences later). */
+/** Sale price per bag from preferences (`salePricePerBag`). */
 export function resolveSalePricePerBagRate(
   varietyRaw: string,
-  sizeLabel: string
+  sizeLabel: string,
+  preferences: PreferencesData | null | undefined
 ): number | null {
+  const fc = getFinanceConstants(preferences);
   return resolveRateFromVarietySizeRateTable(
-    SALE_PRICE_PER_BAG,
+    fc.salePricePerBag,
     varietyRaw,
     sizeLabel
   );
@@ -388,12 +414,14 @@ export function resolveSalePricePerBagRate(
 
 export function mapFarmerSeedRowToFinancePlantingRow(
   seedRow: FarmerSeedRow,
-  varietyKey: string
+  varietyKey: string,
+  preferences: PreferencesData | null | undefined
 ): FinancePlantingRow {
   const numberOfBags = seedRow.totalBagsGiven;
   const rate = resolveActualCostWithoutSubsidyRate(
     varietyKey,
-    seedRow.seedSize
+    seedRow.seedSize,
+    preferences
   );
   const amount = rate != null ? roundMax2(numberOfBags * rate) : null;
 
@@ -446,11 +474,18 @@ type ParticularsAmountContext = {
 
 /** Amount rules for static particulars rows (extend per row as needed). */
 function resolveParticularsRowAmount(
-  item: (typeof PARTICULARS)[number],
-  context: ParticularsAmountContext
+  item: FinanceParticularRow,
+  context: ParticularsAmountContext,
+  fc: FinanceConstantsData
 ): number | null {
   const rate = Number(item.rate);
   if (!Number.isFinite(rate)) return null;
+
+  const acresTimesRate = new Set(fc.acresTimesRateParticularNames);
+  const incomingBagsTimesRate = new Set(
+    fc.incomingBagsTimesRateParticularNames
+  );
+  const gradingBagsTimesRate = new Set(fc.gradingBagsTimesRateParticularNames);
 
   if (item.name === FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME) {
     return roundMax2(rate);
@@ -462,14 +497,14 @@ function resolveParticularsRowAmount(
     return roundMax2(quintals * rate);
   }
 
-  if (ACRES_TIMES_RATE_PARTICULAR_NAMES.has(item.name)) {
+  if (acresTimesRate.has(item.name)) {
     const acres = Number(context.netAcres) || 0;
     return roundMax2(acres * rate);
   }
 
   if (
-    INCOMING_BAGS_TIMES_RATE_PARTICULAR_NAMES.has(item.name) ||
-    GRADING_BAGS_TIMES_RATE_PARTICULAR_NAMES.has(item.name)
+    incomingBagsTimesRate.has(item.name) ||
+    gradingBagsTimesRate.has(item.name)
   ) {
     const bags = Number(context.numberOfBags) || 0;
     return roundMax2(bags * rate);
@@ -494,13 +529,15 @@ export function buildParticularsPlantingRows(
     totalBags: 0,
     totalActualWeightKg: 0,
   },
-  summaryAmountPayable = 0
+  summaryAmountPayable = 0,
+  preferences: PreferencesData | null | undefined = undefined
 ): FinancePlantingRow[] {
+  const fc = getFinanceConstants(preferences);
   const safeKey = varietyKey.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  return PARTICULARS.map((item, index) => {
-    const usesIncomingQty = particularsRowUsesIncomingBagsAndWeight(index);
-    const usesGradingQty = particularsRowUsesGradingBagsAndWeight(index);
+  return fc.particulars.map((item, index) => {
+    const usesIncomingQty = particularsRowUsesIncomingBagsAndWeight(index, fc);
+    const usesGradingQty = particularsRowUsesGradingBagsAndWeight(index, fc);
     const isPaladaarAfterLoading =
       item.name === PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME;
     const isStorageCharges = item.name === STORAGE_CHARGES_PARTICULAR_NAME;
@@ -540,12 +577,16 @@ export function buildParticularsPlantingRows(
       numberOfBags: bags,
       bagWeight: weight,
       ratePerAcreOrBag: item.rate,
-      amount: resolveParticularsRowAmount(item, {
-        incomingNetWeightKg: incomingTotals.totalActualKg,
-        netAcres,
-        numberOfBags: bags,
-        summaryAmountPayable,
-      }),
+      amount: resolveParticularsRowAmount(
+        item,
+        {
+          incomingNetWeightKg: incomingTotals.totalActualKg,
+          netAcres,
+          numberOfBags: bags,
+          summaryAmountPayable,
+        },
+        fc
+      ),
     };
   });
 }
@@ -568,6 +609,8 @@ function aggregateGradingFinanceTotals40MmAndAbove(
   gradingGatePasses: GradingGatePass[],
   preferences: PreferencesData | null | undefined
 ): GradingTableFinanceTotals {
+  const fc = getFinanceConstants(preferences);
+  const sizeBand = fc.gradingBagSizes40mmAndAbove;
   const summaryRows = prepareAccountingGradingSummary(
     gradingGatePasses,
     preferences ?? undefined
@@ -575,11 +618,11 @@ function aggregateGradingFinanceTotals40MmAndAbove(
   return {
     totalBags: aggregateGradingTableTotalBagsForPassesAndSizes(
       gradingGatePasses,
-      GRADING_BAG_SIZES_40MM_AND_ABOVE
+      sizeBand
     ),
     totalActualWeightKg: aggregateSummaryActualWeightKgForSizeLabels(
       summaryRows,
-      GRADING_BAG_SIZES_40MM_AND_ABOVE
+      sizeBand
     ),
   };
 }
@@ -670,7 +713,7 @@ export function buildFinancePlantingVarietyGroups(
     );
 
     const seedRowsMapped = seedRows.map((row) =>
-      mapFarmerSeedRowToFinancePlantingRow(row, varietyKey)
+      mapFarmerSeedRowToFinancePlantingRow(row, varietyKey, preferences)
     );
     const particularsRows = buildParticularsPlantingRows(
       varietyKey,
@@ -678,7 +721,8 @@ export function buildFinancePlantingVarietyGroups(
       netAcres,
       gradingTotals,
       gradingTotals40MmAndAbove,
-      summaryAmountPayable
+      summaryAmountPayable,
+      preferences
     );
 
     return {

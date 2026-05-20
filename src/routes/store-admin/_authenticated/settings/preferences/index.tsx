@@ -8,6 +8,7 @@ import {
   type BuyBackCost,
   type StandardSeedBagsPerAcreEntry,
   type StandardSeedBagSizeRow,
+  type FinanceParticularRow,
 } from '@/services/store-admin/preferences/useGetPreferences';
 import { useUpdatePreferences } from '@/services/store-admin/preferences/useUpdatePreferences';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -71,6 +72,7 @@ import {
   Settings2,
   ChevronRight,
   Info,
+  FileText,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -652,11 +654,14 @@ function BuyBackTable({
   bagSizes,
   onChange,
   canEdit = true,
+  unitCaption = '₹ per kg',
 }: {
   entry: BuyBackCost;
   bagSizes: string[];
   onChange: (variety: string, size: string, rate: number) => void;
   canEdit?: boolean;
+  /** Shown next to the variety badge (e.g. finance report uses ₹ per bag). */
+  unitCaption?: string;
 }) {
   const colorClass =
     VARIETY_COLORS[entry.variety] ?? 'bg-muted text-foreground border-border';
@@ -674,7 +679,7 @@ function BuyBackTable({
           >
             {entry.variety}
           </Badge>
-          <span className="text-muted-foreground text-xs">₹ per kg</span>
+          <span className="text-muted-foreground text-xs">{unitCaption}</span>
         </div>
       </CardHeader>
       <CardContent className="px-5 pb-4">
@@ -682,7 +687,8 @@ function BuyBackTable({
           {bagSizes.map((size) => {
             const rate =
               entry.sizeRates[size] ??
-              entry.sizeRates[size.replace('-', '–')] ??
+              entry.sizeRates[size.replace(/-/g, '–')] ??
+              entry.sizeRates[size.replace(/–/g, '-')] ??
               '';
             return (
               <div key={size} className="group">
@@ -1051,6 +1057,20 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
           from,
           trimmed
         ),
+        financeConstants: {
+          ...p.custom.financeConstants,
+          actualCostWithoutSubsidy:
+            p.custom.financeConstants.actualCostWithoutSubsidy.map((e) => ({
+              ...e,
+              sizeRates: migrateNumericMapLabel(e.sizeRates, from, trimmed),
+            })),
+          salePricePerBag: p.custom.financeConstants.salePricePerBag.map(
+            (e) => ({
+              ...e,
+              sizeRates: migrateNumericMapLabel(e.sizeRates, from, trimmed),
+            })
+          ),
+        },
       },
     }));
     setDirty(true);
@@ -1070,6 +1090,16 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
           standardSeedBagsPerAcre: (
             p.custom.standardSeedBagsPerAcre ?? []
           ).filter((e) => e.variety !== val),
+          financeConstants: {
+            ...p.custom.financeConstants,
+            actualCostWithoutSubsidy:
+              p.custom.financeConstants.actualCostWithoutSubsidy.filter(
+                (e) => e.variety !== val
+              ),
+            salePricePerBag: p.custom.financeConstants.salePricePerBag.filter(
+              (e) => e.variety !== val
+            ),
+          },
         },
       };
     });
@@ -1100,6 +1130,26 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 })),
               },
             ],
+        financeConstants: {
+          ...p.custom.financeConstants,
+          actualCostWithoutSubsidy:
+            p.custom.financeConstants.actualCostWithoutSubsidy.some(
+              (e) => e.variety === item.value
+            )
+              ? p.custom.financeConstants.actualCostWithoutSubsidy
+              : [
+                  ...p.custom.financeConstants.actualCostWithoutSubsidy,
+                  { variety: item.value, sizeRates: {} },
+                ],
+          salePricePerBag: p.custom.financeConstants.salePricePerBag.some(
+            (e) => e.variety === item.value
+          )
+            ? p.custom.financeConstants.salePricePerBag
+            : [
+                ...p.custom.financeConstants.salePricePerBag,
+                { variety: item.value, sizeRates: {} },
+              ],
+        },
       },
     }));
     setDirty(true);
@@ -1189,6 +1239,122 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
       return {
         ...p,
         custom: { ...p.custom, buyBackCost: nextBuyBack },
+      };
+    });
+    setDirty(true);
+  };
+
+  const updateFinanceParticular = (
+    index: number,
+    patch: Partial<FinanceParticularRow>
+  ) => {
+    if (!canUpdatePreferences) return;
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        financeConstants: {
+          ...p.custom.financeConstants,
+          particulars: p.custom.financeConstants.particulars.map((row, i) =>
+            i === index ? { ...row, ...patch } : row
+          ),
+        },
+      },
+    }));
+    setDirty(true);
+  };
+
+  type FinanceNameListKey =
+    | 'incomingBagsTimesRateParticularNames'
+    | 'acresTimesRateParticularNames'
+    | 'gradingBagsTimesRateParticularNames';
+
+  const addFinanceNameListItem = (key: FinanceNameListKey, item: string) => {
+    if (!canCreatePreferences) return;
+    const trimmed = item.trim();
+    if (!trimmed) return;
+    updatePreferences((p) => {
+      const cur = p.custom.financeConstants[key];
+      if (cur.includes(trimmed)) return p;
+      return {
+        ...p,
+        custom: {
+          ...p.custom,
+          financeConstants: {
+            ...p.custom.financeConstants,
+            [key]: [...cur, trimmed],
+          },
+        },
+      };
+    });
+    setDirty(true);
+  };
+
+  const removeFinanceNameListItem = (key: FinanceNameListKey, item: string) => {
+    if (!canUpdatePreferences) return;
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        financeConstants: {
+          ...p.custom.financeConstants,
+          [key]: p.custom.financeConstants[key].filter((x) => x !== item),
+        },
+      },
+    }));
+    setDirty(true);
+  };
+
+  const setFinanceGrading40mmSize = (size: string, on: boolean) => {
+    if (!canUpdatePreferences) return;
+    updatePreferences((p) => {
+      const cur = p.custom.financeConstants.gradingBagSizes40mmAndAbove;
+      const next = on
+        ? cur.includes(size)
+          ? cur
+          : [...cur, size]
+        : cur.filter((s) => s !== size);
+      return {
+        ...p,
+        custom: {
+          ...p.custom,
+          financeConstants: {
+            ...p.custom.financeConstants,
+            gradingBagSizes40mmAndAbove: next,
+          },
+        },
+      };
+    });
+    setDirty(true);
+  };
+
+  const updateFinanceVarietyMatrix = (
+    table: 'actualCostWithoutSubsidy' | 'salePricePerBag',
+    variety: string,
+    size: string,
+    rate: number
+  ) => {
+    if (!canUpdatePreferences) return;
+    updatePreferences((p) => {
+      const list = p.custom.financeConstants[table];
+      const idx = list.findIndex((e) => e.variety === variety);
+      const nextList =
+        idx >= 0
+          ? list.map((e) =>
+              e.variety === variety
+                ? { ...e, sizeRates: { ...e.sizeRates, [size]: rate } }
+                : e
+            )
+          : [...list, { variety, sizeRates: { [size]: rate } }];
+      return {
+        ...p,
+        custom: {
+          ...p.custom,
+          financeConstants: {
+            ...p.custom.financeConstants,
+            [table]: nextList,
+          },
+        },
       };
     });
     setDirty(true);
@@ -1357,6 +1523,12 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
               className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
             >
               <Users size={13} /> Graders and Locations
+            </TabsTrigger>
+            <TabsTrigger
+              value="finance"
+              className="gap-1.5 rounded-md text-xs data-[state=active]:shadow-sm"
+            >
+              <FileText size={13} /> Finance
             </TabsTrigger>
           </TabsList>
 
@@ -1690,6 +1862,252 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── Finance constants tab ── */}
+          <TabsContent value="finance" className="mt-0 space-y-5">
+            <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
+              <CardHeader className="pb-2">
+                <SectionHeader
+                  icon={FileText}
+                  title="Particulars & default rates"
+                  description="Rows and rates used for the farmer finance (planting) report"
+                />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {data.custom.financeConstants.particulars.map((row, index) => (
+                  <div
+                    key={`finance-particular-${index}-${row.name.slice(0, 24)}`}
+                    className="grid gap-2 sm:grid-cols-[1fr_140px]"
+                  >
+                    <Input
+                      defaultValue={row.name}
+                      disabled={!canUpdatePreferences}
+                      onChange={(e) =>
+                        updateFinanceParticular(index, {
+                          name: e.target.value,
+                        })
+                      }
+                      className="bg-background h-9 text-sm"
+                    />
+                    <div className="relative">
+                      <span className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">
+                        ₹
+                      </span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        defaultValue={row.rate}
+                        disabled={!canUpdatePreferences}
+                        onChange={(e) =>
+                          updateFinanceParticular(index, {
+                            rate: parseFloat(e.target.value),
+                          })
+                        }
+                        className="bg-background h-9 pl-6 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-5 lg:grid-cols-1">
+              <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
+                <CardHeader className="pb-2">
+                  <SectionHeader
+                    icon={Scale}
+                    title="Charge rules (particular names)"
+                    description="Which particulars use acres × rate, incoming bags × rate, or grading bags × rate"
+                  />
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <Label className="text-muted-foreground mb-2 block font-mono text-xs">
+                      Incoming bags × rate
+                    </Label>
+                    <TagList
+                      items={
+                        data.custom.financeConstants
+                          .incomingBagsTimesRateParticularNames
+                      }
+                      onRemove={(item) =>
+                        removeFinanceNameListItem(
+                          'incomingBagsTimesRateParticularNames',
+                          item
+                        )
+                      }
+                      onAdd={(item) =>
+                        addFinanceNameListItem(
+                          'incomingBagsTimesRateParticularNames',
+                          item
+                        )
+                      }
+                      canAdd={canCreatePreferences}
+                      canRemove={canUpdatePreferences}
+                      addPlaceholder="Particular name (exact match)"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground mb-2 block font-mono text-xs">
+                      Net acres × rate
+                    </Label>
+                    <TagList
+                      items={
+                        data.custom.financeConstants
+                          .acresTimesRateParticularNames
+                      }
+                      onRemove={(item) =>
+                        removeFinanceNameListItem(
+                          'acresTimesRateParticularNames',
+                          item
+                        )
+                      }
+                      onAdd={(item) =>
+                        addFinanceNameListItem(
+                          'acresTimesRateParticularNames',
+                          item
+                        )
+                      }
+                      canAdd={canCreatePreferences}
+                      canRemove={canUpdatePreferences}
+                      addPlaceholder="Particular name (exact match)"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground mb-2 block font-mono text-xs">
+                      Grading bags × rate
+                    </Label>
+                    <TagList
+                      items={
+                        data.custom.financeConstants
+                          .gradingBagsTimesRateParticularNames
+                      }
+                      onRemove={(item) =>
+                        removeFinanceNameListItem(
+                          'gradingBagsTimesRateParticularNames',
+                          item
+                        )
+                      }
+                      onAdd={(item) =>
+                        addFinanceNameListItem(
+                          'gradingBagsTimesRateParticularNames',
+                          item
+                        )
+                      }
+                      canAdd={canCreatePreferences}
+                      canRemove={canUpdatePreferences}
+                      addPlaceholder="Particular name (exact match)"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
+                <CardHeader className="pb-2">
+                  <SectionHeader
+                    icon={Package}
+                    title="Grading sizes (≥40 mm band)"
+                    description="Used for storage-weight split and Paladaar-after-loading bag counts"
+                  />
+                </CardHeader>
+                <CardContent>
+                  {data.bagSizes.length === 0 ? (
+                    <p className="text-muted-foreground font-custom text-xs">
+                      Add bag sizes in the General tab first.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-3">
+                      {data.bagSizes.map((size) => (
+                        <div
+                          key={size}
+                          className="border-border/60 flex items-center gap-2.5 rounded-lg border px-3 py-2"
+                        >
+                          <Switch
+                            id={`fc-40mm-${size}`}
+                            disabled={!canUpdatePreferences}
+                            checked={data.custom.financeConstants.gradingBagSizes40mmAndAbove.includes(
+                              size
+                            )}
+                            onCheckedChange={(checked) =>
+                              setFinanceGrading40mmSize(size, checked)
+                            }
+                          />
+                          <Label
+                            htmlFor={`fc-40mm-${size}`}
+                            className="font-custom text-foreground cursor-pointer text-xs font-medium"
+                          >
+                            {size}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div>
+              <h3 className="text-foreground mb-3 text-sm font-semibold">
+                Actual cost without subsidy (₹ / kg)
+              </h3>
+              <div className="space-y-4">
+                {data.custom.potatoVarieties.map((v) => {
+                  const entry =
+                    data.custom.financeConstants.actualCostWithoutSubsidy.find(
+                      (e) => e.variety === v.value
+                    ) ?? ({ variety: v.value, sizeRates: {} } as BuyBackCost);
+                  return (
+                    <BuyBackTable
+                      key={`fc-actual-${v.value}`}
+                      entry={entry}
+                      bagSizes={data.bagSizes}
+                      onChange={(variety, size, rate) =>
+                        updateFinanceVarietyMatrix(
+                          'actualCostWithoutSubsidy',
+                          variety,
+                          size,
+                          rate
+                        )
+                      }
+                      unitCaption="₹ / kg"
+                      canEdit={canUpdatePreferences}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-foreground mb-3 text-sm font-semibold">
+                Sale price per bag
+              </h3>
+              <div className="space-y-4">
+                {data.custom.potatoVarieties.map((v) => {
+                  const entry =
+                    data.custom.financeConstants.salePricePerBag.find(
+                      (e) => e.variety === v.value
+                    ) ?? ({ variety: v.value, sizeRates: {} } as BuyBackCost);
+                  return (
+                    <BuyBackTable
+                      key={`fc-sale-${v.value}`}
+                      entry={entry}
+                      bagSizes={data.bagSizes}
+                      onChange={(variety, size, rate) =>
+                        updateFinanceVarietyMatrix(
+                          'salePricePerBag',
+                          variety,
+                          size,
+                          rate
+                        )
+                      }
+                      unitCaption="₹ per bag"
+                      canEdit={canUpdatePreferences}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </main>

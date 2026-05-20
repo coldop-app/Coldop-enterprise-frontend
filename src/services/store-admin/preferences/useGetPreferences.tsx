@@ -30,6 +30,342 @@ export interface StandardSeedBagsPerAcreEntry {
   sizes: StandardSeedBagSizeRow[];
 }
 
+/** One row in finance report particulars (name + default rate). */
+export interface FinanceParticularRow {
+  name: string;
+  rate: number;
+}
+
+/** Nested under `custom` — drives finance report calculations and the Finance preferences tab. */
+export interface FinanceConstantsData {
+  incomingBagsTimesRateParticularNames: string[];
+  acresTimesRateParticularNames: string[];
+  gradingBagsTimesRateParticularNames: string[];
+  gradingBagSizes40mmAndAbove: string[];
+  particulars: FinanceParticularRow[];
+  actualCostWithoutSubsidy: BuyBackCost[];
+  salePricePerBag: BuyBackCost[];
+}
+
+function cloneFinanceConstants(
+  data: FinanceConstantsData
+): FinanceConstantsData {
+  return structuredClone(data);
+}
+
+/** Default finance constants (former `finance-constants.ts`); used when API omits or empties `financeConstants`. */
+export const DEFAULT_FINANCE_CONSTANTS: FinanceConstantsData = Object.freeze({
+  incomingBagsTimesRateParticularNames: [
+    'Paladaar Charges From Field (Unloading Charges)',
+    'Bardana (Multiple use) from field',
+    'Sutli (Incoming Bags)',
+    'Marka Expenses (Incoming Jute Bags)',
+  ],
+  acresTimesRateParticularNames: [
+    'Roughing Charges',
+    'Salary plus other employee expense',
+    'Daily labour',
+    'Room rent charges, Miscellaneous',
+  ],
+  gradingBagsTimesRateParticularNames: [
+    'Grading Charges',
+    'Paladaar Charges (Tanka + Tolai)',
+    'Paladaar Charge Shifting after grading (Dhank)',
+    'Sutli + Tag & Parchi after Grading',
+    'Paladaar Charges after loading after grading',
+    'Storage Charges',
+  ],
+  gradingBagSizes40mmAndAbove: [
+    '40-45',
+    '40-50',
+    '45-50',
+    '50-55',
+    'Above 50',
+    'Above 55',
+    'Cut',
+  ],
+  particulars: [
+    { name: 'Freight: Seed (Dispatched)', rate: 32124.0 },
+    {
+      name: 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)',
+      rate: 20,
+    },
+    { name: 'Roughing Charges', rate: 1000 },
+    {
+      name: 'Paladaar Charges From Field (Unloading Charges)',
+      rate: 5.5,
+    },
+    { name: 'Bardana (Multiple use) from field', rate: 33.6 },
+    { name: 'Sutli (Incoming Bags)', rate: 0.95 },
+    { name: 'Marka Expenses (Incoming Jute Bags)', rate: 0.96 },
+    { name: 'Grading Charges', rate: 14.2 },
+    { name: 'Paladaar Charges (Tanka + Tolai)', rate: 3 },
+    {
+      name: 'Paladaar Charge Shifting after grading (Dhank)',
+      rate: 5.5,
+    },
+    { name: 'Sutli + Tag & Parchi after Grading', rate: 2.9 },
+    {
+      name: 'Paladaar Charges after loading after grading',
+      rate: 5.5,
+    },
+    { name: 'Storage Charges', rate: 200 },
+    { name: 'Multiplication Expenses', rate: 0 },
+    { name: 'Salary plus other employee expense', rate: 2000 },
+    { name: 'Daily labour', rate: 3.43 },
+    { name: 'Room rent charges, Miscellaneous', rate: 200 },
+  ],
+  actualCostWithoutSubsidy: [
+    {
+      variety: 'Himalini',
+      sizeRates: {
+        'Below 25': 15.25,
+        '25–30': 15.25,
+        'Below 30': 15.25,
+        '30–35': 15.25,
+        '35–40': 15.25,
+        '30–40': 15.25,
+        '40–45': 12.25,
+        '40–50': 11.25,
+        '45–50': 10.25,
+        '50–55': 8.75,
+        'Above 50': 8.75,
+        'Above 55': 8.75,
+        Cut: 3,
+      },
+    },
+    {
+      variety: 'Jyoti',
+      sizeRates: {
+        'Below 25': 15.25,
+        '25–30': 15.25,
+        'Below 30': 15.25,
+        '30–35': 15.25,
+        '35–40': 15.25,
+        '30–40': 15.25,
+        '40–45': 12.25,
+        '40–50': 11.25,
+        '45–50': 10.25,
+        '50–55': 8.75,
+        'Above 50': 8.75,
+        'Above 55': 8.75,
+        Cut: 3,
+      },
+    },
+    {
+      variety: 'B101',
+      sizeRates: {
+        'Below 25': 19.25,
+        '25–30': 19.25,
+        'Below 30': 19.25,
+        '30–35': 19.25,
+        '35–40': 19.25,
+        '30–40': 19.25,
+        '40–45': 16.25,
+        '40–50': 14.75,
+        '45–50': 13.25,
+        '50–55': 8.25,
+        'Above 50': 8.25,
+        'Above 55': 8.25,
+        Cut: 3,
+      },
+    },
+  ],
+  salePricePerBag: [
+    {
+      variety: 'Himalini',
+      sizeRates: {
+        'Below 25': 1740,
+        '25–30': 1740,
+        'Below 30': 1740,
+        '30–35': 1740,
+        '35–40': 1740,
+        '30–40': 1740,
+        '40–45': 1160,
+        '40–50': 500,
+        '45–50': 940,
+        '50–55': 500,
+        'Above 50': 500,
+        'Above 55': 500,
+        Cut: 150,
+      },
+    },
+    {
+      variety: 'Jyoti',
+      sizeRates: {
+        'Below 25': 1740,
+        '25–30': 1740,
+        'Below 30': 1740,
+        '30–35': 1740,
+        '35–40': 1740,
+        '30–40': 1740,
+        '40–45': 1160,
+        '40–50': 500,
+        '45–50': 940,
+        '50–55': 500,
+        'Above 50': 500,
+        'Above 55': 500,
+        Cut: 150,
+      },
+    },
+    {
+      variety: 'B101',
+      sizeRates: {
+        'Below 25': 1740,
+        '25–30': 1740,
+        'Below 30': 1740,
+        '30–35': 1740,
+        '35–40': 1740,
+        '30–40': 1740,
+        '40–45': 1160,
+        '40–50': 500,
+        '45–50': 940,
+        '50–55': 500,
+        'Above 50': 500,
+        'Above 55': 500,
+        Cut: 150,
+      },
+    },
+  ],
+}) as FinanceConstantsData;
+
+function normalizeStringList(
+  raw: unknown,
+  fallback: readonly string[]
+): string[] {
+  if (!Array.isArray(raw)) return [...fallback];
+  const next = raw
+    .map((x) => (typeof x === 'string' ? x.trim() : String(x ?? '').trim()))
+    .filter(Boolean);
+  return next.length > 0 ? next : [...fallback];
+}
+
+function normalizeFinanceParticulars(
+  raw: unknown,
+  fallback: FinanceParticularRow[]
+): FinanceParticularRow[] {
+  if (!Array.isArray(raw)) {
+    return fallback.map((row) => ({ ...row }));
+  }
+  const rows: FinanceParticularRow[] = [];
+  for (const p of raw) {
+    if (!p || typeof p !== 'object') continue;
+    const name = String((p as FinanceParticularRow).name ?? '').trim();
+    if (!name) continue;
+    rows.push({
+      name,
+      rate: Number((p as FinanceParticularRow).rate) || 0,
+    });
+  }
+  return rows.length > 0 ? rows : [...fallback];
+}
+
+function normalizeSizeRatesRecord(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const n = Number(v);
+    if (Number.isFinite(n)) out[k] = n;
+  }
+  return out;
+}
+
+/** Merge API variety/size tables with defaults (defaults define order; API overrides and adds varieties). */
+function mergeVarietySizeRateTables(
+  fromApi: unknown,
+  defaults: BuyBackCost[]
+): BuyBackCost[] {
+  const base = defaults.map((row) => ({
+    variety: row.variety.trim(),
+    sizeRates: { ...row.sizeRates },
+  }));
+
+  if (!Array.isArray(fromApi) || fromApi.length === 0) return base;
+
+  const byVariety = new Map<string, BuyBackCost>();
+  for (const row of base) {
+    byVariety.set(row.variety.trim(), {
+      variety: row.variety.trim(),
+      sizeRates: { ...row.sizeRates },
+    });
+  }
+
+  for (const item of fromApi) {
+    if (!item || typeof item !== 'object') continue;
+    const variety = String((item as BuyBackCost).variety ?? '').trim();
+    if (!variety) continue;
+    const patch = normalizeSizeRatesRecord((item as BuyBackCost).sizeRates);
+    const prev = byVariety.get(variety);
+    if (prev) {
+      byVariety.set(variety, {
+        variety,
+        sizeRates: { ...prev.sizeRates, ...patch },
+      });
+    } else {
+      byVariety.set(variety, { variety, sizeRates: patch });
+    }
+  }
+
+  const ordered: BuyBackCost[] = [];
+  const seen = new Set<string>();
+  for (const row of base) {
+    const v = row.variety.trim();
+    ordered.push(byVariety.get(v)!);
+    seen.add(v);
+  }
+  for (const [v, row] of byVariety) {
+    if (!seen.has(v)) ordered.push(row);
+  }
+  return ordered;
+}
+
+export function normalizeFinanceConstants(raw: unknown): FinanceConstantsData {
+  const defaults = cloneFinanceConstants(DEFAULT_FINANCE_CONSTANTS);
+
+  if (!raw || typeof raw !== 'object') {
+    return defaults;
+  }
+
+  const r = raw as Record<string, unknown>;
+  const particularsRaw = r.particulars;
+  const particulars = normalizeFinanceParticulars(
+    particularsRaw,
+    defaults.particulars
+  );
+
+  if (particulars.length === 0) {
+    return defaults;
+  }
+
+  return {
+    incomingBagsTimesRateParticularNames: normalizeStringList(
+      r.incomingBagsTimesRateParticularNames,
+      defaults.incomingBagsTimesRateParticularNames
+    ),
+    acresTimesRateParticularNames: normalizeStringList(
+      r.acresTimesRateParticularNames,
+      defaults.acresTimesRateParticularNames
+    ),
+    gradingBagsTimesRateParticularNames: normalizeStringList(
+      r.gradingBagsTimesRateParticularNames,
+      defaults.gradingBagsTimesRateParticularNames
+    ),
+    gradingBagSizes40mmAndAbove: normalizeStringList(
+      r.gradingBagSizes40mmAndAbove,
+      defaults.gradingBagSizes40mmAndAbove
+    ),
+    particulars,
+    actualCostWithoutSubsidy: mergeVarietySizeRateTables(
+      r.actualCostWithoutSubsidy,
+      defaults.actualCostWithoutSubsidy
+    ),
+    salePricePerBag: mergeVarietySizeRateTables(
+      r.salePricePerBag,
+      defaults.salePricePerBag
+    ),
+  };
+}
+
 export interface PreferencesCustomData {
   potatoVarieties: PreferenceOption[];
   farmerSeedGenerations: PreferenceOption[];
@@ -39,6 +375,7 @@ export interface PreferencesCustomData {
   /** Per variety: standard bags/acre and rate per bag by graded size */
   standardSeedBagsPerAcre: StandardSeedBagsPerAcreEntry[];
   buyBackCost: BuyBackCost[];
+  financeConstants: FinanceConstantsData;
 }
 
 export interface PreferencesData {
@@ -56,6 +393,16 @@ export interface GetPreferencesApiResponse {
   success: boolean;
   data: PreferencesData | null;
   message?: string;
+}
+
+/** Resolved finance constants for reports (always defined after `normalizePreferences`). */
+export function getFinanceConstants(
+  preferences: PreferencesData | null | undefined
+): FinanceConstantsData {
+  return (
+    preferences?.custom?.financeConstants ??
+    cloneFinanceConstants(DEFAULT_FINANCE_CONSTANTS)
+  );
 }
 
 function dashKeyVariants(label: string): string[] {
@@ -231,6 +578,9 @@ export function normalizePreferences(
     custom.potatoVarieties ?? fallbackCustom?.potatoVarieties ?? [];
 
   const customRecord = custom as unknown as Record<string, unknown>;
+  const fallbackCustomRecord = fallbackCustom as unknown as
+    | Record<string, unknown>
+    | undefined;
 
   const mergedCustom = {
     ...custom,
@@ -256,6 +606,9 @@ export function normalizePreferences(
       potatoVarieties
     ),
     buyBackCost: custom.buyBackCost ?? fallbackCustom?.buyBackCost ?? [],
+    financeConstants: normalizeFinanceConstants(
+      customRecord.financeConstants ?? fallbackCustomRecord?.financeConstants
+    ),
   };
 
   const { standardBagsPerAcre: _legacyStandardBags, ...customWithoutLegacy } =

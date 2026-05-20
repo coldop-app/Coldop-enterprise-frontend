@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Finance report route loads farmer seed, incoming, and grading passes with loading and error states; renders paired planting and grading sections per variety key.
-- `finance-constants` expanded with particulars rate rules, bag-size bands for ≥40 mm grading, and variety/size rate lookup tables.
+- Finance report constants (`custom.financeConstants`) are loaded from store preferences with defaults in `useGetPreferences`; Settings → Preferences includes a Finance tab to view and edit them (replaces the removed `finance-constants.ts` module).
 - Project version updated to `0.7.0` for this finance report release.
 
 ## [0.6.9] - 2026-05-15
