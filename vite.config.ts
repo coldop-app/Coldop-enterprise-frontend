@@ -1,15 +1,12 @@
 import { defineConfig } from 'vite';
 import path from 'path';
-import react from '@vitejs/plugin-react';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-  build: {
-    // PDF lib is lazy-loaded on print; its chunk is large but acceptable
-    chunkSizeWarningLimit: 1600,
-  },
   plugins: [
     tailwindcss(),
     // Please make sure that '@tanstack/router-plugin' is passed before '@vitejs/plugin-react'
@@ -17,10 +14,9 @@ export default defineConfig({
       target: 'react',
       autoCodeSplitting: true,
     }),
-    react({
-      babel: {
-        plugins: [['babel-plugin-react-compiler']],
-      },
+    react(),
+    babel({
+      presets: [reactCompilerPreset()],
     }),
   ],
   resolve: {

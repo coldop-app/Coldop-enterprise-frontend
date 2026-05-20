@@ -4,13 +4,10 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  CreateStorageGatePassInput,
   CreateStorageGatePassApiResponse,
+  CreateStorageGatePassInput,
 } from '@/types/storage-gate-pass';
 import { storageGatePassKeys } from './useGetStorageGatePasses';
-import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
-import { gradingGatePassKeys } from '../grading-gate-pass/useGetGradingGatePasses';
-import { gradingGatePassesByFarmerKey } from '../grading-gate-pass/useGetGradingPassesOfSingleFarmer';
 
 /** API error shape (400, 404, 409): { success, error: { code, message } } */
 type StorageGatePassApiError = {
@@ -20,6 +17,7 @@ type StorageGatePassApiError = {
 };
 
 const DEFAULT_ERROR_MESSAGE = 'Failed to create storage gate pass';
+const DAYBOOK_ROUTE = '/store-admin/daybook';
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
   400: 'Bad request',
@@ -37,6 +35,7 @@ function getStorageGatePassErrorMessage(
     (status !== undefined && status in STATUS_ERROR_MESSAGES
       ? STATUS_ERROR_MESSAGES[status]
       : null);
+
   return fromBody ?? DEFAULT_ERROR_MESSAGE;
 }
 
@@ -66,27 +65,30 @@ export function useCreateStorageGatePass() {
             ? Number(payload.manualGatePassNumber)
             : null,
       };
+
       const { data } =
         await storeAdminAxiosClient.post<CreateStorageGatePassApiResponse>(
           '/storage-gate-pass',
           body
         );
+
       return data;
     },
 
-    onSuccess: (data, variables) => {
+    onSuccess: async (data) => {
       const isSuccess = data.success !== false && data.data != null;
-      if (isSuccess) {
-        toast.success('Storage gate pass created successfully');
-        queryClient.invalidateQueries({ queryKey: daybookKeys.all });
-        queryClient.invalidateQueries({ queryKey: storageGatePassKeys.all });
-        queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
-        queryClient.invalidateQueries({
-          queryKey: gradingGatePassesByFarmerKey(variables.farmerStorageLinkId),
-        });
-      } else {
+      if (!isSuccess) {
         toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
+        return;
       }
+
+      toast.success('Storage gate pass created successfully');
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: storageGatePassKeys.all }),
+      ]);
+
+      window.location.href = DAYBOOK_ROUTE;
     },
 
     onError: (error) => {
@@ -100,6 +102,7 @@ export function useCreateStorageGatePass() {
           : status !== undefined && status in STATUS_ERROR_MESSAGES
             ? STATUS_ERROR_MESSAGES[status]
             : error.message || DEFAULT_ERROR_MESSAGE;
+
       toast.error(errMsg);
     },
   });

@@ -1,5 +1,10 @@
-import type { FarmerStorageLinkFarmer } from '@/types/farmer';
-import type { GradingGatePass } from '@/types/grading-gate-pass';
+import type { FarmerStorageLink } from '@/types/farmer';
+
+/** Minimal grading gate pass shape used in storage gate pass relations */
+export interface GradingGatePass {
+  _id: string;
+  gatePassNo?: number;
+}
 
 /** Single allocation for a grading gate pass when creating a storage gate pass (legacy / summary display) */
 export interface CreateStorageGatePassAllocation {
@@ -86,7 +91,7 @@ export interface StorageGatePass {
   createdBy?: string;
 }
 
-/** Admin user who linked the farmer–storage pair in GET /storage-gate-pass response */
+/** Admin user who linked the farmer-storage pair in GET /storage-gate-pass response */
 export interface StorageGatePassLinkedByAdmin {
   _id: string;
   name: string;
@@ -95,7 +100,7 @@ export interface StorageGatePassLinkedByAdmin {
 /** Farmer storage link as returned in GET /storage-gate-pass response (populated) */
 export interface StorageGatePassFarmerStorageLink {
   _id: string;
-  farmerId: FarmerStorageLinkFarmer;
+  farmerId: FarmerStorageLink['farmerId'];
   linkedById: StorageGatePassLinkedByAdmin;
   accountNumber: number;
 }
@@ -128,6 +133,29 @@ export interface StorageGatePassWithLink {
   manualGatePassNumber?: number;
 }
 
+/** Admin user object returned as createdBy in GET /storage-gate-pass/:id */
+export interface StorageGatePassCreatedByAdmin {
+  _id: string;
+  name: string;
+}
+
+/** Storage gate pass as returned by GET /storage-gate-pass/:id */
+export interface StorageGatePassById {
+  _id: string;
+  farmerStorageLinkId: StorageGatePassFarmerStorageLink;
+  createdBy: StorageGatePassCreatedByAdmin;
+  gatePassNo: number;
+  manualGatePassNumber?: number;
+  date: string;
+  variety: string;
+  bagSizes: StorageGatePassBagSize[];
+  editHistory: unknown[];
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
 /** Pagination as returned by GET /storage-gate-pass */
 export interface StorageGatePassPagination {
   page: number;
@@ -143,6 +171,13 @@ export interface GetStorageGatePassesApiResponse {
   success: boolean;
   data: StorageGatePassWithLink[];
   pagination: StorageGatePassPagination;
+  message?: string;
+}
+
+/** API response for GET /storage-gate-pass/:id */
+export interface GetStorageGatePassByIdApiResponse {
+  success: boolean;
+  data: StorageGatePassById;
   message?: string;
 }
 
@@ -164,6 +199,80 @@ export interface GroupedStorageGatePassGroup {
 export interface GetGroupedStorageGatePassesApiResponse {
   success: boolean;
   data: GroupedStorageGatePassGroup[];
+}
+
+/** Admin user information captured in storage gate pass audit entries */
+export interface StorageGatePassAuditEditedBy {
+  _id: string;
+  name: string;
+  email?: string;
+  mobileNumber?: string;
+}
+
+/** Changed value pair captured in storage gate pass audit entry */
+export interface StorageGatePassAuditChangeValue {
+  old: unknown;
+  new: unknown;
+}
+
+/** Field-by-field changes object for storage gate pass audit entries */
+export type StorageGatePassAuditChanges = Record<
+  string,
+  StorageGatePassAuditChangeValue
+>;
+
+/** Single storage gate pass audit row from GET /storage-gate-pass/audit */
+export interface StorageGatePassAuditGatePassRef {
+  _id: string;
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  variety?: string;
+  date?: string;
+}
+
+export interface StorageGatePassAuditStateSnapshot {
+  _id?: string;
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  date?: string;
+  variety?: string;
+  bagSizes?: StorageGatePassBagSize[];
+  remarks?: string;
+  [key: string]: unknown;
+}
+
+export interface StorageGatePassAuditItem {
+  _id: string;
+  storageGatePassId: string | StorageGatePassAuditGatePassRef;
+  coldStorageId?: string;
+  editedBy?: StorageGatePassAuditEditedBy;
+  editedById?: StorageGatePassAuditEditedBy;
+  action?: string;
+  changes?: StorageGatePassAuditChanges;
+  previousState?: StorageGatePassAuditStateSnapshot;
+  updatedState?: StorageGatePassAuditStateSnapshot;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Pagination shape from GET /storage-gate-pass/audit */
+export interface StorageGatePassAuditPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+/** API response for GET /storage-gate-pass/audit */
+export interface GetStorageGatePassAuditApiResponse {
+  success: boolean;
+  data: StorageGatePassAuditItem[];
+  pagination?: StorageGatePassAuditPagination;
+  message?: string;
 }
 
 /** Bag size as returned in created storage gate pass */
@@ -202,9 +311,13 @@ export interface CreateStorageGatePassApiResponse {
 
 /** Request body for PUT /storage-gate-pass/:id */
 export interface EditStorageGatePassInput {
+  gatePassNo?: number;
   date?: string;
+  variety?: string;
+  bagSizes?: CreateStorageGatePassBagSize[];
+  remarks?: string;
   manualGatePassNumber?: number;
-  reason?: string;
+  isMarkedAsNull?: boolean;
 }
 
 /** API response for PUT /storage-gate-pass/:id */

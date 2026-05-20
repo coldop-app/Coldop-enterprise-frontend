@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_URL } from './const';
 import { useStore } from '@/stores/store';
+import { router } from '@/router';
 
 // Create axios instance with sensible defaults
 const storeAdminAxiosClient = axios.create({
@@ -47,8 +48,11 @@ storeAdminAxiosClient.interceptors.response.use(
       clearAdminData();
 
       // Avoid redirect loops
-      if (window.location.pathname !== '/auth/login') {
-        window.location.href = '/auth/login';
+      if (window.location.pathname !== '/store-admin/login') {
+        void router.navigate({
+          to: '/store-admin/login',
+          replace: true,
+        });
       }
     }
 

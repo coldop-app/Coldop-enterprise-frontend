@@ -1,0 +1,1324 @@
+import { memo, useMemo, useRef, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { useForm } from '@tanstack/react-form';
+import * as z from 'zod';
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  ClipboardList,
+  Plus,
+  Trash2,
+  Truck,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  preventArrowUpDownOnNumericInput,
+} from '@/lib/business-number-input';
+import { cn } from '@/lib/utils';
+import { DatePicker } from '@/components/date-picker';
+import {
+  SearchSelector,
+  type Option,
+} from '@/components/forms/search-selector';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  formatNumber,
+  getBagWeightsFromPreferences,
+} from '@/components/daybook/grading-calculations';
+import { formatDateToISO } from '@/lib/helpers';
+import { useCreateGradingGatePass } from '@/services/store-admin/grading-gate-pass/useCreateGradingGatePass';
+import { usePreferencesStore, useStore } from '@/stores/store';
+import type { GradingGatePassIncomingRef } from '@/types/grading-gate-pass';
+
+import {
+  GradingSummarySheet,
+  type GradingSummaryFormValues,
+} from './edit/-SummarySheet';
+
+import type { GradingCreateIncomingSelection } from './-IncomingSelectionCreateStep';
+
+const GRADER_SELECT_CUSTOM = '__custom__';
+
+function getFarmerFromIncomingRefs(
+  refs: GradingGatePassIncomingRef[]
+): GradingSummaryFormValues['farmer'] {
+  const first = refs[0];
+  const link = first?.farmerStorageLinkId;
+  if (link && typeof link === 'object' && link.farmerId) {
+    return {
+      name: link.farmerId.name,
+      accountNumber: link.accountNumber,
+      mobileNumber: link.farmerId.mobileNumber,
+      address: link.farmerId.address,
+    };
+  }
+  return {
+    name: '—',
+    accountNumber: undefined,
+    mobileNumber: undefined,
+    address: undefined,
+  };
+}
+
+function buildIncomingLinesFromRefs(
+  refs: GradingGatePassIncomingRef[]
+): GradingSummaryFormValues['incomingLines'] {
+  return (refs ?? []).map((g) => {
+    const gw = g.weightSlip?.grossWeightKg;
+    const tw = g.weightSlip?.tareWeightKg;
+    let netWeightKg: number | undefined;
+    if (
+      gw != null &&
+      tw != null &&
+      Number.isFinite(gw) &&
+      Number.isFinite(tw)
+    ) {
+      netWeightKg = gw - tw;
+    }
+    return {
+      gatePassNo: g.gatePassNo,
+      manualGatePassNumber: g.manualGatePassNumber,
+      truckNumber: g.truckNumber,
+      bagsReceived: g.bagsReceived,
+      netWeightKg,
+      remarks: g.remarks,
+    };
+  });
+}
+
+const orderRowSchema = z.object({
+  size: z.string().trim().min(1, 'Size is required'),
+  bagType: z.string().trim().min(1, 'Bag type is required'),
+  quantity: z.number().nonnegative(),
+  weightPerBagKg: z.number().nonnegative(),
+});
+
+const fullFormSchema = z.object({
+  manualGatePassNumber: z.number().nonnegative().optional(),
+  date: z.string().trim().min(1, 'Date is required'),
+  graderKnownKey: z.string(),
+  graderCustom: z.string(),
+  remarks: z.string().max(500),
+  orderDetails: z.array(orderRowSchema).min(1, 'Add at least one size row'),
+});
+
+type GradingGatePassCreateFormValues = z.infer<typeof fullFormSchema>;
+
+const stepOneSchema = z
+  .object({
+    manualGatePassNumber: fullFormSchema.shape.manualGatePassNumber,
+    date: fullFormSchema.shape.date,
+    graderKnownKey: z.string(),
+    graderCustom: z.string(),
+    remarks: fullFormSchema.shape.remarks,
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.graderKnownKey === GRADER_SELECT_CUSTOM &&
+      !data.graderCustom.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter a custom grader name',
+        path: ['graderCustom'],
+      });
+    }
+  });
+
+function resolveGrader(knownKey: string, custom: string): string {
+  if (knownKey === GRADER_SELECT_CUSTOM || knownKey.trim() === '') {
+    return custom.trim();
+  }
+  return knownKey.trim();
+}
+
+type GradingCreateFormProps = {
+  selection: GradingCreateIncomingSelection;
+  /** Next system gate pass number from `/store-admin/voucher-number?type=grading-gate-pass` */
+  gatePassNo?: number;
+  isVoucherNumberLoading?: boolean;
+};
+
+export const GradingCreateForm = memo(function GradingCreateForm({
+  selection,
+  gatePassNo,
+  isVoucherNumberLoading = false,
+}: GradingCreateFormProps) {
+  const { mutate: createGradingGatePass, isPending } =
+    useCreateGradingGatePass();
+  const setDaybookTab = useStore((s) => s.setDaybookActiveTab);
+  const preferences = usePreferencesStore((s) => s.preferences);
+  const bagWeights = useMemo(
+    () => getBagWeightsFromPreferences(preferences),
+    [preferences]
+  );
+  const gradingSizes = useMemo(
+    () =>
+      (preferences?.bagSizes ?? []).filter((size) => size.trim().length > 0),
+    [preferences?.bagSizes]
+  );
+  const graderOptions = useMemo(
+    () =>
+      (preferences?.custom.graderOptions ?? []).filter(
+        (grader) => grader.trim().length > 0
+      ),
+    [preferences?.custom.graderOptions]
+  );
+  const bagTypes = useMemo(
+    () =>
+      (preferences?.custom.bagConfig.bagTypes ?? []).filter(
+        (bagType) => bagType.trim().length > 0
+      ),
+    [preferences?.custom.bagConfig.bagTypes]
+  );
+  const knownGradersSet = useMemo(
+    () => new Set<string>(graderOptions),
+    [graderOptions]
+  );
+  const [step, setStep] = useState<0 | 1>(0);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const confirmSaveRef = useRef(false);
+
+  const effectiveIncomingPasses = useMemo(
+    () =>
+      selection.selectedIncomingPasses ?? ([] as GradingGatePassIncomingRef[]),
+    [selection.selectedIncomingPasses]
+  );
+
+  const farmerDisplay = useMemo(
+    () => getFarmerFromIncomingRefs(effectiveIncomingPasses),
+    [effectiveIncomingPasses]
+  );
+
+  const sizeOptions: Option<string>[] = useMemo(
+    () =>
+      gradingSizes.map((s) => ({
+        value: s,
+        label: s,
+        searchableText: s,
+      })),
+    [gradingSizes]
+  );
+
+  const defaultKnownGrader: string = graderOptions[0] ?? GRADER_SELECT_CUSTOM;
+
+  const initialOrderDetails = [
+    {
+      size: gradingSizes.includes('Below 30')
+        ? 'Below 30'
+        : (gradingSizes[0] ?? ''),
+      bagType: bagTypes[0] ?? '',
+      quantity: 0,
+      weightPerBagKg: 0,
+    },
+  ];
+
+  const resolvedVariety = selection.variety?.trim() ?? '';
+
+  const voucherNumberReady =
+    typeof gatePassNo === 'number' &&
+    Number.isFinite(gatePassNo) &&
+    gatePassNo > 0;
+
+  const voucherNumberDisplay = voucherNumberReady
+    ? `#${gatePassNo}`
+    : undefined;
+
+  const gradingGatePassCreateDefaultValues: GradingGatePassCreateFormValues = {
+    manualGatePassNumber: undefined,
+    date: '',
+    graderKnownKey: defaultKnownGrader,
+    graderCustom: defaultKnownGrader === GRADER_SELECT_CUSTOM ? '' : '',
+    remarks: '',
+    orderDetails: initialOrderDetails,
+  };
+
+  const form = useForm({
+    defaultValues: gradingGatePassCreateDefaultValues,
+    validators: {
+      onSubmit: fullFormSchema,
+    },
+    onSubmit: async ({ value }) => {
+      const grader = resolveGrader(value.graderKnownKey, value.graderCustom);
+      const detailErrors = fullFormSchema.shape.orderDetails.safeParse(
+        value.orderDetails
+      );
+      if (!detailErrors.success) {
+        toast.error('Please fix size rows.');
+        setStep(1);
+        return;
+      }
+
+      const body = detailErrors.data;
+
+      const totalQty = body.reduce((s, r) => s + (r.quantity || 0), 0);
+      if (totalQty <= 0) {
+        toast.error('Enter at least one bag quantity in the size breakdown.');
+        setStep(1);
+        return;
+      }
+
+      const hasRowMissingWeight = body.some(
+        (r) => (r.quantity || 0) > 0 && (r.weightPerBagKg || 0) <= 0
+      );
+      if (hasRowMissingWeight) {
+        toast.error('Enter kg per bag for every size row that has a quantity.');
+        setStep(1);
+        return;
+      }
+
+      if (!voucherNumberReady) {
+        toast.error(
+          'Could not load voucher number. Please refresh and try again.'
+        );
+        setStep(0);
+        return;
+      }
+
+      if (!resolvedVariety) {
+        toast.error('Variety missing from incoming selection.');
+        setStep(0);
+        return;
+      }
+
+      if (!confirmSaveRef.current) {
+        setSummaryOpen(true);
+        return;
+      }
+
+      confirmSaveRef.current = false;
+
+      createGradingGatePass(
+        {
+          farmerStorageLinkId: selection.farmerStorageLinkId,
+          incomingGatePassIds: selection.selectedIncomingGatePassIds,
+          gatePassNo: Math.floor(gatePassNo),
+          date: formatDateToISO(value.date),
+          variety: resolvedVariety,
+          allocationStatus: 'UNALLOCATED',
+          manualGatePassNumber: value.manualGatePassNumber,
+          grader: grader || undefined,
+          remarks: value.remarks.trim() || undefined,
+          orderDetails: body.map((r) => ({
+            size: r.size,
+            bagType: r.bagType,
+            currentQuantity: r.quantity,
+            initialQuantity: r.quantity,
+            weightPerBagKg: r.weightPerBagKg,
+          })),
+        },
+        {
+          onSuccess: (data) => {
+            if (!data.success) return;
+            setSummaryOpen(false);
+          },
+        }
+      );
+    },
+  });
+
+  const handleNext = () => {
+    if (!voucherNumberReady) {
+      toast.error('Waiting for voucher number. Please try again in a moment.');
+      return;
+    }
+    const v = form.state.values;
+    const parsed = stepOneSchema.safeParse({
+      manualGatePassNumber: v.manualGatePassNumber,
+      date: v.date,
+      graderKnownKey: v.graderKnownKey,
+      graderCustom: v.graderCustom,
+      remarks: v.remarks,
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Please fix step 1.');
+      return;
+    }
+    setStep(1);
+  };
+
+  const summaryValues: GradingSummaryFormValues = useMemo(() => {
+    const v = form.state.values;
+    const grader = resolveGrader(v.graderKnownKey, v.graderCustom);
+    const gn = voucherNumberReady ? Math.floor(gatePassNo) : 0;
+    return {
+      gatePassNo: gn,
+      manualGatePassNumber: v.manualGatePassNumber,
+      dateDisplay: v.date?.trim() ?? '',
+      variety: resolvedVariety,
+      grader,
+      remarks: v.remarks,
+      allocationStatus: 'UNALLOCATED',
+      orderDetails: v.orderDetails ?? [],
+      farmer: farmerDisplay,
+      incomingLines: buildIncomingLinesFromRefs(effectiveIncomingPasses),
+      gradedByLabel: undefined,
+    };
+  }, [
+    effectiveIncomingPasses,
+    farmerDisplay,
+    form.state.values,
+    gatePassNo,
+    resolvedVariety,
+    voucherNumberReady,
+  ]);
+
+  return (
+    <main className="font-custom mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="font-custom -ml-2 gap-2"
+            asChild
+          >
+            <Link
+              to="/store-admin/daybook"
+              onClick={() => setDaybookTab('grading')}
+              className="focus-visible:ring-primary focus-visible:ring-offset-background rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              <ArrowLeft className="size-4" />
+              Daybook
+            </Link>
+          </Button>
+          <div>
+            <h1 className="font-custom text-3xl font-bold tracking-tighter text-[#333] sm:text-4xl">
+              New grading voucher
+            </h1>
+            <p className="text-muted-foreground font-custom mt-1 max-w-xl text-sm leading-relaxed">
+              Enter grading header in step one, then size breakdown and bag
+              weights in step two.
+            </p>
+            {isVoucherNumberLoading && !voucherNumberDisplay ? (
+              <p className="text-muted-foreground font-custom mt-3 text-sm">
+                Loading voucher number…
+              </p>
+            ) : null}
+            {voucherNumberDisplay ? (
+              <div className="bg-primary/20 mt-3 block w-fit rounded-full px-4 py-1.5">
+                <span className="font-custom text-primary text-sm font-medium">
+                  VOUCHER NO: {voucherNumberDisplay}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className="font-custom h-9 gap-2 px-3 text-sm font-semibold"
+          >
+            System #{voucherNumberReady ? gatePassNo : '—'}
+          </Badge>
+          {form.state.values.manualGatePassNumber != null ? (
+            <Badge variant="secondary" className="font-custom h-9 px-3 text-sm">
+              Manual #{form.state.values.manualGatePassNumber}
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      <Card className="border-primary/15 mb-10 shadow-lg">
+        <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-start gap-3">
+            <div
+              className={`flex size-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                step === 0
+                  ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                  : 'border-primary/40 bg-background text-primary'
+              }`}
+            >
+              {step === 0 ? (
+                <span>1</span>
+              ) : (
+                <Check className="size-5 stroke-[3]" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-custom text-foreground font-semibold">
+                Pass & context
+              </p>
+              <p className="text-muted-foreground font-custom text-xs leading-snug">
+                Farmer context from your selection, voucher date and grader
+              </p>
+            </div>
+          </div>
+
+          <Separator
+            orientation="vertical"
+            className="bg-border hidden min-h-[3.5rem] sm:block sm:self-stretch"
+          />
+          <Separator className="sm:hidden" />
+
+          <div className="flex flex-1 items-start gap-3 opacity-90">
+            <div
+              className={`flex size-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                step === 1
+                  ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                  : 'border-muted-foreground/30 bg-muted/40 text-muted-foreground'
+              }`}
+            >
+              2
+            </div>
+            <div className="min-w-0">
+              <p className="font-custom text-foreground font-semibold">
+                Order details
+              </p>
+              <p className="text-muted-foreground font-custom text-xs leading-snug">
+                Bags by size, type, quantities and kg per bag
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit();
+        }}
+      >
+        <FieldGroup className="gap-8">
+          {step === 0 ? (
+            <div className="space-y-6">
+              <Card className="shadow-md">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-custom flex items-center gap-2 text-lg">
+                    <Truck className="text-muted-foreground size-5" />
+                    Linked incoming passes
+                  </CardTitle>
+                  <CardDescription className="font-custom">
+                    Incoming gate passes selected in the previous step
+                    (read-only).
+                  </CardDescription>
+                </CardHeader>
+                <Separator />
+                <CardContent className="space-y-3 pt-5">
+                  <Card className="border-primary/20 bg-muted/20">
+                    <CardContent className="space-y-1 p-4">
+                      <p className="font-custom text-muted-foreground text-[10px] font-semibold uppercase">
+                        Farmer
+                      </p>
+                      <p className="font-custom text-base font-semibold">
+                        {farmerDisplay.name}
+                      </p>
+                      <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                        {farmerDisplay.accountNumber != null ? (
+                          <span>Account #{farmerDisplay.accountNumber}</span>
+                        ) : null}
+                        {farmerDisplay.mobileNumber ? (
+                          <span>{farmerDisplay.mobileNumber}</span>
+                        ) : null}
+                      </div>
+                      {resolvedVariety ? (
+                        <p className="text-muted-foreground font-custom mt-2 text-xs">
+                          Variety:{' '}
+                          <span className="text-foreground font-medium">
+                            {resolvedVariety}
+                          </span>
+                        </p>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                  <ul className="space-y-2">
+                    {effectiveIncomingPasses.map((gp, idx) => (
+                      <Card key={`${gp._id}-${idx}`} className="shadow-sm">
+                        <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4 text-sm">
+                          <div className="min-w-0">
+                            <Badge
+                              variant="outline"
+                              className="font-custom mb-1"
+                            >
+                              Incoming GP #{gp.gatePassNo}
+                            </Badge>
+                            {gp.location ? (
+                              <p className="text-muted-foreground text-xs">
+                                {gp.location}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs font-medium tabular-nums">
+                            {gp.truckNumber ? (
+                              <span>{gp.truckNumber}</span>
+                            ) : null}
+                            {gp.bagsReceived != null ? (
+                              <span>{gp.bagsReceived} bags</span>
+                            ) : null}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-md">
+                <CardHeader className="pb-2">
+                  <CardTitle className="font-custom text-lg">
+                    Grading voucher
+                  </CardTitle>
+                  <CardDescription className="font-custom">
+                    Manual number (optional), voucher date, and grader for this
+                    voucher.
+                  </CardDescription>
+                </CardHeader>
+                <Separator />
+                <CardContent className="grid gap-6 pt-6 sm:grid-cols-2">
+                  <form.Field
+                    name="manualGatePassNumber"
+                    children={(field) => (
+                      <Field
+                        data-invalid={
+                          !!(
+                            field.state.meta.errors?.length &&
+                            field.state.meta.isTouched
+                          )
+                        }
+                      >
+                        <FieldLabel
+                          htmlFor={field.name}
+                          className="font-custom font-semibold"
+                        >
+                          Manual gate pass no.
+                          <span className="text-muted-foreground font-normal">
+                            {' '}
+                            (optional)
+                          </span>
+                        </FieldLabel>
+                        <Input
+                          id={field.name}
+                          type="number"
+                          min={0}
+                          value={field.state.value ?? ''}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === '') {
+                              field.handleChange(undefined);
+                              return;
+                            }
+                            const parsed = Number.parseInt(raw, 10);
+                            field.handleChange(
+                              Number.isNaN(parsed) ? undefined : parsed
+                            );
+                          }}
+                          onWheel={blurTargetOnNumberWheel}
+                          onKeyDown={preventArrowUpDownOnNumericInput}
+                          className={cn(
+                            'font-custom',
+                            businessNumberSpinnerClassName
+                          )}
+                          aria-invalid={
+                            !!(
+                              field.state.meta.errors?.length &&
+                              field.state.meta.isTouched
+                            )
+                          }
+                        />
+                      </Field>
+                    )}
+                  />
+
+                  <form.Field
+                    name="date"
+                    children={(field) => (
+                      <Field>
+                        <FieldLabel className="font-custom font-semibold">
+                          Date
+                        </FieldLabel>
+                        <DatePicker
+                          id="grading-create-date"
+                          compact
+                          label=""
+                          value={field.state.value}
+                          onChange={field.handleChange}
+                        />
+                      </Field>
+                    )}
+                  />
+
+                  <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+                    <form.Field
+                      name="graderKnownKey"
+                      children={(graderKnown) => (
+                        <Field>
+                          <FieldLabel className="font-custom font-semibold">
+                            Grader
+                          </FieldLabel>
+                          <Select
+                            value={
+                              knownGradersSet.has(
+                                String(graderKnown.state.value ?? '')
+                              ) ||
+                              graderKnown.state.value === GRADER_SELECT_CUSTOM
+                                ? graderKnown.state.value
+                                : GRADER_SELECT_CUSTOM
+                            }
+                            onValueChange={(v) => {
+                              graderKnown.handleChange(v);
+                              if (v !== GRADER_SELECT_CUSTOM) {
+                                form.setFieldValue('graderCustom', '');
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="font-custom focus-visible:ring-primary h-11 w-full">
+                              <SelectValue placeholder="Choose grader" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {graderOptions.map((g) => (
+                                <SelectItem
+                                  key={g}
+                                  value={g}
+                                  className="font-custom"
+                                >
+                                  {g}
+                                </SelectItem>
+                              ))}
+                              <SelectItem
+                                value={GRADER_SELECT_CUSTOM}
+                                className="font-custom"
+                              >
+                                Other (custom name)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      )}
+                    />
+                    <form.Field
+                      name="graderCustom"
+                      children={(field) =>
+                        form.state.values.graderKnownKey ===
+                          GRADER_SELECT_CUSTOM ||
+                        ((form.state.values.graderKnownKey || '').trim() !==
+                          '' &&
+                          !knownGradersSet.has(
+                            form.state.values.graderKnownKey ?? ''
+                          )) ? (
+                          <Field>
+                            <FieldLabel
+                              htmlFor={field.name}
+                              className="font-custom font-semibold"
+                            >
+                              Custom grader name
+                            </FieldLabel>
+                            <Input
+                              id={field.name}
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) =>
+                                field.handleChange(e.target.value)
+                              }
+                              placeholder="Enter grader name"
+                              className="font-custom focus-visible:ring-primary h-11"
+                            />
+                          </Field>
+                        ) : null
+                      }
+                    />
+                  </div>
+
+                  <form.Field
+                    name="remarks"
+                    children={(field) => (
+                      <Field className="sm:col-span-2">
+                        <FieldLabel
+                          htmlFor={field.name}
+                          className="font-custom font-semibold"
+                        >
+                          Remarks
+                        </FieldLabel>
+                        <Textarea
+                          id={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          rows={3}
+                          placeholder="Grade location, loader notes…"
+                          className="font-custom focus-visible:ring-primary min-h-[5rem]"
+                        />
+                      </Field>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="font-custom focus-visible:ring-primary sm:min-w-32"
+                  onClick={() =>
+                    window.history.length > 1
+                      ? window.history.back()
+                      : undefined
+                  }
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="font-custom focus-visible:ring-primary font-bold shadow-md"
+                  disabled={!voucherNumberReady || isVoucherNumberLoading}
+                  onClick={handleNext}
+                >
+                  Next
+                  <ChevronRight className="ml-1 size-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <Card className="shadow-md">
+                <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
+                  <div>
+                    <CardTitle className="font-custom flex items-center gap-2 text-lg">
+                      <ClipboardList className="text-muted-foreground size-5" />
+                      Size breakdown
+                    </CardTitle>
+                    <CardDescription className="font-custom">
+                      One quantity per row (saved as both current and initial on
+                      the voucher) plus kg per bag.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="font-custom focus-visible:ring-primary shrink-0 gap-2"
+                    onClick={() =>
+                      form.setFieldValue('orderDetails', [
+                        ...(form.state.values.orderDetails ?? []),
+                        {
+                          size: gradingSizes[4] ?? gradingSizes[0] ?? '',
+                          bagType: bagTypes[0] ?? '',
+                          quantity: 0,
+                          weightPerBagKg: 0,
+                        },
+                      ])
+                    }
+                  >
+                    <Plus className="size-4" />
+                    Add row
+                  </Button>
+                </CardHeader>
+                <Separator />
+
+                <CardContent className="space-y-4 pt-6">
+                  <div className="border-border rounded-lg border md:hidden">
+                    <form.Subscribe
+                      selector={(s) => s.values.orderDetails}
+                      children={(rows) =>
+                        rows.map((row, index) => (
+                          <Card
+                            key={`m-${index}`}
+                            className="rounded-none border-0 shadow-none not-last:border-b first:rounded-t-lg last:rounded-b-lg"
+                          >
+                            <CardContent className="space-y-3 p-4">
+                              <div className="flex items-center justify-between gap-2">
+                                <Badge
+                                  variant="secondary"
+                                  className="font-custom text-xs"
+                                >
+                                  Row {index + 1}
+                                </Badge>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="font-custom text-muted-foreground hover:text-destructive"
+                                  aria-label={`Remove row ${index + 1}`}
+                                  onClick={() =>
+                                    form.setFieldValue(
+                                      'orderDetails',
+                                      (
+                                        form.state.values.orderDetails ?? []
+                                      ).filter((_, i) => i !== index)
+                                    )
+                                  }
+                                  disabled={
+                                    (form.state.values.orderDetails?.length ??
+                                      0) <= 1
+                                  }
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <Label className="font-custom mb-2 block text-xs font-medium">
+                                    Size
+                                  </Label>
+                                  <SearchSelector
+                                    id={`grading-size-${index}-m`}
+                                    options={sizeOptions}
+                                    placeholder="Size"
+                                    searchPlaceholder="Search size…"
+                                    value={row.size}
+                                    onSelect={(v) =>
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? { ...r, size: v ?? r.size }
+                                            : r
+                                        )
+                                      )
+                                    }
+                                    buttonClassName="font-custom h-10 w-full justify-between rounded-md border"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="font-custom mb-2 block text-xs font-medium">
+                                    Bag type
+                                  </Label>
+                                  <Select
+                                    value={row.bagType}
+                                    onValueChange={(bag) =>
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? { ...r, bagType: bag }
+                                            : r
+                                        )
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="font-custom h-10 w-full">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {bagTypes.map((b) => (
+                                        <SelectItem
+                                          key={b}
+                                          value={b}
+                                          className="font-custom"
+                                        >
+                                          {b}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="font-custom mb-2 block text-xs font-medium">
+                                    Quantity
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={
+                                      row.quantity === 0 ? '' : row.quantity
+                                    }
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const n =
+                                        raw === ''
+                                          ? 0
+                                          : Number.parseInt(raw, 10);
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? {
+                                                ...r,
+                                                quantity: Number.isNaN(n)
+                                                  ? 0
+                                                  : Math.max(0, n),
+                                              }
+                                            : r
+                                        )
+                                      );
+                                    }}
+                                    onWheel={blurTargetOnNumberWheel}
+                                    onKeyDown={preventArrowUpDownOnNumericInput}
+                                    className={cn(
+                                      'font-custom h-10',
+                                      businessNumberSpinnerClassName
+                                    )}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="font-custom mb-2 block text-xs font-medium">
+                                    Kg per bag
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    value={
+                                      (row.weightPerBagKg ?? 0) === 0
+                                        ? ''
+                                        : row.weightPerBagKg
+                                    }
+                                    onWheel={blurTargetOnNumberWheel}
+                                    onKeyDown={preventArrowUpDownOnNumericInput}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      let weightPerBagKg = 0;
+                                      if (raw !== '') {
+                                        const n = Number.parseFloat(raw);
+                                        if (!Number.isNaN(n) && n > 0) {
+                                          weightPerBagKg = Math.max(0.01, n);
+                                        }
+                                      }
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? { ...r, weightPerBagKg }
+                                            : r
+                                        )
+                                      );
+                                    }}
+                                    className={cn(
+                                      'font-custom h-10',
+                                      businessNumberSpinnerClassName
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      }
+                    />
+                  </div>
+
+                  <div className="border-border hidden overflow-hidden rounded-xl border md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40 border-b">
+                          <TableHead className="font-custom px-4 text-[10px] font-semibold tracking-wide uppercase">
+                            Size
+                          </TableHead>
+                          <TableHead className="font-custom px-4 text-[10px] font-semibold tracking-wide uppercase">
+                            Bag
+                          </TableHead>
+                          <TableHead className="font-custom px-4 text-[10px] font-semibold tracking-wide uppercase md:text-center">
+                            Quantity
+                          </TableHead>
+                          <TableHead className="font-custom px-4 text-[10px] font-semibold tracking-wide uppercase lg:text-center">
+                            Kg / bag
+                          </TableHead>
+                          <TableHead className="font-custom px-4 text-[10px] font-semibold tracking-wide uppercase lg:w-28">
+                            <span className="sr-only md:not-sr-only">
+                              Remove
+                            </span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <form.Subscribe
+                          selector={(s) => s.values.orderDetails}
+                          children={(rows) =>
+                            rows.map((row, index) => (
+                              <TableRow
+                                key={`d-${index}`}
+                                className="hover:bg-muted/30"
+                              >
+                                <TableCell className="px-4 py-3 align-middle">
+                                  <SearchSelector
+                                    id={`grading-size-${index}-d`}
+                                    options={sizeOptions}
+                                    placeholder="Size"
+                                    searchPlaceholder="Search…"
+                                    value={row.size}
+                                    onSelect={(v) =>
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? { ...r, size: v ?? r.size }
+                                            : r
+                                        )
+                                      )
+                                    }
+                                    buttonClassName="font-custom h-10 w-[min(12rem,32vw)] max-w-full justify-between rounded-md border"
+                                  />
+                                </TableCell>
+                                <TableCell className="px-4 py-3 align-middle">
+                                  <Select
+                                    value={row.bagType}
+                                    onValueChange={(bag) =>
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? { ...r, bagType: bag }
+                                            : r
+                                        )
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="font-custom h-10 min-w-[5.5rem]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {bagTypes.map((b) => (
+                                        <SelectItem
+                                          key={b}
+                                          value={b}
+                                          className="font-custom"
+                                        >
+                                          {b}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell className="px-4 py-3 align-middle md:text-center">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={
+                                      row.quantity === 0 ? '' : row.quantity
+                                    }
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const n =
+                                        raw === ''
+                                          ? 0
+                                          : Number.parseInt(raw, 10);
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? {
+                                                ...r,
+                                                quantity: Number.isNaN(n)
+                                                  ? 0
+                                                  : Math.max(0, n),
+                                              }
+                                            : r
+                                        )
+                                      );
+                                    }}
+                                    onWheel={blurTargetOnNumberWheel}
+                                    onKeyDown={preventArrowUpDownOnNumericInput}
+                                    className={cn(
+                                      'font-custom inline-flex h-10 w-[4.75rem] text-center md:mx-auto',
+                                      businessNumberSpinnerClassName
+                                    )}
+                                  />
+                                </TableCell>
+                                <TableCell className="px-4 py-3 align-middle lg:text-center">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    value={
+                                      (row.weightPerBagKg ?? 0) === 0
+                                        ? ''
+                                        : row.weightPerBagKg
+                                    }
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      let weightPerBagKg = 0;
+                                      if (raw !== '') {
+                                        const n = Number.parseFloat(raw);
+                                        if (!Number.isNaN(n) && n > 0) {
+                                          weightPerBagKg = Math.max(0.01, n);
+                                        }
+                                      }
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).map((r, i) =>
+                                          i === index
+                                            ? { ...r, weightPerBagKg }
+                                            : r
+                                        )
+                                      );
+                                    }}
+                                    onWheel={blurTargetOnNumberWheel}
+                                    onKeyDown={preventArrowUpDownOnNumericInput}
+                                    className={cn(
+                                      'font-custom inline-flex h-10 w-[5rem] lg:mx-auto',
+                                      businessNumberSpinnerClassName
+                                    )}
+                                  />
+                                </TableCell>
+                                <TableCell className="px-4 py-3 text-center align-middle">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="font-custom text-muted-foreground hover:text-destructive"
+                                    aria-label={`Remove row ${index + 1}`}
+                                    disabled={
+                                      (form.state.values.orderDetails?.length ??
+                                        0) <= 1
+                                    }
+                                    onClick={() =>
+                                      form.setFieldValue(
+                                        'orderDetails',
+                                        (
+                                          form.state.values.orderDetails ?? []
+                                        ).filter((_, i) => i !== index)
+                                      )
+                                    }
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          }
+                        />
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <form.Subscribe
+                    selector={(state) => state.values.orderDetails}
+                    children={(orderDetails) => {
+                      const totalBags = (orderDetails ?? []).reduce(
+                        (s, r) => s + (Number(r.quantity) || 0),
+                        0
+                      );
+                      const totalNetWeightKg = (orderDetails ?? []).reduce(
+                        (sum, r) => {
+                          const q = Number(r.quantity) || 0;
+                          const wpb = Number(r.weightPerBagKg) || 0;
+                          const bagType = (r.bagType ?? '').toUpperCase();
+                          const bagWt = bagWeights[bagType] ?? 0;
+                          const netPerBag = Math.max(0, wpb - bagWt);
+                          return sum + q * netPerBag;
+                        },
+                        0
+                      );
+                      return (
+                        <Card className="bg-muted/15 border-none shadow-inner">
+                          <CardContent className="space-y-3 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-muted-foreground font-custom text-sm">
+                                Total bags across sizes
+                              </span>
+                              <span className="font-custom text-foreground/80 text-sm font-medium tabular-nums">
+                                {totalBags}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-muted-foreground font-custom text-sm">
+                                Total net weight
+                              </span>
+                              <span className="font-custom text-foreground/80 text-sm font-medium tabular-nums">
+                                {formatNumber(totalNetWeightKg)} kg
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="font-custom focus-visible:ring-primary font-medium"
+                  onClick={() => setStep(0)}
+                >
+                  Back
+                </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="font-custom focus-visible:ring-primary"
+                    onClick={() => form.reset()}
+                  >
+                    Reset form
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="font-custom focus-visible:ring-primary font-bold shadow-lg"
+                    disabled={
+                      isPending || !voucherNumberReady || isVoucherNumberLoading
+                    }
+                  >
+                    Review
+                    <ChevronRight className="ml-1 size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </FieldGroup>
+      </form>
+
+      <GradingSummarySheet
+        open={summaryOpen}
+        summary={summaryValues}
+        isPending={isPending}
+        sheetDescription="Confirm header, grading details, and size breakdown before creating this voucher."
+        confirmLabel="Create voucher"
+        pendingLabel="Creating…"
+        onOpenChange={(open) => {
+          if (!open) confirmSaveRef.current = false;
+          setSummaryOpen(open);
+        }}
+        onConfirm={() => {
+          confirmSaveRef.current = true;
+          setSummaryOpen(false);
+          void form.handleSubmit();
+        }}
+      />
+    </main>
+  );
+});

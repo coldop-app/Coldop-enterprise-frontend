@@ -8,16 +8,12 @@ export const Route = createFileRoute('/store-admin/_authenticated')({
   beforeLoad: async ({ context, location }) => {
     // Check if user is authenticated
     if (!context.auth.isAuthenticated) {
-      // On explicit logout we redirect to login without ?redirect= so URL stays /store-admin/login
-      const isLogout =
-        typeof sessionStorage !== 'undefined' &&
-        sessionStorage.getItem('store-admin-logout');
-      if (isLogout) {
-        sessionStorage.removeItem('store-admin-logout');
-      }
       throw redirect({
         to: '/store-admin/login',
-        search: isLogout ? {} : { redirect: location.href },
+        search: {
+          // Use the current location to power a redirect after login
+          redirect: location.href,
+        },
       });
     }
   },

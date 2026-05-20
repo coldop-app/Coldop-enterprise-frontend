@@ -13,24 +13,41 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ZustandIndexRouteImport } from './routes/zustand/index'
 import { Route as StoreAdminAuthenticatedRouteImport } from './routes/store-admin/_authenticated'
 import { Route as StoreAdminLoginIndexRouteImport } from './routes/store-admin/login/index'
-import { Route as StoreAdminAuthenticatedStorageIndexRouteImport } from './routes/store-admin/_authenticated/storage/index'
+import { Route as StoreAdminAuthenticatedStorageGatePassIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/index'
 import { Route as StoreAdminAuthenticatedSettingsIndexRouteImport } from './routes/store-admin/_authenticated/settings/index'
 import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes/store-admin/_authenticated/people/index'
-import { Route as StoreAdminAuthenticatedOutgoingIndexRouteImport } from './routes/store-admin/_authenticated/outgoing/index'
-import { Route as StoreAdminAuthenticatedNikasiIndexRouteImport } from './routes/store-admin/_authenticated/nikasi/index'
-import { Route as StoreAdminAuthenticatedIncomingIndexRouteImport } from './routes/store-admin/_authenticated/incoming/index'
-import { Route as StoreAdminAuthenticatedGroupedIndexRouteImport } from './routes/store-admin/_authenticated/grouped/index'
-import { Route as StoreAdminAuthenticatedGradingIndexRouteImport } from './routes/store-admin/_authenticated/grading/index'
-import { Route as StoreAdminAuthenticatedFarmerSeedIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/index'
+import { Route as StoreAdminAuthenticatedNikasiGatePassIndexRouteImport } from './routes/store-admin/_authenticated/nikasi-gate-pass/index'
+import { Route as StoreAdminAuthenticatedIncomingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/index'
+import { Route as StoreAdminAuthenticatedGradingGatePassIndexRouteImport } from './routes/store-admin/_authenticated/grading-gate-pass/index'
+import { Route as StoreAdminAuthenticatedFarmerSeedGatePassIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/index'
 import { Route as StoreAdminAuthenticatedDaybookIndexRouteImport } from './routes/store-admin/_authenticated/daybook/index'
-import { Route as StoreAdminAuthenticatedAreaBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/area-breakdown/index'
+import { Route as StoreAdminAuthenticatedContractTestIndexRouteImport } from './routes/store-admin/_authenticated/contract-test/index'
 import { Route as StoreAdminAuthenticatedAnalyticsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/index'
+import { Route as StoreAdminAuthenticatedStorageGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/history/index'
+import { Route as StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/edit/index'
+import { Route as StoreAdminAuthenticatedSettingsRbacIndexRouteImport } from './routes/store-admin/_authenticated/settings/rbac/index'
+import { Route as StoreAdminAuthenticatedSettingsPreferencesIndexRouteImport } from './routes/store-admin/_authenticated/settings/preferences/index'
 import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/index'
-import { Route as StoreAdminAuthenticatedFarmerSeedHistoryIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/history/index'
-import { Route as StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed/edit/index'
-import { Route as StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/index'
-import { Route as StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/analytics/incoming-daily-breakdown/index'
-import { Route as StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRouteImport } from './routes/store-admin/_authenticated/analytics/grading-daily-breakdown/index'
+import { Route as StoreAdminAuthenticatedNikasiGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/nikasi-gate-pass/history/index'
+import { Route as StoreAdminAuthenticatedNikasiGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/nikasi-gate-pass/edit/index'
+import { Route as StoreAdminAuthenticatedIncomingGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/history/index'
+import { Route as StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/incoming-gate-pass/edit/index'
+import { Route as StoreAdminAuthenticatedGradingGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/grading-gate-pass/history/index'
+import { Route as StoreAdminAuthenticatedGradingGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/grading-gate-pass/edit/index'
+import { Route as StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/history/index'
+import { Route as StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRouteImport } from './routes/store-admin/_authenticated/farmer-seed-gate-pass/edit/index'
+import { Route as StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRouteImport } from './routes/store-admin/_authenticated/people/dispatch-ledger/$id/index'
+import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/finance-report/index'
+import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/index'
+import { Route as StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRouteImport } from './routes/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/ungraded/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/storage/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/incoming/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/grading/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/farmer-seed/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/index'
+import { Route as StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport } from './routes/store-admin/_authenticated/analytics/reports/contract-farming/index'
+import { Route as StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRouteImport } from './routes/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,10 +69,10 @@ const StoreAdminLoginIndexRoute = StoreAdminLoginIndexRouteImport.update({
   path: '/store-admin/login/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StoreAdminAuthenticatedStorageIndexRoute =
-  StoreAdminAuthenticatedStorageIndexRouteImport.update({
-    id: '/storage/',
-    path: '/storage/',
+const StoreAdminAuthenticatedStorageGatePassIndexRoute =
+  StoreAdminAuthenticatedStorageGatePassIndexRouteImport.update({
+    id: '/storage-gate-pass/',
+    path: '/storage-gate-pass/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedSettingsIndexRoute =
@@ -70,40 +87,28 @@ const StoreAdminAuthenticatedPeopleIndexRoute =
     path: '/people/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedOutgoingIndexRoute =
-  StoreAdminAuthenticatedOutgoingIndexRouteImport.update({
-    id: '/outgoing/',
-    path: '/outgoing/',
+const StoreAdminAuthenticatedNikasiGatePassIndexRoute =
+  StoreAdminAuthenticatedNikasiGatePassIndexRouteImport.update({
+    id: '/nikasi-gate-pass/',
+    path: '/nikasi-gate-pass/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedNikasiIndexRoute =
-  StoreAdminAuthenticatedNikasiIndexRouteImport.update({
-    id: '/nikasi/',
-    path: '/nikasi/',
+const StoreAdminAuthenticatedIncomingGatePassIndexRoute =
+  StoreAdminAuthenticatedIncomingGatePassIndexRouteImport.update({
+    id: '/incoming-gate-pass/',
+    path: '/incoming-gate-pass/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedIncomingIndexRoute =
-  StoreAdminAuthenticatedIncomingIndexRouteImport.update({
-    id: '/incoming/',
-    path: '/incoming/',
+const StoreAdminAuthenticatedGradingGatePassIndexRoute =
+  StoreAdminAuthenticatedGradingGatePassIndexRouteImport.update({
+    id: '/grading-gate-pass/',
+    path: '/grading-gate-pass/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedGroupedIndexRoute =
-  StoreAdminAuthenticatedGroupedIndexRouteImport.update({
-    id: '/grouped/',
-    path: '/grouped/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
-  } as any)
-const StoreAdminAuthenticatedGradingIndexRoute =
-  StoreAdminAuthenticatedGradingIndexRouteImport.update({
-    id: '/grading/',
-    path: '/grading/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
-  } as any)
-const StoreAdminAuthenticatedFarmerSeedIndexRoute =
-  StoreAdminAuthenticatedFarmerSeedIndexRouteImport.update({
-    id: '/farmer-seed/',
-    path: '/farmer-seed/',
+const StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute =
+  StoreAdminAuthenticatedFarmerSeedGatePassIndexRouteImport.update({
+    id: '/farmer-seed-gate-pass/',
+    path: '/farmer-seed-gate-pass/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedDaybookIndexRoute =
@@ -112,10 +117,10 @@ const StoreAdminAuthenticatedDaybookIndexRoute =
     path: '/daybook/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedAreaBreakdownIndexRoute =
-  StoreAdminAuthenticatedAreaBreakdownIndexRouteImport.update({
-    id: '/area-breakdown/',
-    path: '/area-breakdown/',
+const StoreAdminAuthenticatedContractTestIndexRoute =
+  StoreAdminAuthenticatedContractTestIndexRouteImport.update({
+    id: '/contract-test/',
+    path: '/contract-test/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsIndexRoute =
@@ -124,44 +129,168 @@ const StoreAdminAuthenticatedAnalyticsIndexRoute =
     path: '/analytics/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute =
+  StoreAdminAuthenticatedStorageGatePassHistoryIndexRouteImport.update({
+    id: '/storage-gate-pass/history/',
+    path: '/storage-gate-pass/history/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedStorageGatePassEditIndexRoute =
+  StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport.update({
+    id: '/storage-gate-pass/edit/',
+    path: '/storage-gate-pass/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedSettingsRbacIndexRoute =
+  StoreAdminAuthenticatedSettingsRbacIndexRouteImport.update({
+    id: '/settings/rbac/',
+    path: '/settings/rbac/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedSettingsPreferencesIndexRoute =
+  StoreAdminAuthenticatedSettingsPreferencesIndexRouteImport.update({
+    id: '/settings/preferences/',
+    path: '/settings/preferences/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute =
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport.update({
     id: '/people/$farmerStorageLinkId/',
     path: '/people/$farmerStorageLinkId/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute =
-  StoreAdminAuthenticatedFarmerSeedHistoryIndexRouteImport.update({
-    id: '/farmer-seed/history/',
-    path: '/farmer-seed/history/',
+const StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute =
+  StoreAdminAuthenticatedNikasiGatePassHistoryIndexRouteImport.update({
+    id: '/nikasi-gate-pass/history/',
+    path: '/nikasi-gate-pass/history/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedFarmerSeedEditIndexRoute =
-  StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport.update({
-    id: '/farmer-seed/edit/',
-    path: '/farmer-seed/edit/',
+const StoreAdminAuthenticatedNikasiGatePassEditIndexRoute =
+  StoreAdminAuthenticatedNikasiGatePassEditIndexRouteImport.update({
+    id: '/nikasi-gate-pass/edit/',
+    path: '/nikasi-gate-pass/edit/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedAnalyticsReportsIndexRoute =
-  StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport.update({
-    id: '/analytics/reports/',
-    path: '/analytics/reports/',
+const StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute =
+  StoreAdminAuthenticatedIncomingGatePassHistoryIndexRouteImport.update({
+    id: '/incoming-gate-pass/history/',
+    path: '/incoming-gate-pass/history/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
-const StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute =
-  StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRouteImport.update(
+const StoreAdminAuthenticatedIncomingGatePassEditIndexRoute =
+  StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport.update({
+    id: '/incoming-gate-pass/edit/',
+    path: '/incoming-gate-pass/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute =
+  StoreAdminAuthenticatedGradingGatePassHistoryIndexRouteImport.update({
+    id: '/grading-gate-pass/history/',
+    path: '/grading-gate-pass/history/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedGradingGatePassEditIndexRoute =
+  StoreAdminAuthenticatedGradingGatePassEditIndexRouteImport.update({
+    id: '/grading-gate-pass/edit/',
+    path: '/grading-gate-pass/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute =
+  StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRouteImport.update({
+    id: '/farmer-seed-gate-pass/history/',
+    path: '/farmer-seed-gate-pass/history/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute =
+  StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRouteImport.update({
+    id: '/farmer-seed-gate-pass/edit/',
+    path: '/farmer-seed-gate-pass/edit/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute =
+  StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRouteImport.update({
+    id: '/people/dispatch-ledger/$id/',
+    path: '/people/dispatch-ledger/$id/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute =
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRouteImport.update(
     {
-      id: '/analytics/incoming-daily-breakdown/',
-      path: '/analytics/incoming-daily-breakdown/',
+      id: '/people/$farmerStorageLinkId/finance-report/',
+      path: '/people/$farmerStorageLinkId/finance-report/',
       getParentRoute: () => StoreAdminAuthenticatedRoute,
     } as any,
   )
-const StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute =
-  StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRouteImport.update({
-    id: '/analytics/grading-daily-breakdown/',
-    path: '/analytics/grading-daily-breakdown/',
+const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute =
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRouteImport.update(
+    {
+      id: '/people/$farmerStorageLinkId/farmer-report/',
+      path: '/people/$farmerStorageLinkId/farmer-report/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
+const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute =
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRouteImport.update(
+    {
+      id: '/people/$farmerStorageLinkId/accounting-report/',
+      path: '/people/$farmerStorageLinkId/accounting-report/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
+const StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport.update({
+    id: '/analytics/reports/ungraded/',
+    path: '/analytics/reports/ungraded/',
     getParentRoute: () => StoreAdminAuthenticatedRoute,
   } as any)
+const StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport.update({
+    id: '/analytics/reports/storage/',
+    path: '/analytics/reports/storage/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport.update({
+    id: '/analytics/reports/incoming/',
+    path: '/analytics/reports/incoming/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport.update({
+    id: '/analytics/reports/grading/',
+    path: '/analytics/reports/grading/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport.update({
+    id: '/analytics/reports/farmer-seed/',
+    path: '/analytics/reports/farmer-seed/',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
+const StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRouteImport.update(
+    {
+      id: '/analytics/reports/dispatch-pre-storage/',
+      path: '/analytics/reports/dispatch-pre-storage/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
+const StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute =
+  StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport.update(
+    {
+      id: '/analytics/reports/contract-farming/',
+      path: '/analytics/reports/contract-farming/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
+const StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute =
+  StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRouteImport.update(
+    {
+      id: '/people/dispatch-ledger/$id/dispatch-ledger-report/',
+      path: '/people/dispatch-ledger/$id/dispatch-ledger-report/',
+      getParentRoute: () => StoreAdminAuthenticatedRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -169,23 +298,40 @@ export interface FileRoutesByFullPath {
   '/zustand/': typeof ZustandIndexRoute
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
-  '/store-admin/area-breakdown/': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
+  '/store-admin/contract-test/': typeof StoreAdminAuthenticatedContractTestIndexRoute
   '/store-admin/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
-  '/store-admin/farmer-seed/': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
-  '/store-admin/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
-  '/store-admin/grouped/': typeof StoreAdminAuthenticatedGroupedIndexRoute
-  '/store-admin/incoming/': typeof StoreAdminAuthenticatedIncomingIndexRoute
-  '/store-admin/nikasi/': typeof StoreAdminAuthenticatedNikasiIndexRoute
-  '/store-admin/outgoing/': typeof StoreAdminAuthenticatedOutgoingIndexRoute
+  '/store-admin/farmer-seed-gate-pass/': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  '/store-admin/grading-gate-pass/': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
+  '/store-admin/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
+  '/store-admin/nikasi-gate-pass/': typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   '/store-admin/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
-  '/store-admin/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
-  '/store-admin/analytics/grading-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
-  '/store-admin/analytics/incoming-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
-  '/store-admin/analytics/reports/': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
-  '/store-admin/farmer-seed/edit/': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
-  '/store-admin/farmer-seed/history/': typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
+  '/store-admin/storage-gate-pass/': typeof StoreAdminAuthenticatedStorageGatePassIndexRoute
+  '/store-admin/farmer-seed-gate-pass/edit/': typeof StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute
+  '/store-admin/farmer-seed-gate-pass/history/': typeof StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute
+  '/store-admin/grading-gate-pass/edit/': typeof StoreAdminAuthenticatedGradingGatePassEditIndexRoute
+  '/store-admin/grading-gate-pass/history/': typeof StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute
+  '/store-admin/incoming-gate-pass/edit/': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  '/store-admin/incoming-gate-pass/history/': typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
+  '/store-admin/nikasi-gate-pass/edit/': typeof StoreAdminAuthenticatedNikasiGatePassEditIndexRoute
+  '/store-admin/nikasi-gate-pass/history/': typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   '/store-admin/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
+  '/store-admin/settings/preferences/': typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  '/store-admin/settings/rbac/': typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
+  '/store-admin/storage-gate-pass/edit/': typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
+  '/store-admin/storage-gate-pass/history/': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
+  '/store-admin/analytics/reports/contract-farming/': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
+  '/store-admin/analytics/reports/dispatch-pre-storage/': typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute
+  '/store-admin/analytics/reports/farmer-seed/': typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  '/store-admin/analytics/reports/grading/': typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
+  '/store-admin/analytics/reports/incoming/': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
+  '/store-admin/analytics/reports/storage/': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
+  '/store-admin/analytics/reports/ungraded/': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/accounting-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/farmer-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/finance-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute
+  '/store-admin/people/dispatch-ledger/$id/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -193,23 +339,40 @@ export interface FileRoutesByTo {
   '/zustand': typeof ZustandIndexRoute
   '/store-admin/login': typeof StoreAdminLoginIndexRoute
   '/store-admin/analytics': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
-  '/store-admin/area-breakdown': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
+  '/store-admin/contract-test': typeof StoreAdminAuthenticatedContractTestIndexRoute
   '/store-admin/daybook': typeof StoreAdminAuthenticatedDaybookIndexRoute
-  '/store-admin/farmer-seed': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
-  '/store-admin/grading': typeof StoreAdminAuthenticatedGradingIndexRoute
-  '/store-admin/grouped': typeof StoreAdminAuthenticatedGroupedIndexRoute
-  '/store-admin/incoming': typeof StoreAdminAuthenticatedIncomingIndexRoute
-  '/store-admin/nikasi': typeof StoreAdminAuthenticatedNikasiIndexRoute
-  '/store-admin/outgoing': typeof StoreAdminAuthenticatedOutgoingIndexRoute
+  '/store-admin/farmer-seed-gate-pass': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  '/store-admin/grading-gate-pass': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
+  '/store-admin/incoming-gate-pass': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
+  '/store-admin/nikasi-gate-pass': typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   '/store-admin/people': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/settings': typeof StoreAdminAuthenticatedSettingsIndexRoute
-  '/store-admin/storage': typeof StoreAdminAuthenticatedStorageIndexRoute
-  '/store-admin/analytics/grading-daily-breakdown': typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
-  '/store-admin/analytics/incoming-daily-breakdown': typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
-  '/store-admin/analytics/reports': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
-  '/store-admin/farmer-seed/edit': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
-  '/store-admin/farmer-seed/history': typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
+  '/store-admin/storage-gate-pass': typeof StoreAdminAuthenticatedStorageGatePassIndexRoute
+  '/store-admin/farmer-seed-gate-pass/edit': typeof StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute
+  '/store-admin/farmer-seed-gate-pass/history': typeof StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute
+  '/store-admin/grading-gate-pass/edit': typeof StoreAdminAuthenticatedGradingGatePassEditIndexRoute
+  '/store-admin/grading-gate-pass/history': typeof StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute
+  '/store-admin/incoming-gate-pass/edit': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  '/store-admin/incoming-gate-pass/history': typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
+  '/store-admin/nikasi-gate-pass/edit': typeof StoreAdminAuthenticatedNikasiGatePassEditIndexRoute
+  '/store-admin/nikasi-gate-pass/history': typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   '/store-admin/people/$farmerStorageLinkId': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
+  '/store-admin/settings/preferences': typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  '/store-admin/settings/rbac': typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
+  '/store-admin/storage-gate-pass/edit': typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
+  '/store-admin/storage-gate-pass/history': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
+  '/store-admin/analytics/reports/contract-farming': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
+  '/store-admin/analytics/reports/dispatch-pre-storage': typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute
+  '/store-admin/analytics/reports/farmer-seed': typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  '/store-admin/analytics/reports/grading': typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
+  '/store-admin/analytics/reports/incoming': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
+  '/store-admin/analytics/reports/storage': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
+  '/store-admin/analytics/reports/ungraded': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/accounting-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/farmer-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
+  '/store-admin/people/$farmerStorageLinkId/finance-report': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute
+  '/store-admin/people/dispatch-ledger/$id': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -218,23 +381,40 @@ export interface FileRoutesById {
   '/zustand/': typeof ZustandIndexRoute
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/_authenticated/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
-  '/store-admin/_authenticated/area-breakdown/': typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
+  '/store-admin/_authenticated/contract-test/': typeof StoreAdminAuthenticatedContractTestIndexRoute
   '/store-admin/_authenticated/daybook/': typeof StoreAdminAuthenticatedDaybookIndexRoute
-  '/store-admin/_authenticated/farmer-seed/': typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
-  '/store-admin/_authenticated/grading/': typeof StoreAdminAuthenticatedGradingIndexRoute
-  '/store-admin/_authenticated/grouped/': typeof StoreAdminAuthenticatedGroupedIndexRoute
-  '/store-admin/_authenticated/incoming/': typeof StoreAdminAuthenticatedIncomingIndexRoute
-  '/store-admin/_authenticated/nikasi/': typeof StoreAdminAuthenticatedNikasiIndexRoute
-  '/store-admin/_authenticated/outgoing/': typeof StoreAdminAuthenticatedOutgoingIndexRoute
+  '/store-admin/_authenticated/farmer-seed-gate-pass/': typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  '/store-admin/_authenticated/grading-gate-pass/': typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
+  '/store-admin/_authenticated/incoming-gate-pass/': typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
+  '/store-admin/_authenticated/nikasi-gate-pass/': typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   '/store-admin/_authenticated/people/': typeof StoreAdminAuthenticatedPeopleIndexRoute
   '/store-admin/_authenticated/settings/': typeof StoreAdminAuthenticatedSettingsIndexRoute
-  '/store-admin/_authenticated/storage/': typeof StoreAdminAuthenticatedStorageIndexRoute
-  '/store-admin/_authenticated/analytics/grading-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
-  '/store-admin/_authenticated/analytics/incoming-daily-breakdown/': typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
-  '/store-admin/_authenticated/analytics/reports/': typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
-  '/store-admin/_authenticated/farmer-seed/edit/': typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
-  '/store-admin/_authenticated/farmer-seed/history/': typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
+  '/store-admin/_authenticated/storage-gate-pass/': typeof StoreAdminAuthenticatedStorageGatePassIndexRoute
+  '/store-admin/_authenticated/farmer-seed-gate-pass/edit/': typeof StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute
+  '/store-admin/_authenticated/farmer-seed-gate-pass/history/': typeof StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute
+  '/store-admin/_authenticated/grading-gate-pass/edit/': typeof StoreAdminAuthenticatedGradingGatePassEditIndexRoute
+  '/store-admin/_authenticated/grading-gate-pass/history/': typeof StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute
+  '/store-admin/_authenticated/incoming-gate-pass/edit/': typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  '/store-admin/_authenticated/incoming-gate-pass/history/': typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
+  '/store-admin/_authenticated/nikasi-gate-pass/edit/': typeof StoreAdminAuthenticatedNikasiGatePassEditIndexRoute
+  '/store-admin/_authenticated/nikasi-gate-pass/history/': typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   '/store-admin/_authenticated/people/$farmerStorageLinkId/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
+  '/store-admin/_authenticated/settings/preferences/': typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  '/store-admin/_authenticated/settings/rbac/': typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
+  '/store-admin/_authenticated/storage-gate-pass/edit/': typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
+  '/store-admin/_authenticated/storage-gate-pass/history/': typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
+  '/store-admin/_authenticated/analytics/reports/contract-farming/': typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
+  '/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/': typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute
+  '/store-admin/_authenticated/analytics/reports/farmer-seed/': typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  '/store-admin/_authenticated/analytics/reports/grading/': typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
+  '/store-admin/_authenticated/analytics/reports/incoming/': typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
+  '/store-admin/_authenticated/analytics/reports/storage/': typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
+  '/store-admin/_authenticated/analytics/reports/ungraded/': typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
+  '/store-admin/_authenticated/people/$farmerStorageLinkId/finance-report/': typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute
+  '/store-admin/_authenticated/people/dispatch-ledger/$id/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/': typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -244,23 +424,40 @@ export interface FileRouteTypes {
     | '/zustand/'
     | '/store-admin/login/'
     | '/store-admin/analytics/'
-    | '/store-admin/area-breakdown/'
+    | '/store-admin/contract-test/'
     | '/store-admin/daybook/'
-    | '/store-admin/farmer-seed/'
-    | '/store-admin/grading/'
-    | '/store-admin/grouped/'
-    | '/store-admin/incoming/'
-    | '/store-admin/nikasi/'
-    | '/store-admin/outgoing/'
+    | '/store-admin/farmer-seed-gate-pass/'
+    | '/store-admin/grading-gate-pass/'
+    | '/store-admin/incoming-gate-pass/'
+    | '/store-admin/nikasi-gate-pass/'
     | '/store-admin/people/'
     | '/store-admin/settings/'
-    | '/store-admin/storage/'
-    | '/store-admin/analytics/grading-daily-breakdown/'
-    | '/store-admin/analytics/incoming-daily-breakdown/'
-    | '/store-admin/analytics/reports/'
-    | '/store-admin/farmer-seed/edit/'
-    | '/store-admin/farmer-seed/history/'
+    | '/store-admin/storage-gate-pass/'
+    | '/store-admin/farmer-seed-gate-pass/edit/'
+    | '/store-admin/farmer-seed-gate-pass/history/'
+    | '/store-admin/grading-gate-pass/edit/'
+    | '/store-admin/grading-gate-pass/history/'
+    | '/store-admin/incoming-gate-pass/edit/'
+    | '/store-admin/incoming-gate-pass/history/'
+    | '/store-admin/nikasi-gate-pass/edit/'
+    | '/store-admin/nikasi-gate-pass/history/'
     | '/store-admin/people/$farmerStorageLinkId/'
+    | '/store-admin/settings/preferences/'
+    | '/store-admin/settings/rbac/'
+    | '/store-admin/storage-gate-pass/edit/'
+    | '/store-admin/storage-gate-pass/history/'
+    | '/store-admin/analytics/reports/contract-farming/'
+    | '/store-admin/analytics/reports/dispatch-pre-storage/'
+    | '/store-admin/analytics/reports/farmer-seed/'
+    | '/store-admin/analytics/reports/grading/'
+    | '/store-admin/analytics/reports/incoming/'
+    | '/store-admin/analytics/reports/storage/'
+    | '/store-admin/analytics/reports/ungraded/'
+    | '/store-admin/people/$farmerStorageLinkId/accounting-report/'
+    | '/store-admin/people/$farmerStorageLinkId/farmer-report/'
+    | '/store-admin/people/$farmerStorageLinkId/finance-report/'
+    | '/store-admin/people/dispatch-ledger/$id/'
+    | '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -268,23 +465,40 @@ export interface FileRouteTypes {
     | '/zustand'
     | '/store-admin/login'
     | '/store-admin/analytics'
-    | '/store-admin/area-breakdown'
+    | '/store-admin/contract-test'
     | '/store-admin/daybook'
-    | '/store-admin/farmer-seed'
-    | '/store-admin/grading'
-    | '/store-admin/grouped'
-    | '/store-admin/incoming'
-    | '/store-admin/nikasi'
-    | '/store-admin/outgoing'
+    | '/store-admin/farmer-seed-gate-pass'
+    | '/store-admin/grading-gate-pass'
+    | '/store-admin/incoming-gate-pass'
+    | '/store-admin/nikasi-gate-pass'
     | '/store-admin/people'
     | '/store-admin/settings'
-    | '/store-admin/storage'
-    | '/store-admin/analytics/grading-daily-breakdown'
-    | '/store-admin/analytics/incoming-daily-breakdown'
-    | '/store-admin/analytics/reports'
-    | '/store-admin/farmer-seed/edit'
-    | '/store-admin/farmer-seed/history'
+    | '/store-admin/storage-gate-pass'
+    | '/store-admin/farmer-seed-gate-pass/edit'
+    | '/store-admin/farmer-seed-gate-pass/history'
+    | '/store-admin/grading-gate-pass/edit'
+    | '/store-admin/grading-gate-pass/history'
+    | '/store-admin/incoming-gate-pass/edit'
+    | '/store-admin/incoming-gate-pass/history'
+    | '/store-admin/nikasi-gate-pass/edit'
+    | '/store-admin/nikasi-gate-pass/history'
     | '/store-admin/people/$farmerStorageLinkId'
+    | '/store-admin/settings/preferences'
+    | '/store-admin/settings/rbac'
+    | '/store-admin/storage-gate-pass/edit'
+    | '/store-admin/storage-gate-pass/history'
+    | '/store-admin/analytics/reports/contract-farming'
+    | '/store-admin/analytics/reports/dispatch-pre-storage'
+    | '/store-admin/analytics/reports/farmer-seed'
+    | '/store-admin/analytics/reports/grading'
+    | '/store-admin/analytics/reports/incoming'
+    | '/store-admin/analytics/reports/storage'
+    | '/store-admin/analytics/reports/ungraded'
+    | '/store-admin/people/$farmerStorageLinkId/accounting-report'
+    | '/store-admin/people/$farmerStorageLinkId/farmer-report'
+    | '/store-admin/people/$farmerStorageLinkId/finance-report'
+    | '/store-admin/people/dispatch-ledger/$id'
+    | '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report'
   id:
     | '__root__'
     | '/'
@@ -292,23 +506,40 @@ export interface FileRouteTypes {
     | '/zustand/'
     | '/store-admin/login/'
     | '/store-admin/_authenticated/analytics/'
-    | '/store-admin/_authenticated/area-breakdown/'
+    | '/store-admin/_authenticated/contract-test/'
     | '/store-admin/_authenticated/daybook/'
-    | '/store-admin/_authenticated/farmer-seed/'
-    | '/store-admin/_authenticated/grading/'
-    | '/store-admin/_authenticated/grouped/'
-    | '/store-admin/_authenticated/incoming/'
-    | '/store-admin/_authenticated/nikasi/'
-    | '/store-admin/_authenticated/outgoing/'
+    | '/store-admin/_authenticated/farmer-seed-gate-pass/'
+    | '/store-admin/_authenticated/grading-gate-pass/'
+    | '/store-admin/_authenticated/incoming-gate-pass/'
+    | '/store-admin/_authenticated/nikasi-gate-pass/'
     | '/store-admin/_authenticated/people/'
     | '/store-admin/_authenticated/settings/'
-    | '/store-admin/_authenticated/storage/'
-    | '/store-admin/_authenticated/analytics/grading-daily-breakdown/'
-    | '/store-admin/_authenticated/analytics/incoming-daily-breakdown/'
-    | '/store-admin/_authenticated/analytics/reports/'
-    | '/store-admin/_authenticated/farmer-seed/edit/'
-    | '/store-admin/_authenticated/farmer-seed/history/'
+    | '/store-admin/_authenticated/storage-gate-pass/'
+    | '/store-admin/_authenticated/farmer-seed-gate-pass/edit/'
+    | '/store-admin/_authenticated/farmer-seed-gate-pass/history/'
+    | '/store-admin/_authenticated/grading-gate-pass/edit/'
+    | '/store-admin/_authenticated/grading-gate-pass/history/'
+    | '/store-admin/_authenticated/incoming-gate-pass/edit/'
+    | '/store-admin/_authenticated/incoming-gate-pass/history/'
+    | '/store-admin/_authenticated/nikasi-gate-pass/edit/'
+    | '/store-admin/_authenticated/nikasi-gate-pass/history/'
     | '/store-admin/_authenticated/people/$farmerStorageLinkId/'
+    | '/store-admin/_authenticated/settings/preferences/'
+    | '/store-admin/_authenticated/settings/rbac/'
+    | '/store-admin/_authenticated/storage-gate-pass/edit/'
+    | '/store-admin/_authenticated/storage-gate-pass/history/'
+    | '/store-admin/_authenticated/analytics/reports/contract-farming/'
+    | '/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/'
+    | '/store-admin/_authenticated/analytics/reports/farmer-seed/'
+    | '/store-admin/_authenticated/analytics/reports/grading/'
+    | '/store-admin/_authenticated/analytics/reports/incoming/'
+    | '/store-admin/_authenticated/analytics/reports/storage/'
+    | '/store-admin/_authenticated/analytics/reports/ungraded/'
+    | '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/'
+    | '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/'
+    | '/store-admin/_authenticated/people/$farmerStorageLinkId/finance-report/'
+    | '/store-admin/_authenticated/people/dispatch-ledger/$id/'
+    | '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -348,11 +579,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminLoginIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/store-admin/_authenticated/storage/': {
-      id: '/store-admin/_authenticated/storage/'
-      path: '/storage'
-      fullPath: '/store-admin/storage/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedStorageIndexRouteImport
+    '/store-admin/_authenticated/storage-gate-pass/': {
+      id: '/store-admin/_authenticated/storage-gate-pass/'
+      path: '/storage-gate-pass'
+      fullPath: '/store-admin/storage-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedStorageGatePassIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/settings/': {
@@ -369,46 +600,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/outgoing/': {
-      id: '/store-admin/_authenticated/outgoing/'
-      path: '/outgoing'
-      fullPath: '/store-admin/outgoing/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedOutgoingIndexRouteImport
+    '/store-admin/_authenticated/nikasi-gate-pass/': {
+      id: '/store-admin/_authenticated/nikasi-gate-pass/'
+      path: '/nikasi-gate-pass'
+      fullPath: '/store-admin/nikasi-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedNikasiGatePassIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/nikasi/': {
-      id: '/store-admin/_authenticated/nikasi/'
-      path: '/nikasi'
-      fullPath: '/store-admin/nikasi/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedNikasiIndexRouteImport
+    '/store-admin/_authenticated/incoming-gate-pass/': {
+      id: '/store-admin/_authenticated/incoming-gate-pass/'
+      path: '/incoming-gate-pass'
+      fullPath: '/store-admin/incoming-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/incoming/': {
-      id: '/store-admin/_authenticated/incoming/'
-      path: '/incoming'
-      fullPath: '/store-admin/incoming/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingIndexRouteImport
+    '/store-admin/_authenticated/grading-gate-pass/': {
+      id: '/store-admin/_authenticated/grading-gate-pass/'
+      path: '/grading-gate-pass'
+      fullPath: '/store-admin/grading-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedGradingGatePassIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/grouped/': {
-      id: '/store-admin/_authenticated/grouped/'
-      path: '/grouped'
-      fullPath: '/store-admin/grouped/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedGroupedIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
-    }
-    '/store-admin/_authenticated/grading/': {
-      id: '/store-admin/_authenticated/grading/'
-      path: '/grading'
-      fullPath: '/store-admin/grading/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedGradingIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
-    }
-    '/store-admin/_authenticated/farmer-seed/': {
-      id: '/store-admin/_authenticated/farmer-seed/'
-      path: '/farmer-seed'
-      fullPath: '/store-admin/farmer-seed/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedIndexRouteImport
+    '/store-admin/_authenticated/farmer-seed-gate-pass/': {
+      id: '/store-admin/_authenticated/farmer-seed-gate-pass/'
+      path: '/farmer-seed-gate-pass'
+      fullPath: '/store-admin/farmer-seed-gate-pass/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/daybook/': {
@@ -418,11 +635,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedDaybookIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/area-breakdown/': {
-      id: '/store-admin/_authenticated/area-breakdown/'
-      path: '/area-breakdown'
-      fullPath: '/store-admin/area-breakdown/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedAreaBreakdownIndexRouteImport
+    '/store-admin/_authenticated/contract-test/': {
+      id: '/store-admin/_authenticated/contract-test/'
+      path: '/contract-test'
+      fullPath: '/store-admin/contract-test/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedContractTestIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
     '/store-admin/_authenticated/analytics/': {
@@ -432,6 +649,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
+    '/store-admin/_authenticated/storage-gate-pass/history/': {
+      id: '/store-admin/_authenticated/storage-gate-pass/history/'
+      path: '/storage-gate-pass/history'
+      fullPath: '/store-admin/storage-gate-pass/history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/storage-gate-pass/edit/': {
+      id: '/store-admin/_authenticated/storage-gate-pass/edit/'
+      path: '/storage-gate-pass/edit'
+      fullPath: '/store-admin/storage-gate-pass/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedStorageGatePassEditIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/settings/rbac/': {
+      id: '/store-admin/_authenticated/settings/rbac/'
+      path: '/settings/rbac'
+      fullPath: '/store-admin/settings/rbac/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedSettingsRbacIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/settings/preferences/': {
+      id: '/store-admin/_authenticated/settings/preferences/'
+      path: '/settings/preferences'
+      fullPath: '/store-admin/settings/preferences/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedSettingsPreferencesIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/people/$farmerStorageLinkId/': {
       id: '/store-admin/_authenticated/people/$farmerStorageLinkId/'
       path: '/people/$farmerStorageLinkId'
@@ -439,39 +684,144 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/farmer-seed/history/': {
-      id: '/store-admin/_authenticated/farmer-seed/history/'
-      path: '/farmer-seed/history'
-      fullPath: '/store-admin/farmer-seed/history/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRouteImport
+    '/store-admin/_authenticated/nikasi-gate-pass/history/': {
+      id: '/store-admin/_authenticated/nikasi-gate-pass/history/'
+      path: '/nikasi-gate-pass/history'
+      fullPath: '/store-admin/nikasi-gate-pass/history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/farmer-seed/edit/': {
-      id: '/store-admin/_authenticated/farmer-seed/edit/'
-      path: '/farmer-seed/edit'
-      fullPath: '/store-admin/farmer-seed/edit/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedEditIndexRouteImport
+    '/store-admin/_authenticated/nikasi-gate-pass/edit/': {
+      id: '/store-admin/_authenticated/nikasi-gate-pass/edit/'
+      path: '/nikasi-gate-pass/edit'
+      fullPath: '/store-admin/nikasi-gate-pass/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedNikasiGatePassEditIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/analytics/reports/': {
-      id: '/store-admin/_authenticated/analytics/reports/'
-      path: '/analytics/reports'
-      fullPath: '/store-admin/analytics/reports/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIndexRouteImport
+    '/store-admin/_authenticated/incoming-gate-pass/history/': {
+      id: '/store-admin/_authenticated/incoming-gate-pass/history/'
+      path: '/incoming-gate-pass/history'
+      fullPath: '/store-admin/incoming-gate-pass/history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/analytics/incoming-daily-breakdown/': {
-      id: '/store-admin/_authenticated/analytics/incoming-daily-breakdown/'
-      path: '/analytics/incoming-daily-breakdown'
-      fullPath: '/store-admin/analytics/incoming-daily-breakdown/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRouteImport
+    '/store-admin/_authenticated/incoming-gate-pass/edit/': {
+      id: '/store-admin/_authenticated/incoming-gate-pass/edit/'
+      path: '/incoming-gate-pass/edit'
+      fullPath: '/store-admin/incoming-gate-pass/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
-    '/store-admin/_authenticated/analytics/grading-daily-breakdown/': {
-      id: '/store-admin/_authenticated/analytics/grading-daily-breakdown/'
-      path: '/analytics/grading-daily-breakdown'
-      fullPath: '/store-admin/analytics/grading-daily-breakdown/'
-      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRouteImport
+    '/store-admin/_authenticated/grading-gate-pass/history/': {
+      id: '/store-admin/_authenticated/grading-gate-pass/history/'
+      path: '/grading-gate-pass/history'
+      fullPath: '/store-admin/grading-gate-pass/history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedGradingGatePassHistoryIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/grading-gate-pass/edit/': {
+      id: '/store-admin/_authenticated/grading-gate-pass/edit/'
+      path: '/grading-gate-pass/edit'
+      fullPath: '/store-admin/grading-gate-pass/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedGradingGatePassEditIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/farmer-seed-gate-pass/history/': {
+      id: '/store-admin/_authenticated/farmer-seed-gate-pass/history/'
+      path: '/farmer-seed-gate-pass/history'
+      fullPath: '/store-admin/farmer-seed-gate-pass/history/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/farmer-seed-gate-pass/edit/': {
+      id: '/store-admin/_authenticated/farmer-seed-gate-pass/edit/'
+      path: '/farmer-seed-gate-pass/edit'
+      fullPath: '/store-admin/farmer-seed-gate-pass/edit/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/people/dispatch-ledger/$id/': {
+      id: '/store-admin/_authenticated/people/dispatch-ledger/$id/'
+      path: '/people/dispatch-ledger/$id'
+      fullPath: '/store-admin/people/dispatch-ledger/$id/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/people/$farmerStorageLinkId/finance-report/': {
+      id: '/store-admin/_authenticated/people/$farmerStorageLinkId/finance-report/'
+      path: '/people/$farmerStorageLinkId/finance-report'
+      fullPath: '/store-admin/people/$farmerStorageLinkId/finance-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/': {
+      id: '/store-admin/_authenticated/people/$farmerStorageLinkId/farmer-report/'
+      path: '/people/$farmerStorageLinkId/farmer-report'
+      fullPath: '/store-admin/people/$farmerStorageLinkId/farmer-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/': {
+      id: '/store-admin/_authenticated/people/$farmerStorageLinkId/accounting-report/'
+      path: '/people/$farmerStorageLinkId/accounting-report'
+      fullPath: '/store-admin/people/$farmerStorageLinkId/accounting-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/ungraded/': {
+      id: '/store-admin/_authenticated/analytics/reports/ungraded/'
+      path: '/analytics/reports/ungraded'
+      fullPath: '/store-admin/analytics/reports/ungraded/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/storage/': {
+      id: '/store-admin/_authenticated/analytics/reports/storage/'
+      path: '/analytics/reports/storage'
+      fullPath: '/store-admin/analytics/reports/storage/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/incoming/': {
+      id: '/store-admin/_authenticated/analytics/reports/incoming/'
+      path: '/analytics/reports/incoming'
+      fullPath: '/store-admin/analytics/reports/incoming/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/grading/': {
+      id: '/store-admin/_authenticated/analytics/reports/grading/'
+      path: '/analytics/reports/grading'
+      fullPath: '/store-admin/analytics/reports/grading/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/farmer-seed/': {
+      id: '/store-admin/_authenticated/analytics/reports/farmer-seed/'
+      path: '/analytics/reports/farmer-seed'
+      fullPath: '/store-admin/analytics/reports/farmer-seed/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/': {
+      id: '/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/'
+      path: '/analytics/reports/dispatch-pre-storage'
+      fullPath: '/store-admin/analytics/reports/dispatch-pre-storage/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/analytics/reports/contract-farming/': {
+      id: '/store-admin/_authenticated/analytics/reports/contract-farming/'
+      path: '/analytics/reports/contract-farming'
+      fullPath: '/store-admin/analytics/reports/contract-farming/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
+    '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/': {
+      id: '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/'
+      path: '/people/dispatch-ledger/$id/dispatch-ledger-report'
+      fullPath: '/store-admin/people/dispatch-ledger/$id/dispatch-ledger-report/'
+      preLoaderRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRouteImport
       parentRoute: typeof StoreAdminAuthenticatedRoute
     }
   }
@@ -479,63 +829,114 @@ declare module '@tanstack/react-router' {
 
 interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedAnalyticsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRoute
-  StoreAdminAuthenticatedAreaBreakdownIndexRoute: typeof StoreAdminAuthenticatedAreaBreakdownIndexRoute
+  StoreAdminAuthenticatedContractTestIndexRoute: typeof StoreAdminAuthenticatedContractTestIndexRoute
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
-  StoreAdminAuthenticatedFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedIndexRoute
-  StoreAdminAuthenticatedGradingIndexRoute: typeof StoreAdminAuthenticatedGradingIndexRoute
-  StoreAdminAuthenticatedGroupedIndexRoute: typeof StoreAdminAuthenticatedGroupedIndexRoute
-  StoreAdminAuthenticatedIncomingIndexRoute: typeof StoreAdminAuthenticatedIncomingIndexRoute
-  StoreAdminAuthenticatedNikasiIndexRoute: typeof StoreAdminAuthenticatedNikasiIndexRoute
-  StoreAdminAuthenticatedOutgoingIndexRoute: typeof StoreAdminAuthenticatedOutgoingIndexRoute
+  StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
+  StoreAdminAuthenticatedGradingGatePassIndexRoute: typeof StoreAdminAuthenticatedGradingGatePassIndexRoute
+  StoreAdminAuthenticatedIncomingGatePassIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassIndexRoute
+  StoreAdminAuthenticatedNikasiGatePassIndexRoute: typeof StoreAdminAuthenticatedNikasiGatePassIndexRoute
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
   StoreAdminAuthenticatedSettingsIndexRoute: typeof StoreAdminAuthenticatedSettingsIndexRoute
-  StoreAdminAuthenticatedStorageIndexRoute: typeof StoreAdminAuthenticatedStorageIndexRoute
-  StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute: typeof StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute
-  StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIndexRoute
-  StoreAdminAuthenticatedFarmerSeedEditIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedEditIndexRoute
-  StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute
+  StoreAdminAuthenticatedStorageGatePassIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassIndexRoute
+  StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute
+  StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute
+  StoreAdminAuthenticatedGradingGatePassEditIndexRoute: typeof StoreAdminAuthenticatedGradingGatePassEditIndexRoute
+  StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute
+  StoreAdminAuthenticatedIncomingGatePassEditIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassEditIndexRoute
+  StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute
+  StoreAdminAuthenticatedNikasiGatePassEditIndexRoute: typeof StoreAdminAuthenticatedNikasiGatePassEditIndexRoute
+  StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute
+  StoreAdminAuthenticatedSettingsPreferencesIndexRoute: typeof StoreAdminAuthenticatedSettingsPreferencesIndexRoute
+  StoreAdminAuthenticatedSettingsRbacIndexRoute: typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
+  StoreAdminAuthenticatedStorageGatePassEditIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
+  StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
+  StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute
+  StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute
+  StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute: typeof StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute
 }
 
 const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren =
   {
     StoreAdminAuthenticatedAnalyticsIndexRoute:
       StoreAdminAuthenticatedAnalyticsIndexRoute,
-    StoreAdminAuthenticatedAreaBreakdownIndexRoute:
-      StoreAdminAuthenticatedAreaBreakdownIndexRoute,
+    StoreAdminAuthenticatedContractTestIndexRoute:
+      StoreAdminAuthenticatedContractTestIndexRoute,
     StoreAdminAuthenticatedDaybookIndexRoute:
       StoreAdminAuthenticatedDaybookIndexRoute,
-    StoreAdminAuthenticatedFarmerSeedIndexRoute:
-      StoreAdminAuthenticatedFarmerSeedIndexRoute,
-    StoreAdminAuthenticatedGradingIndexRoute:
-      StoreAdminAuthenticatedGradingIndexRoute,
-    StoreAdminAuthenticatedGroupedIndexRoute:
-      StoreAdminAuthenticatedGroupedIndexRoute,
-    StoreAdminAuthenticatedIncomingIndexRoute:
-      StoreAdminAuthenticatedIncomingIndexRoute,
-    StoreAdminAuthenticatedNikasiIndexRoute:
-      StoreAdminAuthenticatedNikasiIndexRoute,
-    StoreAdminAuthenticatedOutgoingIndexRoute:
-      StoreAdminAuthenticatedOutgoingIndexRoute,
+    StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute:
+      StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute,
+    StoreAdminAuthenticatedGradingGatePassIndexRoute:
+      StoreAdminAuthenticatedGradingGatePassIndexRoute,
+    StoreAdminAuthenticatedIncomingGatePassIndexRoute:
+      StoreAdminAuthenticatedIncomingGatePassIndexRoute,
+    StoreAdminAuthenticatedNikasiGatePassIndexRoute:
+      StoreAdminAuthenticatedNikasiGatePassIndexRoute,
     StoreAdminAuthenticatedPeopleIndexRoute:
       StoreAdminAuthenticatedPeopleIndexRoute,
     StoreAdminAuthenticatedSettingsIndexRoute:
       StoreAdminAuthenticatedSettingsIndexRoute,
-    StoreAdminAuthenticatedStorageIndexRoute:
-      StoreAdminAuthenticatedStorageIndexRoute,
-    StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute:
-      StoreAdminAuthenticatedAnalyticsGradingDailyBreakdownIndexRoute,
-    StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute:
-      StoreAdminAuthenticatedAnalyticsIncomingDailyBreakdownIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsIndexRoute,
-    StoreAdminAuthenticatedFarmerSeedEditIndexRoute:
-      StoreAdminAuthenticatedFarmerSeedEditIndexRoute,
-    StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute:
-      StoreAdminAuthenticatedFarmerSeedHistoryIndexRoute,
+    StoreAdminAuthenticatedStorageGatePassIndexRoute:
+      StoreAdminAuthenticatedStorageGatePassIndexRoute,
+    StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute:
+      StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute,
+    StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute:
+      StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute,
+    StoreAdminAuthenticatedGradingGatePassEditIndexRoute:
+      StoreAdminAuthenticatedGradingGatePassEditIndexRoute,
+    StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute:
+      StoreAdminAuthenticatedGradingGatePassHistoryIndexRoute,
+    StoreAdminAuthenticatedIncomingGatePassEditIndexRoute:
+      StoreAdminAuthenticatedIncomingGatePassEditIndexRoute,
+    StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute:
+      StoreAdminAuthenticatedIncomingGatePassHistoryIndexRoute,
+    StoreAdminAuthenticatedNikasiGatePassEditIndexRoute:
+      StoreAdminAuthenticatedNikasiGatePassEditIndexRoute,
+    StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute:
+      StoreAdminAuthenticatedNikasiGatePassHistoryIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute:
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdIndexRoute,
+    StoreAdminAuthenticatedSettingsPreferencesIndexRoute:
+      StoreAdminAuthenticatedSettingsPreferencesIndexRoute,
+    StoreAdminAuthenticatedSettingsRbacIndexRoute:
+      StoreAdminAuthenticatedSettingsRbacIndexRoute,
+    StoreAdminAuthenticatedStorageGatePassEditIndexRoute:
+      StoreAdminAuthenticatedStorageGatePassEditIndexRoute,
+    StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute:
+      StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute,
+    StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute:
+      StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute,
+    StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute:
+      StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute,
+    StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute:
+      StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute,
+    StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute:
+      StoreAdminAuthenticatedPeopleDispatchLedgerIdIndexRoute,
+    StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute:
+      StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute,
   }
 
 const StoreAdminAuthenticatedRouteWithChildren =

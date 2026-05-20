@@ -1,4 +1,28 @@
 export type Role = 'Admin' | 'Manager' | 'Staff';
+export type PermissionAction =
+  | 'create'
+  | 'read'
+  | 'update'
+  | 'delete'
+  | 'reports';
+
+export type PermissionLookup = Record<string, Record<string, true>>;
+
+export interface RolePermissionItem {
+  resource: string;
+  actions: PermissionAction[];
+}
+
+export interface RolePermission {
+  _id: string;
+  coldStorageId: string;
+  role: Role;
+  isActive: boolean;
+  permissions: RolePermissionItem[];
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
 
 export interface StoreAdmin {
   _id: string;
@@ -44,8 +68,10 @@ export interface StoreAdminLoginData {
       createdAt: string;
       updatedAt: string;
       __v: number;
+      preferencesId?: string;
     };
   };
+  rolePermission: RolePermission;
   token: string;
 }
 

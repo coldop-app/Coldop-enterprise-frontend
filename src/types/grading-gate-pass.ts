@@ -1,4 +1,4 @@
-import type { FarmerStorageLinkFarmer } from './farmer';
+import type { Farmer } from '@/types/incoming-gate-pass';
 
 /** Admin user (graded-by) in grading gate pass response */
 export interface GradingGatePassGradedBy {
@@ -16,14 +16,14 @@ export interface GradingGatePassLinkedBy {
 /** Farmer storage link as returned inside grading gate pass incoming ref */
 export interface GradingGatePassFarmerStorageLink {
   _id: string;
-  farmerId: FarmerStorageLinkFarmer;
+  farmerId: Farmer;
   coldStorageId: string;
-  linkedById: GradingGatePassLinkedBy;
+  linkedById?: GradingGatePassLinkedBy;
   accountNumber: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
   notes?: string;
 }
 
@@ -51,9 +51,20 @@ export interface GradingGatePassIncomingGatePass {
 /** Farmer storage link as returned in grading pass incomingGatePassIds[].farmerStorageLinkId (subset) */
 export interface GradingGatePassIncomingRefLink {
   _id: string;
-  farmerId: FarmerStorageLinkFarmer;
+  farmerId: Farmer;
   linkedById: GradingGatePassLinkedBy;
   accountNumber: number;
+}
+
+/**
+ * Populated farmer storage link on GET `/grading-gate-pass/report` nested `incomingGatePassIds`.
+ * Omits cold-storage bookkeeping fields sometimes absent on this projection.
+ */
+export interface GradingGatePassIncomingReportFarmerStorageLink {
+  _id: string;
+  farmerId: Farmer;
+  accountNumber?: number;
+  linkedById?: GradingGatePassLinkedBy;
 }
 
 /** Incoming gate pass as nested in grading pass incomingGatePassIds[] (list API and get-all-gate-passes-of-farmer) */
@@ -61,10 +72,11 @@ export interface GradingGatePassIncomingRef {
   _id: string;
   farmerStorageLinkId?:
     | GradingGatePassIncomingRefLink
-    | GradingGatePassFarmerStorageLink;
-  gatePassNo: number;
+    | GradingGatePassFarmerStorageLink
+    | GradingGatePassIncomingReportFarmerStorageLink;
+  gatePassNo?: number;
   manualGatePassNumber?: number;
-  date: string;
+  date?: string;
   variety?: string;
   location?: string;
   truckNumber?: string;
@@ -75,6 +87,7 @@ export interface GradingGatePassIncomingRef {
     tareWeightKg?: number;
   };
   status?: string;
+  remarks?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -88,10 +101,17 @@ export interface GradingGatePassOrderDetail {
   weightPerBagKg: number;
 }
 
+/** Farmer storage link projection directly on grading gate pass (newer GET /grading-gate-pass shape) */
+export type GradingGatePassFarmerStorageLinkRef =
+  | GradingGatePassIncomingRefLink
+  | GradingGatePassFarmerStorageLink
+  | GradingGatePassIncomingReportFarmerStorageLink;
+
 /** Grading gate pass as returned by GET /grading-gate-pass (list API) and GET /grading-gate-pass/farmer-storage-link/:id */
 export interface GradingGatePass {
   _id: string;
-  farmerStorageLinkId: string;
+  /** Newer responses populate this object directly on grading gate pass; older shapes may return an ID string */
+  farmerStorageLinkId: string | GradingGatePassFarmerStorageLinkRef;
   incomingGatePassIds: GradingGatePassIncomingRef[];
   /** Populated object in list API; may be ID string in get-all-gate-passes-of-farmer */
   createdBy: GradingGatePassGradedBy | string;
@@ -118,6 +138,45 @@ export interface GradingGatePassPagination {
   totalPages: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
+}
+
+/** Edited-by user metadata inside grading audit response */
+export interface GradingGatePassAuditEditedBy {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+/** Generic old/new pair for audit change values */
+export interface GradingGatePassAuditChangeValue {
+  old: unknown;
+  new: unknown;
+}
+
+/** Field-level changes map in grading gate pass audit */
+export type GradingGatePassAuditChanges = Record<
+  string,
+  GradingGatePassAuditChangeValue
+>;
+
+/** Single audit record from GET /grading-gate-pass/audit */
+export interface GradingGatePassAuditItem {
+  _id: string;
+  gradingGatePassId: string;
+  coldStorageId: string;
+  editedBy: GradingGatePassAuditEditedBy;
+  action: string;
+  changes: GradingGatePassAuditChanges;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** API response for GET /grading-gate-pass/audit */
+export interface GetGradingGatePassAuditApiResponse {
+  success: boolean;
+  data: GradingGatePassAuditItem[];
+  pagination: GradingGatePassPagination;
+  message?: string;
 }
 
 /** API response for GET /grading-gate-pass */
@@ -179,4 +238,36 @@ export interface CreateGradingGatePassApiResponse {
   success: boolean;
   data: CreatedGradingGatePass | null;
   message?: string;
+}
+
+/** GET /grading-gate-pass/:id */
+export interface GetGradingGatePassByIdApiResponse {
+  success: boolean;
+  data: GradingGatePass | null;
+  message?: string;
+}
+
+/** PATCH /grading-gate-pass/:gradingGatePassId */
+export interface EditGradingGatePassInput {
+  farmerStorageLinkId?: string;
+  manualGatePassNumber?: number;
+  date?: string;
+  variety?: string;
+  orderDetails?: CreateGradingGatePassOrderDetail[];
+  allocationStatus?: string;
+  grader?: string;
+  remarks?: string;
+  isMarkedNull?: boolean;
+}
+
+export interface EditGradingGatePassApiResponse {
+  success?: boolean;
+  status?: string;
+  message?: string;
+  data?: GradingGatePass | null;
+}
+
+/** `location.state` when opening grading gate pass edit from the daybook card */
+export interface GradingGatePassEditRouterState {
+  gradingGatePass: GradingGatePass;
 }

@@ -1,11 +1,12 @@
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   IncomingGatePassByFarmerStorageLinkItem,
   SearchIncomingGatePassApiResponse,
 } from '@/types/incoming-gate-pass';
-import { incomingGatePassKeys } from './useCreateIncomingGatePass';
+import { incomingGatePassKeys } from './useGetIncomingGatePasses';
 
 function normalizeGatePassNo(
   gatePassNo: string | number | undefined | null
@@ -13,27 +14,56 @@ function normalizeGatePassNo(
   if (gatePassNo === undefined || gatePassNo === null) {
     return null;
   }
+
   if (typeof gatePassNo === 'string') {
     const trimmed = gatePassNo.trim();
     return trimmed === '' ? null : trimmed;
   }
+
   return gatePassNo;
+}
+
+function getSearchIncomingGatePassErrorMessage(error: unknown): string {
+  if (isAxiosError<{ message?: string }>(error)) {
+    const apiMessage = error.response?.data?.message;
+    if (apiMessage) return apiMessage;
+
+    if (error.code === 'ECONNABORTED') {
+      return 'Request timed out while searching incoming gate passes';
+    }
+
+    if (!error.response) {
+      return 'Network error while searching incoming gate passes';
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return 'Failed to search incoming gate passes';
 }
 
 async function fetchSearchIncomingGatePassByNumber(
   gatePassNo: string | number
 ): Promise<IncomingGatePassByFarmerStorageLinkItem[]> {
-  const segment = encodeURIComponent(String(gatePassNo));
-  const { data } =
-    await storeAdminAxiosClient.get<SearchIncomingGatePassApiResponse>(
-      `/incoming-gate-pass/search/${segment}`
-    );
+  try {
+    const segment = encodeURIComponent(String(gatePassNo));
+    const { data } =
+      await storeAdminAxiosClient.get<SearchIncomingGatePassApiResponse>(
+        `/incoming-gate-pass/search/${segment}`
+      );
 
-  if (!data.success || data.data == null) {
-    throw new Error(data.message ?? 'Failed to search incoming gate passes');
+    if (!data.success || data.data == null) {
+      throw new Error(data.message ?? 'Failed to search incoming gate passes');
+    }
+
+    return data.data;
+  } catch (error) {
+    throw new Error(getSearchIncomingGatePassErrorMessage(error), {
+      cause: error,
+    });
   }
-
-  return data.data;
 }
 
 /** Query options for GET /incoming-gate-pass/search/:gatePassNo */
@@ -46,18 +76,24 @@ export const searchIncomingGatePassNumberQueryOptions = (
     queryKey: [...incomingGatePassKeys.all, 'search', normalized] as const,
     queryFn: () => fetchSearchIncomingGatePassByNumber(normalized!),
     enabled: normalized !== null,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
   });
 };
 
 /**
- * Search incoming gate passes by gate pass number (matches system and manual numbers per API).
+ * Search incoming gate passes by gate pass number.
  * GET /incoming-gate-pass/search/:gatePassNo
- * Auth is applied via store admin axios client (Bearer token).
  */
 export function useSearchIncomingGatePassNumber(
-  gatePassNo: string | number | undefined | null
+  gatePassNo: string | number | undefined | null,
+  options?: { enabled?: boolean }
 ) {
-  return useQuery(searchIncomingGatePassNumberQueryOptions(gatePassNo));
+  const query = searchIncomingGatePassNumberQueryOptions(gatePassNo);
+  return useQuery({
+    ...query,
+    enabled: (query.enabled ?? true) && (options?.enabled ?? true),
+  });
 }
 
 export function prefetchSearchIncomingGatePassNumber(

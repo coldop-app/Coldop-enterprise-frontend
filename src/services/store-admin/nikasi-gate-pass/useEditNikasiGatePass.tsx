@@ -3,38 +3,132 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
-import type {
-  EditNikasiGatePassApiResponse,
-  EditNikasiGatePassInput,
-} from '@/types/nikasi-gate-pass';
-import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
-import { gradingGatePassKeys } from '../grading-gate-pass/useGetGradingGatePasses';
-import { groupedNikasiGatePassKeys } from './useGetGroupedNikasiGatePasses';
+
 import { nikasiGatePassKeys } from './useGetNikasiGatePasses';
 
-/** API error shape (400, 404, 409): { success, error: { code, message } } */
+export interface NikasiBagSizeInput {
+  size: string;
+  variety: string;
+  quantityIssued: number;
+}
+
+/** PATCH body for /nikasi-gate-pass/:nikasiGatePassId */
+export interface EditNikasiGatePassInput {
+  gatePassNo?: number;
+  manualGatePassNumber?: number;
+  truckNumber?: string;
+  isInternalTransfer?: boolean;
+  date?: string;
+  from?: string;
+  /** Destination label; omitted when empty after trim. */
+  to?: string;
+  dispatchLedgerId?: string;
+  bagSizes?: NikasiBagSizeInput[];
+  remarks?: string;
+  netWeight?: number;
+  averageWeightPerBag?: number;
+}
+
+/** Params for edit mutation: nikasi gate pass id + payload */
+export type EditNikasiGatePassParams = EditNikasiGatePassInput & {
+  nikasiGatePassId: string;
+};
+
+export interface EditNikasiGatePassApiResponse {
+  status?: string;
+  success?: boolean;
+  message?: string;
+  data?: Record<string, unknown> | null;
+}
+
 type NikasiGatePassApiError = {
+  status?: string;
+  statusCode?: number;
+  errorCode?: string;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-function getEditErrorMessage(data: NikasiGatePassApiError | undefined): string {
+const DEFAULT_ERROR_MESSAGE = 'Failed to update nikasi gate pass';
+
+const STATUS_ERROR_MESSAGES: Record<number, string> = {
+  400: 'Invalid nikasi gate pass payload',
+  401: 'Unauthorized request',
+  404: 'Nikasi gate pass not found',
+  409: 'Nikasi gate pass number already exists',
+};
+
+/** Same rules as create — use in UI `mutate({ onSuccess })` so navigation matches hook toasts. */
+export function isEditNikasiGatePassSuccess(
+  data: EditNikasiGatePassApiResponse
+): boolean {
+  if (typeof data.success === 'boolean') return data.success;
+  return data.status?.toLowerCase() === 'success';
+}
+
+function getEditNikasiGatePassErrorMessage(
+  data: NikasiGatePassApiError | undefined,
+  status?: number
+): string {
   return (
-    data?.error?.message ?? data?.message ?? 'Failed to update nikasi gate pass'
+    data?.error?.message ??
+    data?.message ??
+    (status !== undefined && status in STATUS_ERROR_MESSAGES
+      ? STATUS_ERROR_MESSAGES[status]
+      : null) ??
+    DEFAULT_ERROR_MESSAGE
   );
 }
 
-/** Params for the edit mutation: nikasi gate pass id + payload */
-export type EditNikasiGatePassParams = EditNikasiGatePassInput & {
-  id: string;
-};
+function normalizeEditNikasiGatePassPayload(
+  payload: EditNikasiGatePassInput
+): EditNikasiGatePassInput {
+  return {
+    ...(payload.gatePassNo !== undefined && {
+      gatePassNo: payload.gatePassNo,
+    }),
+    ...(payload.manualGatePassNumber !== undefined && {
+      manualGatePassNumber: payload.manualGatePassNumber,
+    }),
+    ...(payload.truckNumber !== undefined && {
+      truckNumber: payload.truckNumber.trim(),
+    }),
+    ...(payload.isInternalTransfer !== undefined && {
+      isInternalTransfer: payload.isInternalTransfer,
+    }),
+    ...(payload.date !== undefined && {
+      date: payload.date,
+    }),
+    ...(payload.from !== undefined && {
+      from: payload.from.trim(),
+    }),
+    ...(payload.to !== undefined &&
+      payload.to.trim() !== '' && {
+        to: payload.to.trim(),
+      }),
+    ...(payload.dispatchLedgerId !== undefined && {
+      dispatchLedgerId: payload.dispatchLedgerId.trim(),
+    }),
+    ...(payload.bagSizes !== undefined && {
+      bagSizes: payload.bagSizes.map((bag) => ({
+        size: bag.size.trim(),
+        variety: bag.variety.trim(),
+        quantityIssued: bag.quantityIssued,
+      })),
+    }),
+    ...(payload.remarks !== undefined && {
+      remarks: payload.remarks.trim(),
+    }),
+    ...(payload.netWeight !== undefined && {
+      netWeight: payload.netWeight,
+    }),
+    ...(payload.averageWeightPerBag !== undefined && {
+      averageWeightPerBag: payload.averageWeightPerBag,
+    }),
+  };
+}
 
-/**
- * Hook to update a nikasi (dispatch) gate pass.
- *
- * API: PATCH /api/v1/nikasi-gate-pass/:id
- * Headers: Authorization: Bearer <token>, Content-Type: application/json
- */
+/** Hook to edit a nikasi gate pass. PATCH /nikasi-gate-pass/:nikasiGatePassId */
 export function useEditNikasiGatePass() {
   return useMutation<
     EditNikasiGatePassApiResponse,
@@ -42,34 +136,36 @@ export function useEditNikasiGatePass() {
     EditNikasiGatePassParams
   >({
     mutationKey: [...nikasiGatePassKeys.all, 'edit'],
+    mutationFn: async ({ nikasiGatePassId, ...payload }) => {
+      const safeNikasiGatePassId = encodeURIComponent(nikasiGatePassId);
+      const normalizedPayload = normalizeEditNikasiGatePassPayload(payload);
 
-    mutationFn: async ({ id, ...payload }) => {
       const { data } =
         await storeAdminAxiosClient.patch<EditNikasiGatePassApiResponse>(
-          `/nikasi-gate-pass/${id}`,
-          payload
+          `/nikasi-gate-pass/${safeNikasiGatePassId}`,
+          normalizedPayload
         );
+
       return data;
     },
-
-    onSuccess: (data) => {
-      if (data.success) {
+    onSuccess: async (data) => {
+      if (isEditNikasiGatePassSuccess(data)) {
         toast.success(data.message ?? 'Nikasi gate pass updated successfully');
-        queryClient.invalidateQueries({ queryKey: daybookKeys.all });
-        queryClient.invalidateQueries({ queryKey: nikasiGatePassKeys.all });
-        queryClient.invalidateQueries({
-          queryKey: groupedNikasiGatePassKeys.all,
+        await queryClient.invalidateQueries({
+          queryKey: nikasiGatePassKeys.all,
         });
-        queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
       } else {
-        toast.error(data.message ?? 'Failed to update nikasi gate pass');
+        toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
       }
     },
-
     onError: (error) => {
+      const status = error.response?.status;
       const errMsg = error.response?.data
-        ? getEditErrorMessage(error.response.data)
-        : error.message || 'Failed to update nikasi gate pass';
+        ? getEditNikasiGatePassErrorMessage(error.response.data, status)
+        : status !== undefined && status in STATUS_ERROR_MESSAGES
+          ? STATUS_ERROR_MESSAGES[status]
+          : error.message || DEFAULT_ERROR_MESSAGE;
+
       toast.error(errMsg);
     },
   });

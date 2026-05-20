@@ -1,65 +1,108 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import {
+  usePreferencesStore,
+  usePreferencesStoreHydrated,
+} from '@/stores/usePreferencesStore';
+import { useStore } from '@/stores/store';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 export const Route = createFileRoute('/zustand/')({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const [bears, setBears] = useState(0);
+  const admin = useStore((state) => state.admin);
+  const coldStorage = useStore((state) => state.coldStorage);
+  const token = useStore((state) => state.token);
+  const permissions = usePermissionsStore((state) => state.permissions);
+  const daybookActiveTab = useStore((state) => state.daybookActiveTab);
+  const isLoading = useStore((state) => state.isLoading);
+  const hasHydrated = useStore((state) => state._hasHydrated);
+
+  const preferences = usePreferencesStore((state) => state.preferences);
+  const syncedColdStorageId = usePreferencesStore(
+    (state) => state.syncedColdStorageId
+  );
+  const preferencesHydrated = usePreferencesStoreHydrated();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-6 shadow-md">
-        <h2 className="text-center text-xl font-semibold text-gray-800">
-          Hello "/zustand/"!
-        </h2>
+    <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
+      <div className="space-y-4 rounded-xl border bg-white p-4 shadow-sm sm:p-6">
+        <h1 className="font-custom text-2xl font-bold tracking-tight text-[#333]">
+          Zustand Global State
+        </h1>
+        <p className="font-custom text-sm text-[#6f6f6f]">
+          Live snapshot of values from `src/stores/store.ts`,
+          `src/stores/usePermissionsStore.ts`, and
+          `src/stores/usePreferencesStore.ts`.
+        </p>
 
-        <BearCounter bears={bears} />
-        <Controls
-          onIncrease={() => setBears((count) => count + 1)}
-          onReset={() => setBears(0)}
+        <StateBlock
+          title="admin"
+          value={admin}
+          emptyLabel="No admin data in store"
+        />
+        <StateBlock
+          title="coldStorage"
+          value={coldStorage}
+          emptyLabel="No cold storage selected"
+        />
+        <StateBlock title="token" value={token} emptyLabel="No token present" />
+        <StateBlock
+          title="permissions"
+          value={permissions}
+          emptyLabel="No permissions available"
+        />
+        <StateBlock title="daybookActiveTab" value={daybookActiveTab} />
+        <StateBlock title="isLoading" value={isLoading} />
+        <StateBlock title="_hasHydrated" value={hasHydrated} />
+
+        <h2 className="font-custom pt-4 text-lg font-semibold text-[#333]">
+          Store admin preferences (`usePreferencesStore`)
+        </h2>
+        <StateBlock
+          title="preferences"
+          value={preferences}
+          emptyLabel="No preferences synced yet"
+        />
+        <StateBlock
+          title="syncedColdStorageId"
+          value={syncedColdStorageId}
+          emptyLabel="No cold storage linked for preference sync"
+        />
+        <StateBlock
+          title="preferences persist hydrated"
+          value={preferencesHydrated}
         />
       </div>
-    </div>
+    </main>
   );
 }
 
-// --------------------
-// Components
-// --------------------
-
-function BearCounter({ bears }: { bears: number }) {
-  return (
-    <div className="text-center">
-      <h1 className="text-3xl font-bold text-gray-900">{bears}</h1>
-      <p className="text-sm text-gray-500">bears around here...</p>
-    </div>
-  );
-}
-
-function Controls({
-  onIncrease,
-  onReset,
+function StateBlock({
+  title,
+  value,
+  emptyLabel,
 }: {
-  onIncrease: () => void;
-  onReset: () => void;
+  title: string;
+  value: unknown;
+  emptyLabel?: string;
 }) {
-  return (
-    <div className="flex gap-3">
-      <button
-        onClick={onIncrease}
-        className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700"
-      >
-        Add bear
-      </button>
+  const isEmpty = value === null || value === undefined || value === '';
 
-      <button
-        onClick={onReset}
-        className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-      >
-        Remove all
-      </button>
-    </div>
+  return (
+    <section className="space-y-2 rounded-lg border p-3">
+      <h2 className="font-custom text-sm font-semibold tracking-wide text-[#333] uppercase">
+        {title}
+      </h2>
+      {isEmpty && emptyLabel ? (
+        <p className="font-custom text-sm text-[#6f6f6f]">{emptyLabel}</p>
+      ) : (
+        <pre className="overflow-auto rounded-md bg-gray-50 p-3 text-xs">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      )}
+    </section>
   );
 }

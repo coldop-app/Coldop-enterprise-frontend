@@ -7,47 +7,40 @@ import queryClient from '@/lib/queryClient';
 import storeAdminAxiosClient from '@/lib/axios';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useStore } from '@/stores/store';
 import type { ColdStorage } from '@/types/cold-storage';
+import type { PermissionLookup, RolePermissionItem } from '@/types/store-admin';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
+import { preferencesQueryOptions } from '@/services/store-admin/preferences/useGetPreferences';
 
-/** API error shape (400, 401, 429, 500): { success, error: { code, message } } */
-type StoreAdminLoginApiError = {
-  success?: boolean;
-  message?: string;
-  error?: { code?: string; message?: string };
+const buildPermissionLookup = (
+  permissionEntries: RolePermissionItem[]
+): PermissionLookup => {
+  return permissionEntries.reduce<PermissionLookup>((acc, permission) => {
+    if (!acc[permission.resource]) {
+      acc[permission.resource] = {};
+    }
+
+    permission.actions.forEach((action) => {
+      acc[permission.resource][action] = true;
+    });
+
+    return acc;
+  }, {});
 };
-
-const DEFAULT_ERROR_MESSAGE = 'Login failed. Please try again.';
-
-const STATUS_ERROR_MESSAGES: Record<number, string> = {
-  400: 'Invalid request. Please check mobile number and password.',
-  401: 'Invalid mobile number or password.',
-  429: 'Too many login attempts. Please try again later.',
-  500: 'Something went wrong. Please try again later.',
-};
-
-function getStoreAdminLoginErrorMessage(
-  data: StoreAdminLoginApiError | undefined,
-  status?: number
-): string {
-  const fromBody =
-    data?.error?.message ??
-    data?.message ??
-    (status !== undefined && status in STATUS_ERROR_MESSAGES
-      ? STATUS_ERROR_MESSAGES[status]
-      : null);
-  return fromBody ?? DEFAULT_ERROR_MESSAGE;
-}
 
 export const useStoreAdminLogin = () => {
   const navigate = useNavigate();
+  const router = useRouter();
   const search = useSearch({ from: '/store-admin/login/' });
   const { setAdminData, setLoading } = useStore();
+  const { setPermissions } = usePermissionsStore();
 
   return useMutation<
     StoreAdminLoginApiResponse,
-    AxiosError<StoreAdminLoginApiError>,
+    AxiosError<{ message?: string }>,
     StoreAdminLoginInput
   >({
     mutationKey: ['store-admin', 'login'],
@@ -64,7 +57,7 @@ export const useStoreAdminLogin = () => {
       return data;
     },
 
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setLoading(false);
 
       if (!data.success || !data.data) {
@@ -72,7 +65,7 @@ export const useStoreAdminLogin = () => {
         return;
       }
 
-      const { storeAdmin, token } = data.data;
+      const { storeAdmin, token, rolePermission } = data.data;
 
       // Transform the API response to match our StoreAdmin type
       // The API returns coldStorageId as an object, but our type expects it as a string
@@ -108,8 +101,27 @@ export const useStoreAdminLogin = () => {
         updatedAt: storeAdmin.updatedAt,
       };
 
-      // Store admin + coldStorage + token
+      const permissions = buildPermissionLookup(rolePermission.permissions);
+
+      // Store auth + cold storage in auth store
       setAdminData(admin, coldStorage, token);
+      // Store permissions in dedicated store for easier access
+      setPermissions(permissions);
+
+      // Seed cold-storage preferences (bag sizes, varieties, bag types, etc.)
+      // into the persisted zustand store *now*, so pages that depend on
+      // `usePreferencesStore` (Nikasi / Grading / Storage / Incoming /
+      // Farmer-Seed gate-pass forms) render correctly on the very first visit
+      // without requiring the user to open Settings → Preferences first.
+      // Token is read from `useStore` by the axios interceptor, so this works
+      // because `setAdminData` ran above.
+      try {
+        const prefs = await queryClient.fetchQuery(preferencesQueryOptions());
+        usePreferencesStore.getState().resetToServer(prefs);
+      } catch (err) {
+        // Non-fatal: user can still log in. Settings page will sync later.
+        console.error('Failed to preload preferences on login:', err);
+      }
 
       toast.success(data.message || 'Logged in successfully!');
 
@@ -119,12 +131,28 @@ export const useStoreAdminLogin = () => {
       const redirectTo =
         (search as { redirect?: string })?.redirect || '/store-admin/daybook';
 
-      // If redirect is a full URL, use window.location, otherwise use router navigation
-      if (redirectTo.startsWith('http')) {
-        window.location.href = redirectTo;
-      } else {
+      // Use router history for login redirects to preserve full target URL.
+      try {
+        if (redirectTo.startsWith('http')) {
+          const redirectUrl = new URL(redirectTo);
+          const currentOrigin = window.location.origin;
+
+          if (redirectUrl.origin === currentOrigin) {
+            router.history.push(
+              `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`
+            );
+          } else {
+            navigate({
+              href: redirectTo,
+              replace: true,
+            });
+          }
+        } else {
+          router.history.push(redirectTo);
+        }
+      } catch {
         navigate({
-          to: redirectTo,
+          to: '/store-admin/daybook',
           replace: true,
         });
       }
@@ -133,16 +161,8 @@ export const useStoreAdminLogin = () => {
     onError: (error) => {
       setLoading(false);
 
-      const status = error.response?.status;
       const errMsg =
-        error.response?.data !== undefined
-          ? getStoreAdminLoginErrorMessage(
-              error.response.data as StoreAdminLoginApiError,
-              status
-            )
-          : status !== undefined && status in STATUS_ERROR_MESSAGES
-            ? STATUS_ERROR_MESSAGES[status]
-            : error.message || DEFAULT_ERROR_MESSAGE;
+        error.response?.data?.message || error.message || 'Login failed';
 
       toast.error(errMsg);
     },

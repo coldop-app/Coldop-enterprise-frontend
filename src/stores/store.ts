@@ -4,11 +4,27 @@ import { persist } from 'zustand/middleware';
 
 import type { StoreAdmin } from '@/types/store-admin';
 import type { ColdStorage } from '@/types/cold-storage';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
 
 interface StoreState {
   admin: Omit<StoreAdmin, 'password'> | null;
   coldStorage: ColdStorage | null;
   token: string | null;
+  daybookActiveTab:
+    | 'seed'
+    | 'incoming'
+    | 'grading'
+    | 'storage'
+    | 'dispatch-pre-outgoing'
+    | 'dispatch-outgoing';
+  analyticsActiveTab:
+    | 'seed'
+    | 'incoming'
+    | 'grading'
+    | 'storage'
+    | 'dispatch-pre-outgoing'
+    | 'dispatch-outgoing';
   isLoading: boolean;
   _hasHydrated: boolean;
 
@@ -19,11 +35,32 @@ interface StoreState {
   ) => void;
 
   clearAdminData: () => void;
+  setDaybookActiveTab: (
+    tab:
+      | 'seed'
+      | 'incoming'
+      | 'grading'
+      | 'storage'
+      | 'dispatch-pre-outgoing'
+      | 'dispatch-outgoing'
+  ) => void;
+  setAnalyticsActiveTab: (
+    tab:
+      | 'seed'
+      | 'incoming'
+      | 'grading'
+      | 'storage'
+      | 'dispatch-pre-outgoing'
+      | 'dispatch-outgoing'
+  ) => void;
   setLoading: (loading: boolean) => void;
   setHasHydrated: (state: boolean) => void;
 }
 
-type PersistedState = Pick<StoreState, 'admin' | 'coldStorage' | 'token'>;
+type PersistedState = Pick<
+  StoreState,
+  'admin' | 'coldStorage' | 'token' | 'daybookActiveTab' | 'analyticsActiveTab'
+>;
 
 // ⏳ 1 week expiry in milliseconds
 const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -66,10 +103,12 @@ const expiringStorage = {
 
 export const useStore = create(
   persist<StoreState, [], [], PersistedState>(
-    (set, _get) => ({
+    (set) => ({
       admin: null,
       coldStorage: null,
       token: null,
+      daybookActiveTab: 'seed',
+      analyticsActiveTab: 'seed',
       isLoading: false,
       _hasHydrated: false,
 
@@ -83,11 +122,18 @@ export const useStore = create(
       },
 
       clearAdminData: () =>
-        set({
-          admin: null,
-          coldStorage: null,
-          token: null,
+        set(() => {
+          usePermissionsStore.getState().clearPermissions();
+          usePreferencesStore.getState().clear();
+          return {
+            admin: null,
+            coldStorage: null,
+            token: null,
+          };
         }),
+
+      setDaybookActiveTab: (tab) => set({ daybookActiveTab: tab }),
+      setAnalyticsActiveTab: (tab) => set({ analyticsActiveTab: tab }),
 
       setLoading: (loading) => set({ isLoading: loading }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -101,6 +147,8 @@ export const useStore = create(
         admin: state.admin,
         coldStorage: state.coldStorage,
         token: state.token,
+        daybookActiveTab: state.daybookActiveTab,
+        analyticsActiveTab: state.analyticsActiveTab,
       }),
 
       onRehydrateStorage: () => (state) => {
@@ -110,3 +158,9 @@ export const useStore = create(
     }
   )
 );
+
+/** Cold storage prefs (`localStorage`, no TTL) — see `./usePreferencesStore` */
+export {
+  usePreferencesStore,
+  usePreferencesStoreHydrated,
+} from './usePreferencesStore';

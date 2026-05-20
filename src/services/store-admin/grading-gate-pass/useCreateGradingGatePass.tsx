@@ -1,81 +1,116 @@
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  CreateGradingGatePassInput,
   CreateGradingGatePassApiResponse,
+  CreateGradingGatePassInput,
 } from '@/types/grading-gate-pass';
-import { gradingGatePassReportKeys } from '@/services/store-admin/analytics/grading/useGetGradingGatePassReports';
-import { incomingGatePassesByFarmerKey } from '@/services/store-admin/incoming-gate-pass/useGetIncomingGatePassesOfSingleFarmer';
-import { voucherNumberKeys } from '@/services/store-admin/functions/useGetVoucherNumber';
+import { gradingGatePassReportKeys } from './analytics/useGetGradingGatePassReport';
 import { gradingGatePassKeys } from './useGetGradingGatePasses';
-import { daybookKeys } from './useGetDaybook';
 
-/** API error shape (400, 404, 409): { success, error: { code, message } } */
 type GradingGatePassApiError = {
+  success?: boolean;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-function getGradingGatePassErrorMessage(
-  data: GradingGatePassApiError | undefined
+const DEFAULT_ERROR = 'Failed to create grading gate pass';
+const DAYBOOK_ROUTE = '/store-admin/daybook' as const;
+
+const STATUS_ERROR_MESSAGES: Record<number, string> = {
+  400: 'Invalid grading gate pass payload',
+  401: 'Unauthorized request',
+  403: 'You do not have permission to create this grading gate pass',
+  404: 'Resource not found',
+  409: 'Grading gate pass number conflict',
+};
+
+function getCreateGradingGatePassErrorMessage(
+  data: GradingGatePassApiError | undefined,
+  status?: number,
+  fallback: string = DEFAULT_ERROR
 ): string {
   return (
     data?.error?.message ??
     data?.message ??
-    'Failed to create grading gate pass'
+    (status !== undefined && status in STATUS_ERROR_MESSAGES
+      ? STATUS_ERROR_MESSAGES[status]
+      : null) ??
+    fallback
   );
 }
 
-/**
- * Hook to create a grading gate pass.
- * POST /grading-gate-pass
- * Payload may include optional manualGatePassNumber (number).
- */
+function normalizeCreatePayload(
+  payload: CreateGradingGatePassInput
+): CreateGradingGatePassInput {
+  return {
+    farmerStorageLinkId: payload.farmerStorageLinkId.trim(),
+    incomingGatePassIds: payload.incomingGatePassIds.map((id) => id.trim()),
+    gatePassNo: Math.floor(Number(payload.gatePassNo)),
+    date: payload.date.trim(),
+    variety: payload.variety.trim(),
+    allocationStatus: payload.allocationStatus.trim(),
+    orderDetails: payload.orderDetails.map((row) => ({
+      size: row.size.trim(),
+      bagType: row.bagType.trim(),
+      currentQuantity: row.currentQuantity,
+      initialQuantity: row.initialQuantity,
+      weightPerBagKg: row.weightPerBagKg,
+    })),
+    ...(payload.manualGatePassNumber !== undefined && {
+      manualGatePassNumber: payload.manualGatePassNumber,
+    }),
+    ...(payload.grader !== undefined && {
+      grader: payload.grader.trim(),
+    }),
+    ...(payload.remarks !== undefined && {
+      remarks: payload.remarks.trim(),
+    }),
+  };
+}
+
+/** POST /grading-gate-pass */
 export function useCreateGradingGatePass() {
+  const navigate = useNavigate();
+
   return useMutation<
     CreateGradingGatePassApiResponse,
     AxiosError<GradingGatePassApiError>,
     CreateGradingGatePassInput
   >({
     mutationKey: [...gradingGatePassKeys.all, 'create'],
-
     mutationFn: async (payload) => {
+      const body = normalizeCreatePayload(payload);
       const { data } =
         await storeAdminAxiosClient.post<CreateGradingGatePassApiResponse>(
           '/grading-gate-pass',
-          payload
+          body
         );
       return data;
     },
-
-    onSuccess: (data, variables) => {
+    onSuccess: async (data) => {
       if (data.success) {
-        toast.success(data.message ?? 'Grading gate pass created successfully');
-        queryClient.invalidateQueries({ queryKey: daybookKeys.all });
-        queryClient.invalidateQueries({ queryKey: gradingGatePassKeys.all });
-        queryClient.invalidateQueries({
+        toast.success(data.message ?? 'Grading gate pass created');
+        await queryClient.invalidateQueries({
+          queryKey: gradingGatePassKeys.all,
+        });
+        await queryClient.invalidateQueries({
           queryKey: gradingGatePassReportKeys.all,
         });
-        queryClient.invalidateQueries({
-          queryKey: voucherNumberKeys.detail('grading-gate-pass'),
-        });
-        queryClient.invalidateQueries({
-          queryKey: incomingGatePassesByFarmerKey(
-            variables.farmerStorageLinkId
-          ),
-        });
+        await navigate({ to: DAYBOOK_ROUTE });
       } else {
-        toast.error(data.message ?? 'Failed to create grading gate pass');
+        toast.error(data.message ?? DEFAULT_ERROR);
       }
     },
-
     onError: (error) => {
-      const errMsg = error.response?.data
-        ? getGradingGatePassErrorMessage(error.response.data)
-        : error.message || 'Failed to create grading gate pass';
+      const errMsg = getCreateGradingGatePassErrorMessage(
+        error.response?.data,
+        error.response?.status,
+        error.message || DEFAULT_ERROR
+      );
       toast.error(errMsg);
     },
   });

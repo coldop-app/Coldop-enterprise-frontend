@@ -3,14 +3,15 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
+import { incomingGatePassReportKeys } from './analytics/useGetIncomingGatePassReport';
+import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
 import type {
-  EditIncomingGatePassInput,
   EditIncomingGatePassApiResponse,
+  EditIncomingGatePassInput,
 } from '@/types/incoming-gate-pass';
-import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
-import { incomingGatePassKeys } from './useCreateIncomingGatePass';
+import { incomingGatePassKeys } from './useGetIncomingGatePasses';
 
-/** API error shape (400, 404, 409): { success, error: { code, message } } */
+/** API error shape (e.g. 400/404/409): { success, error: { code, message } } */
 type IncomingGatePassApiError = {
   message?: string;
   error?: { code?: string; message?: string };
@@ -34,18 +35,9 @@ export type EditIncomingGatePassParams = EditIncomingGatePassInput & {
 /**
  * Hook to update an incoming gate pass.
  *
- * API: PUT /api/v1/incoming-gate-pass/:id
- * Headers: Authorization: Bearer <token>, Content-Type: application/json
- * Body: { manualGatePassNumber?, weightSlip?: { grossWeightKg, tareWeightKg }, reason? }
- * Response: { success: true, data: {}, message: "Incoming gate pass updated successfully" }
- *
- * @example
- * mutate({
- *   id: '69b290b6952285098e02091e',
- *   manualGatePassNumber: 400,
- *   weightSlip: { grossWeightKg: 620.5, tareWeightKg: 520.2 },
- *   reason: 'Corrected weights from weighbridge slip',
- * });
+ * API: PUT /incoming-gate-pass/:id
+ * Body: supports full edit payload (farmer, gate pass, date, variety, location,
+ * truck, bags, weightSlip, status, remarks, etc.)
  */
 export function useEditIncomingGatePass() {
   return useMutation<
@@ -56,24 +48,32 @@ export function useEditIncomingGatePass() {
     mutationKey: [...incomingGatePassKeys.all, 'edit'],
 
     mutationFn: async ({ id, ...payload }) => {
+      const safeId = encodeURIComponent(id);
       const { data } =
         await storeAdminAxiosClient.put<EditIncomingGatePassApiResponse>(
-          `/incoming-gate-pass/${id}`,
+          `/incoming-gate-pass/${safeId}`,
           payload
         );
       return data;
     },
 
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(
-          data.message ?? 'Incoming gate pass updated successfully'
-        );
-        queryClient.invalidateQueries({ queryKey: daybookKeys.all });
-        queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all });
-      } else {
+    onSuccess: async (data) => {
+      if (!data.success) {
         toast.error(data.message ?? 'Failed to update incoming gate pass');
+        return;
       }
+
+      toast.success(data.message ?? 'Incoming gate pass updated successfully');
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all }),
+        queryClient.invalidateQueries({
+          queryKey: incomingGatePassReportKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: contractFarmingReportKeys.all,
+        }),
+      ]);
     },
 
     onError: (error) => {

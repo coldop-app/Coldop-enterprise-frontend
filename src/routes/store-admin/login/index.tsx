@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 
 import LoginForm from '@/components/auth/login';

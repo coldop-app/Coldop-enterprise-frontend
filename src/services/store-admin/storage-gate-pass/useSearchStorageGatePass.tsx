@@ -55,9 +55,14 @@ export const searchStorageGatePassQueryOptions = (
  * Auth is applied via store admin axios client (Bearer token).
  */
 export function useSearchStorageGatePass(
-  gatePassNo: string | number | undefined | null
+  gatePassNo: string | number | undefined | null,
+  options?: { enabled?: boolean }
 ) {
-  return useQuery(searchStorageGatePassQueryOptions(gatePassNo));
+  const query = searchStorageGatePassQueryOptions(gatePassNo);
+  return useQuery({
+    ...query,
+    enabled: (query.enabled ?? true) && (options?.enabled ?? true),
+  });
 }
 
 export function prefetchSearchStorageGatePass(

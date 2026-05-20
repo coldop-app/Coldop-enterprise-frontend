@@ -8,7 +8,15 @@ import type {
   GradingGatePassIncomingGatePass,
 } from './grading-gate-pass';
 import type { StorageGatePass } from './storage-gate-pass';
-import type { NikasiGatePass } from './nikasi-gate-pass';
+
+/**
+ * Base nikasi gate pass shape used by analytics types.
+ * Dedicated nikasi type module is not present in this codebase yet.
+ */
+interface NikasiGatePass {
+  farmerStorageLinkId: unknown;
+  [key: string]: unknown;
+}
 
 /** Grading bags summary (initial vs current quantity) */
 export interface AnalyticsOverviewGradingBags {
@@ -511,6 +519,7 @@ export interface GetVarietyDistributionApiResponse {
 export interface SizeDistributionSizeItem {
   name: string;
   value: number;
+  weightExcludingBardanaKg: number;
 }
 
 /** Single variety entry in GET /analytics/size-distribution chartData */

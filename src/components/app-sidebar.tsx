@@ -41,14 +41,6 @@ const navigationItems: NavigationItem[] = [
   {
     name: 'Daybook',
     href: '/store-admin/daybook',
-    activePaths: [
-      '/store-admin/incoming',
-      '/store-admin/storage',
-      '/store-admin/nikasi',
-      '/store-admin/outgoing',
-      '/store-admin/grading',
-      '/store-admin/farmer-seed',
-    ],
     icon: BookOpen,
   },
   {
@@ -61,11 +53,7 @@ const navigationItems: NavigationItem[] = [
     name: 'Analytics',
     href: '/store-admin/analytics',
     icon: BarChart3,
-    activePaths: [
-      '/store-admin/analytics',
-      '/store-admin/variety-breakdown',
-      '/store-admin/area-breakdown',
-    ],
+    activePaths: ['/store-admin/analytics', '/store-admin/variety-breakdown'],
   },
   {
     name: 'Settings',
@@ -87,7 +75,7 @@ const SidebarHeaderContent = memo(() => {
         <h1 className="text-sidebar-foreground text-lg font-semibold group-data-[collapsible=icon]:hidden">
           Coldop
           <span className="text-muted-foreground ml-1 text-[10px] font-medium">
-            BETA
+            V1.0.0
           </span>
         </h1>
       </div>
@@ -146,7 +134,12 @@ const AppSidebar = () => {
                       isActive={item.isActive}
                       tooltip={item.name}
                     >
-                      <Link to={item.href}>
+                      <Link
+                        preload="intent"
+                        preloadDelay={100}
+                        activeOptions={{ exact: true }}
+                        to={item.href}
+                      >
                         <Icon className="h-4 w-4 text-current" />
                         <span>{item.name}</span>
                       </Link>

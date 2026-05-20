@@ -1,4 +1,9 @@
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import {
+  useQuery,
+  queryOptions,
+  keepPreviousData,
+} from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
@@ -6,12 +11,13 @@ import type {
   IncomingGatePassPagination,
   IncomingGatePassWithLink,
 } from '@/types/incoming-gate-pass';
-import { incomingGatePassKeys } from './useCreateIncomingGatePass';
 
-/** Status value for filtering ungraded incoming gate passes (API expects this exact string) */
 export const INCOMING_GATE_PASS_STATUS_NOT_GRADED = 'NOT_GRADED';
+export const incomingGatePassKeys = {
+  all: ['incoming-gate-pass'] as const,
+};
 
-/** Params for fetching incoming gate passes (date range in YYYY-MM-DD). Example: ?page=1&limit=50&sortOrder=desc&status=NOT_GRADED&dateFrom=2025-01-01&dateTo=2025-03-31 */
+/** Date range in YYYY-MM-DD. Example: ?page=1&limit=50&sortOrder=desc&status=NOT_GRADED */
 export interface GetIncomingGatePassesParams {
   dateFrom?: string;
   dateTo?: string;
@@ -26,52 +32,117 @@ export interface GetIncomingGatePassesResult {
   pagination?: IncomingGatePassPagination;
 }
 
-/** Fetcher used by queryOptions and prefetch */
-async function fetchIncomingGatePasses(
+function sanitizeParams(
   params: GetIncomingGatePassesParams
-): Promise<GetIncomingGatePassesResult> {
-  const { data } =
-    await storeAdminAxiosClient.get<GetIncomingGatePassesApiResponse>(
-      '/incoming-gate-pass',
-      {
-        params: {
-          dateFrom: params.dateFrom,
-          dateTo: params.dateTo,
-          page: params.page,
-          limit: params.limit,
-          sortOrder: params.sortOrder,
-          status: params.status,
-        },
-      }
-    );
-
-  if (!data.success || data.data == null) {
-    throw new Error(data.message ?? 'Failed to fetch incoming gate passes');
-  }
-
+): GetIncomingGatePassesParams {
   return {
-    data: data.data,
-    pagination: data.pagination,
+    dateFrom: params.dateFrom || undefined,
+    dateTo: params.dateTo || undefined,
+    page:
+      typeof params.page === 'number' && params.page > 0
+        ? Math.floor(params.page)
+        : undefined,
+    limit:
+      typeof params.limit === 'number' && params.limit > 0
+        ? Math.floor(params.limit)
+        : undefined,
+    sortOrder: params.sortOrder,
+    status: params.status?.trim() || undefined,
   };
 }
 
-/** Query options – use with useQuery, prefetchQuery, or in loaders */
+function getIncomingGatePassesErrorMessage(error: unknown): string {
+  if (isAxiosError<{ message?: string }>(error)) {
+    const apiMessage = error.response?.data?.message;
+    if (apiMessage) return apiMessage;
+
+    if (error.code === 'ECONNABORTED') {
+      return 'Request timed out while fetching incoming gate passes';
+    }
+
+    if (!error.response) {
+      return 'Network error while fetching incoming gate passes';
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return 'Failed to fetch incoming gate passes';
+}
+
+async function fetchIncomingGatePasses(
+  params: GetIncomingGatePassesParams
+): Promise<GetIncomingGatePassesResult> {
+  try {
+    const safeParams = sanitizeParams(params);
+    const { data } =
+      await storeAdminAxiosClient.get<GetIncomingGatePassesApiResponse>(
+        '/incoming-gate-pass',
+        { params: safeParams }
+      );
+
+    if (!data.success) {
+      throw new Error(data.message ?? 'Failed to fetch incoming gate passes');
+    }
+
+    return {
+      data: Array.isArray(data.data) ? data.data : [],
+      pagination: data.pagination,
+    };
+  } catch (error) {
+    throw new Error(getIncomingGatePassesErrorMessage(error), { cause: error });
+  }
+}
+
+/** Query options — usable with useQuery, prefetchQuery, or route loaders */
 export const incomingGatePassesQueryOptions = (
   params: GetIncomingGatePassesParams = {}
 ) =>
   queryOptions({
-    queryKey: [...incomingGatePassKeys.all, 'list', params] as const,
+    // Explicit key fields prevent accidental cache-busting from object identity
+    queryKey: [
+      ...incomingGatePassKeys.all,
+      'list',
+      {
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+        page: params.page,
+        limit: params.limit,
+        sortOrder: params.sortOrder,
+        status: params.status,
+      },
+    ],
     queryFn: () => fetchIncomingGatePasses(params),
+    staleTime: 1000 * 60 * 2, // 2 min — prevents refetch on every mount
+    gcTime: 1000 * 60 * 10,
   });
 
-/** Hook to fetch incoming gate passes for a date range */
+/** Hook to fetch paginated gate passes — retains previous data during page/filter changes */
 export function useGetIncomingGatePasses(
-  params: GetIncomingGatePassesParams = {}
+  params: GetIncomingGatePassesParams = {},
+  options?: { enabled?: boolean }
 ) {
-  return useQuery(incomingGatePassesQueryOptions(params));
+  return useQuery({
+    ...incomingGatePassesQueryOptions(params),
+    placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
+  });
 }
 
-/** Prefetch incoming gate passes – e.g. on route hover or before navigation */
+/** Hook that returns only the data array — for non-paginated consumers */
+export function useGetIncomingGatePassList(
+  params: GetIncomingGatePassesParams = {}
+) {
+  return useQuery({
+    ...incomingGatePassesQueryOptions(params),
+    placeholderData: keepPreviousData,
+    select: (result) => result.data,
+  });
+}
+
+/** Prefetch on route hover or before navigation */
 export function prefetchIncomingGatePasses(
   params: GetIncomingGatePassesParams = {}
 ) {

@@ -5,6 +5,9 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { cn } from '@/lib/utils';
+import type { GetStorageSummaryParams } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageSummary';
+import { useGetStorageSummary as useGetStorageSummaryQuery } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageSummary';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -16,13 +19,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type {
-  VarietyStockSummary,
-  SizeQuantity,
-  StockSummaryByFilterData,
-} from '@/services/store-admin/analytics/storage/useGetStorageSummary';
-import { cn } from '@/lib/utils';
+  StorageSummaryData,
+  StorageSummarySizeItem,
+  StorageSummaryVarietyItem,
+} from '@/types/analytics';
 
 type TabMode = 'current' | 'initial' | 'outgoing';
+type SizeQuantity = StorageSummarySizeItem;
+type VarietyStockSummary = StorageSummaryVarietyItem;
+type StockSummaryByFilterData = Record<
+  'OWNED' | 'FARMER',
+  {
+    stockSummary: VarietyStockSummary[];
+    chartData?: { sizes: string[] };
+  }
+>;
 
 export type StockFilterTab = 'all' | 'owned' | 'farmer';
 
@@ -44,26 +55,18 @@ const TAB_CONFIG: { id: TabMode; label: string }[] = [
   { id: 'outgoing', label: 'Outgoing' },
 ];
 
-/** Match farmer-stock-summary-table hover: light grey background + subtle ring */
 const cellClickClass =
   'font-custom border-border border px-4 py-2 cursor-pointer hover:bg-muted hover:ring-1 hover:ring-primary/20 transition-all duration-150';
 
 export interface StorageSummaryTableProps {
-  /** Stock summary by variety and size (used for "All" tab when showStockFilterTabs, else always) */
-  stockSummary: VarietyStockSummary[];
-  /** Size column headers in display order */
-  sizes: string[];
-  /** Card heading; default "Stock Summary" */
+  dateParams?: GetStorageSummaryParams;
+  stockSummary?: VarietyStockSummary[];
+  sizes?: string[];
   tableTitle?: string;
-  /** Replaces the default subtitle under the title */
   subtitle?: string;
-  /** When set, table shows only this mode and the tab row is hidden (e.g. when page-level tabs control the mode). */
   controlledTab?: 'current' | 'initial' | 'outgoing';
-  /** When set, data cells are clickable and this is called with (variety, bagSize). Use bagSize 'all' for total column. */
   onCellClick?: (variety: string, bagSize: string) => void;
-  /** When true, show All / Owned / Farmer tabs and use stockSummaryByFilter for Owned/Farmer. Only show when shouldShowSpecialFields. */
   showStockFilterTabs?: boolean;
-  /** Required when showStockFilterTabs is true; keys OWNED and FARMER. */
   stockSummaryByFilter?: StockSummaryByFilterData;
 }
 
@@ -80,7 +83,8 @@ function buildSizeMap(
   return map;
 }
 
-export function StorageSummaryTable({
+const StorageSummaryTable = ({
+  dateParams,
   stockSummary,
   sizes,
   tableTitle = 'Stock Summary',
@@ -89,44 +93,60 @@ export function StorageSummaryTable({
   onCellClick,
   showStockFilterTabs,
   stockSummaryByFilter,
-}: StorageSummaryTableProps) {
+}: StorageSummaryTableProps) => {
+  const queryParams: GetStorageSummaryParams = {
+    ...(dateParams?.dateFrom ? { dateFrom: dateParams.dateFrom } : {}),
+    ...(dateParams?.dateTo ? { dateTo: dateParams.dateTo } : {}),
+  };
+  const storageSummaryQuery = useGetStorageSummaryQuery(queryParams);
+  const fetchedSummary = storageSummaryQuery.data ?? [];
+  const baseSummary: StorageSummaryData = stockSummary ?? fetchedSummary;
+  const derivedSizes =
+    sizes ??
+    Array.from(
+      new Set(
+        baseSummary.flatMap((variety) =>
+          variety.sizes.map((sizeItem) => sizeItem.size)
+        )
+      )
+    );
+
   const [internalTab, setInternalTab] = useState<TabMode>('current');
   const [stockFilterTab, setStockFilterTab] = useState<StockFilterTab>('all');
   const activeTab = controlledTab ?? internalTab;
 
-  /** Effective stockSummary and sizes based on selected All/Owned/Farmer tab */
   const { effectiveSummary, effectiveSizes } = useMemo(() => {
     if (!showStockFilterTabs || stockFilterTab === 'all') {
-      return { effectiveSummary: stockSummary, effectiveSizes: sizes };
+      return { effectiveSummary: baseSummary, effectiveSizes: derivedSizes };
     }
     const key = stockFilterTab === 'owned' ? 'OWNED' : 'FARMER';
     const slice = stockSummaryByFilter?.[key];
     if (!slice) {
-      return { effectiveSummary: [], effectiveSizes: sizes };
+      return { effectiveSummary: [], effectiveSizes: derivedSizes };
     }
     return {
       effectiveSummary: slice.stockSummary,
-      effectiveSizes: slice.chartData?.sizes ?? sizes,
+      effectiveSizes: slice.chartData?.sizes ?? derivedSizes,
     };
   }, [
     showStockFilterTabs,
     stockFilterTab,
-    stockSummary,
-    sizes,
+    baseSummary,
+    derivedSizes,
     stockSummaryByFilter,
   ]);
 
   const { rows, totals, tabTotals } = useMemo(() => {
     const rowsData: TableRowData[] = [];
-    const totals: Record<string, number> = {};
-    const tabTotals: Record<TabMode, number> = {
+    const totalsMap: Record<string, number> = {};
+    const tabTotalsMap: Record<TabMode, number> = {
       current: 0,
       initial: 0,
       outgoing: 0,
     };
 
     for (const size of effectiveSizes) {
-      totals[size] = 0;
+      totalsMap[size] = 0;
     }
 
     for (const varietyRow of effectiveSummary) {
@@ -145,15 +165,15 @@ export function StorageSummaryTable({
               : outgoing;
         values[size] = value;
         rowTotal += value;
-        totals[size] = (totals[size] ?? 0) + value;
-        tabTotals.current += data.current;
-        tabTotals.initial += data.initial;
-        tabTotals.outgoing += outgoing;
+        totalsMap[size] = (totalsMap[size] ?? 0) + value;
+        tabTotalsMap.current += data.current;
+        tabTotalsMap.initial += data.initial;
+        tabTotalsMap.outgoing += outgoing;
       }
       rowsData.push({ variety: varietyRow.variety, values, total: rowTotal });
     }
 
-    return { rows: rowsData, totals, tabTotals };
+    return { rows: rowsData, totals: totalsMap, tabTotals: tabTotalsMap };
   }, [effectiveSummary, effectiveSizes, activeTab]);
 
   const columns = useMemo<ColumnDef<TableRowData>[]>(() => {
@@ -204,6 +224,31 @@ export function StorageSummaryTable({
       : activeTab === 'initial'
         ? tabTotals.initial
         : tabTotals.outgoing;
+
+  if (storageSummaryQuery.isLoading || storageSummaryQuery.isFetching) {
+    return (
+      <Card className="font-custom border-border rounded-xl shadow-sm">
+        <CardContent className="p-4 py-8 sm:p-5">
+          <p className="font-custom text-muted-foreground text-center text-sm">
+            Loading storage summary...
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (storageSummaryQuery.isError) {
+    return (
+      <Card className="font-custom border-border rounded-xl shadow-sm">
+        <CardContent className="p-4 py-8 sm:p-5">
+          <p className="font-custom text-destructive text-center text-sm">
+            {storageSummaryQuery.error?.message ??
+              'Failed to load storage summary.'}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (effectiveSizes.length === 0) {
     return (
@@ -396,4 +441,6 @@ export function StorageSummaryTable({
       </CardContent>
     </Card>
   );
-}
+};
+
+export default StorageSummaryTable;

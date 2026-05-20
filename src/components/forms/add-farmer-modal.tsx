@@ -26,9 +26,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useQuickAddFarmer } from '@/services/store-admin/functions/useQuickAddFarmer';
+import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  preventArrowUpDownOnNumericInput,
+} from '@/lib/business-number-input';
+import { cn } from '@/lib/utils';
+import { useQuickAddFarmer } from '@/services/store-admin/people/useQuickAddFarmer';
 import { useStore } from '@/stores/store';
-import type { FarmerStorageLink } from '@/types/farmer';
+import type { FarmerStorageLink } from '@/types/incoming-gate-pass';
 
 interface AddFarmerModalProps {
   links?: FarmerStorageLink[];
@@ -49,21 +55,21 @@ export const AddFarmerModal = memo(function AddFarmerModal({
 
   const usedAccountNumbers = useMemo(() => {
     return links
-      .map((l) => l.accountNumber.toString())
-      .filter((acc, i, s) => s.indexOf(acc) === i)
-      .sort((a, b) => Number(a) - Number(b));
+      .map((link) => link.accountNumber)
+      .filter((accountNo, index, source) => source.indexOf(accountNo) === index)
+      .sort((a, b) => a - b);
   }, [links]);
 
   const usedMobileNumbers = useMemo(() => {
     return links
-      .map((l) => l.farmerId.mobileNumber)
-      .filter((mob, i, s) => s.indexOf(mob) === i)
+      .map((link) => link.farmerId.mobileNumber)
+      .filter((mobile, index, source) => source.indexOf(mobile) === index)
       .sort();
   }, [links]);
 
   const nextAccountNumber = useMemo(() => {
     if (usedAccountNumbers.length === 0) return 1;
-    const latest = Number(usedAccountNumbers[usedAccountNumbers.length - 1]);
+    const latest = usedAccountNumbers[usedAccountNumbers.length - 1];
     return latest + 1;
   }, [usedAccountNumbers]);
 
@@ -76,8 +82,8 @@ export const AddFarmerModal = memo(function AddFarmerModal({
       z.object({
         name: z
           .string()
-          .transform((val) => {
-            const trimmed = val.trim();
+          .transform((value) => {
+            const trimmed = value.trim();
             if (!trimmed) return trimmed;
 
             return (
@@ -88,29 +94,29 @@ export const AddFarmerModal = memo(function AddFarmerModal({
             message: 'Name is required',
           }),
 
-        address: z.string().min(1, 'Address is required'),
+        address: z.string().trim().min(1, 'Address is required'),
 
         mobileNumber: z
           .string()
           .length(10, 'Mobile number must be 10 digits')
-          .refine((val) => !usedMobileNumbers.includes(val), {
+          .refine((value) => !usedMobileNumbers.includes(value), {
             message: 'Mobile number already in use',
           }),
 
         accountNumber: z
           .string()
-          .transform((val) =>
-            val === '' || Number.isNaN(Number(val)) ? '' : val
+          .transform((value) =>
+            value === '' || Number.isNaN(Number(value)) ? '' : value
           )
           .pipe(
             z
               .string()
               .min(1, 'Please enter an account number')
-              .refine((val) => {
-                const num = Number(val);
+              .refine((value) => {
+                const num = Number(value);
                 return !Number.isNaN(num) && num > 0;
               }, 'Please enter an account number')
-              .refine((val) => !usedAccountNumbers.includes(val), {
+              .refine((value) => !usedAccountNumbers.includes(Number(value)), {
                 message: 'This account number is already taken',
               })
           ),
@@ -131,7 +137,6 @@ export const AddFarmerModal = memo(function AddFarmerModal({
     },
 
     validators: {
-      onChange: formSchema,
       onBlur: formSchema,
       onSubmit: formSchema,
     },
@@ -171,7 +176,9 @@ export const AddFarmerModal = memo(function AddFarmerModal({
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (!open) form.reset();
+    if (!open) {
+      form.reset();
+    }
   };
 
   /* ---------------------------------- */
@@ -203,8 +210,6 @@ export const AddFarmerModal = memo(function AddFarmerModal({
           </DialogHeader>
 
           <FieldGroup className="mt-6 grid gap-4">
-            {/* ---------------- ACCOUNT NUMBER ---------------- */}
-
             <form.Field
               name="accountNumber"
               children={(field) => {
@@ -254,7 +259,13 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                           onChange={(e) => field.handleChange(e.target.value)}
                           placeholder={`Suggested: ${nextAccountNumber}`}
                           aria-invalid={isInvalid}
-                          className="flex-1"
+                          className={cn(
+                            'flex-1',
+                            businessNumberSpinnerClassName
+                          )}
+                          min={1}
+                          onWheel={blurTargetOnNumberWheel}
+                          onKeyDown={preventArrowUpDownOnNumericInput}
                         />
 
                         <Button
@@ -318,6 +329,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       placeholder="Enter 10-digit mobile number"
                       maxLength={10}
                       aria-invalid={isInvalid}
+                      autoComplete="tel"
                     />
 
                     {isInvalid && (
@@ -354,6 +366,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       onChange={(e) => field.handleChange(e.target.value)}
                       placeholder="Enter farmer name"
                       aria-invalid={isInvalid}
+                      autoComplete="name"
                     />
 
                     {isInvalid && (
@@ -390,6 +403,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       onChange={(e) => field.handleChange(e.target.value)}
                       placeholder="Enter address"
                       aria-invalid={isInvalid}
+                      autoComplete="street-address"
                     />
 
                     {isInvalid && (
@@ -407,7 +421,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
             />
           </FieldGroup>
 
-          <DialogFooter className="mt-6">
+          <DialogFooter className="mt-6 gap-2">
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel

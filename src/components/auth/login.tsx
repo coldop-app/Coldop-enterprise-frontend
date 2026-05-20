@@ -38,8 +38,6 @@ const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
       password: '',
     },
     validators: {
-      onChange: formSchema,
-      onBlur: formSchema,
       onSubmit: formSchema,
     },
     onSubmit: async ({ value }) => {

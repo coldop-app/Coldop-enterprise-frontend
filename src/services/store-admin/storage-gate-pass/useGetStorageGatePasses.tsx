@@ -1,4 +1,9 @@
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  queryOptions,
+  useQuery,
+} from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
@@ -11,8 +16,6 @@ import type {
 export const storageGatePassKeys = {
   all: ['store-admin', 'storage-gate-pass'] as const,
   lists: () => [...storageGatePassKeys.all, 'list'] as const,
-  list: (params: GetStorageGatePassesParams) =>
-    [...storageGatePassKeys.lists(), params] as const,
 };
 
 /** Params for GET /storage-gate-pass (date range in YYYY-MM-DD) */
@@ -24,26 +27,75 @@ export interface GetStorageGatePassesParams {
   dateTo?: string;
 }
 
-/** GET error shape (e.g. 401): { success, error: { code, message } } */
 type GetStorageGatePassesError = {
   success?: boolean;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-function getFetchErrorMessage(
-  data: GetStorageGatePassesError | undefined
-): string {
-  return (
-    data?.error?.message ??
-    data?.message ??
-    'Failed to fetch storage gate passes'
-  );
-}
-
 export interface GetStorageGatePassesResult {
   data: StorageGatePassWithLink[];
   pagination: StorageGatePassPagination;
+}
+
+function sanitizeParams(
+  params: GetStorageGatePassesParams
+): GetStorageGatePassesParams {
+  return {
+    page:
+      typeof params.page === 'number' && params.page > 0
+        ? Math.floor(params.page)
+        : undefined,
+    limit:
+      typeof params.limit === 'number' && params.limit > 0
+        ? Math.floor(params.limit)
+        : undefined,
+    sortOrder: params.sortOrder,
+    dateFrom: params.dateFrom?.trim() || undefined,
+    dateTo: params.dateTo?.trim() || undefined,
+  };
+}
+
+function getFetchErrorMessage(
+  errorOrData: unknown,
+  fallback = 'Failed to fetch storage gate passes'
+): string {
+  if (isAxiosError<GetStorageGatePassesError>(errorOrData)) {
+    const apiData = errorOrData.response?.data;
+    if (apiData?.error?.message) return apiData.error.message;
+    if (apiData?.message) return apiData.message;
+
+    if (errorOrData.code === 'ECONNABORTED') {
+      return 'Request timed out while fetching storage gate passes';
+    }
+    if (!errorOrData.response) {
+      return 'Network error while fetching storage gate passes';
+    }
+  }
+
+  if (
+    errorOrData &&
+    typeof errorOrData === 'object' &&
+    'error' in errorOrData &&
+    (errorOrData as GetStorageGatePassesError).error?.message
+  ) {
+    return (errorOrData as GetStorageGatePassesError).error?.message as string;
+  }
+
+  if (
+    errorOrData &&
+    typeof errorOrData === 'object' &&
+    'message' in errorOrData &&
+    typeof (errorOrData as { message?: unknown }).message === 'string'
+  ) {
+    return (errorOrData as { message: string }).message;
+  }
+
+  if (errorOrData instanceof Error && errorOrData.message) {
+    return errorOrData.message;
+  }
+
+  return fallback;
 }
 
 /** Fetcher used by queryOptions and prefetch */
@@ -51,44 +103,30 @@ async function fetchStorageGatePasses(
   params: GetStorageGatePassesParams
 ): Promise<GetStorageGatePassesResult> {
   try {
-    const { data } = await storeAdminAxiosClient.get<
-      GetStorageGatePassesApiResponse | GetStorageGatePassesError
-    >('/storage-gate-pass', {
-      params: {
-        page: params.page,
-        limit: params.limit,
-        sortOrder: params.sortOrder,
-        dateFrom: params.dateFrom,
-        dateTo: params.dateTo,
-      },
-    });
+    const safeParams = sanitizeParams(params);
+    const { data } =
+      await storeAdminAxiosClient.get<GetStorageGatePassesApiResponse>(
+        '/storage-gate-pass',
+        { params: safeParams }
+      );
 
-    if (!data.success || !('data' in data) || data.data == null) {
+    if (!data.success) {
       throw new Error(getFetchErrorMessage(data));
     }
 
-    const response = data as GetStorageGatePassesApiResponse;
-    const list = response.data ?? [];
-    const pagination = response.pagination ?? {
-      page: params.page ?? 1,
-      limit: params.limit ?? 100,
+    const list = Array.isArray(data.data) ? data.data : [];
+    const pagination = data.pagination ?? {
+      page: safeParams.page ?? 1,
+      limit: safeParams.limit ?? 100,
       total: list.length,
       totalPages: 1,
       hasNextPage: false,
       hasPreviousPage: false,
     };
+
     return { data: list, pagination };
-  } catch (err) {
-    const responseData =
-      err &&
-      typeof err === 'object' &&
-      'response' in err &&
-      (err as { response?: { data?: GetStorageGatePassesError } }).response
-        ?.data;
-    if (responseData && typeof responseData === 'object') {
-      throw new Error(getFetchErrorMessage(responseData));
-    }
-    throw err;
+  } catch (error) {
+    throw new Error(getFetchErrorMessage(error), { cause: error });
   }
 }
 
@@ -97,15 +135,31 @@ export const storageGatePassesQueryOptions = (
   params: GetStorageGatePassesParams = {}
 ) =>
   queryOptions({
-    queryKey: storageGatePassKeys.list(params),
+    queryKey: [
+      ...storageGatePassKeys.lists(),
+      {
+        page: params.page,
+        limit: params.limit,
+        sortOrder: params.sortOrder,
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+      },
+    ],
     queryFn: () => fetchStorageGatePasses(params),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 10,
   });
 
 /** Hook to fetch storage gate passes with pagination */
 export function useGetStorageGatePasses(
-  params: GetStorageGatePassesParams = {}
+  params: GetStorageGatePassesParams = {},
+  options?: { enabled?: boolean }
 ) {
-  return useQuery(storageGatePassesQueryOptions(params));
+  return useQuery({
+    ...storageGatePassesQueryOptions(params),
+    placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
+  });
 }
 
 /** Prefetch storage gate passes – e.g. on route hover or before navigation */

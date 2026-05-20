@@ -37,38 +37,38 @@ export const useStoreAdminLogout = () => {
     onSuccess: (data) => {
       setLoading(false);
 
-      // Signal to _authenticated: redirect to login without adding ?redirect=
-      sessionStorage.setItem('store-admin-logout', '1');
-
+      // Clear admin data from store
       clearAdminData();
+
+      // Clear all query cache
       queryClient.clear();
 
       toast.success(data.message || 'Logged out successfully!');
 
+      // Redirect to login page
       navigate({
         to: '/store-admin/login',
         replace: true,
-        search: {},
       });
     },
 
     onError: (error) => {
       setLoading(false);
 
+      // Even if logout API fails, clear local data and redirect
+      // This ensures user is logged out locally even if server request fails
+      clearAdminData();
+      queryClient.clear();
+
       const errMsg =
         error.response?.data?.message || error.message || 'Logout failed';
 
       toast.error(errMsg);
 
-      sessionStorage.setItem('store-admin-logout', '1');
-
-      clearAdminData();
-      queryClient.clear();
-
+      // Still redirect to login even on error
       navigate({
         to: '/store-admin/login',
         replace: true,
-        search: {},
       });
     },
   });

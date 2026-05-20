@@ -64,12 +64,6 @@ export function SearchSelector<T extends string>({
   const isControlled = controlledValue !== undefined;
   const displayValue = isControlled ? controlledValue : uncontrolledValue;
 
-  React.useEffect(() => {
-    if (!isControlled && defaultValue !== undefined) {
-      setUncontrolledValue(defaultValue);
-    }
-  }, [isControlled, defaultValue]);
-
   const selectedOption = options.find((opt) => opt.value === displayValue);
 
   const handleSelect = (currentValue: T) => {

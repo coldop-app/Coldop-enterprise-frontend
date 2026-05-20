@@ -3,16 +3,13 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
+import { incomingGatePassReportKeys } from './analytics/useGetIncomingGatePassReport';
+import { contractFarmingReportKeys } from '../general/useGetContractFarmingReport';
 import type {
-  CreateIncomingGatePassInput,
   CreateIncomingGatePassApiResponse,
+  CreateIncomingGatePassInput,
 } from '@/types/incoming-gate-pass';
-import { daybookKeys } from '../grading-gate-pass/useGetDaybook';
-
-/** Query key prefix for incoming gate pass – use for invalidation */
-export const incomingGatePassKeys = {
-  all: ['store-admin', 'incoming-gate-pass'] as const,
-};
+import { incomingGatePassKeys } from './useGetIncomingGatePasses';
 
 /** API error shape (400, 404, 409): { success, error: { code, message } } */
 type IncomingGatePassApiError = {
@@ -30,11 +27,6 @@ function getIncomingGatePassErrorMessage(
   );
 }
 
-/**
- * Hook to create an incoming gate pass.
- * POST /incoming-gate-pass
- * Payload may include optional manualGatePassNumber (number).
- */
 export function useCreateIncomingGatePass() {
   return useMutation<
     CreateIncomingGatePassApiResponse,
@@ -42,7 +34,6 @@ export function useCreateIncomingGatePass() {
     CreateIncomingGatePassInput
   >({
     mutationKey: [...incomingGatePassKeys.all, 'create'],
-
     mutationFn: async (payload) => {
       const { data } =
         await storeAdminAxiosClient.post<CreateIncomingGatePassApiResponse>(
@@ -51,19 +42,22 @@ export function useCreateIncomingGatePass() {
         );
       return data;
     },
-
     onSuccess: (data) => {
       if (data.success) {
         toast.success(
           data.message ?? 'Incoming gate pass created successfully'
         );
-        queryClient.invalidateQueries({ queryKey: daybookKeys.all });
         queryClient.invalidateQueries({ queryKey: incomingGatePassKeys.all });
+        queryClient.invalidateQueries({
+          queryKey: incomingGatePassReportKeys.all,
+        });
+        queryClient.invalidateQueries({
+          queryKey: contractFarmingReportKeys.all,
+        });
       } else {
         toast.error(data.message ?? 'Failed to create incoming gate pass');
       }
     },
-
     onError: (error) => {
       const errMsg = error.response?.data
         ? getIncomingGatePassErrorMessage(error.response.data)

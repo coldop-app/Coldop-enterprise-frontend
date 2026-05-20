@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { History, LayoutList, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { LogoutButton } from './logout-button';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +14,7 @@ import { Skeleton } from './ui/skeleton';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 // TanStack Router
-import { Link, useLocation } from '@tanstack/react-router';
+import { useLocation } from '@tanstack/react-router';
 
 // Zustand store
 import { useStore } from '@/stores/store';
@@ -53,23 +53,6 @@ const UserMenuComponent = ({ admin, coldStorage }: UserMenuProps) => {
       <DropdownMenuItem>
         <User className="mr-2 h-4 w-4" />
         <span>Profile</span>
-      </DropdownMenuItem>
-
-      <DropdownMenuItem asChild>
-        <Link to="/store-admin/grouped" className="cursor-pointer outline-none">
-          <LayoutList className="mr-2 h-4 w-4" />
-          <span>Show Grouped</span>
-        </Link>
-      </DropdownMenuItem>
-
-      <DropdownMenuItem asChild>
-        <Link
-          to="/store-admin/farmer-seed/history"
-          className="cursor-pointer outline-none"
-        >
-          <History className="mr-2 h-4 w-4" />
-          <span>Farmer Seed Edit History</span>
-        </Link>
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />
@@ -147,6 +130,10 @@ const PageTitleComponent = () => {
   const formatted = useMemo(() => {
     if (pathname.match(/^\/store-admin\/people\/[^/]+$/)) {
       return 'Farmer Profile';
+    }
+
+    if (pathname.match(/^\/store-admin\/people\/dispatch-ledger\/[^/]+$/)) {
+      return 'Dispatch Ledger';
     }
 
     const segments = pathname.split('/').filter(Boolean);

@@ -7,7 +7,7 @@ import type {
   FarmerSeedEntryPagination,
   GetAllFarmerSeedEntriesApiResponse,
 } from '@/types/farmer-seed';
-import { farmerSeedKeys } from './useCreateFarmerSeedEntry';
+import { farmerSeedKeys } from './keys';
 
 type GetAllFarmerSeedEntriesError = {
   success?: boolean;
@@ -63,7 +63,8 @@ async function fetchAllFarmerSeedEntries(
       : undefined;
     if (responseData && typeof responseData === 'object') {
       throw new Error(
-        getFetchErrorMessage(responseData as GetAllFarmerSeedEntriesError)
+        getFetchErrorMessage(responseData as GetAllFarmerSeedEntriesError),
+        { cause: err }
       );
     }
     throw err;
@@ -76,22 +77,32 @@ export const allFarmerSeedEntriesQueryKey = [
 ] as const;
 
 export const allFarmerSeedEntriesQueryOptions = (
-  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 5000 },
+  enabled = true
 ) =>
   queryOptions({
     queryKey: [...allFarmerSeedEntriesQueryKey, params] as const,
     queryFn: () => fetchAllFarmerSeedEntries(params),
+    enabled,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
   });
 
 /** GET /farmer-seed/farmer-seed-entry */
 export function useGetAllFarmerSeedEntries(
-  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 5000 },
+  options?: { enabled?: boolean }
 ) {
-  return useQuery(allFarmerSeedEntriesQueryOptions(params));
+  return useQuery(
+    allFarmerSeedEntriesQueryOptions(params, options?.enabled ?? true)
+  );
 }
 
 export function prefetchAllFarmerSeedEntries(
-  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 50 }
+  params: GetAllFarmerSeedEntriesParams = { page: 1, limit: 5000 }
 ) {
   return queryClient.prefetchQuery(allFarmerSeedEntriesQueryOptions(params));
 }
