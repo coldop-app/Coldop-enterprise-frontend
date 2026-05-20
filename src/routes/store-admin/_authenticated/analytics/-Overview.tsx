@@ -58,6 +58,7 @@ interface OverviewMetrics {
   totalBagsStored: number;
   totalBagsStoredInitial?: number;
   totalBagsDispatched: number;
+  bagsDispatchedNotInternalTransfer: number;
   totalOutgoingBags: number;
 }
 
@@ -107,6 +108,10 @@ function normalizeOverviewData(data: unknown): OverviewMetrics | null {
         ? undefined
         : toNumber(raw.totalBagsStoredInitial),
     totalBagsDispatched: toNumber(raw.totalBagsDispatched),
+    bagsDispatchedNotInternalTransfer:
+      raw.bagsDispatchedNotInternalTransfer == null
+        ? toNumber(raw.totalBagsDispatched)
+        : toNumber(raw.bagsDispatchedNotInternalTransfer),
     totalOutgoingBags: toNumber(raw.totalOutgoingBags),
   };
 }
@@ -114,7 +119,9 @@ function normalizeOverviewData(data: unknown): OverviewMetrics | null {
 function computeShedStockBags(data: OverviewMetrics): number {
   const gradingInitial = data.totalGradingBags.initialQuantity;
   const storedInitial = data.totalBagsStoredInitial ?? data.totalBagsStored;
-  return gradingInitial - storedInitial - data.totalBagsDispatched;
+  return (
+    gradingInitial - storedInitial - data.bagsDispatchedNotInternalTransfer
+  );
 }
 
 interface StatCardProps {
