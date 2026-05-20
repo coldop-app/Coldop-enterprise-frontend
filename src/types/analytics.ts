@@ -37,6 +37,8 @@ export interface AnalyticsOverviewData {
   /** When set by GET /analytics/overview, used for shed stock; otherwise clients fall back to totalBagsStored */
   totalBagsStoredInitial?: number;
   totalBagsDispatched: number;
+  bagsDispatchedInternalTransfer?: number;
+  bagsDispatchedNotInternalTransfer?: number;
   totalOutgoingBags: number;
 }
 
