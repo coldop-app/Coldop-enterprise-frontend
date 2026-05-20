@@ -17,6 +17,10 @@ import {
   isContractFarmingFamilySpanColumn,
   isContractFarmingSplitSpanColumn,
 } from './columns';
+import {
+  buildDisplaySpanMetadataByRowId,
+  collectLeafRowsInExportOrder,
+} from './contract-farming-display-span-metadata';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
@@ -62,6 +66,10 @@ export function ContractFarmingReportDataTable({
     overscan: 8,
   });
   const virtualRows = rowVirtualizer.getVirtualItems();
+  const displaySpanMetadataByRowId = React.useMemo(() => {
+    const orderedLeaves = collectLeafRowsInExportOrder(rows);
+    return buildDisplaySpanMetadataByRowId(orderedLeaves);
+  }, [rows]);
 
   return (
     <div
@@ -229,10 +237,18 @@ export function ContractFarmingReportDataTable({
               ? virtualRows.map((virtualRow) => rows[virtualRow.index]!)
               : rows
             ).map((row, rowIndex) => {
+              const displaySpanMeta = displaySpanMetadataByRowId.get(
+                row.id
+              ) ?? {
+                mergedRowSpan: 1,
+                isFirstOfMergedBlock: true,
+                familyMergedRowSpan: 1,
+                isFirstOfFamilyBlock: true,
+              };
               if (isGroupedView) {
                 const virtualRow = virtualRows[rowIndex];
-                const isMultiSizeBlock = row.original.mergedRowSpan > 1;
-                const multiSizeRowClass = row.original.isFirstOfMergedBlock
+                const isMultiSizeBlock = displaySpanMeta.mergedRowSpan > 1;
+                const multiSizeRowClass = displaySpanMeta.isFirstOfMergedBlock
                   ? 'bg-primary/[0.055] hover:bg-primary/[0.085]'
                   : 'bg-primary/[0.035] hover:bg-primary/[0.065]';
                 return (
@@ -267,7 +283,7 @@ export function ContractFarmingReportDataTable({
                         !cell.getIsAggregated() &&
                         !cell.getIsPlaceholder() &&
                         !isContractFarmingSplitSpanColumn(cell.column.id) &&
-                        !row.original.isFirstOfMergedBlock;
+                        !displaySpanMeta.isFirstOfMergedBlock;
                       const isRemarksCell = cell.column.id === 'remarks';
                       const isLongTextCell =
                         cell.column.id === 'farmer' ||
@@ -336,9 +352,9 @@ export function ContractFarmingReportDataTable({
                 const columnId = cell.column.id;
                 if (isContractFarmingSplitSpanColumn(columnId)) return true;
                 if (isContractFarmingFamilySpanColumn(columnId)) {
-                  return expanded.isFirstOfFamilyBlock !== false;
+                  return displaySpanMeta.isFirstOfFamilyBlock;
                 }
-                return expanded.isFirstOfMergedBlock;
+                return displaySpanMeta.isFirstOfMergedBlock;
               });
 
               return (
@@ -357,16 +373,16 @@ export function ContractFarmingReportDataTable({
                     const columnId = cell.column.id;
                     let rowSpan: number | undefined;
                     if (isContractFarmingFamilySpanColumn(columnId)) {
-                      const span = expanded.familyMergedRowSpan ?? 1;
-                      if (expanded.isFirstOfFamilyBlock !== false && span > 1) {
+                      const span = displaySpanMeta.familyMergedRowSpan;
+                      if (displaySpanMeta.isFirstOfFamilyBlock && span > 1) {
                         rowSpan = span;
                       }
                     } else if (
                       !isContractFarmingSplitSpanColumn(columnId) &&
-                      expanded.isFirstOfMergedBlock &&
-                      expanded.mergedRowSpan > 1
+                      displaySpanMeta.isFirstOfMergedBlock &&
+                      displaySpanMeta.mergedRowSpan > 1
                     ) {
-                      rowSpan = expanded.mergedRowSpan;
+                      rowSpan = displaySpanMeta.mergedRowSpan;
                     }
                     const isRemarksCell = cell.column.id === 'remarks';
                     const isLongTextCell =

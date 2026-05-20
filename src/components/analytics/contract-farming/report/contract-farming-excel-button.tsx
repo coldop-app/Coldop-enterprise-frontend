@@ -13,6 +13,11 @@ import {
   buildContractFarmingExcelFooterRows,
   computeContractFarmingFooterTotals,
 } from './contract-farming-report-footer-totals';
+import { formatFamilyAccountNumber } from './contract-farming-family-grouping';
+import {
+  buildDisplaySpanMetadataByRowId,
+  collectLeafRowsInExportOrder,
+} from './contract-farming-display-span-metadata';
 import type { FlattenedRow } from './types';
 
 const COLORS = {
@@ -106,6 +111,21 @@ function getRenderedHeaderLabel(
   return column.id;
 }
 
+/** Match on-screen Farmer column: stacked names + (#account) when Group Families is on. */
+function formatFarmerColumnExcelValue(row: FlattenedRow): string {
+  const familyMembers = row.familyMembers ?? [];
+  const hasFamilyMembers = (row.familyKey ?? 0) > 0 && familyMembers.length > 0;
+  if (hasFamilyMembers) {
+    return familyMembers
+      .map(
+        (m) =>
+          `${m.farmerName} (#${formatFamilyAccountNumber(m.accountNumber)})`
+      )
+      .join('\n');
+  }
+  return `${row.farmerName} (#${formatFamilyAccountNumber(row.accountNumber)})`;
+}
+
 function getExcelBodyRows(
   rows: Row<FlattenedRow>[],
   visibleColumnIds: string[],
@@ -124,6 +144,8 @@ function getExcelBodyRows(
   const columnIndexById = new Map(
     visibleColumnIds.map((columnId, index) => [columnId, index])
   );
+  const leafRows = collectLeafRowsInExportOrder(rows);
+  const displaySpanMetadataByRowId = buildDisplaySpanMetadataByRowId(leafRows);
 
   const appendRows = (tableRows: Row<FlattenedRow>[]) => {
     for (const row of tableRows) {
@@ -166,19 +188,28 @@ function getExcelBodyRows(
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
         } else {
+          const displaySpan = displaySpanMetadataByRowId.get(row.id);
+          const isFirstOfFamilyBlock =
+            displaySpan?.isFirstOfFamilyBlock ?? true;
+          const isFirstOfMergedBlock =
+            displaySpan?.isFirstOfMergedBlock ?? true;
           const hideRepeatedFamilyCell =
             suppressRepeatedMergedCells &&
             isContractFarmingFamilySpanColumn(columnId) &&
-            row.original.isFirstOfFamilyBlock === false;
+            !isFirstOfFamilyBlock;
           const hideRepeatedVarietyCell =
             suppressRepeatedMergedCells &&
             !isContractFarmingSplitSpanColumn(columnId) &&
             !isContractFarmingFamilySpanColumn(columnId) &&
-            !row.original.isFirstOfMergedBlock;
+            !isFirstOfMergedBlock;
           const hideRepeatedMergedCell =
             hideRepeatedFamilyCell || hideRepeatedVarietyCell;
           if (hideRepeatedMergedCell) {
             nextRow[columnIndex] = '';
+            continue;
+          }
+          if (columnId === 'farmer') {
+            nextRow[columnIndex] = formatFarmerColumnExcelValue(row.original);
             continue;
           }
           const rawValue = row.getValue(columnId);
@@ -412,9 +443,18 @@ export const ContractFarmingExcelButton = ({
         };
       });
 
+      const farmerColumnIndex = visibleColumnIds.indexOf('farmer');
+
       bodyRows.forEach((bodyRow) => {
         const excelRow = worksheet.addRow(bodyRow.values);
-        excelRow.height = 22;
+        const farmerValue =
+          farmerColumnIndex >= 0
+            ? bodyRow.values[farmerColumnIndex]
+            : undefined;
+        const farmerLineCount =
+          typeof farmerValue === 'string' ? farmerValue.split('\n').length : 1;
+        excelRow.height =
+          farmerLineCount > 1 ? Math.max(22, farmerLineCount * 16) : 22;
         const bgArgb = bodyRow.isGroupedOrAggregatedRow
           ? COLORS.rowEven
           : COLORS.rowOdd;
@@ -431,9 +471,14 @@ export const ContractFarmingExcelButton = ({
 
           const isNumeric =
             typeof value === 'number' && isNumericSortColumnId(columnId);
+          const isMultilineFarmer =
+            columnId === 'farmer' &&
+            typeof value === 'string' &&
+            value.includes('\n');
           cell.alignment = {
             horizontal: isNumeric ? 'right' : 'left',
-            vertical: 'middle',
+            vertical: isMultilineFarmer ? 'top' : 'middle',
+            wrapText: isMultilineFarmer || columnId === 'farmer',
           };
           if (isNumeric) cell.numFmt = SMART_NUMBER_FORMAT;
         });
