@@ -20,6 +20,16 @@ const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
 
+function getColumnFlexStyle(size: number): React.CSSProperties {
+  return {
+    display: 'flex',
+    width: size,
+    minWidth: size,
+    maxWidth: size,
+    flex: `0 0 ${size}px`,
+  };
+}
+
 type StorageReportDataTableProps = {
   table: Table<IncomingReportRow>;
   rows: Row<IncomingReportRow>[];
@@ -53,6 +63,7 @@ export function StorageReportDataTable({
     overscan: 8,
   });
   const virtualRows = rowVirtualizer.getVirtualItems();
+  const tableWidth = table.getTotalSize();
 
   return (
     <div
@@ -102,7 +113,7 @@ export function StorageReportDataTable({
         </div>
       ) : (
         <table
-          style={{ display: 'grid', width: table.getTotalSize() }}
+          style={{ display: 'grid', width: tableWidth, minWidth: tableWidth }}
           className="font-custom text-sm"
         >
           <TableHeader
@@ -112,18 +123,22 @@ export function StorageReportDataTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                style={{ display: 'flex', width: '100%' }}
+                style={{
+                  display: 'flex',
+                  width: tableWidth,
+                  minWidth: tableWidth,
+                }}
                 className="hover:bg-transparent"
               >
                 {headerGroup.headers.map((header) => {
                   if (header.isPlaceholder) return null;
                   const isRightAligned = numericColumnIds.has(header.id);
+                  const columnSize = header.getSize();
                   return (
                     <TableHead
                       key={header.id}
                       style={{
-                        display: 'flex',
-                        width: header.getSize(),
+                        ...getColumnFlexStyle(columnSize),
                         position: 'relative',
                       }}
                       className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] uppercase select-none last:border-r-0"
@@ -153,6 +168,19 @@ export function StorageReportDataTable({
                         onTouchStart={header.getResizeHandler()}
                         onClick={(event) => event.stopPropagation()}
                         className="hover:bg-primary/25 absolute top-0 right-0 h-full w-1 cursor-col-resize bg-transparent transition-colors"
+                        style={{
+                          transform:
+                            table.options.columnResizeMode === 'onEnd' &&
+                            header.column.getIsResizing()
+                              ? `translateX(${
+                                  (table.options.columnResizeDirection === 'rtl'
+                                    ? -1
+                                    : 1) *
+                                  (table.getState().columnSizingInfo
+                                    .deltaOffset ?? 0)
+                                }px)`
+                              : '',
+                        }}
                       />
                     </TableHead>
                   );
@@ -179,11 +207,14 @@ export function StorageReportDataTable({
                     display: 'flex',
                     position: 'absolute',
                     transform: `translateY(${virtualRow.start}px)`,
-                    width: '100%',
+                    width: tableWidth,
+                    minWidth: tableWidth,
                   }}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const isAggregatedCell = cell.getIsAggregated();
+                    const isRightAligned = numericColumnIds.has(cell.column.id);
+                    const columnSize = cell.column.getSize();
                     const shouldSuppressAggregation =
                       isAggregatedCell &&
                       (cell.column.id === 'gatePassNo' ||
@@ -191,11 +222,10 @@ export function StorageReportDataTable({
                     return (
                       <TableCell
                         key={cell.id}
-                        style={{
-                          display: 'flex',
-                          width: cell.column.getSize(),
-                        }}
-                        className="font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle whitespace-nowrap last:border-r-0"
+                        style={getColumnFlexStyle(columnSize)}
+                        className={`font-custom border-border/40 text-foreground/85 border-r px-3 py-2.5 align-middle wrap-break-word whitespace-normal last:border-r-0 ${
+                          isRightAligned ? 'justify-end tabular-nums' : ''
+                        } ${cell.column.id === 'remarks' ? 'overflow-hidden' : ''}`}
                       >
                         {cell.getIsGrouped() ? (
                           <button
@@ -249,7 +279,11 @@ export function StorageReportDataTable({
               }}
             >
               <TableRow
-                style={{ display: 'flex', width: '100%' }}
+                style={{
+                  display: 'flex',
+                  width: tableWidth,
+                  minWidth: tableWidth,
+                }}
                 className="hover:bg-transparent"
               >
                 {visibleColumnIds.map((columnId, columnIndex) => {
@@ -261,13 +295,11 @@ export function StorageReportDataTable({
                       ? totalsByColumn.totalBags || ''
                       : '';
                   const isRightAligned = numericColumnIds.has(columnId);
+                  const columnSize = table.getColumn(columnId)?.getSize() ?? 0;
                   return (
                     <TableCell
                       key={`totals-${columnId}`}
-                      style={{
-                        display: 'flex',
-                        width: table.getColumn(columnId)?.getSize(),
-                      }}
+                      style={getColumnFlexStyle(columnSize)}
                       className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold last:border-r-0 ${isRightAligned ? 'justify-end tabular-nums' : ''}`}
                     >
                       {columnIndex === 0 ? 'Total' : cellValue}

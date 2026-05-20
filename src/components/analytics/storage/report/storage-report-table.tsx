@@ -41,6 +41,10 @@ import {
 } from './columns';
 import { StorageReportDataTable } from './storage-report-data-table';
 
+const DEFAULT_COLUMN_SIZE = 170;
+const DEFAULT_COLUMN_MIN_SIZE = 120;
+const DEFAULT_COLUMN_MAX_SIZE = 550;
+
 function getFarmerId(gatePass: StorageGatePassWithLink): string {
   if (
     gatePass.farmerStorageLinkId &&
@@ -268,7 +272,16 @@ const StorageReportTable = () => {
   const table = useReactTable<IncomingReportRow>({
     data: incomingReportData,
     columns: storageReportColumns,
-    defaultColumn: { size: 170, minSize: 120, maxSize: 550 },
+    defaultColumn: {
+      size: DEFAULT_COLUMN_SIZE,
+      minSize: DEFAULT_COLUMN_MIN_SIZE,
+      maxSize: DEFAULT_COLUMN_MAX_SIZE,
+    },
+    initialState: {
+      columnSizing: {
+        remarks: 200,
+      },
+    },
     state: {
       sorting,
       columnVisibility,

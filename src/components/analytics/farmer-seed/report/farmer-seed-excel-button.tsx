@@ -3,6 +3,11 @@ import { flexRender, type Row, type Table } from '@tanstack/react-table';
 import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  openExcelPreviewInNewTab,
+  revokeExcelPreviewUrls,
+  type ExcelPreviewUrls,
+} from '@/lib/excel-preview-tab';
 import type { FarmerSeedReportRow } from './columns';
 
 const COLORS = {
@@ -368,9 +373,16 @@ export const FarmerSeedExcelButton = ({
 }: FarmerSeedExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
   const tableRef = React.useRef(table);
+  const previewUrlsRef = React.useRef<ExcelPreviewUrls | null>(null);
   React.useEffect(() => {
     tableRef.current = table;
   }, [table]);
+  React.useEffect(() => {
+    return () => {
+      revokeExcelPreviewUrls(previewUrlsRef.current);
+      previewUrlsRef.current = null;
+    };
+  }, []);
   const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
@@ -385,172 +397,175 @@ export const FarmerSeedExcelButton = ({
       generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = t.getVisibleLeafColumns();
-      const columnCount = visibleColumns.length;
-      const headerLabels = visibleColumns.map((column) =>
-        getRenderedHeaderLabel(t, column)
-      );
-      const sourceRows = t.getPrePaginationRowModel().rows;
-      const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+      await openExcelPreviewInNewTab(previewUrlsRef, async () => {
+        const visibleColumns = t.getVisibleLeafColumns();
+        const columnCount = visibleColumns.length;
+        const headerLabels = visibleColumns.map((column) =>
+          getRenderedHeaderLabel(t, column)
+        );
+        const sourceRows = t.getPrePaginationRowModel().rows;
+        const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
 
-      const sums: Record<string, number> = {};
-      collectFarmerSeedLeafColumnSums(sourceRows, sums);
-      const totalsRowValues = buildFarmerSeedTotalsRowValues(
-        visibleColumns,
-        sums
-      );
+        const sums: Record<string, number> = {};
+        collectFarmerSeedLeafColumnSums(sourceRows, sums);
+        const totalsRowValues = buildFarmerSeedTotalsRowValues(
+          visibleColumns,
+          sums
+        );
 
-      const safeName =
-        coldStorageName
-          .trim()
-          .replace(/[\\/:*?"<>|]/g, '')
-          .replace(/\s+/g, ' ') || 'Cold Storage';
+        const safeName =
+          coldStorageName
+            .trim()
+            .replace(/[\\/:*?"<>|]/g, '')
+            .replace(/\s+/g, ' ') || 'Cold Storage';
 
-      const dateLabel = getExportDateLabel(new Date());
-      const fileName = `${safeName} Farmer Seed Report ${dateLabel}.xlsx`;
+        const dateLabel = getExportDateLabel(new Date());
+        const fileName = `${safeName} Farmer Seed Report ${dateLabel}.xlsx`;
 
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = safeName;
-      const worksheet = workbook.addWorksheet('Farmer Seed Report');
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = safeName;
+        const worksheet = workbook.addWorksheet('Farmer Seed Report');
 
-      // ── Column widths ────────────────────────────────────────────────────────
-      // Calculate smart widths based on header text and data content
-      worksheet.columns = visibleColumns.map((_, i) => ({
-        key: String(i),
-        width: estimateColumnWidth(
-          headerLabels[i],
-          [...bodyRows.map((row) => row.values), totalsRowValues],
-          i
-        ),
-      }));
+        // ── Column widths ────────────────────────────────────────────────────────
+        // Calculate smart widths based on header text and data content
+        worksheet.columns = visibleColumns.map((_, i) => ({
+          key: String(i),
+          width: estimateColumnWidth(
+            headerLabels[i],
+            [...bodyRows.map((row) => row.values), totalsRowValues],
+            i
+          ),
+        }));
 
-      // ── Title row ────────────────────────────────────────────────────────────
-      const titleRow = worksheet.addRow([
-        safeName,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(1, 1, 1, columnCount);
-      titleRow.height = 40;
-      titleRow.getCell(1).value = safeName;
-      titleRow.getCell(1).font = {
-        ...FONTS.title,
-        color: { argb: COLORS.titleFg },
-      };
-      applyFill(titleRow.getCell(1), COLORS.titleBg);
-      titleRow.getCell(1).alignment = {
-        horizontal: 'left', // ← left-aligned
-        vertical: 'middle',
-      };
-
-      // ── Subtitle row ─────────────────────────────────────────────────────────
-      const subtitleRow = worksheet.addRow([
-        'Farmer Seed Report',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(2, 1, 2, columnCount);
-      subtitleRow.height = 26;
-      subtitleRow.getCell(1).value = 'Farmer Seed Report';
-      subtitleRow.getCell(1).font = {
-        ...FONTS.subtitle,
-        color: { argb: COLORS.subtitleFg },
-      };
-      applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
-      subtitleRow.getCell(1).alignment = {
-        horizontal: 'left', // ← left-aligned
-        vertical: 'middle',
-      };
-
-      // ── Date row ─────────────────────────────────────────────────────────────
-      const dateRow = worksheet.addRow([
-        `Generated on: ${dateLabel}`,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(3, 1, 3, columnCount);
-      dateRow.height = 20;
-      const dateCell = dateRow.getCell(1);
-      dateCell.value = `Generated on: ${dateLabel}`;
-      dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
-      applyFill(dateCell, COLORS.dateBg);
-      dateCell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
-
-      // ── Powered-by row ───────────────────────────────────────────────────────
-      const poweredByRow = worksheet.addRow([
-        'Powered by Coldop',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(4, 1, 4, columnCount);
-      poweredByRow.height = 18;
-      const poweredByCell = poweredByRow.getCell(1);
-      poweredByCell.value = 'Powered by Coldop';
-      poweredByCell.font = {
-        name: 'Calibri',
-        size: 9,
-        italic: true,
-        color: { argb: 'FF9CA3AF' },
-      };
-      poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
-
-      // ── Spacer ───────────────────────────────────────────────────────────────
-      worksheet.addRow([]);
-
-      // ── Column header row ────────────────────────────────────────────────────
-      const columnHeaderRow = worksheet.addRow(headerLabels);
-      columnHeaderRow.height = 36; // taller to accommodate wrapped text
-      columnHeaderRow.eachCell((cell) => {
-        applyFill(cell, COLORS.headerBg);
-        applyBorder(cell, COLORS.borderColor);
-        cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
-        cell.alignment = {
-          horizontal: 'left', // ← left-aligned headers
+        // ── Title row ────────────────────────────────────────────────────────────
+        const titleRow = worksheet.addRow([
+          safeName,
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(1, 1, 1, columnCount);
+        titleRow.height = 40;
+        titleRow.getCell(1).value = safeName;
+        titleRow.getCell(1).font = {
+          ...FONTS.title,
+          color: { argb: COLORS.titleFg },
+        };
+        applyFill(titleRow.getCell(1), COLORS.titleBg);
+        titleRow.getCell(1).alignment = {
+          horizontal: 'left', // ← left-aligned
           vertical: 'middle',
-          wrapText: true, // wrap long header labels
+        };
+
+        // ── Subtitle row ─────────────────────────────────────────────────────────
+        const subtitleRow = worksheet.addRow([
+          'Farmer Seed Report',
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(2, 1, 2, columnCount);
+        subtitleRow.height = 26;
+        subtitleRow.getCell(1).value = 'Farmer Seed Report';
+        subtitleRow.getCell(1).font = {
+          ...FONTS.subtitle,
+          color: { argb: COLORS.subtitleFg },
+        };
+        applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
+        subtitleRow.getCell(1).alignment = {
+          horizontal: 'left', // ← left-aligned
+          vertical: 'middle',
+        };
+
+        // ── Date row ─────────────────────────────────────────────────────────────
+        const dateRow = worksheet.addRow([
+          `Generated on: ${dateLabel}`,
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(3, 1, 3, columnCount);
+        dateRow.height = 20;
+        const dateCell = dateRow.getCell(1);
+        dateCell.value = `Generated on: ${dateLabel}`;
+        dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
+        applyFill(dateCell, COLORS.dateBg);
+        dateCell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
+
+        // ── Powered-by row ───────────────────────────────────────────────────────
+        const poweredByRow = worksheet.addRow([
+          'Powered by Coldop',
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(4, 1, 4, columnCount);
+        poweredByRow.height = 18;
+        const poweredByCell = poweredByRow.getCell(1);
+        poweredByCell.value = 'Powered by Coldop';
+        poweredByCell.font = {
+          name: 'Calibri',
+          size: 9,
+          italic: true,
+          color: { argb: 'FF9CA3AF' },
+        };
+        poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
+
+        // ── Spacer ───────────────────────────────────────────────────────────────
+        worksheet.addRow([]);
+
+        // ── Column header row ────────────────────────────────────────────────────
+        const columnHeaderRow = worksheet.addRow(headerLabels);
+        columnHeaderRow.height = 36; // taller to accommodate wrapped text
+        columnHeaderRow.eachCell((cell) => {
+          applyFill(cell, COLORS.headerBg);
+          applyBorder(cell, COLORS.borderColor);
+          cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
+          cell.alignment = {
+            horizontal: 'left', // ← left-aligned headers
+            vertical: 'middle',
+            wrapText: true, // wrap long header labels
+          };
+        });
+
+        // ── Body rows ────────────────────────────────────────────────────────────
+        bodyRows.forEach((dataRow) => {
+          const excelRow = worksheet.addRow(dataRow.values);
+          const background = dataRow.isGroupedOrAggregatedRow
+            ? COLORS.rowEven
+            : COLORS.rowOdd;
+          excelRow.height = 22; // taller body rows
+
+          excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
+            applyFill(cell, background);
+            applyBorder(cell, COLORS.borderColor);
+            cell.font = {
+              ...FONTS.body,
+              bold: dataRow.boldByColumn[columnNumber - 1] === true,
+              color: { argb: 'FF1F2937' },
+            };
+            cell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
+
+            const cellValue = dataRow.values[columnNumber - 1];
+            if (typeof cellValue === 'number') {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              // Smart format: whole numbers show no decimal; decimals show up to 2 places
+              cell.numFmt = SMART_NUMBER_FORMAT;
+            }
+          });
+        });
+
+        addTotalsRow(worksheet, totalsRowValues);
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return {
+          buffer,
+          fileName,
+          preview: {
+            title: safeName,
+            subtitle: 'Farmer Seed Report',
+            dateLabel,
+            exportedRowCount: bodyRows.length,
+            headers: headerLabels,
+            rows: bodyRows,
+            totals: totalsRowValues,
+          },
         };
       });
-
-      // ── Body rows ────────────────────────────────────────────────────────────
-      bodyRows.forEach((dataRow) => {
-        const excelRow = worksheet.addRow(dataRow.values);
-        const background = dataRow.isGroupedOrAggregatedRow
-          ? COLORS.rowEven
-          : COLORS.rowOdd;
-        excelRow.height = 22; // taller body rows
-
-        excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-          applyFill(cell, background);
-          applyBorder(cell, COLORS.borderColor);
-          cell.font = {
-            ...FONTS.body,
-            bold: dataRow.boldByColumn[columnNumber - 1] === true,
-            color: { argb: 'FF1F2937' },
-          };
-          cell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
-
-          const cellValue = dataRow.values[columnNumber - 1];
-          if (typeof cellValue === 'number') {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            // Smart format: whole numbers show no decimal; decimals show up to 2 places
-            cell.numFmt = SMART_NUMBER_FORMAT;
-          }
-        });
-      });
-
-      addTotalsRow(worksheet, totalsRowValues);
-
-      // ── Write & download ─────────────────────────────────────────────────────
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
+    } catch {
+      // openExcelPreviewInNewTab already alerted
     } finally {
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);

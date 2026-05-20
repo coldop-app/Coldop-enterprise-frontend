@@ -176,6 +176,8 @@ export function getStorageReportColumns(
       header: 'System Generated Gate Pass No',
       sortingFn: 'alphanumeric',
       filterFn: multiValueFilterFn,
+      minSize: 120,
+      maxSize: 220,
       cell: (info) => (
         <span className="font-custom font-medium">{info.getValue()}</span>
       ),
@@ -184,6 +186,8 @@ export function getStorageReportColumns(
       header: 'Manual Gate Pass No',
       sortingFn: 'alphanumeric',
       filterFn: multiValueFilterFn,
+      minSize: 200,
+      maxSize: 300,
       cell: (info) => info.getValue() ?? '-',
     }),
     columnHelper.accessor('accountNumber', {
@@ -204,16 +208,22 @@ export function getStorageReportColumns(
         Number(rowA.original.dateSortValue || 0) -
         Number(rowB.original.dateSortValue || 0),
       filterFn: multiValueFilterFn,
+      minSize: 120,
+      maxSize: 220,
     }),
     columnHelper.accessor('farmerMobileNumber', {
       header: 'Mobile Number',
       sortingFn: 'text',
       filterFn: multiValueFilterFn,
+      minSize: 120,
+      maxSize: 200,
     }),
     columnHelper.accessor('variety', {
       header: 'Variety',
       sortingFn: 'text',
       filterFn: multiValueFilterFn,
+      minSize: 120,
+      maxSize: 220,
     }),
     ...bagSizeColumnConfig.map(({ id, label }) =>
       columnHelper.accessor(id, {
@@ -258,8 +268,14 @@ export function getStorageReportColumns(
       header: 'Remarks',
       sortingFn: 'text',
       filterFn: multiValueFilterFn,
-      size: 550,
-      maxSize: 550,
+      size: 200,
+      minSize: 120,
+      maxSize: 220,
+      cell: (info) => (
+        <div className="font-custom min-w-0 text-left text-sm leading-snug wrap-break-word whitespace-normal">
+          {String(info.getValue() ?? '')}
+        </div>
+      ),
     }),
   ];
 }

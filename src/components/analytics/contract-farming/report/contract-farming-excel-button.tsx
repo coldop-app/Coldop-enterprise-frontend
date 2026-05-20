@@ -3,6 +3,11 @@ import { flexRender, type Row, type Table } from '@tanstack/react-table';
 import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  openExcelPreviewInNewTab,
+  revokeExcelPreviewUrls,
+  type ExcelPreviewUrls,
+} from '@/lib/excel-preview-tab';
 import { usePreferencesStore } from '@/stores/store';
 import {
   isContractFarmingFamilySpanColumn,
@@ -312,11 +317,19 @@ export const ContractFarmingExcelButton = ({
 }: ContractFarmingExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
   const tableRef = React.useRef(table);
+  const previewUrlsRef = React.useRef<ExcelPreviewUrls | null>(null);
   const generatingExcelRef = React.useRef(false);
 
   React.useEffect(() => {
     tableRef.current = table;
   }, [table]);
+
+  React.useEffect(() => {
+    return () => {
+      revokeExcelPreviewUrls(previewUrlsRef.current);
+      previewUrlsRef.current = null;
+    };
+  }, []);
 
   const handleGenerate = React.useCallback(async () => {
     if (generatingExcelRef.current) return;
@@ -330,181 +343,191 @@ export const ContractFarmingExcelButton = ({
       generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = t.getVisibleLeafColumns();
-      const visibleColumnIds = visibleColumns.map((column) => column.id);
-      const columnCount = visibleColumns.length;
-      const headerLabels = visibleColumns.map((column) =>
-        getRenderedHeaderLabel(t, column)
-      );
-      // Match on-screen row order: filtered → sorted → grouped → expanded
-      // (same as `table.getRowModel().rows` in the report table). Using
-      // `getFilteredRowModel()` alone omits sorting and can disagree with the UI.
-      const sourceRows = t.getRowModel().rows;
-      const suppressRepeatedMergedCells = true;
-      const bodyRows = getExcelBodyRows(
-        sourceRows,
-        visibleColumnIds,
-        suppressRepeatedMergedCells
-      );
+      await openExcelPreviewInNewTab(previewUrlsRef, async () => {
+        const visibleColumns = t.getVisibleLeafColumns();
+        const visibleColumnIds = visibleColumns.map((column) => column.id);
+        const columnCount = visibleColumns.length;
+        const headerLabels = visibleColumns.map((column) =>
+          getRenderedHeaderLabel(t, column)
+        );
+        // Match on-screen row order: filtered → sorted → grouped → expanded
+        // (same as `table.getRowModel().rows` in the report table). Using
+        // `getFilteredRowModel()` alone omits sorting and can disagree with the UI.
+        const sourceRows = t.getRowModel().rows;
+        const suppressRepeatedMergedCells = true;
+        const bodyRows = getExcelBodyRows(
+          sourceRows,
+          visibleColumnIds,
+          suppressRepeatedMergedCells
+        );
 
-      const preferences = usePreferencesStore.getState().preferences;
-      const footer = computeContractFarmingFooterTotals(
-        t.getFilteredRowModel().rows,
-        preferences,
-        visibleColumnIds
-      );
-      const { totalsRow: totalsRowValues, perAcreRow: perAcreRowValues } =
-        buildContractFarmingExcelFooterRows(visibleColumnIds, footer);
-      const allRowsForWidth = [
-        ...bodyRows.map((row) => row.values),
-        totalsRowValues,
-        ...(perAcreRowValues ? [perAcreRowValues] : []),
-      ];
+        const preferences = usePreferencesStore.getState().preferences;
+        const footer = computeContractFarmingFooterTotals(
+          t.getFilteredRowModel().rows,
+          preferences,
+          visibleColumnIds
+        );
+        const { totalsRow: totalsRowValues, perAcreRow: perAcreRowValues } =
+          buildContractFarmingExcelFooterRows(visibleColumnIds, footer);
+        const allRowsForWidth = [
+          ...bodyRows.map((row) => row.values),
+          totalsRowValues,
+          ...(perAcreRowValues ? [perAcreRowValues] : []),
+        ];
 
-      const safeName = safeFilePart(coldStorageName, 'Cold Storage');
-      const dateLabel = getExportDateLabel(new Date());
-      const fileName = `${safeName} Contract Farming Report ${dateLabel}.xlsx`;
+        const safeName = safeFilePart(coldStorageName, 'Cold Storage');
+        const dateLabel = getExportDateLabel(new Date());
+        const fileName = `${safeName} Contract Farming Report ${dateLabel}.xlsx`;
 
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = safeName;
-      const worksheet = workbook.addWorksheet('Contract Farming Report');
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = safeName;
+        const worksheet = workbook.addWorksheet('Contract Farming Report');
 
-      worksheet.columns = headerLabels.map((header, index) => ({
-        key: `c${index}`,
-        width: estimateColumnWidth(header, allRowsForWidth, index),
-      }));
+        worksheet.columns = headerLabels.map((header, index) => ({
+          key: `c${index}`,
+          width: estimateColumnWidth(header, allRowsForWidth, index),
+        }));
 
-      const titleRow = worksheet.addRow([
-        safeName,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(1, 1, 1, columnCount);
-      titleRow.height = 40;
-      const titleCell = titleRow.getCell(1);
-      titleCell.value = safeName;
-      titleCell.font = { ...FONTS.title, color: { argb: COLORS.titleFg } };
-      titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
-      applyFill(titleCell, COLORS.titleBg);
+        const titleRow = worksheet.addRow([
+          safeName,
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(1, 1, 1, columnCount);
+        titleRow.height = 40;
+        const titleCell = titleRow.getCell(1);
+        titleCell.value = safeName;
+        titleCell.font = { ...FONTS.title, color: { argb: COLORS.titleFg } };
+        titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        applyFill(titleCell, COLORS.titleBg);
 
-      const subtitleRow = worksheet.addRow([
-        'Contract Farming Report',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(2, 1, 2, columnCount);
-      subtitleRow.height = 26;
-      const subtitleCell = subtitleRow.getCell(1);
-      subtitleCell.value = 'Contract Farming Report';
-      subtitleCell.font = {
-        ...FONTS.subtitle,
-        color: { argb: COLORS.subtitleFg },
-      };
-      subtitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
-      applyFill(subtitleCell, COLORS.subtitleBg);
+        const subtitleRow = worksheet.addRow([
+          'Contract Farming Report',
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(2, 1, 2, columnCount);
+        subtitleRow.height = 26;
+        const subtitleCell = subtitleRow.getCell(1);
+        subtitleCell.value = 'Contract Farming Report';
+        subtitleCell.font = {
+          ...FONTS.subtitle,
+          color: { argb: COLORS.subtitleFg },
+        };
+        subtitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        applyFill(subtitleCell, COLORS.subtitleBg);
 
-      const dateRow = worksheet.addRow([
-        `Generated on: ${dateLabel}`,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(3, 1, 3, columnCount);
-      dateRow.height = 20;
-      const dateCell = dateRow.getCell(1);
-      dateCell.value = `Generated on: ${dateLabel}`;
-      dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
-      dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
-      applyFill(dateCell, COLORS.dateBg);
+        const dateRow = worksheet.addRow([
+          `Generated on: ${dateLabel}`,
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(3, 1, 3, columnCount);
+        dateRow.height = 20;
+        const dateCell = dateRow.getCell(1);
+        dateCell.value = `Generated on: ${dateLabel}`;
+        dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
+        dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        applyFill(dateCell, COLORS.dateBg);
 
-      const poweredByRow = worksheet.addRow([
-        'Powered by Coldop',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(4, 1, 4, columnCount);
-      const poweredByCell = poweredByRow.getCell(1);
-      poweredByCell.value = 'Powered by Coldop';
-      poweredByCell.font = {
-        name: 'Calibri',
-        size: 9,
-        italic: true,
-        color: { argb: 'FF9CA3AF' },
-      };
-      poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        const poweredByRow = worksheet.addRow([
+          'Powered by Coldop',
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(4, 1, 4, columnCount);
+        const poweredByCell = poweredByRow.getCell(1);
+        poweredByCell.value = 'Powered by Coldop';
+        poweredByCell.font = {
+          name: 'Calibri',
+          size: 9,
+          italic: true,
+          color: { argb: 'FF9CA3AF' },
+        };
+        poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' };
 
-      worksheet.addRow([]);
+        worksheet.addRow([]);
 
-      const headerRow = worksheet.addRow(headerLabels);
-      headerRow.height = 36;
-      headerRow.eachCell((cell) => {
-        applyFill(cell, COLORS.headerBg);
-        applyBorder(cell, COLORS.borderColor);
-        cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
-        cell.alignment = {
-          horizontal: 'left',
-          vertical: 'middle',
-          wrapText: true,
+        const headerRow = worksheet.addRow(headerLabels);
+        headerRow.height = 36;
+        headerRow.eachCell((cell) => {
+          applyFill(cell, COLORS.headerBg);
+          applyBorder(cell, COLORS.borderColor);
+          cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
+          cell.alignment = {
+            horizontal: 'left',
+            vertical: 'middle',
+            wrapText: true,
+          };
+        });
+
+        const farmerColumnIndex = visibleColumnIds.indexOf('farmer');
+
+        bodyRows.forEach((bodyRow) => {
+          const excelRow = worksheet.addRow(bodyRow.values);
+          const farmerValue =
+            farmerColumnIndex >= 0
+              ? bodyRow.values[farmerColumnIndex]
+              : undefined;
+          const farmerLineCount =
+            typeof farmerValue === 'string'
+              ? farmerValue.split('\n').length
+              : 1;
+          excelRow.height =
+            farmerLineCount > 1 ? Math.max(22, farmerLineCount * 16) : 22;
+          const bgArgb = bodyRow.isGroupedOrAggregatedRow
+            ? COLORS.rowEven
+            : COLORS.rowOdd;
+          excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
+            const value = bodyRow.values[columnNumber - 1];
+            const columnId = visibleColumnIds[columnNumber - 1];
+            applyFill(cell, bgArgb);
+            applyBorder(cell, COLORS.borderColor);
+            cell.font = {
+              ...FONTS.body,
+              bold: bodyRow.boldByColumn[columnNumber - 1] === true,
+              color: { argb: 'FF1F2937' },
+            };
+
+            const isNumeric =
+              typeof value === 'number' && isNumericSortColumnId(columnId);
+            const isMultilineFarmer =
+              columnId === 'farmer' &&
+              typeof value === 'string' &&
+              value.includes('\n');
+            cell.alignment = {
+              horizontal: isNumeric ? 'right' : 'left',
+              vertical: isMultilineFarmer ? 'top' : 'middle',
+              wrapText: isMultilineFarmer || columnId === 'farmer',
+            };
+            if (isNumeric) cell.numFmt = SMART_NUMBER_FORMAT;
+          });
+        });
+
+        addTotalsRow(worksheet, totalsRowValues, visibleColumnIds);
+        if (perAcreRowValues) {
+          addTotalsRow(worksheet, perAcreRowValues, visibleColumnIds, {
+            bold: false,
+          });
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const footerRows = [
+          totalsRowValues,
+          ...(perAcreRowValues ? [perAcreRowValues] : []),
+        ];
+        return {
+          buffer,
+          fileName,
+          preview: {
+            title: safeName,
+            subtitle: 'Contract Farming Report',
+            dateLabel,
+            exportedRowCount: bodyRows.length,
+            headers: headerLabels,
+            rows: bodyRows,
+            footerRows,
+          },
         };
       });
-
-      const farmerColumnIndex = visibleColumnIds.indexOf('farmer');
-
-      bodyRows.forEach((bodyRow) => {
-        const excelRow = worksheet.addRow(bodyRow.values);
-        const farmerValue =
-          farmerColumnIndex >= 0
-            ? bodyRow.values[farmerColumnIndex]
-            : undefined;
-        const farmerLineCount =
-          typeof farmerValue === 'string' ? farmerValue.split('\n').length : 1;
-        excelRow.height =
-          farmerLineCount > 1 ? Math.max(22, farmerLineCount * 16) : 22;
-        const bgArgb = bodyRow.isGroupedOrAggregatedRow
-          ? COLORS.rowEven
-          : COLORS.rowOdd;
-        excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-          const value = bodyRow.values[columnNumber - 1];
-          const columnId = visibleColumnIds[columnNumber - 1];
-          applyFill(cell, bgArgb);
-          applyBorder(cell, COLORS.borderColor);
-          cell.font = {
-            ...FONTS.body,
-            bold: bodyRow.boldByColumn[columnNumber - 1] === true,
-            color: { argb: 'FF1F2937' },
-          };
-
-          const isNumeric =
-            typeof value === 'number' && isNumericSortColumnId(columnId);
-          const isMultilineFarmer =
-            columnId === 'farmer' &&
-            typeof value === 'string' &&
-            value.includes('\n');
-          cell.alignment = {
-            horizontal: isNumeric ? 'right' : 'left',
-            vertical: isMultilineFarmer ? 'top' : 'middle',
-            wrapText: isMultilineFarmer || columnId === 'farmer',
-          };
-          if (isNumeric) cell.numFmt = SMART_NUMBER_FORMAT;
-        });
-      });
-
-      addTotalsRow(worksheet, totalsRowValues, visibleColumnIds);
-      if (perAcreRowValues) {
-        addTotalsRow(worksheet, perAcreRowValues, visibleColumnIds, {
-          bold: false,
-        });
-      }
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
+    } catch {
+      // openExcelPreviewInNewTab already alerted
     } finally {
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);

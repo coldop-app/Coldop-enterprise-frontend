@@ -4,6 +4,11 @@ import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  openExcelPreviewInNewTab,
+  revokeExcelPreviewUrls,
+  type ExcelPreviewUrls,
+} from '@/lib/excel-preview-tab';
+import {
   isGradingSplitSpanColumn,
   type GradingReportTableRow,
 } from './columns';
@@ -483,9 +488,16 @@ export const GradingExcelButton = ({
 }: GradingExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
   const tableRef = React.useRef(table);
+  const previewUrlsRef = React.useRef<ExcelPreviewUrls | null>(null);
   React.useEffect(() => {
     tableRef.current = table;
   }, [table]);
+  React.useEffect(() => {
+    return () => {
+      revokeExcelPreviewUrls(previewUrlsRef.current);
+      previewUrlsRef.current = null;
+    };
+  }, []);
   const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
@@ -500,182 +512,189 @@ export const GradingExcelButton = ({
       generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = t.getVisibleLeafColumns();
-      const sourceRows = t.getPrePaginationRowModel().rows;
-      // Keep grouped aggregates visible in export, matching table behavior.
-      const hideGroupedAggregations = false;
-      // Match digital table behavior for merged grading gate pass cells.
-      const suppressRepeatedMergedCells = true;
+      await openExcelPreviewInNewTab(previewUrlsRef, async () => {
+        const visibleColumns = t.getVisibleLeafColumns();
+        const sourceRows = t.getPrePaginationRowModel().rows;
+        // Keep grouped aggregates visible in export, matching table behavior.
+        const hideGroupedAggregations = false;
+        // Match digital table behavior for merged grading gate pass cells.
+        const suppressRepeatedMergedCells = true;
 
-      const leafRows = collectLeafRows(sourceRows);
-      const exportColumns = visibleColumns.filter((col) => {
-        if (!col.id.startsWith('bagSize__')) return true;
-        return bagSizeColumnHasAnyNonZero(col.id, leafRows);
-      });
+        const leafRows = collectLeafRows(sourceRows);
+        const exportColumns = visibleColumns.filter((col) => {
+          if (!col.id.startsWith('bagSize__')) return true;
+          return bagSizeColumnHasAnyNonZero(col.id, leafRows);
+        });
 
-      const columnCount = exportColumns.length;
-      const exportColumnIds = exportColumns.map((c) => c.id);
-      const headerLabels = exportColumns.map((column) =>
-        getRenderedHeaderLabel(t, column)
-      );
-      const bodyRows = getExcelBodyRows(
-        sourceRows,
-        exportColumns,
-        hideGroupedAggregations,
-        suppressRepeatedMergedCells
-      );
+        const columnCount = exportColumns.length;
+        const exportColumnIds = exportColumns.map((c) => c.id);
+        const headerLabels = exportColumns.map((column) =>
+          getRenderedHeaderLabel(t, column)
+        );
+        const bodyRows = getExcelBodyRows(
+          sourceRows,
+          exportColumns,
+          hideGroupedAggregations,
+          suppressRepeatedMergedCells
+        );
 
-      const sums: Record<string, number> = {};
-      collectGradingLeafColumnSums(sourceRows, sums);
-      const totalsRowValues = buildGradingTotalsRowValues(exportColumns, sums);
+        const sums: Record<string, number> = {};
+        collectGradingLeafColumnSums(sourceRows, sums);
+        const totalsRowValues = buildGradingTotalsRowValues(
+          exportColumns,
+          sums
+        );
 
-      const safeName = safeFilePart(coldStorageName, 'Cold Storage');
+        const safeName = safeFilePart(coldStorageName, 'Cold Storage');
 
-      const dateLabel = getExportDateLabel(new Date());
-      const fileName = `${safeName} Grading Report ${dateLabel}.xlsx`;
+        const dateLabel = getExportDateLabel(new Date());
+        const fileName = `${safeName} Grading Report ${dateLabel}.xlsx`;
 
-      const styledBodyRows = bodyRows.map((row) => ({
-        values: replaceZerosWithDash(coerceRows([row.values]))[0],
-        boldByColumn: row.boldByColumn,
-        isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
-      }));
-      const allRowsForWidth = [
-        ...styledBodyRows.map((row) => row.values),
-        totalsRowValues,
-      ];
+        const styledBodyRows = bodyRows.map((row) => ({
+          values: replaceZerosWithDash(coerceRows([row.values]))[0],
+          boldByColumn: row.boldByColumn,
+          isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
+        }));
+        const allRowsForWidth = [
+          ...styledBodyRows.map((row) => row.values),
+          totalsRowValues,
+        ];
 
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = safeName;
-      const worksheet = workbook.addWorksheet('Grading Report');
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = safeName;
+        const worksheet = workbook.addWorksheet('Grading Report');
 
-      applySmartColumnWidths(worksheet, headerLabels, allRowsForWidth);
+        applySmartColumnWidths(worksheet, headerLabels, allRowsForWidth);
 
-      const titleRow = worksheet.addRow([
-        safeName,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(1, 1, 1, columnCount);
-      titleRow.height = 40;
-      titleRow.getCell(1).value = safeName;
-      titleRow.getCell(1).font = {
-        ...FONTS.title,
-        color: { argb: COLORS.titleFg },
-      };
-      applyFill(titleRow.getCell(1), COLORS.titleBg);
-      titleRow.getCell(1).alignment = {
-        horizontal: 'left',
-        vertical: 'middle',
-      };
-
-      const subtitleRow = worksheet.addRow([
-        'Grading Report',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(2, 1, 2, columnCount);
-      subtitleRow.height = 26;
-      subtitleRow.getCell(1).value = 'Grading Report';
-      subtitleRow.getCell(1).font = {
-        ...FONTS.subtitle,
-        color: { argb: COLORS.subtitleFg },
-      };
-      applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
-      subtitleRow.getCell(1).alignment = {
-        horizontal: 'left',
-        vertical: 'middle',
-      };
-
-      const dateRow = worksheet.addRow([
-        `Generated on: ${dateLabel}`,
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(3, 1, 3, columnCount);
-      dateRow.height = 20;
-      const dateCell = dateRow.getCell(1);
-      dateCell.value = `Generated on: ${dateLabel}`;
-      dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
-      applyFill(dateCell, COLORS.dateBg);
-      dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
-
-      const poweredByRow = worksheet.addRow([
-        'Powered by Coldop',
-        ...Array(columnCount - 1).fill(''),
-      ]);
-      worksheet.mergeCells(4, 1, 4, columnCount);
-      poweredByRow.height = 18;
-      const poweredByCell = poweredByRow.getCell(1);
-      poweredByCell.value = 'Powered by Coldop';
-      poweredByCell.font = {
-        name: 'Calibri',
-        size: 9,
-        italic: true,
-        color: { argb: 'FF9CA3AF' },
-      };
-      poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' };
-
-      worksheet.addRow([]);
-
-      const columnHeaderRow = worksheet.addRow(headerLabels);
-      columnHeaderRow.height = 36;
-      columnHeaderRow.eachCell((cell) => {
-        applyFill(cell, COLORS.headerBg);
-        applyBorder(cell, COLORS.borderColor);
-        cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
-        cell.alignment = {
+        const titleRow = worksheet.addRow([
+          safeName,
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(1, 1, 1, columnCount);
+        titleRow.height = 40;
+        titleRow.getCell(1).value = safeName;
+        titleRow.getCell(1).font = {
+          ...FONTS.title,
+          color: { argb: COLORS.titleFg },
+        };
+        applyFill(titleRow.getCell(1), COLORS.titleBg);
+        titleRow.getCell(1).alignment = {
           horizontal: 'left',
           vertical: 'middle',
-          wrapText: true,
+        };
+
+        const subtitleRow = worksheet.addRow([
+          'Grading Report',
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(2, 1, 2, columnCount);
+        subtitleRow.height = 26;
+        subtitleRow.getCell(1).value = 'Grading Report';
+        subtitleRow.getCell(1).font = {
+          ...FONTS.subtitle,
+          color: { argb: COLORS.subtitleFg },
+        };
+        applyFill(subtitleRow.getCell(1), COLORS.subtitleBg);
+        subtitleRow.getCell(1).alignment = {
+          horizontal: 'left',
+          vertical: 'middle',
+        };
+
+        const dateRow = worksheet.addRow([
+          `Generated on: ${dateLabel}`,
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(3, 1, 3, columnCount);
+        dateRow.height = 20;
+        const dateCell = dateRow.getCell(1);
+        dateCell.value = `Generated on: ${dateLabel}`;
+        dateCell.font = { ...FONTS.date, color: { argb: COLORS.dateFg } };
+        applyFill(dateCell, COLORS.dateBg);
+        dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+        const poweredByRow = worksheet.addRow([
+          'Powered by Coldop',
+          ...Array(columnCount - 1).fill(''),
+        ]);
+        worksheet.mergeCells(4, 1, 4, columnCount);
+        poweredByRow.height = 18;
+        const poweredByCell = poweredByRow.getCell(1);
+        poweredByCell.value = 'Powered by Coldop';
+        poweredByCell.font = {
+          name: 'Calibri',
+          size: 9,
+          italic: true,
+          color: { argb: 'FF9CA3AF' },
+        };
+        poweredByCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+        worksheet.addRow([]);
+
+        const columnHeaderRow = worksheet.addRow(headerLabels);
+        columnHeaderRow.height = 36;
+        columnHeaderRow.eachCell((cell) => {
+          applyFill(cell, COLORS.headerBg);
+          applyBorder(cell, COLORS.borderColor);
+          cell.font = { ...FONTS.colHeader, color: { argb: COLORS.headerFg } };
+          cell.alignment = {
+            horizontal: 'left',
+            vertical: 'middle',
+            wrapText: true,
+          };
+        });
+
+        styledBodyRows.forEach((dataRow) => {
+          const excelRow = worksheet.addRow(dataRow.values);
+          const background = dataRow.isGroupedOrAggregatedRow
+            ? COLORS.rowEven
+            : COLORS.rowOdd;
+          excelRow.height = 22;
+
+          excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
+            applyFill(cell, background);
+            applyBorder(cell, COLORS.borderColor);
+            cell.font = {
+              ...FONTS.body,
+              bold: dataRow.boldByColumn[columnNumber - 1] === true,
+              color: { argb: 'FF1F2937' },
+            };
+            const raw = dataRow.values[columnNumber - 1];
+            const colId = exportColumnIds[columnNumber - 1];
+            const isNumber = typeof raw === 'number';
+            const isDashNumeric =
+              raw === '-' &&
+              colId != null &&
+              EXCEL_NUMERIC_DISPLAY_COLUMN_IDS.has(colId);
+            if (isNumber) {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              cell.numFmt = SMART_NUMBER_FORMAT;
+            } else if (isDashNumeric) {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
+          });
+        });
+
+        addTotalsRow(worksheet, totalsRowValues, exportColumnIds);
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return {
+          buffer,
+          fileName,
+          preview: {
+            title: safeName,
+            subtitle: 'Grading Report',
+            dateLabel,
+            exportedRowCount: styledBodyRows.length,
+            headers: headerLabels,
+            rows: styledBodyRows,
+            totals: totalsRowValues,
+          },
         };
       });
-
-      styledBodyRows.forEach((dataRow) => {
-        const excelRow = worksheet.addRow(dataRow.values);
-        const background = dataRow.isGroupedOrAggregatedRow
-          ? COLORS.rowEven
-          : COLORS.rowOdd;
-        excelRow.height = 22;
-
-        excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-          applyFill(cell, background);
-          applyBorder(cell, COLORS.borderColor);
-          cell.font = {
-            ...FONTS.body,
-            bold: dataRow.boldByColumn[columnNumber - 1] === true,
-            color: { argb: 'FF1F2937' },
-          };
-          const raw = dataRow.values[columnNumber - 1];
-          const colId = exportColumnIds[columnNumber - 1];
-          const isNumber = typeof raw === 'number';
-          const isDashNumeric =
-            raw === '-' &&
-            colId != null &&
-            EXCEL_NUMERIC_DISPLAY_COLUMN_IDS.has(colId);
-          if (isNumber) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            cell.numFmt = SMART_NUMBER_FORMAT;
-          } else if (isDashNumeric) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-          } else {
-            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-          }
-        });
-      });
-
-      addTotalsRow(worksheet, totalsRowValues, exportColumnIds);
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
+    } catch {
+      // openExcelPreviewInNewTab already alerted
     } finally {
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);

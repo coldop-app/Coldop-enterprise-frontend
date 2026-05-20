@@ -3,6 +3,11 @@ import { flexRender, type Row, type Table } from '@tanstack/react-table';
 import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  openExcelPreviewInNewTab,
+  revokeExcelPreviewUrls,
+  type ExcelPreviewUrls,
+} from '@/lib/excel-preview-tab';
 import type { IncomingReportRow } from './columns';
 
 const COLORS = {
@@ -472,9 +477,16 @@ export const StorageExcelButton = ({
 }: StorageExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
   const tableRef = React.useRef(table);
+  const previewUrlsRef = React.useRef<ExcelPreviewUrls | null>(null);
   React.useEffect(() => {
     tableRef.current = table;
   }, [table]);
+  React.useEffect(() => {
+    return () => {
+      revokeExcelPreviewUrls(previewUrlsRef.current);
+      previewUrlsRef.current = null;
+    };
+  }, []);
   const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
@@ -489,65 +501,72 @@ export const StorageExcelButton = ({
       generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      const visibleColumns = t.getVisibleLeafColumns();
-      const columnCount = visibleColumns.length;
-      const headerLabels = visibleColumns.map((column) =>
-        getRenderedHeaderLabel(t, column)
-      );
-      const sourceRows = t.getPrePaginationRowModel().rows;
-      const rawBodyRows = getExcelBodyRows(sourceRows, visibleColumns);
-      const bodyRows = rawBodyRows.map((row) => ({
-        values: coerceRows([row.values])[0],
-        boldByColumn: row.boldByColumn,
-        isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
-      }));
+      await openExcelPreviewInNewTab(previewUrlsRef, async () => {
+        const visibleColumns = t.getVisibleLeafColumns();
+        const columnCount = visibleColumns.length;
+        const headerLabels = visibleColumns.map((column) =>
+          getRenderedHeaderLabel(t, column)
+        );
+        const sourceRows = t.getPrePaginationRowModel().rows;
+        const rawBodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+        const bodyRows = rawBodyRows.map((row) => ({
+          values: coerceRows([row.values])[0],
+          boldByColumn: row.boldByColumn,
+          isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
+        }));
 
-      const sums: Record<string, number> = {};
-      collectStorageLeafColumnSums(sourceRows, sums);
-      const totalsRowValues = buildStorageTotalsRowValues(visibleColumns, sums);
+        const sums: Record<string, number> = {};
+        collectStorageLeafColumnSums(sourceRows, sums);
+        const totalsRowValues = buildStorageTotalsRowValues(
+          visibleColumns,
+          sums
+        );
 
-      const safeName = safeFilePart(coldStorageName, 'Cold Storage');
-      const dateLabel = getDateLabel(new Date());
-      const fileName = `${safeName} Storage Report ${dateLabel}.xlsx`;
+        const safeName = safeFilePart(coldStorageName, 'Cold Storage');
+        const dateLabel = getDateLabel(new Date());
+        const fileName = `${safeName} Storage Report ${dateLabel}.xlsx`;
 
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = safeName;
-      const worksheet = workbook.addWorksheet('Storage Report');
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = safeName;
+        const worksheet = workbook.addWorksheet('Storage Report');
 
-      const allBodyRowsForWidth = [
-        ...bodyRows.map((row) => row.values),
-        totalsRowValues,
-      ];
+        const allBodyRowsForWidth = [
+          ...bodyRows.map((row) => row.values),
+          totalsRowValues,
+        ];
 
-      applySmartColumnWidths(worksheet, headerLabels, allBodyRowsForWidth);
+        applySmartColumnWidths(worksheet, headerLabels, allBodyRowsForWidth);
 
-      const overviewLines = [`Data rows: ${bodyRows.length}`];
-      buildReportHeader(
-        worksheet,
-        columnCount,
-        safeName,
-        'Storage Report',
-        dateLabel,
-        overviewLines
-      );
+        const overviewLines = [`Data rows: ${bodyRows.length}`];
+        buildReportHeader(
+          worksheet,
+          columnCount,
+          safeName,
+          'Storage Report',
+          dateLabel,
+          overviewLines
+        );
 
-      addStyledTable(worksheet, headerLabels, bodyRows);
-      addTotalsRow(worksheet, totalsRowValues);
+        addStyledTable(worksheet, headerLabels, bodyRows);
+        addTotalsRow(worksheet, totalsRowValues);
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        const buffer = await workbook.xlsx.writeBuffer();
+        return {
+          buffer,
+          fileName,
+          preview: {
+            title: safeName,
+            subtitle: 'Storage Report',
+            dateLabel,
+            exportedRowCount: bodyRows.length,
+            headers: headerLabels,
+            rows: bodyRows,
+            totals: totalsRowValues,
+          },
+        };
       });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
+    } catch {
+      // openExcelPreviewInNewTab already alerted
     } finally {
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);

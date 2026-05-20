@@ -2,6 +2,11 @@ import * as React from 'react';
 import ExcelJS from 'exceljs';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  openExcelPreviewInNewTab,
+  revokeExcelPreviewUrls,
+  type ExcelPreviewUrls,
+} from '@/lib/excel-preview-tab';
 import { sizeLabelsWithAnyQuantity } from '@/components/people/reports/helpers/grading-prepare';
 import type {
   DispatchLedgerNikasiGatePass,
@@ -299,7 +304,15 @@ export function DispatchLedgerReportExcelButton({
   disabled = false,
 }: DispatchLedgerReportExcelButtonProps) {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
+  const previewUrlsRef = React.useRef<ExcelPreviewUrls | null>(null);
   const generatingExcelRef = React.useRef(false);
+
+  React.useEffect(() => {
+    return () => {
+      revokeExcelPreviewUrls(previewUrlsRef.current);
+      previewUrlsRef.current = null;
+    };
+  }, []);
 
   const handleGenerate = React.useCallback(async () => {
     if (generatingExcelRef.current || sortedPasses.length === 0) return;
@@ -307,176 +320,193 @@ export function DispatchLedgerReportExcelButton({
       generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
 
-      type Block = {
-        title: string;
-        headers: string[];
-        bodyRows: Array<Array<string | number>>;
-        totalsRow: Array<string | number>;
-      };
+      await openExcelPreviewInNewTab(previewUrlsRef, async () => {
+        type Block = {
+          title: string;
+          headers: string[];
+          bodyRows: Array<Array<string | number>>;
+          totalsRow: Array<string | number>;
+        };
 
-      const blocks: Block[] = [];
+        const blocks: Block[] = [];
 
-      for (const varietyKey of dispatchVarietyKeys) {
-        const passes = gatePassesForDispatchVariety(sortedPasses, varietyKey);
-        const sizeLabelsOrdered = buildDispatchVarietySizeLabelsOrdered(
-          passes,
-          varietyKey
-        );
-        const varietyTotals = computeDispatchVarietyTotals(
-          passes,
-          varietyKey,
-          sizeLabelsOrdered
-        );
-        const visibleSizeLabels =
-          varietyKey === EMPTY_BAG_LINES_KEY
-            ? []
-            : sizeLabelsWithAnyQuantity(sizeLabelsOrdered, varietyTotals);
-
-        const headers = [
-          'Manual #',
-          'Date',
-          'To',
-          'Truck',
-          ...visibleSizeLabels.map((label) => `${label} (mm)`),
-          'Net (kg)',
-          'Avg / bag',
-          'Remarks',
-        ];
-
-        const bodyRows: Array<Array<string | number>> = passes.map((gp) => {
-          const sizeQty =
+        for (const varietyKey of dispatchVarietyKeys) {
+          const passes = gatePassesForDispatchVariety(sortedPasses, varietyKey);
+          const sizeLabelsOrdered = buildDispatchVarietySizeLabelsOrdered(
+            passes,
+            varietyKey
+          );
+          const varietyTotals = computeDispatchVarietyTotals(
+            passes,
+            varietyKey,
+            sizeLabelsOrdered
+          );
+          const visibleSizeLabels =
             varietyKey === EMPTY_BAG_LINES_KEY
-              ? {}
-              : sizeQuantitiesForPassAndVariety(gp, varietyKey);
-          const rowBags = bagsForVarietyOnPass(gp, varietyKey);
-          const rowNet = allocatedNetKgForVariety(gp, varietyKey);
-          const rowAvg =
+              ? []
+              : sizeLabelsWithAnyQuantity(sizeLabelsOrdered, varietyTotals);
+
+          const headers = [
+            'Manual #',
+            'Date',
+            'To',
+            'Truck',
+            ...visibleSizeLabels.map((label) => `${label} (mm)`),
+            'Net (kg)',
+            'Avg / bag',
+            'Remarks',
+          ];
+
+          const bodyRows: Array<Array<string | number>> = passes.map((gp) => {
+            const sizeQty =
+              varietyKey === EMPTY_BAG_LINES_KEY
+                ? {}
+                : sizeQuantitiesForPassAndVariety(gp, varietyKey);
+            const rowBags = bagsForVarietyOnPass(gp, varietyKey);
+            const rowNet = allocatedNetKgForVariety(gp, varietyKey);
+            const rowAvg =
+              varietyKey === EMPTY_BAG_LINES_KEY
+                ? gp.averageWeightPerBag
+                : rowBags > 0
+                  ? rowNet / rowBags
+                  : Number.NaN;
+
+            const row: Array<string | number> = [
+              gp.manualGatePassNumber ?? '',
+              formatDisplayDate(new Date(gp.date)),
+              gp.to ?? '',
+              gp.truckNumber ?? '',
+              ...visibleSizeLabels.map((label) => {
+                const n = sizeQty[label] ?? 0;
+                return n === 0 ? '' : n;
+              }),
+              rowNet,
+              Number.isFinite(rowAvg) ? rowAvg : '',
+              gp.remarks?.trim() ?? '',
+            ];
+            return row;
+          });
+
+          const footerAvgKgPerBag =
             varietyKey === EMPTY_BAG_LINES_KEY
-              ? gp.averageWeightPerBag
-              : rowBags > 0
-                ? rowNet / rowBags
+              ? Number.NaN
+              : varietyTotals.totalBags > 0
+                ? varietyTotals.totalKg / varietyTotals.totalBags
                 : Number.NaN;
 
-          const row: Array<string | number> = [
-            gp.manualGatePassNumber ?? '',
-            formatDisplayDate(new Date(gp.date)),
-            gp.to ?? '',
-            gp.truckNumber ?? '',
+          const totalsRow: Array<string | number> = [
+            `Totals (${passes.length} passes)`,
+            '',
+            '',
+            '',
             ...visibleSizeLabels.map((label) => {
-              const n = sizeQty[label] ?? 0;
+              const n = varietyTotals.bySize[label]?.bags ?? 0;
               return n === 0 ? '' : n;
             }),
-            rowNet,
-            Number.isFinite(rowAvg) ? rowAvg : '',
-            gp.remarks?.trim() ?? '',
+            varietyTotals.totalKg,
+            Number.isFinite(footerAvgKgPerBag) ? footerAvgKgPerBag : '',
+            varietyKey === EMPTY_BAG_LINES_KEY
+              ? ''
+              : `Total bags (this variety): ${varietyTotals.totalBags}`,
           ];
-          return row;
-        });
 
-        const footerAvgKgPerBag =
-          varietyKey === EMPTY_BAG_LINES_KEY
-            ? Number.NaN
-            : varietyTotals.totalBags > 0
-              ? varietyTotals.totalKg / varietyTotals.totalBags
-              : Number.NaN;
+          blocks.push({
+            title: varietySectionTitle(varietyKey),
+            headers,
+            bodyRows,
+            totalsRow,
+          });
+        }
 
-        const totalsRow: Array<string | number> = [
-          `Totals (${passes.length} passes)`,
-          '',
-          '',
-          '',
-          ...visibleSizeLabels.map((label) => {
-            const n = varietyTotals.bySize[label]?.bags ?? 0;
-            return n === 0 ? '' : n;
-          }),
-          varietyTotals.totalKg,
-          Number.isFinite(footerAvgKgPerBag) ? footerAvgKgPerBag : '',
-          varietyKey === EMPTY_BAG_LINES_KEY
-            ? ''
-            : `Total bags (this variety): ${varietyTotals.totalBags}`,
+        const globalMaxCol = Math.max(
+          8,
+          ...blocks.map((b) => b.headers.length)
+        );
+
+        const paddedBlocks = blocks.map((b) => ({
+          ...b,
+          headers: padRow(b.headers, globalMaxCol),
+          bodyRows: b.bodyRows.map((r) => padRow(r, globalMaxCol)),
+          totalsRow: padRow(b.totalsRow, globalMaxCol),
+        }));
+
+        const allRowsForWidths: Array<Array<string | number>> = [];
+        for (const b of paddedBlocks) {
+          allRowsForWidths.push(b.headers, ...b.bodyRows, b.totalsRow);
+        }
+
+        const safeStorage = safeFilePart(coldStorageName, 'Cold Storage');
+        const ledgerPart = ledger?.name
+          ? safeFilePart(ledger.name, 'Ledger')
+          : 'Dispatch Ledger';
+        const dateLabel = getDateLabel(new Date());
+        const fileName = `${safeStorage} ${ledgerPart} Report ${dateLabel}.xlsx`;
+
+        const wb = new ExcelJS.Workbook();
+        wb.creator = safeStorage;
+        const ws = wb.addWorksheet('Dispatch Ledger');
+
+        applySmartColumnWidths(
+          ws,
+          paddedBlocks[0]?.headers ?? Array(globalMaxCol).fill(''),
+          allRowsForWidths
+        );
+
+        const overviewLines = [
+          `Report period: ${reportPeriodLabel}`,
+          `Generated (UI): ${reportGeneratedOn}`,
+          ledger ? `Ledger: ${ledger.name}` : 'Ledger: —',
+          `Overall net (kg): ${totalsNetKg}`,
+          `Total bags (summary): ${totalBagsSummary}`,
         ];
 
-        blocks.push({
-          title: varietySectionTitle(varietyKey),
-          headers,
-          bodyRows,
-          totalsRow,
-        });
-      }
-
-      const globalMaxCol = Math.max(8, ...blocks.map((b) => b.headers.length));
-
-      const paddedBlocks = blocks.map((b) => ({
-        ...b,
-        headers: padRow(b.headers, globalMaxCol),
-        bodyRows: b.bodyRows.map((r) => padRow(r, globalMaxCol)),
-        totalsRow: padRow(b.totalsRow, globalMaxCol),
-      }));
-
-      const allRowsForWidths: Array<Array<string | number>> = [];
-      for (const b of paddedBlocks) {
-        allRowsForWidths.push(b.headers, ...b.bodyRows, b.totalsRow);
-      }
-
-      const safeStorage = safeFilePart(coldStorageName, 'Cold Storage');
-      const ledgerPart = ledger?.name
-        ? safeFilePart(ledger.name, 'Ledger')
-        : 'Dispatch Ledger';
-      const dateLabel = getDateLabel(new Date());
-      const fileName = `${safeStorage} ${ledgerPart} Report ${dateLabel}.xlsx`;
-
-      const wb = new ExcelJS.Workbook();
-      wb.creator = safeStorage;
-      const ws = wb.addWorksheet('Dispatch Ledger');
-
-      applySmartColumnWidths(
-        ws,
-        paddedBlocks[0]?.headers ?? Array(globalMaxCol).fill(''),
-        allRowsForWidths
-      );
-
-      const overviewLines = [
-        `Report period: ${reportPeriodLabel}`,
-        `Generated (UI): ${reportGeneratedOn}`,
-        ledger ? `Ledger: ${ledger.name}` : 'Ledger: —',
-        `Overall net (kg): ${totalsNetKg}`,
-        `Total bags (summary): ${totalBagsSummary}`,
-      ];
-
-      buildReportHeader(
-        ws,
-        globalMaxCol,
-        safeStorage,
-        'Dispatch ledger (nikasi) report',
-        dateLabel,
-        overviewLines
-      );
-
-      for (const b of paddedBlocks) {
-        ws.addRow([]);
-        addSectionTitle(ws, b.title, globalMaxCol);
-        addStyledTable(
+        buildReportHeader(
           ws,
-          b.headers,
-          b.bodyRows.map((values) => ({ values }))
+          globalMaxCol,
+          safeStorage,
+          'Dispatch ledger (nikasi) report',
+          dateLabel,
+          overviewLines
         );
-        addTotalsRow(ws, b.totalsRow);
-      }
 
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        for (const b of paddedBlocks) {
+          ws.addRow([]);
+          addSectionTitle(ws, b.title, globalMaxCol);
+          addStyledTable(
+            ws,
+            b.headers,
+            b.bodyRows.map((values) => ({ values }))
+          );
+          addTotalsRow(ws, b.totalsRow);
+        }
+
+        const buffer = await wb.xlsx.writeBuffer();
+        const previewSections = paddedBlocks.map((block) => ({
+          title: block.title,
+          headers: block.headers.map((h) => String(h)),
+          rows: block.bodyRows.map((values) => ({
+            values,
+            boldByColumn: Array(block.headers.length).fill(false) as boolean[],
+            isGroupedOrAggregatedRow: false,
+          })),
+          footerRows: [block.totalsRow],
+        }));
+
+        return {
+          buffer,
+          fileName,
+          preview: {
+            title: safeStorage,
+            subtitle: 'Dispatch ledger (nikasi) report',
+            dateLabel,
+            exportedRowCount: sortedPasses.length,
+            metaLines: overviewLines,
+            sections: previewSections,
+          },
+        };
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
+    } catch {
+      // openExcelPreviewInNewTab already alerted
     } finally {
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);
