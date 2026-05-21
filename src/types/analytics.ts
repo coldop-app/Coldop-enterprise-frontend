@@ -800,6 +800,8 @@ export interface ShedStockReportShedSize {
   gradingInitial: number;
   stored: number;
   dispatched: number;
+  internallyTransferred: number;
+  notInternallyTransferred: number;
   shedStock: number;
 }
 
@@ -809,6 +811,8 @@ export interface ShedStockReportShedVariety {
   gradingInitial: number;
   stored: number;
   dispatched: number;
+  internallyTransferred: number;
+  notInternallyTransferred: number;
   shedStock: number;
   sizes: ShedStockReportShedSize[];
 }
@@ -818,6 +822,8 @@ export interface ShedStockReportShedTotals {
   gradingInitial: number;
   stored: number;
   dispatched: number;
+  internallyTransferred: number;
+  notInternallyTransferred: number;
   shedStock: number;
 }
 
@@ -832,6 +838,8 @@ export interface ShedStockReportData {
   grading: ShedStockReportSourceVariety[];
   storage: ShedStockReportSourceVariety[];
   dispatch: ShedStockReportSourceVariety[];
+  internalTransfer: ShedStockReportSourceVariety[];
+  notInternalTransfer: ShedStockReportSourceVariety[];
   shedStock: ShedStockReportShedSection;
 }
 

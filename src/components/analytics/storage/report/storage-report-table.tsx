@@ -34,6 +34,7 @@ import {
   getNumericColumnIds,
   defaultStorageReportColumnVisibility,
   globalManualGatePassFilterFn,
+  getIncomingBagValue,
   getStorageReportColumns,
   type BagSizeColumnId,
   type GlobalFilterValue,
@@ -238,7 +239,7 @@ const StorageReportTable = () => {
     const emptyColumns = new Set<string>();
     bagSizeColumnIds.forEach((columnId) => {
       const hasAnyValue = incomingReportData.some(
-        (row) => Number(row[columnId] ?? 0) > 0
+        (row) => getIncomingBagValue(row, columnId) > 0
       );
       if (!hasAnyValue) emptyColumns.add(columnId);
     });
@@ -319,7 +320,7 @@ const StorageReportTable = () => {
     const emptyColumns = new Set<string>();
     bagSizeColumnIds.forEach((columnId) => {
       const hasAnyValue = filteredRows.some(
-        (row) => Number(row.original[columnId] ?? 0) > 0
+        (row) => getIncomingBagValue(row.original, columnId) > 0
       );
       if (!hasAnyValue) emptyColumns.add(columnId);
     });
@@ -360,7 +361,7 @@ const StorageReportTable = () => {
     };
     for (const row of filteredRows) {
       bagSizeColumnIds.forEach((columnId) => {
-        totals[columnId] += Number(row.original[columnId] ?? 0);
+        totals[columnId] += getIncomingBagValue(row.original, columnId);
       });
       totals.totalBags += Number(row.original.totalBags ?? 0);
     }

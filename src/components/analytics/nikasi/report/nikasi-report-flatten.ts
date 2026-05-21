@@ -36,12 +36,11 @@ function orderedVarietyGroups(
 function accumulateBagFields(
   lines: NikasiGatePassBagSize[]
 ): NikasiReportBagFields {
-  const acc = createEmptyNikasiBagFields();
+  const acc: NikasiReportBagFields = {};
   for (const line of lines) {
     const col = resolveBagSizeColumnId(String(line.size || ''));
-    if (!col) continue;
     const q = Number(line.quantityIssued) || 0;
-    acc[col as keyof NikasiReportBagFields] += q;
+    acc[col] = (acc[col] ?? 0) + q;
   }
   return acc;
 }

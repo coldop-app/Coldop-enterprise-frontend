@@ -86,7 +86,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       className={hasLabel ? (compact ? 'space-y-1.5' : 'space-y-3') : undefined}
     >
       {hasLabel && (
-        <Label htmlFor={id} className="text-base font-medium">
+        <Label
+          htmlFor={id}
+          className={cn(
+            'font-custom font-medium',
+            compact ? 'text-muted-foreground text-xs' : 'text-base'
+          )}
+        >
           {label}
         </Label>
       )}

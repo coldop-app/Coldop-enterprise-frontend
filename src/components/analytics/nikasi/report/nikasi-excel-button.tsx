@@ -3,7 +3,12 @@ import type { Row, Table } from '@tanstack/react-table';
 import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { Button } from '@/components/ui/button';
-import type { BagSizeColumnId } from '@/components/analytics/storage/report/columns';
+import {
+  openExcelPreviewInNewTab,
+  revokeExcelPreviewUrls,
+  type ExcelPreview,
+  type ExcelPreviewUrls,
+} from '@/lib/excel-preview-tab';
 import {
   NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS,
   type NikasiReportRow,
@@ -41,9 +46,7 @@ const GATE_PASS_DEDUPED_SUM_IDS = new Set([
   'averageWeightPerBag',
 ]);
 
-function getNikasiSumColumnIds(
-  bagSizeColumnIds: BagSizeColumnId[]
-): Set<string> {
+function getNikasiSumColumnIds(bagSizeColumnIds: string[]): Set<string> {
   return new Set([
     ...bagSizeColumnIds,
     'bagsReceived',
@@ -111,7 +114,7 @@ function buildNikasiTotalsRowValues(
 type NikasiExcelButtonProps = {
   table: Table<NikasiReportRow>;
   coldStorageName: string;
-  bagSizeColumnIds: BagSizeColumnId[];
+  bagSizeColumnIds: string[];
 };
 
 const NIKASI_COLUMN_HEADER_LABELS: Partial<
@@ -505,6 +508,104 @@ function getExcelBodyRows(
   return bodyRows;
 }
 
+export type NikasiExcelPreview = ExcelPreview;
+
+async function buildNikasiExcelExport(
+  table: Table<NikasiReportRow>,
+  coldStorageName: string,
+  bagSizeColumnIds: string[]
+): Promise<{
+  buffer: ArrayBuffer;
+  fileName: string;
+  preview: NikasiExcelPreview;
+}> {
+  const visibleColumns = table.getVisibleLeafColumns();
+  const colCount = Math.max(2, visibleColumns.length);
+  const headerLabels = visibleColumns.map(getColumnHeaderLabel);
+
+  const sourceRows = table.getPrePaginationRowModel().rows;
+  const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
+  const styledBodyRows = bodyRows.map((row) => ({
+    values: coerceRows([row.values])[0],
+    boldByColumn: row.boldByColumn,
+    isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
+    varietyRowIndex: row.varietyRowIndex,
+    varietyRowSpan: row.varietyRowSpan,
+  }));
+  const rawBodyRows = styledBodyRows.map((row) => row.values);
+
+  const sumColumnIds = getNikasiSumColumnIds(bagSizeColumnIds);
+  const sums: Record<string, number> = {};
+  for (const id of sumColumnIds) {
+    sums[id] = 0;
+  }
+  collectNikasiLeafColumnSums(sourceRows, sums, sumColumnIds);
+  const totalsRowValues = buildNikasiTotalsRowValues(
+    visibleColumns,
+    sums,
+    sumColumnIds
+  );
+
+  const isGroupingActive = table.getState().grouping.length > 0;
+  const mergeColumnIndexes1Based = isGroupingActive
+    ? []
+    : visibleColumns
+        .map((col, i) => ({ id: col.id, excelCol: i + 1 }))
+        .filter(({ id }) => NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(id))
+        .map(({ excelCol }) => excelCol);
+
+  const safeName = safeFilePart(coldStorageName, 'Cold Storage');
+  const dateLabel = getDateLabel(new Date());
+  const fileName = `${safeName} Nikasi Report ${dateLabel}.xlsx`;
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = safeName;
+  const ws = wb.addWorksheet('Nikasi Report');
+
+  applySmartColumnWidths(ws, headerLabels, [...rawBodyRows, totalsRowValues]);
+
+  const overviewLines = [`Exported rows: ${rawBodyRows.length}`];
+  buildReportHeader(
+    ws,
+    colCount,
+    safeName,
+    'Dispatch (Pre Storage) Report',
+    dateLabel,
+    overviewLines
+  );
+
+  addSectionTitle(ws, 'Dispatch (Pre Storage)', colCount);
+  addStyledNikasiTableBody(
+    ws,
+    headerLabels,
+    styledBodyRows,
+    mergeColumnIndexes1Based
+  );
+  addTotalsRow(ws, totalsRowValues);
+
+  const buffer = await wb.xlsx.writeBuffer();
+
+  return {
+    buffer,
+    fileName,
+    preview: {
+      title: safeName,
+      subtitle: 'Dispatch (Pre Storage) Report',
+      dateLabel,
+      exportedRowCount: rawBodyRows.length,
+      headers: headerLabels,
+      rows: styledBodyRows.map(
+        ({ values, boldByColumn, isGroupedOrAggregatedRow }) => ({
+          values,
+          boldByColumn,
+          isGroupedOrAggregatedRow,
+        })
+      ),
+      totals: totalsRowValues,
+    },
+  };
+}
+
 export const NikasiExcelButton = ({
   table,
   coldStorageName,
@@ -512,9 +613,19 @@ export const NikasiExcelButton = ({
 }: NikasiExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
   const tableRef = React.useRef(table);
+  const previewUrlsRef = React.useRef<ExcelPreviewUrls | null>(null);
+
   React.useEffect(() => {
     tableRef.current = table;
   }, [table]);
+
+  React.useEffect(() => {
+    return () => {
+      revokeExcelPreviewUrls(previewUrlsRef.current);
+      previewUrlsRef.current = null;
+    };
+  }, []);
+
   const generatingExcelRef = React.useRef(false);
 
   const handleGenerate = React.useCallback(async () => {
@@ -524,91 +635,15 @@ export const NikasiExcelButton = ({
       window.alert('Table is not ready. Please try again.');
       return;
     }
+
     try {
       generatingExcelRef.current = true;
       setIsGeneratingExcel(true);
-
-      const visibleColumns = t.getVisibleLeafColumns();
-      const colCount = Math.max(2, visibleColumns.length);
-      const headerLabels = visibleColumns.map(getColumnHeaderLabel);
-
-      const sourceRows = t.getPrePaginationRowModel().rows;
-      const bodyRows = getExcelBodyRows(sourceRows, visibleColumns);
-      const styledBodyRows = bodyRows.map((row) => ({
-        values: coerceRows([row.values])[0],
-        boldByColumn: row.boldByColumn,
-        isGroupedOrAggregatedRow: row.isGroupedOrAggregatedRow,
-        varietyRowIndex: row.varietyRowIndex,
-        varietyRowSpan: row.varietyRowSpan,
-      }));
-      const rawBodyRows = styledBodyRows.map((row) => row.values);
-
-      const sumColumnIds = getNikasiSumColumnIds(bagSizeColumnIds);
-      const sums: Record<string, number> = {};
-      for (const id of sumColumnIds) {
-        sums[id] = 0;
-      }
-      collectNikasiLeafColumnSums(sourceRows, sums, sumColumnIds);
-      const totalsRowValues = buildNikasiTotalsRowValues(
-        visibleColumns,
-        sums,
-        sumColumnIds
+      await openExcelPreviewInNewTab(previewUrlsRef, () =>
+        buildNikasiExcelExport(t, coldStorageName, bagSizeColumnIds)
       );
-
-      const isGroupingActive = t.getState().grouping.length > 0;
-      const mergeColumnIndexes1Based = isGroupingActive
-        ? []
-        : visibleColumns
-            .map((col, i) => ({ id: col.id, excelCol: i + 1 }))
-            .filter(({ id }) => NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS.has(id))
-            .map(({ excelCol }) => excelCol);
-
-      const safeName = safeFilePart(coldStorageName, 'Cold Storage');
-      const dateLabel = getDateLabel(new Date());
-      const fileName = `${safeName} Nikasi Report ${dateLabel}.xlsx`;
-
-      const wb = new ExcelJS.Workbook();
-      wb.creator = safeName;
-      const ws = wb.addWorksheet('Nikasi Report');
-
-      applySmartColumnWidths(ws, headerLabels, [
-        ...rawBodyRows,
-        totalsRowValues,
-      ]);
-
-      const overviewLines = [`Exported rows: ${rawBodyRows.length}`];
-      buildReportHeader(
-        ws,
-        colCount,
-        safeName,
-        'Dispatch (Pre Storage) Report',
-        dateLabel,
-        overviewLines
-      );
-
-      addSectionTitle(ws, 'Dispatch (Pre Storage)', colCount);
-      addStyledNikasiTableBody(
-        ws,
-        headerLabels,
-        styledBodyRows,
-        mergeColumnIndexes1Based
-      );
-      addTotalsRow(ws, totalsRowValues);
-
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      window.alert(`Failed to generate Excel: ${message}`);
+    } catch {
+      // openExcelPreviewInNewTab already alerted
     } finally {
       generatingExcelRef.current = false;
       setIsGeneratingExcel(false);

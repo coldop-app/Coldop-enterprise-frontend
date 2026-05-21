@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- column defs, IDs, and helpers colocated for the report table */
 import {
   type FilterFn,
   type VisibilityState,
@@ -8,7 +9,10 @@ import {
   isAdvancedFilterGroup,
   type FilterGroupNode,
 } from '@/lib/advanced-filters';
-import { normalizeBagSizeLabel } from '@/lib/bag-size-columns';
+import {
+  buildBagSizeColumnConfigFromPreferences,
+  DEFAULT_BAG_SIZE_COLUMN_CONFIG as SHARED_DEFAULT_BAG_SIZE_COLUMN_CONFIG,
+} from '@/lib/bag-size-columns';
 
 export type IncomingReportRow = {
   id: string;
@@ -46,29 +50,31 @@ export type BagSizeColumnId =
   | 'bag30to40'
   | 'bag35to40'
   | 'bag40to45'
+  | 'bag40to50'
   | 'bag45to50'
   | 'bag50to55'
   | 'bagAbove50'
   | 'bagAbove55'
-  | 'bagCut';
+  | 'bagCut'
+  | 'bagUngraded'
+  | `bagSize__${string}`;
+
+export function getIncomingBagValue(
+  row: IncomingReportRow,
+  columnId: BagSizeColumnId | string
+): number {
+  return Number(
+    (row as IncomingReportRow & Record<string, number>)[columnId] ?? 0
+  );
+}
 
 export const DEFAULT_BAG_SIZE_COLUMN_CONFIG: Array<{
   id: BagSizeColumnId;
   label: string;
-}> = [
-  { id: 'bagBelow25', label: 'Below 25' },
-  { id: 'bag25to30', label: '25–30' },
-  { id: 'bagBelow30', label: 'Below 30' },
-  { id: 'bag30to35', label: '30–35' },
-  { id: 'bag30to40', label: '30–40' },
-  { id: 'bag35to40', label: '35–40' },
-  { id: 'bag40to45', label: '40–45' },
-  { id: 'bag45to50', label: '45–50' },
-  { id: 'bag50to55', label: '50–55' },
-  { id: 'bagAbove50', label: 'Above 50' },
-  { id: 'bagAbove55', label: 'Above 55' },
-  { id: 'bagCut', label: 'Cut' },
-];
+}> = SHARED_DEFAULT_BAG_SIZE_COLUMN_CONFIG as Array<{
+  id: BagSizeColumnId;
+  label: string;
+}>;
 
 const BASE_COLUMN_ORDER = [
   'gatePassNo',
@@ -99,26 +105,10 @@ export const defaultStorageReportColumnVisibility: VisibilityState = {
 export function getBagSizeColumnConfig(
   preferenceBagSizes: string[] | undefined
 ): Array<{ id: BagSizeColumnId; label: string }> {
-  const byLabel = new Map(
-    DEFAULT_BAG_SIZE_COLUMN_CONFIG.map((entry) => [
-      normalizeBagSizeLabel(entry.label),
-      entry,
-    ])
-  );
-  const fromPreferences = (preferenceBagSizes ?? [])
-    .map((size) => byLabel.get(normalizeBagSizeLabel(size)))
-    .filter((entry): entry is { id: BagSizeColumnId; label: string } =>
-      Boolean(entry)
-    );
-
-  if (fromPreferences.length === 0) return DEFAULT_BAG_SIZE_COLUMN_CONFIG;
-
-  const deduped = new Map<
-    BagSizeColumnId,
-    { id: BagSizeColumnId; label: string }
-  >();
-  fromPreferences.forEach((entry) => deduped.set(entry.id, entry));
-  return Array.from(deduped.values());
+  return buildBagSizeColumnConfigFromPreferences(preferenceBagSizes) as Array<{
+    id: BagSizeColumnId;
+    label: string;
+  }>;
 }
 
 export function getDefaultColumnOrder(
@@ -226,7 +216,7 @@ export function getStorageReportColumns(
       maxSize: 220,
     }),
     ...bagSizeColumnConfig.map(({ id, label }) =>
-      columnHelper.accessor(id, {
+      columnHelper.accessor(id as keyof IncomingReportRow, {
         id,
         header: () => <div className="w-full text-right">{label} (mm)</div>,
         sortingFn: 'basic',

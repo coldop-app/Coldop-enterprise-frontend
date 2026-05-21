@@ -53,6 +53,7 @@ import {
   type FilterGroupNode,
   type FilterOperator,
 } from '@/lib/advanced-filters';
+import { formatBagSizeDisplayLabel } from '@/lib/bag-size-columns';
 import type {
   InternalTransferFilterValue,
   ViewFiltersSheetProps,
@@ -230,7 +231,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
   const mergedColumnLabels = React.useMemo(() => {
     const labels = { ...columnLabels };
     bagSizeColumnConfig.forEach(({ id, label }) => {
-      labels[id] = `${label} (mm)`;
+      labels[id] = formatBagSizeDisplayLabel(label);
     });
     return labels;
   }, [bagSizeColumnConfig]);
@@ -547,6 +548,12 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     defaultColumnOrder,
     hidableColumnIds,
     hidableColumns,
+    setDraftColumnOrder,
+    setDraftColumnVisibility,
+    setDraftGrouping,
+    setDraftInternalTransferFilters,
+    setDraftLogicFilter,
+    setDraftValueFilters,
     table,
   ]);
 
@@ -558,7 +565,7 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
       setValueFilterTouched(getInitialValueFilterTouched());
       setActiveTab('filters');
     },
-    [onOpenChange, syncDraftFromTable]
+    [onOpenChange, setValueFilterTouched, syncDraftFromTable]
   );
 
   const handleResetAll = React.useCallback(() => {
@@ -608,6 +615,10 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
     hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
+    setDraftValueFilters,
+    setExpandedFilters,
+    setSearchQueries,
+    setValueFilterTouched,
     table,
   ]);
 
@@ -773,7 +784,12 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
       });
       setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
     },
-    [availableFilterOptions, valueFilterTouched]
+    [
+      availableFilterOptions,
+      setDraftValueFilters,
+      setValueFilterTouched,
+      valueFilterTouched,
+    ]
   );
 
   const handleToggleAllValues = React.useCallback(
@@ -788,7 +804,12 @@ export function ViewFiltersSheet<TData = NikasiReportRow>({
         [columnId]: areAllSelected ? [] : [...allValues],
       }));
     },
-    [availableFilterOptions, getEffectiveDraftValues]
+    [
+      availableFilterOptions,
+      getEffectiveDraftValues,
+      setDraftValueFilters,
+      setValueFilterTouched,
+    ]
   );
 
   const getFilteredOptionsForColumn = React.useCallback(

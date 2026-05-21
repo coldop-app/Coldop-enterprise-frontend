@@ -4,7 +4,10 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
-import type { BagSizeColumnId } from '@/components/analytics/storage/report/columns';
+import {
+  type BagSizeColumnConfigEntry,
+  formatBagSizeDisplayLabel,
+} from '@/lib/bag-size-columns';
 import {
   evaluateFilterGroup,
   isAdvancedFilterGroup,
@@ -34,22 +37,9 @@ export const NIKASI_GATE_PASS_ROWSPAN_COLUMN_IDS = new Set<string>([
   'updatedAt',
 ]);
 
-export type NikasiReportBagFields = {
-  bagBelow25: number;
-  bag25to30: number;
-  bagBelow30: number;
-  bag30to35: number;
-  bag30to40: number;
-  bag35to40: number;
-  bag40to45: number;
-  bag45to50: number;
-  bag50to55: number;
-  bagAbove50: number;
-  bagAbove55: number;
-  bagCut: number;
-};
+export type NikasiReportBagFields = Record<string, number>;
 
-export type NikasiReportRow = {
+export interface NikasiReportRow {
   id: string;
   /** Original gate pass `_id` (dedupe totals / Excel merges). */
   gatePassId: string;
@@ -71,48 +61,30 @@ export type NikasiReportRow = {
   nikasiTo: string;
   truckNumber: string;
   variety: string;
-} & NikasiReportBagFields & {
-    bagsReceived: number;
-    netWeightKg: number;
-    netWeightPrecision: number;
-    averageWeightPerBag: number;
-    averageWeightPrecision: number;
-    remarks: string;
-    isInternalTransferLabel: string;
-    createdAt: string;
-    updatedAt: string;
-  };
+  bagsReceived: number;
+  netWeightKg: number;
+  netWeightPrecision: number;
+  averageWeightPerBag: number;
+  averageWeightPrecision: number;
+  remarks: string;
+  isInternalTransferLabel: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Dynamic bag-size column quantities keyed by column id. */
+  [bagColumnId: string]: number | string;
+}
 
-const BAG_FIELD_IDS: BagSizeColumnId[] = [
-  'bagBelow25',
-  'bag25to30',
-  'bagBelow30',
-  'bag30to35',
-  'bag30to40',
-  'bag35to40',
-  'bag40to45',
-  'bag45to50',
-  'bag50to55',
-  'bagAbove50',
-  'bagAbove55',
-  'bagCut',
-];
+export function createEmptyNikasiBagFields(
+  columnIds: string[] = []
+): NikasiReportBagFields {
+  return Object.fromEntries(columnIds.map((id) => [id, 0]));
+}
 
-export function createEmptyNikasiBagFields(): NikasiReportBagFields {
-  return {
-    bagBelow25: 0,
-    bag25to30: 0,
-    bagBelow30: 0,
-    bag30to35: 0,
-    bag30to40: 0,
-    bag35to40: 0,
-    bag40to45: 0,
-    bag45to50: 0,
-    bag50to55: 0,
-    bagAbove50: 0,
-    bagAbove55: 0,
-    bagCut: 0,
-  };
+export function getNikasiBagValue(
+  row: NikasiReportRow,
+  columnId: string
+): number {
+  return Number(row[columnId] ?? 0);
 }
 
 function tieBreakNikasiSort(
@@ -182,7 +154,7 @@ const NIKASI_COLUMN_SUFFIX: string[] = [
 ];
 
 export function getNikasiDefaultColumnOrder(
-  bagSizeColumnIds: BagSizeColumnId[]
+  bagSizeColumnIds: string[]
 ): string[] {
   return [
     ...NIKASI_COLUMN_PREFIX,
@@ -205,7 +177,7 @@ export const defaultNikasiReportColumnVisibility: VisibilityState = {
 };
 
 export function getNikasiNumericColumnIds(
-  bagSizeColumnIds: BagSizeColumnId[]
+  bagSizeColumnIds: string[]
 ): Set<string> {
   return new Set([
     ...bagSizeColumnIds,
@@ -244,7 +216,7 @@ const nikasiNonGroupableColumn = {
 };
 
 export function getNikasiReportColumns(
-  bagSizeColumnConfig: Array<{ id: BagSizeColumnId; label: string }>
+  bagSizeColumnConfig: BagSizeColumnConfigEntry[]
 ) {
   return [
     columnHelper.accessor('gatePassNo', {
@@ -402,34 +374,38 @@ export function getNikasiReportColumns(
       size: 200,
       maxSize: 320,
     }),
-    ...bagSizeColumnConfig.map(({ id, label }) =>
-      columnHelper.accessor(id as keyof NikasiReportRow, {
-        ...nikasiNonGroupableColumn,
-        id,
-        meta: `${label} (mm)`,
-        header: () => <div className="w-full text-right">{label} (mm)</div>,
-        sortingFn: (rowA, rowB) =>
-          tieBreakNikasiSort(
-            rowA.original,
-            rowB.original,
-            Number(rowA.original[id] ?? 0) - Number(rowB.original[id] ?? 0)
+    ...bagSizeColumnConfig.map(({ id, label }) => {
+      const displayLabel = formatBagSizeDisplayLabel(label);
+      return columnHelper.accessor(
+        id as Extract<keyof NikasiReportRow, string>,
+        {
+          ...nikasiNonGroupableColumn,
+          id,
+          meta: displayLabel,
+          header: () => <div className="w-full text-right">{displayLabel}</div>,
+          sortingFn: (rowA, rowB) =>
+            tieBreakNikasiSort(
+              rowA.original,
+              rowB.original,
+              Number(rowA.original[id] ?? 0) - Number(rowB.original[id] ?? 0)
+            ),
+          filterFn: multiValueFilterFn,
+          aggregationFn: 'sum',
+          aggregatedCell: (info) => (
+            <div className="w-full text-right font-medium tabular-nums">
+              {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
+            </div>
           ),
-        filterFn: multiValueFilterFn,
-        aggregationFn: 'sum',
-        aggregatedCell: (info) => (
-          <div className="w-full text-right font-medium tabular-nums">
-            {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-          </div>
-        ),
-        minSize: 90,
-        maxSize: 170,
-        cell: (info) => (
-          <div className="w-full text-right tabular-nums">
-            {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-          </div>
-        ),
-      })
-    ),
+          minSize: 90,
+          maxSize: 170,
+          cell: (info) => (
+            <div className="w-full text-right tabular-nums">
+              {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
+            </div>
+          ),
+        }
+      );
+    }),
     columnHelper.accessor('bagsReceived', {
       ...nikasiNonGroupableColumn,
       header: () => <div className="w-full text-right">Bags issued</div>,
@@ -602,7 +578,10 @@ export function getNikasiReportColumns(
 export type GlobalFilterValue = string | FilterGroupNode;
 
 function bagHaystack(o: NikasiReportRow): string {
-  return BAG_FIELD_IDS.map((id) => String(o[id] ?? '')).join(' ');
+  return Object.entries(o)
+    .filter(([key]) => key.startsWith('bag'))
+    .map(([, value]) => String(value ?? ''))
+    .join(' ');
 }
 
 export const globalNikasiReportSearchFilterFn: FilterFn<NikasiReportRow> = (

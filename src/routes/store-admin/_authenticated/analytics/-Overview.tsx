@@ -314,87 +314,6 @@ const DispatchCard = memo(function DispatchCard({
   );
 });
 
-interface GradingCardProps {
-  initialQuantity: number;
-  currentQuantity: number;
-  weightKg: number;
-  onGetReportClick?: () => void;
-}
-
-const GradingCard = memo(function GradingCard({
-  initialQuantity,
-  currentQuantity,
-  weightKg,
-  onGetReportClick,
-}: GradingCardProps) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className="group font-custom border-border/40 bg-card relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
-        <div className="bg-primary absolute inset-x-0 top-0 h-[3px] rounded-t-2xl opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
-          <CardTitle className="text-foreground text-[15px] leading-snug font-semibold sm:text-base">
-            Grading (Initial)
-          </CardTitle>
-          <span className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
-            <ClipboardList className="h-5 w-5" />
-          </span>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="font-custom text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
-            {formatNumber(initialQuantity)}
-          </p>
-          <CardDescription className="font-custom text-muted-foreground text-sm">
-            {formatWeight(weightKg)}
-          </CardDescription>
-          {onGetReportClick != null && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onGetReportClick}
-              className="font-custom border-border/60 bg-background hover:bg-muted mt-2 cursor-pointer gap-1.5 rounded-lg"
-            >
-              <FileText className="h-4 w-4" />
-              Get Reports
-            </Button>
-          )}
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="font-custom text-muted-foreground hover:text-primary mt-2 h-auto gap-1.5 px-0"
-            >
-              {open ? (
-                <>
-                  <ChevronUp className="h-4 w-4" />
-                  Hide current
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4" />
-                  Show current
-                </>
-              )}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="font-custom border-border/50 border-t pt-3 text-sm">
-              <span className="text-muted-foreground">Current quantity: </span>
-              <span className="text-foreground font-semibold">
-                {formatNumber(currentQuantity)}
-              </span>
-            </div>
-          </CollapsibleContent>
-          <div className="bg-muted group-hover:bg-primary/10 absolute right-4 bottom-4 flex h-6 w-6 items-center justify-center rounded-full transition-all duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-            <ArrowUpRight className="text-primary h-3 w-3" />
-          </div>
-        </CardContent>
-      </Card>
-    </Collapsible>
-  );
-});
-
 function OverviewSkeleton() {
   return (
     <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:gap-8">
@@ -555,10 +474,11 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
             : undefined
         }
       />
-      <GradingCard
-        initialQuantity={normalized.totalGradingBags.initialQuantity}
-        currentQuantity={normalized.totalGradingBags.currentQuantity}
-        weightKg={normalized.totalGradingWeight}
+      <StatCard
+        title="Grading"
+        value={formatNumber(normalized.totalGradingBags.initialQuantity)}
+        description={formatWeight(normalized.totalGradingWeight)}
+        icon={<ClipboardList className="h-5 w-5" />}
         onGetReportClick={
           canReadGradingReports
             ? () =>
@@ -580,8 +500,16 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
       <StatCard
         title="Shed Stock"
         value={formatNumber(shedStockBags)}
-        description="Grading (initial) - stored - dispatch (excl internal transfer)"
+        description="Grading - stored - dispatch (excl internal transfer)"
         icon={<Building2 className="h-5 w-5" />}
+        onGetReportClick={
+          canReadOverview
+            ? () =>
+                void navigate({
+                  to: '/store-admin/analytics/reports/shed',
+                })
+            : undefined
+        }
       />
       <DispatchCard
         totalBags={normalized.totalBagsDispatched}

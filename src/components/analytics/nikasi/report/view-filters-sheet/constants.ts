@@ -1,4 +1,5 @@
 import type { FilterField, FilterOperator } from '@/lib/advanced-filters';
+import { formatBagSizeDisplayLabel } from '@/lib/bag-size-columns';
 import type { FilterableColumnId, InternalTransferFilterValue } from './types';
 
 export const internalTransferFilterOptions: InternalTransferFilterValue[] = [
@@ -151,7 +152,7 @@ export function buildAllAdvancedFilterFields(
 ): Array<{ id: FilterField; label: string }> {
   const bagFields = bagSizeColumnConfig.map(({ id, label }) => ({
     id: id as FilterField,
-    label: `${label} (mm)`,
+    label: formatBagSizeDisplayLabel(label),
   }));
   const varietyIndex = advancedFilterFields.findIndex(
     (c) => c.id === 'variety'
@@ -172,7 +173,7 @@ export function buildAllFilterableColumns(
 ): Array<{ id: string; label: string }> {
   const bagFilters = bagSizeColumnConfig.map(({ id, label }) => ({
     id,
-    label: `${label} (mm)`,
+    label: formatBagSizeDisplayLabel(label),
   }));
   const varietyIndex = filterableColumns.findIndex((c) => c.id === 'variety');
   if (varietyIndex < 0) {

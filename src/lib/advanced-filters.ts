@@ -38,6 +38,8 @@ export type FilterField =
   | 'bagAbove50'
   | 'bagAbove55'
   | 'bagCut'
+  | 'bagUngraded'
+  | `bagSize__${string}`
   | 'familyKey'
   | 'accountNumber'
   | 'totalGradeBags'
@@ -102,6 +104,7 @@ export const bagSizeFilterFieldIds = [
   'bagAbove50',
   'bagAbove55',
   'bagCut',
+  'bagUngraded',
 ] as const satisfies readonly FilterField[];
 
 export const numericFilterFields: FilterField[] = [

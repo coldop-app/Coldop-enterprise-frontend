@@ -28,15 +28,18 @@ import {
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 import { usePreferencesStore, useStore } from '@/stores/store';
 import {
-  getBagSizeColumnConfig,
-  type BagSizeColumnId,
-} from '@/components/analytics/storage/report/columns';
+  buildBagSizeColumnConfigFromPreferences,
+  filterBagSizeColumnConfigWithData,
+  mergeBagSizeColumnConfigWithApiSizes,
+  sortBagSizeColumnConfigWithUngradedFirst,
+} from '@/lib/bag-size-columns';
 import { NikasiExcelButton } from './nikasi-excel-button';
 import { ViewFiltersSheet } from './view-filters-sheet';
 import {
   defaultNikasiReportColumnVisibility,
   formatIndianNumber,
   getDecimalPlaces,
+  getNikasiBagValue,
   getNikasiDefaultColumnOrder,
   getNikasiNumericColumnIds,
   getNikasiReportColumns,
@@ -82,26 +85,6 @@ const NikasiReportTable = () => {
   );
 
   const preferences = usePreferencesStore((state) => state.preferences);
-  const bagSizeColumnConfig = React.useMemo(
-    () => getBagSizeColumnConfig(preferences?.bagSizes),
-    [preferences?.bagSizes]
-  );
-  const bagSizeColumnIds = React.useMemo<BagSizeColumnId[]>(
-    () => bagSizeColumnConfig.map((item) => item.id),
-    [bagSizeColumnConfig]
-  );
-  const defaultColumnOrder = React.useMemo(
-    () => getNikasiDefaultColumnOrder(bagSizeColumnIds),
-    [bagSizeColumnIds]
-  );
-  const numericColumnIds = React.useMemo(
-    () => getNikasiNumericColumnIds(bagSizeColumnIds),
-    [bagSizeColumnIds]
-  );
-  const nikasiReportColumns = React.useMemo(
-    () => getNikasiReportColumns(bagSizeColumnConfig),
-    [bagSizeColumnConfig]
-  );
 
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
@@ -112,8 +95,7 @@ const NikasiReportTable = () => {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(defaultNikasiReportColumnVisibility);
-  const [columnOrder, setColumnOrder] =
-    React.useState<string[]>(defaultColumnOrder);
+  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -129,7 +111,6 @@ const NikasiReportTable = () => {
     React.useState<ColumnResizeDirection>('ltr');
 
   const hasInitializedColumnOrderRef = React.useRef(false);
-  const hasInitializedBagVisibilityRef = React.useRef(false);
 
   const hasDateFilters = Boolean(fromDate && toDate);
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
@@ -144,6 +125,26 @@ const NikasiReportTable = () => {
       { enabled: true }
     );
 
+  const preferenceBagSizeColumnConfig = React.useMemo(
+    () => buildBagSizeColumnConfigFromPreferences(preferences?.bagSizes),
+    [preferences?.bagSizes]
+  );
+
+  const bagSizeColumnConfig = React.useMemo(() => {
+    const apiSizes: string[] = [];
+    for (const item of data ?? []) {
+      for (const line of item.bagSize ?? []) {
+        if (line.size) apiSizes.push(String(line.size));
+      }
+    }
+    return sortBagSizeColumnConfigWithUngradedFirst(
+      mergeBagSizeColumnConfigWithApiSizes(
+        preferenceBagSizeColumnConfig,
+        apiSizes
+      )
+    );
+  }, [preferenceBagSizeColumnConfig, data]);
+
   const rowCtx = React.useMemo(
     () => ({ toDisplayDate, toSortableDateValue }),
     []
@@ -156,36 +157,47 @@ const NikasiReportTable = () => {
     );
   }, [data, rowCtx]);
 
-  const emptyBagSizeColumnIds = React.useMemo(() => {
-    const emptyColumns = new Set<string>();
-    bagSizeColumnIds.forEach((columnId) => {
-      const hasAnyValue = reportRows.some(
-        (row) => Number(row[columnId as keyof NikasiReportRow] ?? 0) > 0
-      );
-      if (!hasAnyValue) emptyColumns.add(columnId);
-    });
-    return emptyColumns;
-  }, [bagSizeColumnIds, reportRows]);
+  const visibleBagSizeColumnConfig = React.useMemo(
+    () =>
+      filterBagSizeColumnConfigWithData(
+        bagSizeColumnConfig,
+        reportRows,
+        getNikasiBagValue
+      ),
+    [bagSizeColumnConfig, reportRows]
+  );
+
+  const bagSizeColumnIds = React.useMemo(
+    () => visibleBagSizeColumnConfig.map((item) => item.id),
+    [visibleBagSizeColumnConfig]
+  );
+  const defaultColumnOrder = React.useMemo(
+    () => getNikasiDefaultColumnOrder(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const numericColumnIds = React.useMemo(
+    () => getNikasiNumericColumnIds(bagSizeColumnIds),
+    [bagSizeColumnIds]
+  );
+  const nikasiReportColumns = React.useMemo(
+    () => getNikasiReportColumns(visibleBagSizeColumnConfig),
+    [visibleBagSizeColumnConfig]
+  );
 
   React.useEffect(() => {
-    if (hasInitializedColumnOrderRef.current) return;
-    setColumnOrder(defaultColumnOrder);
-    hasInitializedColumnOrderRef.current = true;
+    if (defaultColumnOrder.length === 0) return;
+    setColumnOrder((current) => {
+      if (
+        !hasInitializedColumnOrderRef.current ||
+        current.length === 0 ||
+        current.length !== defaultColumnOrder.length
+      ) {
+        hasInitializedColumnOrderRef.current = true;
+        return defaultColumnOrder;
+      }
+      return current;
+    });
   }, [defaultColumnOrder]);
-
-  React.useEffect(() => {
-    if (hasInitializedBagVisibilityRef.current || reportRows.length === 0)
-      return;
-
-    setColumnVisibility((current) => {
-      const next = { ...current };
-      bagSizeColumnIds.forEach((columnId) => {
-        next[columnId] = !emptyBagSizeColumnIds.has(columnId);
-      });
-      return next;
-    });
-    hasInitializedBagVisibilityRef.current = true;
-  }, [bagSizeColumnIds, emptyBagSizeColumnIds, reportRows.length]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<NikasiReportRow>({
@@ -508,7 +520,7 @@ const NikasiReportTable = () => {
         table={table}
         defaultColumnOrder={defaultColumnOrder}
         defaultColumnVisibility={defaultNikasiReportColumnVisibility}
-        bagSizeColumnConfig={bagSizeColumnConfig}
+        bagSizeColumnConfig={visibleBagSizeColumnConfig}
         columnResizeMode={columnResizeMode}
         columnResizeDirection={columnResizeDirection}
         onColumnResizeModeChange={setColumnResizeMode}
