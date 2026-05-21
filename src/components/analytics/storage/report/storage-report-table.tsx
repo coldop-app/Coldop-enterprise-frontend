@@ -347,9 +347,10 @@ const StorageReportTable = () => {
     (currentPageIndex + 1) * currentPageSize,
     totalFilteredEntries
   );
+  const visibleColumns = table.getVisibleLeafColumns();
   const visibleColumnIds = React.useMemo(
-    () => table.getVisibleLeafColumns().map((column) => column.id),
-    [table]
+    () => visibleColumns.map((column) => column.id),
+    [visibleColumns]
   );
 
   const totalsByColumn = React.useMemo(() => {
