@@ -18,6 +18,7 @@ import {
 import {
   collectSizeLabelsFromRows,
   filterSizeLabelsWithData,
+  normalizeSizeKey,
   sortSizeLabels,
 } from './shed-report-utils';
 
@@ -48,7 +49,8 @@ function buildSizeBagMap(
 ): Map<string, number> {
   const map = new Map<string, number>();
   for (const { size, bags } of sizes) {
-    map.set(size, bags);
+    const key = normalizeSizeKey(size);
+    map.set(key, (map.get(key) ?? 0) + Number(bags));
   }
   return map;
 }
@@ -84,7 +86,7 @@ const ShedStockSummaryTable = ({
       let rowTotal = 0;
 
       for (const size of effectiveSizes) {
-        const value = sizeMap.get(size) ?? 0;
+        const value = sizeMap.get(normalizeSizeKey(size)) ?? 0;
         values[size] = value;
         rowTotal += value;
         totalsMap[size] = (totalsMap[size] ?? 0) + value;

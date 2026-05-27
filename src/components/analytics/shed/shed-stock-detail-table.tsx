@@ -20,7 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { sortSizeLabels } from './shed-report-utils';
+import {
+  normalizeSizeKey,
+  sortSizeLabels,
+  sumByNormalizedSize,
+} from './shed-report-utils';
 
 type ShedStockMetric = keyof Pick<
   ShedStockReportShedVariety,
@@ -74,11 +78,11 @@ function filterSizesForMetric(
   for (const variety of varieties) {
     for (const sizeRow of variety.sizes) {
       if (Number(sizeRow[metric]) !== 0) {
-        withData.add(sizeRow.size);
+        withData.add(normalizeSizeKey(sizeRow.size));
       }
     }
   }
-  return sizes.filter((size) => withData.has(size));
+  return sizes.filter((size) => withData.has(normalizeSizeKey(size)));
 }
 
 function getVarietyMetricValue(
@@ -93,8 +97,9 @@ function getSizeMetricValue(
   size: string,
   metric: ShedStockMetric
 ): number {
-  const match = variety.sizes.find((s) => s.size === size);
-  return match?.[metric] ?? 0;
+  return sumByNormalizedSize(variety.sizes, size, (row) =>
+    Number(row[metric] ?? 0)
+  );
 }
 
 const ShedStockDetailTable = ({

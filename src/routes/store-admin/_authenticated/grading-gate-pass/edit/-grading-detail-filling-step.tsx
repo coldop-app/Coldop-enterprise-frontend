@@ -7,6 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/date-picker';
 import { toDatePickerDisplayValue } from '@/lib/helpers';
+import {
+  buildBagSizeColumnConfigFromPreferences,
+  mergeBagSizeColumnConfigWithApiSizes,
+  normalizeBagSizeLabel,
+  preferenceLabelToColumnId,
+} from '@/lib/bag-size-columns';
 import { usePreferencesStore } from '@/stores/store';
 import { toast } from 'sonner';
 import type {
@@ -72,6 +78,92 @@ const hasMeaningfulOrderDetailValue = (detail: {
   weightPerBagKg: number;
 }) => detail.currentQuantity > 0 || detail.weightPerBagKg > 0;
 
+type OrderDetailFormRow = {
+  size: string;
+  bagType: string;
+  currentQuantity: number;
+  initialQuantity: number;
+  weightPerBagKg: number;
+};
+
+type GradingEditDraft = {
+  date: string;
+  grader: string;
+  manualGatePassNumber: string;
+  remarks: string;
+  orderDetailsState: OrderDetailFormRow[];
+};
+
+const buildDisplaySizes = (
+  preferenceBagSizes: string[] | undefined,
+  apiOrderDetails: GradingGatePassOrderDetail[] | undefined
+): string[] => {
+  const prefSizes = (preferenceBagSizes ?? [])
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const prefConfig =
+    prefSizes.length > 0
+      ? buildBagSizeColumnConfigFromPreferences(prefSizes)
+      : FALLBACK_GRADING_SIZES.map((label) => ({
+          id: preferenceLabelToColumnId(label),
+          label,
+        }));
+
+  const apiLabels = (apiOrderDetails ?? [])
+    .map((d) => d.size)
+    .filter((s): s is string => Boolean(s?.trim()));
+
+  return mergeBagSizeColumnConfigWithApiSizes(prefConfig, apiLabels).map(
+    (entry) => entry.label
+  );
+};
+
+const buildOrderDetailsStateFromGatePass = (
+  displaySizes: string[],
+  orderDetails: GradingGatePassOrderDetail[] | undefined,
+  defaultBagType: string
+): OrderDetailFormRow[] => {
+  const byNormalizedSize = new Map<string, GradingGatePassOrderDetail>();
+  for (const detail of orderDetails ?? []) {
+    if (!detail?.size) continue;
+    const key = normalizeBagSizeLabel(detail.size);
+    if (!byNormalizedSize.has(key)) {
+      byNormalizedSize.set(key, detail);
+    }
+  }
+
+  return displaySizes.map((sizeLabel) => {
+    const detail = byNormalizedSize.get(normalizeBagSizeLabel(sizeLabel));
+    return {
+      size: detail?.size ?? sizeLabel,
+      bagType: detail?.bagType ?? defaultBagType,
+      currentQuantity: detail?.currentQuantity ?? 0,
+      initialQuantity: detail?.initialQuantity ?? detail?.currentQuantity ?? 0,
+      weightPerBagKg: detail?.weightPerBagKg ?? 0,
+    };
+  });
+};
+
+const buildDraftFromGatePass = (
+  gradingGatePass: GradingGatePass | undefined,
+  displaySizes: string[],
+  defaultBagType: string
+): GradingEditDraft => ({
+  date: toDatePickerDisplayValue(gradingGatePass?.date),
+  grader: gradingGatePass?.grader ?? '',
+  manualGatePassNumber:
+    gradingGatePass?.manualGatePassNumber != null
+      ? String(gradingGatePass.manualGatePassNumber)
+      : '',
+  remarks: gradingGatePass?.remarks ?? '',
+  orderDetailsState: buildOrderDetailsStateFromGatePass(
+    displaySizes,
+    gradingGatePass?.orderDetails,
+    defaultBagType
+  ),
+});
+
 const GradingDetailsStep = ({
   gradingGatePass,
   selectedFarmerName,
@@ -99,20 +191,13 @@ const GradingDetailsStep = ({
     return fromPrefs.length > 0 ? fromPrefs : [...FALLBACK_BAG_TYPES];
   }, [preferences?.custom.bagConfig.bagTypes]);
 
-  const gradingSizes = useMemo(() => {
-    const fromPrefs = (preferences?.bagSizes ?? [])
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    return fromPrefs.length > 0 ? fromPrefs : [...FALLBACK_GRADING_SIZES];
-  }, [preferences?.bagSizes]);
+  const displaySizes = useMemo(
+    () =>
+      buildDisplaySizes(preferences?.bagSizes, gradingGatePass?.orderDetails),
+    [preferences?.bagSizes, gradingGatePass?.orderDetails]
+  );
 
-  const orderDetailBySize = useMemo(() => {
-    const map = new Map<string, GradingGatePassOrderDetail>();
-    (gradingGatePass?.orderDetails ?? []).forEach((detail) => {
-      if (detail?.size) map.set(detail.size, detail);
-    });
-    return map;
-  }, [gradingGatePass?.orderDetails]);
+  const defaultBagType = bagTypes[0] ?? '';
 
   const selectedIncomingPasses: SelectedIncomingPassRow[] = useMemo(
     () =>
@@ -129,25 +214,18 @@ const GradingDetailsStep = ({
     [selectedIncomingPasses]
   );
 
-  const totalGradedBags = useMemo(
-    () =>
-      (gradingGatePass?.orderDetails ?? []).reduce(
-        (sum, detail) => sum + (detail?.currentQuantity ?? 0),
-        0
-      ),
-    [gradingGatePass?.orderDetails]
+  const gatePassDraftKey = gradingGatePass?._id ?? '__grading-gate-pass__';
+  const baseDraft = useMemo(
+    () => buildDraftFromGatePass(gradingGatePass, displaySizes, defaultBagType),
+    [gradingGatePass, displaySizes, defaultBagType]
   );
-
-  const initialDate = toDatePickerDisplayValue(gradingGatePass?.date);
-
-  const [date, setDate] = useState<string>(initialDate);
-  const [grader, setGrader] = useState(gradingGatePass?.grader ?? '');
-  const [manualGatePassNumber, setManualGatePassNumber] = useState(
-    gradingGatePass?.manualGatePassNumber != null
-      ? String(gradingGatePass.manualGatePassNumber)
-      : ''
-  );
-  const [remarks, setRemarks] = useState(gradingGatePass?.remarks ?? '');
+  const [draftsByGatePassId, setDraftsByGatePassId] = useState<
+    Record<string, GradingEditDraft>
+  >({});
+  const activeDraft = draftsByGatePassId[gatePassDraftKey] ?? baseDraft;
+  const { date, grader, manualGatePassNumber, remarks, orderDetailsState } =
+    activeDraft;
+  const initialDate = baseDraft.date;
   const remarksInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<
@@ -167,21 +245,23 @@ const GradingDetailsStep = ({
     typeof gradingGatePass?.farmerStorageLinkId === 'string'
       ? gradingGatePass.farmerStorageLinkId
       : (gradingGatePass?.farmerStorageLinkId?._id ?? '');
-  const [orderDetailsState, setOrderDetailsState] = useState(() =>
-    gradingSizes.map((sizeLabel) => {
-      const detail = orderDetailBySize.get(sizeLabel);
-      return {
-        size: sizeLabel,
-        bagType: detail?.bagType ?? bagTypes[0] ?? '',
-        currentQuantity: detail?.currentQuantity ?? 0,
-        initialQuantity: detail?.initialQuantity ?? 0,
-        weightPerBagKg: detail?.weightPerBagKg ?? 0,
-      };
-    })
+  const orderDetailStateBySize = useMemo(
+    () =>
+      new Map(
+        orderDetailsState.map((detail) => [
+          normalizeBagSizeLabel(detail.size),
+          detail,
+        ])
+      ),
+    [orderDetailsState]
   );
 
-  const orderDetailStateBySize = useMemo(
-    () => new Map(orderDetailsState.map((detail) => [detail.size, detail])),
+  const totalGradedBags = useMemo(
+    () =>
+      orderDetailsState.reduce(
+        (sum, detail) => sum + (detail.currentQuantity ?? 0),
+        0
+      ),
     [orderDetailsState]
   );
 
@@ -193,16 +273,45 @@ const GradingDetailsStep = ({
     return () => cancelAnimationFrame(focusTimer);
   }, [isMarkedAsNull, remarksFocusTrigger]);
 
+  const updateDraft = (
+    updater: (draft: GradingEditDraft) => GradingEditDraft
+  ) => {
+    setDraftsByGatePassId((prev) => {
+      const current = prev[gatePassDraftKey] ?? baseDraft;
+      return { ...prev, [gatePassDraftKey]: updater(current) };
+    });
+  };
+
   const setOrderDetailField = (
-    size: string,
+    sizeLabel: string,
     field: 'currentQuantity' | 'weightPerBagKg' | 'bagType',
     value: number | string
   ) => {
-    setOrderDetailsState((prev) =>
-      prev.map((detail) =>
-        detail.size === size ? { ...detail, [field]: value } : detail
-      )
-    );
+    const sizeKey = normalizeBagSizeLabel(sizeLabel);
+    updateDraft((draft) => ({
+      ...draft,
+      orderDetailsState: draft.orderDetailsState.map((detail) =>
+        normalizeBagSizeLabel(detail.size) === sizeKey
+          ? { ...detail, [field]: value }
+          : detail
+      ),
+    }));
+  };
+
+  const setGrader = (value: string) => {
+    updateDraft((draft) => ({ ...draft, grader: value }));
+  };
+
+  const setManualGatePassNumber = (value: string) => {
+    updateDraft((draft) => ({ ...draft, manualGatePassNumber: value }));
+  };
+
+  const setDate = (value: string) => {
+    updateDraft((draft) => ({ ...draft, date: value }));
+  };
+
+  const setRemarks = (value: string) => {
+    updateDraft((draft) => ({ ...draft, remarks: value }));
   };
 
   const buildOrderDetailsPayload = () =>
@@ -517,22 +626,23 @@ const GradingDetailsStep = ({
                 <span className="font-custom text-muted-foreground border-border/60 border-b pb-2 text-xs font-medium tracking-wide uppercase">
                   Wt (kg)
                 </span>
-                {gradingSizes.map((sizeLabel) => {
-                  const detail = orderDetailBySize.get(sizeLabel);
+                {displaySizes.map((sizeLabel) => {
                   const detailState =
-                    orderDetailStateBySize.get(sizeLabel) ??
+                    orderDetailStateBySize.get(
+                      normalizeBagSizeLabel(sizeLabel)
+                    ) ??
                     ({
                       size: sizeLabel,
-                      bagType: bagTypes[0] ?? '',
+                      bagType: defaultBagType,
                       currentQuantity: 0,
                       initialQuantity: 0,
                       weightPerBagKg: 0,
                     } as const);
-                  const defaultBagType =
+                  const selectedBagType =
                     detailState.bagType &&
                     bagTypes.includes(detailState.bagType)
                       ? detailState.bagType
-                      : (bagTypes[0] ?? '');
+                      : defaultBagType;
                   return (
                     <Fragment key={sizeLabel}>
                       <span className="font-custom text-foreground text-sm font-medium md:text-base">
@@ -558,7 +668,7 @@ const GradingDetailsStep = ({
                       </Field>
                       <Field className="min-w-0">
                         <select
-                          value={defaultBagType}
+                          value={selectedBagType}
                           onChange={(e) =>
                             setOrderDetailField(
                               sizeLabel,
@@ -570,10 +680,10 @@ const GradingDetailsStep = ({
                           className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                         >
                           {/* Preserve the existing bag type if it's not in preferences */}
-                          {detail?.bagType &&
-                            !bagTypes.includes(detail.bagType) && (
-                              <option value={detail.bagType}>
-                                {detail.bagType}
+                          {detailState.bagType &&
+                            !bagTypes.includes(detailState.bagType) && (
+                              <option value={detailState.bagType}>
+                                {detailState.bagType}
                               </option>
                             )}
                           {bagTypes.map((opt) => (
@@ -619,22 +729,23 @@ const GradingDetailsStep = ({
               </div>
 
               <div className="space-y-4 md:hidden">
-                {gradingSizes.map((sizeLabel, index) => {
-                  const detail = orderDetailBySize.get(sizeLabel);
+                {displaySizes.map((sizeLabel, index) => {
                   const detailState =
-                    orderDetailStateBySize.get(sizeLabel) ??
+                    orderDetailStateBySize.get(
+                      normalizeBagSizeLabel(sizeLabel)
+                    ) ??
                     ({
                       size: sizeLabel,
-                      bagType: bagTypes[0] ?? '',
+                      bagType: defaultBagType,
                       currentQuantity: 0,
                       initialQuantity: 0,
                       weightPerBagKg: 0,
                     } as const);
-                  const defaultBagType =
+                  const selectedBagType =
                     detailState.bagType &&
                     bagTypes.includes(detailState.bagType)
                       ? detailState.bagType
-                      : (bagTypes[0] ?? '');
+                      : defaultBagType;
                   return (
                     <div
                       key={sizeLabel}
@@ -678,7 +789,7 @@ const GradingDetailsStep = ({
                           </label>
                           <select
                             id={`bag-m-${index}`}
-                            value={defaultBagType}
+                            value={selectedBagType}
                             onChange={(e) =>
                               setOrderDetailField(
                                 sizeLabel,
@@ -689,10 +800,10 @@ const GradingDetailsStep = ({
                             disabled={isMarkedAsNull}
                             className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                           >
-                            {detail?.bagType &&
-                              !bagTypes.includes(detail.bagType) && (
-                                <option value={detail.bagType}>
-                                  {detail.bagType}
+                            {detailState.bagType &&
+                              !bagTypes.includes(detailState.bagType) && (
+                                <option value={detailState.bagType}>
+                                  {detailState.bagType}
                                 </option>
                               )}
                             {bagTypes.map((opt) => (
