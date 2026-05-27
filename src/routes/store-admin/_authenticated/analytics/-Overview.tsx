@@ -124,7 +124,10 @@ function computeShedStockBags(data: OverviewMetrics): number {
   const gradingInitial = data.totalGradingBags.initialQuantity;
   const storedInitial = data.totalBagsStoredInitial ?? data.totalBagsStored;
   return (
-    gradingInitial - storedInitial - data.bagsDispatchedNotInternalTransfer
+    gradingInitial +
+    data.totalUngradedBags -
+    storedInitial -
+    data.bagsDispatchedNotInternalTransfer
   );
 }
 
@@ -500,7 +503,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
       <StatCard
         title="Shed Stock"
         value={formatNumber(shedStockBags)}
-        description="Grading - stored - dispatch (excl internal transfer)"
+        description="Grading + ungraded - stored - dispatch (excl internal transfer)"
         icon={<Building2 className="h-5 w-5" />}
         onGetReportClick={
           canReadOverview

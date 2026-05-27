@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Building2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Building2, Layers, RefreshCw } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Item, ItemHeader, ItemMedia, ItemTitle } from '@/components/ui/item';
@@ -158,6 +165,27 @@ const ShedReportPage = () => {
         {...tableProps}
       />
 
+      {/* Ungraded Bags summary card */}
+      <Card className="font-custom border-border/40 bg-card group relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+        <div className="bg-primary absolute inset-x-0 top-0 h-[3px] rounded-t-2xl opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
+          <CardTitle className="text-foreground text-[15px] leading-snug font-semibold sm:text-base">
+            Ungraded Bags
+          </CardTitle>
+          <span className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+            <Layers className="h-5 w-5" />
+          </span>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="font-custom text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+            {(data?.shedStock.totals.ungradedBags ?? 0).toLocaleString('en-IN')}
+          </p>
+          <CardDescription className="font-custom text-muted-foreground text-sm">
+            Total bags currently ungraded in the shed.
+          </CardDescription>
+        </CardContent>
+      </Card>
+
       <ShedStockDetailTable
         varieties={data?.shedStock.varieties ?? []}
         totals={
@@ -168,6 +196,7 @@ const ShedReportPage = () => {
             internallyTransferred: 0,
             notInternallyTransferred: 0,
             shedStock: 0,
+            ungradedBags: 0,
           }
         }
         {...tableProps}

@@ -825,6 +825,7 @@ export interface ShedStockReportShedTotals {
   internallyTransferred: number;
   notInternallyTransferred: number;
   shedStock: number;
+  ungradedBags?: number;
 }
 
 /** Nested shed stock summary (varieties + totals) */

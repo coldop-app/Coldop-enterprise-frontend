@@ -186,7 +186,14 @@ const ShedStockDetailTable = ({
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const activeTabTotal = totals[activeTab];
+  const ungradedBags = totals.ungradedBags ?? 0;
+
+  // When the Shed Stock tab is active the canonical total shown in the footer
+  // must include ungraded bags (same formula as the overview card).
+  const activeTabTotal =
+    activeTab === 'shedStock'
+      ? totals.shedStock + ungradedBags
+      : totals[activeTab];
 
   if (isLoading) {
     return (
@@ -228,14 +235,42 @@ const ShedStockDetailTable = ({
     <Card className="font-custom border-border rounded-xl shadow-sm">
       <CardContent className="flex flex-col gap-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4">
-          <div>
-            <h2 className="font-custom text-xl font-bold tracking-tight sm:text-2xl">
-              Shed Stock
-            </h2>
-            <p className="font-custom text-muted-foreground mt-1 text-sm">
-              Shed stock (grading - stored - not internally transferred
-              dispatch).
-            </p>
+          <div className="flex flex-col gap-3">
+            <div>
+              <h2 className="font-custom text-xl font-bold tracking-tight sm:text-2xl">
+                Shed Stock
+              </h2>
+              <p className="font-custom text-muted-foreground mt-1 text-sm">
+                Grading + ungraded − stored − dispatch (excl. internal transfer)
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              {[
+                { label: 'Grading', value: totals.gradingInitial },
+                { label: 'Ungraded', value: ungradedBags },
+                { label: 'Stored', value: totals.stored, minus: true },
+                {
+                  label: 'Not Int. Transfer',
+                  value: totals.notInternallyTransferred,
+                  minus: true,
+                },
+              ].map(({ label, value, minus }) => (
+                <span
+                  key={label}
+                  className={`font-custom inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium ${
+                    minus
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-primary/10 text-primary'
+                  }`}
+                >
+                  {minus ? '−' : '+'} {label}: {value.toLocaleString('en-IN')}
+                </span>
+              ))}
+              <span className="font-custom bg-foreground/10 text-foreground inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold">
+                = Shed Stock:{' '}
+                {(totals.shedStock + ungradedBags).toLocaleString('en-IN')}
+              </span>
+            </div>
           </div>
           <div className="border-border flex flex-wrap gap-1 border-b">
             {TAB_CONFIG.map(({ id, label }) => {
