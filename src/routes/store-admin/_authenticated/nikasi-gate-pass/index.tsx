@@ -195,6 +195,8 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
       .filter(([, qty]) => (qty ?? 0) > 0)
       .map(([size, quantityToAllocate]) => ({
         size,
+        variety: (sizeVarieties[size] ?? '').trim() || 'Potato',
+        bagType: (sizeBagTypes[size] ?? defaultBagType).trim(),
         quantityToAllocate,
         availableQuantity: quantityToAllocate,
       }));
@@ -203,6 +205,8 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
       .filter((row) => (row.quantity ?? 0) > 0)
       .map((row) => ({
         size: row.size,
+        variety: row.variety.trim() || 'Potato',
+        bagType: row.bagType.trim() || defaultBagType,
         quantityToAllocate: row.quantity,
         availableQuantity: row.quantity,
       }));
@@ -216,6 +220,9 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
           destination: toLabelOptional.trim() || toField.trim(),
           remarks,
           truckNumber: truckNumber.trim() || undefined,
+          manualGatePassNumber,
+          netWeight,
+          averageWeightPerBag,
           isInternalTransfer,
           gradingGatePasses: [
             {
@@ -233,16 +240,21 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
       ],
     };
   }, [
+    averageWeightPerBag,
     date,
-    selectedFarmerName,
-    toField,
-    toLabelOptional,
-    remarks,
-    truckNumber,
+    defaultBagType,
+    extraQuantityRows,
     isInternalTransfer,
+    manualGatePassNumber,
+    netWeight,
+    remarks,
+    selectedFarmerName,
+    sizeBagTypes,
     sizeQuantities,
     sizeVarieties,
-    extraQuantityRows,
+    toField,
+    toLabelOptional,
+    truckNumber,
   ]);
 
   const voucherNumberDisplay =
@@ -273,6 +285,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
           size,
           variety: (sizeVarieties[size] ?? '').trim() || 'Potato',
           quantityIssued: quantity,
+          bagType: (sizeBagTypes[size] ?? defaultBagType).trim(),
         })),
       ...(extraQuantityRows ?? [])
         .filter((row) => (row.quantity ?? 0) > 0)
@@ -280,6 +293,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
           size: row.size,
           variety: row.variety.trim() || 'Potato',
           quantityIssued: row.quantity,
+          bagType: row.bagType.trim() || defaultBagType,
         })),
     ];
 

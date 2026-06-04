@@ -56,6 +56,7 @@ export interface NikasiGatePassBagSize {
   size: string;
   variety: string;
   quantityIssued: number;
+  bagType?: string;
 }
 
 export interface NikasiGatePassItem {

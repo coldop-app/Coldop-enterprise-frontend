@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -86,12 +86,22 @@ type OrderDetailFormRow = {
   weightPerBagKg: number;
 };
 
+type ExtraQuantityRow = {
+  id: string;
+  size: string;
+  bagType: string;
+  currentQuantity: number;
+  initialQuantity: number;
+  weightPerBagKg: number;
+};
+
 type GradingEditDraft = {
   date: string;
   grader: string;
   manualGatePassNumber: string;
   remarks: string;
   orderDetailsState: OrderDetailFormRow[];
+  extraQuantityRows: ExtraQuantityRow[];
 };
 
 const buildDisplaySizes = (
@@ -145,6 +155,39 @@ const buildOrderDetailsStateFromGatePass = (
   });
 };
 
+const buildExtraRowsFromGatePass = (
+  displaySizes: string[],
+  orderDetails: GradingGatePassOrderDetail[] | undefined,
+  defaultBagType: string
+): ExtraQuantityRow[] => {
+  const fixedSizeKeys = new Set(
+    displaySizes.map((sizeLabel) => normalizeBagSizeLabel(sizeLabel))
+  );
+  const consumedFixedKeys = new Set<string>();
+  const extras: ExtraQuantityRow[] = [];
+
+  for (const detail of orderDetails ?? []) {
+    if (!detail?.size) continue;
+    const key = normalizeBagSizeLabel(detail.size);
+
+    if (fixedSizeKeys.has(key) && !consumedFixedKeys.has(key)) {
+      consumedFixedKeys.add(key);
+      continue;
+    }
+
+    extras.push({
+      id: crypto.randomUUID(),
+      size: detail.size,
+      bagType: detail.bagType ?? defaultBagType,
+      currentQuantity: detail.currentQuantity ?? 0,
+      initialQuantity: detail.initialQuantity ?? detail.currentQuantity ?? 0,
+      weightPerBagKg: detail.weightPerBagKg ?? 0,
+    });
+  }
+
+  return extras;
+};
+
 const buildDraftFromGatePass = (
   gradingGatePass: GradingGatePass | undefined,
   displaySizes: string[],
@@ -158,6 +201,11 @@ const buildDraftFromGatePass = (
       : '',
   remarks: gradingGatePass?.remarks ?? '',
   orderDetailsState: buildOrderDetailsStateFromGatePass(
+    displaySizes,
+    gradingGatePass?.orderDetails,
+    defaultBagType
+  ),
+  extraQuantityRows: buildExtraRowsFromGatePass(
     displaySizes,
     gradingGatePass?.orderDetails,
     defaultBagType
@@ -197,6 +245,18 @@ const GradingDetailsStep = ({
     [preferences?.bagSizes, gradingGatePass?.orderDetails]
   );
 
+  const gradingSizes = useMemo(() => {
+    const fromPrefs = (preferences?.bagSizes ?? [])
+      .map((size) => size.trim())
+      .filter((size) => size.length > 0);
+    return fromPrefs.length > 0 ? fromPrefs : [...FALLBACK_GRADING_SIZES];
+  }, [preferences?.bagSizes]);
+
+  const sizeOptions = useMemo(() => {
+    const merged = new Set([...displaySizes, ...gradingSizes]);
+    return [...merged];
+  }, [displaySizes, gradingSizes]);
+
   const defaultBagType = bagTypes[0] ?? '';
 
   const selectedIncomingPasses: SelectedIncomingPassRow[] = useMemo(
@@ -223,8 +283,14 @@ const GradingDetailsStep = ({
     Record<string, GradingEditDraft>
   >({});
   const activeDraft = draftsByGatePassId[gatePassDraftKey] ?? baseDraft;
-  const { date, grader, manualGatePassNumber, remarks, orderDetailsState } =
-    activeDraft;
+  const {
+    date,
+    grader,
+    manualGatePassNumber,
+    remarks,
+    orderDetailsState,
+    extraQuantityRows,
+  } = activeDraft;
   const initialDate = baseDraft.date;
   const remarksInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -261,8 +327,12 @@ const GradingDetailsStep = ({
       orderDetailsState.reduce(
         (sum, detail) => sum + (detail.currentQuantity ?? 0),
         0
+      ) +
+      extraQuantityRows.reduce(
+        (sum, row) => sum + (row.currentQuantity ?? 0),
+        0
       ),
-    [orderDetailsState]
+    [orderDetailsState, extraQuantityRows]
   );
 
   useEffect(() => {
@@ -314,16 +384,61 @@ const GradingDetailsStep = ({
     updateDraft((draft) => ({ ...draft, remarks: value }));
   };
 
-  const buildOrderDetailsPayload = () =>
-    orderDetailsState
+  const addExtraRow = () => {
+    updateDraft((draft) => ({
+      ...draft,
+      extraQuantityRows: [
+        ...draft.extraQuantityRows,
+        {
+          id: crypto.randomUUID(),
+          size: sizeOptions[0] ?? '',
+          bagType: defaultBagType,
+          currentQuantity: 0,
+          initialQuantity: 0,
+          weightPerBagKg: 0,
+        },
+      ],
+    }));
+  };
+
+  const updateExtraRowField = (
+    rowId: string,
+    field: 'size' | 'bagType' | 'currentQuantity' | 'weightPerBagKg',
+    value: string | number
+  ) => {
+    updateDraft((draft) => ({
+      ...draft,
+      extraQuantityRows: draft.extraQuantityRows.map((row) =>
+        row.id === rowId ? { ...row, [field]: value } : row
+      ),
+    }));
+  };
+
+  const removeExtraRow = (rowId: string) => {
+    updateDraft((draft) => ({
+      ...draft,
+      extraQuantityRows: draft.extraQuantityRows.filter(
+        (row) => row.id !== rowId
+      ),
+    }));
+  };
+
+  const mapOrderDetailRowToPayload = (detail: OrderDetailFormRow) => ({
+    size: detail.size,
+    bagType: detail.bagType,
+    currentQuantity: detail.currentQuantity,
+    initialQuantity: detail.initialQuantity,
+    weightPerBagKg: detail.weightPerBagKg,
+  });
+
+  const buildOrderDetailsPayload = () => [
+    ...orderDetailsState
       .filter((detail) => hasMeaningfulOrderDetailValue(detail))
-      .map((detail) => ({
-        size: detail.size,
-        bagType: detail.bagType,
-        currentQuantity: detail.currentQuantity,
-        initialQuantity: detail.initialQuantity,
-        weightPerBagKg: detail.weightPerBagKg,
-      }));
+      .map(mapOrderDetailRowToPayload),
+    ...extraQuantityRows
+      .filter((row) => hasMeaningfulOrderDetailValue(row))
+      .map(mapOrderDetailRowToPayload),
+  ];
 
   const initialOrderDetails = normalizeOrderDetails(
     gradingGatePass?.orderDetails ?? []
@@ -714,6 +829,107 @@ const GradingDetailsStep = ({
                     </Fragment>
                   );
                 })}
+                {extraQuantityRows.map((row) => {
+                  const selectedBagType =
+                    row.bagType && bagTypes.includes(row.bagType)
+                      ? row.bagType
+                      : defaultBagType;
+                  return (
+                    <Fragment key={row.id}>
+                      <Field className="min-w-0">
+                        <select
+                          value={row.size}
+                          onChange={(e) =>
+                            updateExtraRowField(row.id, 'size', e.target.value)
+                          }
+                          disabled={isMarkedAsNull}
+                          className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                        >
+                          {row.size && !sizeOptions.includes(row.size) && (
+                            <option value={row.size}>{row.size}</option>
+                          )}
+                          {sizeOptions.map((size) => (
+                            <option key={size} value={size}>
+                              {size}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field className="min-w-0">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="Qty"
+                          value={row.currentQuantity || ''}
+                          onChange={(e) =>
+                            updateExtraRowField(
+                              row.id,
+                              'currentQuantity',
+                              Number(e.target.value || 0)
+                            )
+                          }
+                          disabled={isMarkedAsNull}
+                          className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                      </Field>
+                      <Field className="min-w-0">
+                        <select
+                          value={selectedBagType}
+                          onChange={(e) =>
+                            updateExtraRowField(
+                              row.id,
+                              'bagType',
+                              e.target.value
+                            )
+                          }
+                          disabled={isMarkedAsNull}
+                          className="border-input bg-background focus-visible:ring-primary font-custom h-9 w-full rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                        >
+                          {row.bagType && !bagTypes.includes(row.bagType) && (
+                            <option value={row.bagType}>{row.bagType}</option>
+                          )}
+                          {bagTypes.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="Wt"
+                            value={row.weightPerBagKg || ''}
+                            onChange={(e) =>
+                              updateExtraRowField(
+                                row.id,
+                                'weightPerBagKg',
+                                Number(e.target.value || 0)
+                              )
+                            }
+                            disabled={isMarkedAsNull}
+                            className="font-custom h-9 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:text-destructive shrink-0"
+                            aria-label="Remove size row"
+                            onClick={() => removeExtraRow(row.id)}
+                            disabled={isMarkedAsNull}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </Field>
+                    </Fragment>
+                  );
+                })}
                 <div className="col-span-4 lg:col-span-4">
                   <Button
                     type="button"
@@ -721,6 +937,7 @@ const GradingDetailsStep = ({
                     size="sm"
                     className="font-custom"
                     disabled={isMarkedAsNull}
+                    onClick={addExtraRow}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Size
@@ -842,12 +1059,151 @@ const GradingDetailsStep = ({
                     </div>
                   );
                 })}
+                {extraQuantityRows.map((row, index) => {
+                  const selectedBagType =
+                    row.bagType && bagTypes.includes(row.bagType)
+                      ? row.bagType
+                      : defaultBagType;
+                  return (
+                    <div
+                      key={row.id}
+                      className="border-border/40 bg-muted/20 flex flex-col gap-4 rounded-lg border p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <Field className="min-w-0 flex-1">
+                          <label
+                            htmlFor={`extra-size-m-${index}`}
+                            className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                          >
+                            Size
+                          </label>
+                          <select
+                            id={`extra-size-m-${index}`}
+                            value={row.size}
+                            onChange={(e) =>
+                              updateExtraRowField(
+                                row.id,
+                                'size',
+                                e.target.value
+                              )
+                            }
+                            disabled={isMarkedAsNull}
+                            className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                          >
+                            {row.size && !sizeOptions.includes(row.size) && (
+                              <option value={row.size}>{row.size}</option>
+                            )}
+                            {sizeOptions.map((size) => (
+                              <option key={size} value={size}>
+                                {size}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive mt-5 shrink-0"
+                          aria-label="Remove size row"
+                          onClick={() => removeExtraRow(row.id)}
+                          disabled={isMarkedAsNull}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <Field>
+                          <label
+                            htmlFor={`extra-qty-m-${index}`}
+                            className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                          >
+                            Quantity
+                          </label>
+                          <Input
+                            id={`extra-qty-m-${index}`}
+                            type="number"
+                            min={0}
+                            step={1}
+                            placeholder="Qty"
+                            value={row.currentQuantity || ''}
+                            onChange={(e) =>
+                              updateExtraRowField(
+                                row.id,
+                                'currentQuantity',
+                                Number(e.target.value || 0)
+                              )
+                            }
+                            disabled={isMarkedAsNull}
+                            className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                        </Field>
+                        <Field>
+                          <label
+                            htmlFor={`extra-bag-m-${index}`}
+                            className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                          >
+                            Bag Type
+                          </label>
+                          <select
+                            id={`extra-bag-m-${index}`}
+                            value={selectedBagType}
+                            onChange={(e) =>
+                              updateExtraRowField(
+                                row.id,
+                                'bagType',
+                                e.target.value
+                              )
+                            }
+                            disabled={isMarkedAsNull}
+                            className="border-input bg-background focus-visible:ring-primary font-custom h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                          >
+                            {row.bagType && !bagTypes.includes(row.bagType) && (
+                              <option value={row.bagType}>{row.bagType}</option>
+                            )}
+                            {bagTypes.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Field>
+                          <label
+                            htmlFor={`extra-wt-m-${index}`}
+                            className="text-muted-foreground font-custom mb-1 block text-xs font-medium"
+                          >
+                            Weight (kg)
+                          </label>
+                          <Input
+                            id={`extra-wt-m-${index}`}
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="Wt"
+                            value={row.weightPerBagKg || ''}
+                            onChange={(e) =>
+                              updateExtraRowField(
+                                row.id,
+                                'weightPerBagKg',
+                                Number(e.target.value || 0)
+                              )
+                            }
+                            disabled={isMarkedAsNull}
+                            className="font-custom h-10 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  );
+                })}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="font-custom w-full"
                   disabled={isMarkedAsNull}
+                  onClick={addExtraRow}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Size

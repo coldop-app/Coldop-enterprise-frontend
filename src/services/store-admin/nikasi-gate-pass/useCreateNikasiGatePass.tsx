@@ -9,6 +9,7 @@ export interface NikasiBagSizeInput {
   size: string;
   variety: string;
   quantityIssued: number;
+  bagType: string;
 }
 
 export interface CreateNikasiGatePassInput {
@@ -104,6 +105,7 @@ function normalizeCreateNikasiGatePassPayload(
       size: bag.size.trim(),
       variety: bag.variety.trim(),
       quantityIssued: bag.quantityIssued,
+      bagType: bag.bagType.trim(),
     })),
     ...(payload.remarks !== undefined && {
       remarks: payload.remarks.trim(),

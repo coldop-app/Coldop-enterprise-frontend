@@ -75,6 +75,7 @@ export interface NikasiGatePassEditState {
     size: string;
     variety: string;
     quantityIssued: string;
+    bagType: string;
   }>;
   netWeight: string;
   averageWeightPerBag: string;
@@ -181,6 +182,7 @@ export function NikasiVoucherCard({
         size: row.size,
         variety: row.variety,
         quantityIssued: String(row.quantityIssued),
+        bagType: row.bagType?.trim() ?? '',
       })),
       netWeight: String(gatePass.netWeight ?? ''),
       averageWeightPerBag: String(gatePass.averageWeightPerBag ?? ''),
@@ -381,11 +383,12 @@ export function NikasiVoucherCard({
               </h4>
               <div className="border-border/50 mt-2.5 overflow-hidden rounded-lg border">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[500px] text-left text-xs">
+                  <table className="w-full min-w-[560px] text-left text-xs">
                     <thead className="bg-muted/50 text-muted-foreground font-custom text-[10px] font-semibold tracking-wide uppercase">
                       <tr>
                         <th className="px-4 py-3">Bag Size</th>
                         <th className="px-4 py-3">Variety</th>
+                        <th className="px-4 py-3">Bag Type</th>
                         <th className="px-4 py-3 text-right">Qty Issued</th>
                       </tr>
                     </thead>
@@ -401,6 +404,18 @@ export function NikasiVoucherCard({
                           <td className="text-muted-foreground px-4 py-3">
                             {row.variety}
                           </td>
+                          <td className="text-muted-foreground px-4 py-3">
+                            {row.bagType?.trim() ? (
+                              <Badge
+                                variant="outline"
+                                className="font-custom border-border/60 bg-background px-2 py-0 text-[10px] font-medium tracking-wide uppercase"
+                              >
+                                {row.bagType.trim()}
+                              </Badge>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
                           <td
                             className={`px-4 py-3 text-right font-semibold ${themeText}`}
                           >
@@ -413,7 +428,7 @@ export function NikasiVoucherCard({
                       <tr>
                         <td
                           className="font-custom px-4 py-3 font-bold"
-                          colSpan={2}
+                          colSpan={3}
                         >
                           Total Summary
                         </td>

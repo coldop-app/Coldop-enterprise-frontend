@@ -10,6 +10,7 @@ export interface NikasiBagSizeInput {
   size: string;
   variety: string;
   quantityIssued: number;
+  bagType: string;
 }
 
 /** PATCH body for /nikasi-gate-pass/:nikasiGatePassId */
@@ -114,6 +115,7 @@ function normalizeEditNikasiGatePassPayload(
         size: bag.size.trim(),
         variety: bag.variety.trim(),
         quantityIssued: bag.quantityIssued,
+        bagType: bag.bagType.trim(),
       })),
     }),
     ...(payload.remarks !== undefined && {

@@ -193,15 +193,17 @@ const NikasiEditForm = memo(function NikasiEditForm({
 
       for (const row of editData.bagSize ?? []) {
         const qty = Number(row.quantityIssued) || 0;
+        const rowBagType = row.bagType?.trim() || defaultBagType;
         if (gradingSizes.includes(row.size)) {
           sizeQuantities[row.size] = (sizeQuantities[row.size] ?? 0) + qty;
           sizeVarieties[row.size] = row.variety ?? '';
+          sizeBagTypes[row.size] = rowBagType;
         } else {
           extraQuantityRows.push({
             id: crypto.randomUUID(),
             size: row.size,
             quantity: qty,
-            bagType: defaultBagType,
+            bagType: rowBagType,
             variety: row.variety ?? '',
           });
         }
@@ -254,6 +256,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
             size,
             variety: (value.sizeVarieties[size] ?? '').trim() || 'Potato',
             quantityIssued: quantity,
+            bagType: (value.sizeBagTypes[size] ?? defaultBagType).trim(),
           })),
         ...(value.extraQuantityRows ?? [])
           .filter((row) => (row.quantity ?? 0) > 0)
@@ -261,6 +264,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
             size: row.size,
             variety: row.variety.trim() || 'Potato',
             quantityIssued: row.quantity,
+            bagType: row.bagType.trim() || defaultBagType,
           })),
       ];
 
@@ -367,6 +371,8 @@ const NikasiEditForm = memo(function NikasiEditForm({
       .filter(([, qty]) => (qty ?? 0) > 0)
       .map(([size, quantityToAllocate]) => ({
         size,
+        variety: (values.sizeVarieties[size] ?? '').trim() || 'Potato',
+        bagType: (values.sizeBagTypes[size] ?? defaultBagType).trim(),
         quantityToAllocate,
         availableQuantity: quantityToAllocate,
       }));
@@ -375,6 +381,8 @@ const NikasiEditForm = memo(function NikasiEditForm({
       .filter((row) => (row.quantity ?? 0) > 0)
       .map((row) => ({
         size: row.size,
+        variety: row.variety.trim() || 'Potato',
+        bagType: row.bagType.trim() || defaultBagType,
         quantityToAllocate: row.quantity,
         availableQuantity: row.quantity,
       }));
@@ -388,6 +396,9 @@ const NikasiEditForm = memo(function NikasiEditForm({
           destination: values.toLabelOptional.trim() || values.toField.trim(),
           remarks: values.remarks,
           truckNumber: values.truckNumber.trim() || undefined,
+          manualGatePassNumber: values.manualGatePassNumber,
+          netWeight: values.netWeight,
+          averageWeightPerBag,
           isInternalTransfer: values.isInternalTransfer,
           gradingGatePasses: [
             {
@@ -406,7 +417,13 @@ const NikasiEditForm = memo(function NikasiEditForm({
         },
       ],
     };
-  }, [form.state.values, incomingGatePassesOfFarmer, selectedFarmerName]);
+  }, [
+    averageWeightPerBag,
+    defaultBagType,
+    form.state.values,
+    incomingGatePassesOfFarmer,
+    selectedFarmerName,
+  ]);
 
   const handleDispatchLedgerAdded = useCallback(() => {
     refetchDispatchLedgers();
