@@ -227,12 +227,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
           gradingGatePasses: [
             {
               gradingGatePassId: '_direct',
-              variety: (
-                [
-                  ...Object.values(sizeVarieties ?? {}),
-                  ...(extraQuantityRows ?? []).map((row) => row.variety),
-                ].find((v) => v?.trim()) ?? '-'
-              ).trim(),
+              variety: '',
               allocations: [...fixedAllocations, ...extraAllocations],
             },
           ],

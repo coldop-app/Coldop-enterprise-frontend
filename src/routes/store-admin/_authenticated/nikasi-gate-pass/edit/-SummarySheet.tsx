@@ -279,75 +279,72 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                       </div>
                     </div>
 
-                    {/* Allocations */}
-                    <div className="space-y-3">
-                      {gradingGatePasses.map((entry) => {
-                        const displayDate = entry.date
-                          ? formatDateLong(entry.date)
-                          : formatDateLong(date);
-                        const entryVariety = entry.variety?.trim() || '—';
+                    {/* Allocations — one table; each row keeps its own variety */}
+                    {(() => {
+                      const allocationRows = gradingGatePasses.flatMap(
+                        (entry) => entry.allocations
+                      );
+                      const displayDate = formatDateLong(date);
 
-                        return (
-                          <div
-                            key={entry.gradingGatePassId}
-                            className="border-border bg-muted/30 overflow-hidden rounded-lg border"
-                          >
-                            {/* Entry Header */}
-                            <div className="border-border bg-muted/50 border-b px-4 py-3">
-                              <div className="flex items-baseline justify-between gap-2 sm:gap-4">
-                                <div>
-                                  <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
-                                    Bag Allocation
-                                  </p>
-                                  <p className="text-foreground mt-1 text-sm font-semibold">
-                                    {entryVariety} · {displayDate}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
+                      if (allocationRows.length === 0) return null;
 
-                            {/* Allocation Table */}
-                            <div className="overflow-x-auto px-4 py-3">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="border-border border-b">
-                                    <th className="text-muted-foreground pb-2 text-left text-xs font-semibold tracking-widest uppercase">
-                                      Size
-                                    </th>
-                                    <th className="text-muted-foreground px-2 pb-2 text-left text-xs font-semibold tracking-widest uppercase">
-                                      Type
-                                    </th>
-                                    <th className="text-muted-foreground px-2 pb-2 text-right text-xs font-semibold tracking-widest uppercase">
-                                      Qty
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-border divide-y">
-                                  {entry.allocations.map((alloc, idx) => (
-                                    <tr
-                                      key={idx}
-                                      className="hover:bg-muted/40 transition-colors"
-                                    >
-                                      <td className="text-foreground py-2 font-medium">
-                                        {alloc.size}
-                                      </td>
-                                      <td className="text-muted-foreground px-2 py-2 text-sm">
-                                        {alloc.bagType?.trim() || '—'}
-                                      </td>
-                                      <td className="text-primary px-2 py-2 text-right font-semibold tabular-nums">
-                                        {Number(
-                                          alloc.quantityToAllocate
-                                        ).toFixed(1)}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                      return (
+                        <div className="border-border bg-muted/30 overflow-hidden rounded-lg border">
+                          <div className="border-border bg-muted/50 border-b px-4 py-3">
+                            <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
+                              Bag allocation
+                            </p>
+                            <p className="text-foreground mt-1 text-sm font-semibold">
+                              {displayDate}
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <div className="overflow-x-auto px-4 py-3">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-border border-b">
+                                  <th className="text-muted-foreground pb-2 text-left text-xs font-semibold tracking-widest uppercase">
+                                    Size
+                                  </th>
+                                  <th className="text-muted-foreground px-2 pb-2 text-left text-xs font-semibold tracking-widest uppercase">
+                                    Variety
+                                  </th>
+                                  <th className="text-muted-foreground px-2 pb-2 text-left text-xs font-semibold tracking-widest uppercase">
+                                    Type
+                                  </th>
+                                  <th className="text-muted-foreground py-2 pl-2 text-right text-xs font-semibold tracking-widest uppercase">
+                                    Qty
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-border divide-y">
+                                {allocationRows.map((alloc, idx) => (
+                                  <tr
+                                    key={`${alloc.size}-${alloc.variety}-${alloc.bagType}-${alloc.quantityToAllocate}-${idx}`}
+                                    className="hover:bg-muted/40 transition-colors"
+                                  >
+                                    <td className="text-foreground py-2 font-medium">
+                                      {alloc.size}
+                                    </td>
+                                    <td className="text-foreground px-2 py-2 font-medium">
+                                      {alloc.variety?.trim() || '—'}
+                                    </td>
+                                    <td className="text-muted-foreground px-2 py-2 text-sm">
+                                      {alloc.bagType?.trim() || '—'}
+                                    </td>
+                                    <td className="text-primary py-2 pl-2 text-right font-semibold tabular-nums">
+                                      {Number(alloc.quantityToAllocate).toFixed(
+                                        1
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Remarks */}
                     {remarks?.trim() && (

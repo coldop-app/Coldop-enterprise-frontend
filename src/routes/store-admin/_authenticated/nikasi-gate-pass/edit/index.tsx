@@ -32,7 +32,6 @@ import {
   isEditNikasiGatePassSuccess,
   useEditNikasiGatePass,
 } from '@/services/store-admin/nikasi-gate-pass/useEditNikasiGatePass';
-import { useGetIncomingGatePassesOfFarmer } from '@/services/store-admin/general/useGetIncomingGatePassesOfFarmer';
 import type { NikasiGatePassEditState } from '@/components/daybook/nikasi-gate-pass-card';
 import {
   blurTargetOnNumberWheel,
@@ -336,9 +335,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
   const effectiveFarmerLinkId = isFixedFarmerColdStorage
     ? NIKASI_FIXED_FARMER_STORAGE_LINK_ID
     : selectedFarmerStorageLinkId;
-  const { data: incomingGatePassesOfFarmer = [] } =
-    useGetIncomingGatePassesOfFarmer(effectiveFarmerLinkId);
-
   const selectedFarmerName =
     farmerLinks
       ?.find((link) => link._id === effectiveFarmerLinkId)
@@ -403,14 +399,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
           gradingGatePasses: [
             {
               gradingGatePassId: '_direct',
-              variety: (
-                [
-                  ...Object.values(values.sizeVarieties ?? {}),
-                  ...(values.extraQuantityRows ?? []).map((row) => row.variety),
-                ].find((v) => v?.trim()) ??
-                incomingGatePassesOfFarmer[0]?.variety ??
-                '-'
-              ).trim(),
+              variety: '',
               allocations: [...fixedAllocations, ...extraAllocations],
             },
           ],
@@ -421,7 +410,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
     averageWeightPerBag,
     defaultBagType,
     form.state.values,
-    incomingGatePassesOfFarmer,
     selectedFarmerName,
   ]);
 
