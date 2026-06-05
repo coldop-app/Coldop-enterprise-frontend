@@ -1843,6 +1843,17 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 />
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="hidden gap-2 sm:grid sm:grid-cols-[1fr_180px_140px]">
+                  <Label className="font-custom text-muted-foreground text-xs font-medium">
+                    Field Name
+                  </Label>
+                  <Label className="font-custom text-muted-foreground text-xs font-medium">
+                    Cost Driver
+                  </Label>
+                  <Label className="font-custom text-muted-foreground text-xs font-medium">
+                    Rate
+                  </Label>
+                </div>
                 {data.custom.financeConstants.particulars.map((row, index) => (
                   <div
                     key={`finance-particular-${index}-${row.name.slice(0, 24)}`}
