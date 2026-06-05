@@ -10,6 +10,7 @@ export interface QuickRegisterFarmerInput {
   coldStorageId: string;
   linkedById: string;
   accountNumber: number;
+  station: string;
 }
 
 export interface QuickRegisterFarmerApiResponse {

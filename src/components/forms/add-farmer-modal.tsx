@@ -22,6 +22,13 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -33,6 +40,7 @@ import {
 } from '@/lib/business-number-input';
 import { cn } from '@/lib/utils';
 import { useQuickAddFarmer } from '@/services/store-admin/people/useQuickAddFarmer';
+import { useGetStations } from '@/services/store-admin/station/useGetStations';
 import { useStore } from '@/stores/store';
 import type { FarmerStorageLink } from '@/types/incoming-gate-pass';
 
@@ -47,7 +55,18 @@ export const AddFarmerModal = memo(function AddFarmerModal({
 }: AddFarmerModalProps) {
   const { mutate: quickAddFarmer, isPending } = useQuickAddFarmer();
   const { coldStorage, admin } = useStore();
+  const coldStorageId = coldStorage?._id ?? '';
   const [isOpen, setIsOpen] = useState(false);
+
+  const { data: stationsResult, isLoading: isStationsLoading } = useGetStations(
+    { coldStorageId },
+    { enabled: isOpen && Boolean(coldStorageId.trim()) }
+  );
+
+  const stations = useMemo(
+    () => stationsResult?.data ?? [],
+    [stationsResult?.data]
+  );
 
   /* ---------------------------------- */
   /* Used numbers */
@@ -120,6 +139,8 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                 message: 'This account number is already taken',
               })
           ),
+
+        station: z.string().trim().min(1, 'Station is required'),
       }),
     [usedAccountNumbers, usedMobileNumbers]
   );
@@ -134,6 +155,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
       address: '',
       mobileNumber: '',
       accountNumber: nextAccountNumber.toString(),
+      station: '',
     },
 
     validators: {
@@ -152,6 +174,7 @@ export const AddFarmerModal = memo(function AddFarmerModal({
           coldStorageId: coldStorage._id,
           linkedById: admin._id,
           accountNumber: Number(value.accountNumber),
+          station: value.station,
         },
         {
           onSuccess: () => {
@@ -406,6 +429,64 @@ export const AddFarmerModal = memo(function AddFarmerModal({
                       autoComplete="street-address"
                     />
 
+                    {isInvalid && (
+                      <FieldError
+                        errors={
+                          field.state.meta.errors as Array<
+                            { message?: string } | undefined
+                          >
+                        }
+                      />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+
+            <form.Field
+              name="station"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>Station</FieldLabel>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(value) => {
+                        field.handleChange(value);
+                        field.handleBlur();
+                      }}
+                      disabled={isStationsLoading || stations.length === 0}
+                    >
+                      <SelectTrigger
+                        id={field.name}
+                        aria-invalid={isInvalid}
+                        className="font-custom w-full"
+                      >
+                        <SelectValue
+                          placeholder={
+                            isStationsLoading
+                              ? 'Loading stations…'
+                              : stations.length === 0
+                                ? 'No stations available'
+                                : 'Select a station'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stations.map((station) => (
+                          <SelectItem
+                            key={station._id}
+                            value={station._id}
+                            className="font-custom"
+                          >
+                            {station.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {isInvalid && (
                       <FieldError
                         errors={
