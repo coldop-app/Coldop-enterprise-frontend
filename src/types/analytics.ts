@@ -841,6 +841,8 @@ export interface ShedStockReportData {
   dispatch: ShedStockReportSourceVariety[];
   internalTransfer: ShedStockReportSourceVariety[];
   notInternalTransfer: ShedStockReportSourceVariety[];
+  /** Ungraded bags by variety (sizes may be empty when only variety totals are returned). */
+  ungraded?: ShedStockReportSourceVariety[];
   shedStock: ShedStockReportShedSection;
 }
 

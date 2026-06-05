@@ -1,34 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { ShieldCheck, Settings2, Layers, ArrowUpRight } from 'lucide-react';
+import { Building, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStore } from '@/stores/store';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
-export const Route = createFileRoute('/store-admin/_authenticated/settings/')({
+export const Route = createFileRoute(
+  '/store-admin/_authenticated/settings/master/'
+)({
   component: RouteComponent,
 });
 
 const settingsCards = [
   {
-    title: 'RBAC',
-    description:
-      'Manage roles, permissions, and access levels for admins, managers, and staff.',
-    icon: ShieldCheck,
-    href: '/store-admin/settings/rbac',
-  },
-  {
-    title: 'Preferences',
-    description: 'Configure system defaults, operational preferences',
-    icon: Settings2,
-    href: '/store-admin/settings/preferences',
-  },
-  {
-    title: 'Master',
-    description:
-      'Manage master data and reference records used across the system.',
-    icon: Layers,
-    href: '/store-admin/settings/master/',
+    title: 'Stations',
+    description: 'Manage Stations CRUD flow.',
+    icon: Building,
+    href: '/store-admin/settings/master/stations',
   },
 ];
 
@@ -49,9 +37,9 @@ function RouteComponent() {
     <main className="mx-auto max-w-7xl p-3 sm:p-4 lg:p-6">
       {/* Page Heading */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Master</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Manage system controls and configuration options.
+          Control master options for this software.
         </p>
       </div>
 
