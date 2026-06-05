@@ -62,7 +62,7 @@ function isNumericColumn(
   return getNikasiNumericColumnIds(bagSizeColumnIds).has(columnId);
 }
 
-function compareColumnValues(
+export function compareNikasiColumnValues(
   columnId: string,
   a: unknown,
   b: unknown,
@@ -105,7 +105,7 @@ export function createNikasiSortingFn(
   bagSizeColumnIds: ReadonlySet<string>
 ): SortingFn<NikasiReportDisplayRow> {
   return (rowA, rowB, columnId) => {
-    const primary = compareColumnValues(
+    const primary = compareNikasiColumnValues(
       columnId,
       rowA.getValue(columnId),
       rowB.getValue(columnId),

@@ -4,7 +4,6 @@ import {
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
   type PaginationState,
   type SortingState,
@@ -39,6 +38,7 @@ import {
   flattenNikasiReportRows,
   getNikasiBagSizeQuantity,
 } from './nikasi-report-flatten';
+import { sortNikasiDisplayRowsByGatePassBlocks } from './nikasi-report-sort';
 import {
   computeNikasiReportTotals,
   getNikasiTotalsCellValue,
@@ -119,8 +119,18 @@ const NikasiReportDataTable = () => {
     [sourceRows, displayRows, bagSizeColumnIds]
   );
 
+  const sortedDisplayRows = useMemo(
+    () =>
+      sortNikasiDisplayRowsByGatePassBlocks(
+        displayRows,
+        sorting,
+        bagSizeColumnIds
+      ),
+    [displayRows, sorting, bagSizeColumnIds]
+  );
+
   const table = useReactTable({
-    data: displayRows,
+    data: sortedDisplayRows,
     columns,
     defaultColumn: {
       size: NIKASI_DEFAULT_COLUMN_SIZE,
@@ -130,8 +140,8 @@ const NikasiReportDataTable = () => {
     state: { sorting, pagination },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
+    manualSorting: true,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getRowId: (row) => row.id,
   });
