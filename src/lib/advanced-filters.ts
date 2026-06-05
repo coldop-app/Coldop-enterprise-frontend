@@ -61,7 +61,12 @@ export type FilterField =
   | 'nikasiTo'
   | 'storageAccountLabel'
   | 'isInternalTransferLabel'
-  | 'averageWeightPerBag';
+  | 'averageWeightPerBag'
+  | 'totalBagsIssued'
+  | 'netWeight'
+  | 'dispatchLedger'
+  | 'to'
+  | 'isInternalTransfer';
 
 export type FilterOperator =
   | 'contains'
@@ -133,11 +138,14 @@ export const numericFilterFields: FilterField[] = [
   'netAmount',
   'netAmountPerAcre',
   'averageWeightPerBag',
+  'totalBagsIssued',
+  'netWeight',
 ];
 
 const numericFilterFieldPrefixes: string[] = [
   'grade_bags_',
   'grade_weight_pct_',
+  'bagSize__',
 ];
 
 export const isNumericFilterField = (field: FilterField): boolean =>

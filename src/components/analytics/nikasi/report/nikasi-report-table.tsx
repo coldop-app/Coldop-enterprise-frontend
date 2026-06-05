@@ -46,6 +46,7 @@ const NikasiReportTable = () => {
   const [appliedFromDate, setAppliedFromDate] = useState('');
   const [appliedToDate, setAppliedToDate] = useState('');
   const [manualGatePassSearch, setManualGatePassSearch] = useState('');
+  const [isViewFiltersOpen, setIsViewFiltersOpen] = useState(false);
 
   const hasDateFilters = Boolean(fromDate && toDate);
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
@@ -147,8 +148,7 @@ const NikasiReportTable = () => {
                 type="button"
                 variant="outline"
                 className="border-primary text-primary hover:bg-primary/5 h-8 rounded-lg px-4 text-sm leading-none"
-                disabled
-                aria-label="View filters coming soon"
+                onClick={() => setIsViewFiltersOpen(true)}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 View Filters
@@ -190,6 +190,8 @@ const NikasiReportTable = () => {
           apiColumns={data?.columns ?? []}
           sourceRows={filteredSourceRows}
           isLoading={isLoading}
+          isViewFiltersOpen={isViewFiltersOpen}
+          onViewFiltersOpenChange={setIsViewFiltersOpen}
         />
       </div>
     </main>
