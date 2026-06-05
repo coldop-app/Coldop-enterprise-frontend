@@ -178,6 +178,8 @@ const ShedReportPage = () => {
             ungradedBags: 0,
           }
         }
+        ungraded={data?.ungraded ?? []}
+        notInternalTransfer={data?.notInternalTransfer ?? []}
         {...tableProps}
       />
     </main>

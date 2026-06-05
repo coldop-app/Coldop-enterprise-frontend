@@ -8,6 +8,7 @@ import {
 import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
+  ShedStockReportSourceVariety,
   ShedStockReportShedTotals,
   ShedStockReportShedVariety,
 } from '@/types/analytics';
@@ -22,10 +23,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  isUngradedSize,
   normalizeSizeKey,
   sortSizeLabels,
   sumByNormalizedSize,
 } from './shed-report-utils';
+import {
+  buildNotInternalUngradedBagsByVariety,
+  buildUngradedBagsByVariety,
+  getApiUngradedMetricValue,
+  getNotInternalUngradedBags,
+  getShedStockVarietyTotal,
+  getUngradedShedStockCellValue,
+  varietyHasUngradedColumnData,
+} from './shed-ungraded-utils';
 import {
   buildCellBreakdown,
   buildOverallBreakdown,
@@ -53,6 +64,8 @@ interface TableRowData {
 export interface ShedStockDetailTableProps {
   varieties: ShedStockReportShedVariety[];
   totals: ShedStockReportShedTotals;
+  ungraded?: ShedStockReportSourceVariety[];
+  notInternalTransfer?: ShedStockReportSourceVariety[];
   isLoading?: boolean;
   isError?: boolean;
   errorMessage?: string;
@@ -71,7 +84,9 @@ function collectSizeLabels(varieties: ShedStockReportShedVariety[]): string[] {
 function filterSizesForMetric(
   sizes: string[],
   varieties: ShedStockReportShedVariety[],
-  metric: ShedStockMetric
+  metric: ShedStockMetric,
+  ungradedTable: ReturnType<typeof buildUngradedBagsByVariety>,
+  notInternalUngraded: ReturnType<typeof buildNotInternalUngradedBagsByVariety>
 ): string[] {
   const withData = new Set<string>();
   for (const variety of varieties) {
@@ -80,22 +95,56 @@ function filterSizesForMetric(
         withData.add(normalizeSizeKey(sizeRow.size));
       }
     }
+    if (
+      varietyHasUngradedColumnData(
+        variety,
+        ungradedTable,
+        notInternalUngraded,
+        metric
+      )
+    ) {
+      withData.add('ungraded');
+    }
   }
   return sizes.filter((size) => withData.has(normalizeSizeKey(size)));
 }
 
 function getVarietyMetricValue(
   variety: ShedStockReportShedVariety,
-  metric: ShedStockMetric
+  metric: ShedStockMetric,
+  ungradedTable: ReturnType<typeof buildUngradedBagsByVariety>
 ): number {
+  if (metric === 'shedStock') {
+    return getShedStockVarietyTotal(variety, ungradedTable);
+  }
   return variety[metric];
 }
 
 function getSizeMetricValue(
   variety: ShedStockReportShedVariety,
   size: string,
-  metric: ShedStockMetric
+  metric: ShedStockMetric,
+  ungradedTable: ReturnType<typeof buildUngradedBagsByVariety>,
+  notInternalUngraded: ReturnType<typeof buildNotInternalUngradedBagsByVariety>
 ): number {
+  if (isUngradedSize(size)) {
+    if (metric === 'shedStock') {
+      return getUngradedShedStockCellValue(
+        variety,
+        ungradedTable,
+        notInternalUngraded
+      );
+    }
+    if (metric === 'notInternallyTransferred') {
+      const fromSource = getNotInternalUngradedBags(
+        notInternalUngraded,
+        variety.variety
+      );
+      if (fromSource > 0) return fromSource;
+    }
+    return getApiUngradedMetricValue(variety, metric);
+  }
+
   return sumByNormalizedSize(variety.sizes, size, (row) =>
     Number(row[metric] ?? 0)
   );
@@ -125,10 +174,20 @@ const selectedCellClass = 'bg-primary/10 ring-primary/30 ring-2 ring-inset';
 const ShedStockDetailTable = ({
   varieties,
   totals,
+  ungraded = [],
+  notInternalTransfer = [],
   isLoading = false,
   isError = false,
   errorMessage,
 }: ShedStockDetailTableProps) => {
+  const ungradedTable = useMemo(
+    () => buildUngradedBagsByVariety(ungraded),
+    [ungraded]
+  );
+  const notInternalUngraded = useMemo(
+    () => buildNotInternalUngradedBagsByVariety(notInternalTransfer),
+    [notInternalTransfer]
+  );
   const [activeTab, setActiveTab] = useState<ShedStockMetric>('shedStock');
   const [selection, setSelection] = useState<CellSelection | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -147,8 +206,15 @@ const ShedStockDetailTable = ({
   const allSizes = useMemo(() => collectSizeLabels(varieties), [varieties]);
 
   const effectiveSizes = useMemo(
-    () => filterSizesForMetric(allSizes, varieties, activeTab),
-    [allSizes, varieties, activeTab]
+    () =>
+      filterSizesForMetric(
+        allSizes,
+        varieties,
+        activeTab,
+        ungradedTable,
+        notInternalUngraded
+      ),
+    [allSizes, varieties, activeTab, ungradedTable, notInternalUngraded]
   );
 
   const { tableRows, columnTotals } = useMemo(() => {
@@ -163,7 +229,13 @@ const ShedStockDetailTable = ({
       const values: Record<string, number> = {};
 
       for (const size of effectiveSizes) {
-        const value = getSizeMetricValue(variety, size, activeTab);
+        const value = getSizeMetricValue(
+          variety,
+          size,
+          activeTab,
+          ungradedTable,
+          notInternalUngraded
+        );
         values[size] = value;
         totalsMap[size] = (totalsMap[size] ?? 0) + value;
       }
@@ -171,12 +243,18 @@ const ShedStockDetailTable = ({
       rowsData.push({
         variety: variety.variety,
         values,
-        total: getVarietyMetricValue(variety, activeTab),
+        total: getVarietyMetricValue(variety, activeTab, ungradedTable),
       });
     }
 
     return { tableRows: rowsData, columnTotals: totalsMap };
-  }, [varieties, effectiveSizes, activeTab]);
+  }, [
+    varieties,
+    effectiveSizes,
+    activeTab,
+    ungradedTable,
+    notInternalUngraded,
+  ]);
 
   const columns = useMemo<ColumnDef<TableRowData>[]>(() => {
     const cols: ColumnDef<TableRowData>[] = [
@@ -232,10 +310,20 @@ const ShedStockDetailTable = ({
             activeTab,
             varieties,
             totals,
-            columnTotals
+            columnTotals,
+            ungradedTable,
+            notInternalUngraded
           )
         : null,
-    [selection, activeTab, varieties, totals, columnTotals]
+    [
+      selection,
+      activeTab,
+      varieties,
+      totals,
+      columnTotals,
+      ungradedTable,
+      notInternalUngraded,
+    ]
   );
 
   const overallBreakdown = useMemo(

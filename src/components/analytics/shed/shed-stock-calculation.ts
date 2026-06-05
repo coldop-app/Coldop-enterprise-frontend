@@ -2,7 +2,19 @@ import type {
   ShedStockReportShedTotals,
   ShedStockReportShedVariety,
 } from '@/types/analytics';
-import { normalizeSizeKey, sumByNormalizedSize } from './shed-report-utils';
+import {
+  isUngradedSize,
+  normalizeSizeKey,
+  sumByNormalizedSize,
+} from './shed-report-utils';
+import {
+  type UngradedBagsByVariety,
+  getApiUngradedMetricValue,
+  getNotInternalUngradedBags,
+  getUngradedShedStockCellValue,
+  getUngradedTableBags,
+  getShedStockVarietyTotal,
+} from './shed-ungraded-utils';
 
 export type ShedStockMetric = keyof Pick<
   ShedStockReportShedVariety,
@@ -183,25 +195,106 @@ function getMergedSizeNote(
   return `This column merges ${unique.length} size labels (${unique.join(', ')}) after normalization.`;
 }
 
+function buildUngradedShedStockTerms(
+  physicalUngraded: number,
+  notInternalUngraded: number
+): FormulaTerm[] {
+  const terms: FormulaTerm[] = [];
+
+  if (physicalUngraded > 0) {
+    terms.push({
+      label: 'Ungraded in Shed',
+      value: physicalUngraded,
+      operator: '+',
+      variant: 'positive',
+    });
+  }
+
+  if (notInternalUngraded > 0) {
+    terms.push({
+      label: 'Not Int. Transfer (Ungraded)',
+      value: notInternalUngraded,
+      operator: '−',
+      variant: 'negative',
+    });
+  }
+
+  terms.push({
+    label: 'Ungraded Shed Stock',
+    value: physicalUngraded - notInternalUngraded,
+    operator: '=',
+    variant: 'result',
+  });
+
+  return terms;
+}
+
 export function buildCellBreakdown(
   selection: CellSelection,
   metric: ShedStockMetric,
   varieties: ShedStockReportShedVariety[],
   totals: ShedStockReportShedTotals,
-  columnTotals: Record<string, number>
+  columnTotals: Record<string, number>,
+  ungradedTable: UngradedBagsByVariety = new Map(),
+  notInternalUngraded: UngradedBagsByVariety = new Map()
 ): CalculationBreakdown {
   const ungradedBags = totals.ungradedBags ?? 0;
 
   if (selection.type === 'cell') {
     const variety = findVariety(varieties, selection.variety);
+    const isUngradedColumn = isUngradedSize(selection.size);
     const value =
       variety != null
-        ? sumByNormalizedSize(variety.sizes, selection.size, (row) =>
-            Number(row[metric] ?? 0)
-          )
+        ? isUngradedColumn && metric === 'shedStock'
+          ? getUngradedShedStockCellValue(
+              variety,
+              ungradedTable,
+              notInternalUngraded
+            )
+          : isUngradedColumn && metric === 'notInternallyTransferred'
+            ? getNotInternalUngradedBags(
+                notInternalUngraded,
+                variety.variety
+              ) ||
+              getApiUngradedMetricValue(variety, 'notInternallyTransferred')
+            : isUngradedColumn
+              ? getApiUngradedMetricValue(variety, metric)
+              : sumByNormalizedSize(variety.sizes, selection.size, (row) =>
+                  Number(row[metric] ?? 0)
+                )
         : 0;
     const mergeNote =
-      variety != null ? getMergedSizeNote(variety, selection.size) : undefined;
+      variety != null && !isUngradedColumn
+        ? getMergedSizeNote(variety, selection.size)
+        : undefined;
+
+    if (metric === 'shedStock' && variety != null && isUngradedColumn) {
+      const physicalUngraded = getUngradedTableBags(
+        ungradedTable,
+        variety.variety
+      );
+      const notInternal = getNotInternalUngradedBags(
+        notInternalUngraded,
+        variety.variety
+      );
+      return {
+        title: `${selection.variety} · Ungraded`,
+        subtitle: 'Ungraded shed stock for this variety',
+        result: value,
+        terms: buildUngradedShedStockTerms(physicalUngraded, notInternal),
+        notes: [
+          'Combines ungraded bags in the shed with ungraded dispatch that is not an internal transfer.',
+          ...(physicalUngraded === 0
+            ? ['No ungraded bags in the shed table for this variety.']
+            : []),
+          ...(notInternal === 0
+            ? [
+                'No ungraded not-internally-transferred dispatch for this variety.',
+              ]
+            : []),
+        ],
+      };
+    }
 
     if (metric === 'shedStock' && variety != null) {
       const c = getCellComponents(variety, selection.size);
@@ -216,8 +309,32 @@ export function buildCellBreakdown(
         ),
         notes: [
           METRIC_DESCRIPTIONS.shedStock,
-          'Ungraded bags are tracked at report level only, not per size.',
           ...(mergeNote ? [mergeNote] : []),
+        ],
+      };
+    }
+
+    if (
+      metric === 'notInternallyTransferred' &&
+      variety != null &&
+      isUngradedColumn
+    ) {
+      const notInternal = getNotInternalUngradedBags(
+        notInternalUngraded,
+        variety.variety
+      );
+      return {
+        title: `${selection.variety} · Ungraded`,
+        subtitle: 'Not internally transferred ungraded dispatch',
+        result: value,
+        terms: buildDirectMetricTerms(metric, value),
+        notes: [
+          METRIC_DESCRIPTIONS.notInternallyTransferred,
+          ...(notInternal > 0
+            ? [
+                `${notInternal.toLocaleString('en-IN')} bags from the not-internally-transferred dispatch table.`,
+              ]
+            : ['Value from shed stock API size row.']),
         ],
       };
     }
@@ -233,21 +350,28 @@ export function buildCellBreakdown(
 
   if (selection.type === 'row-total') {
     const variety = findVariety(varieties, selection.variety);
-    const value = variety?.[metric] ?? 0;
+    const value =
+      variety != null && metric === 'shedStock'
+        ? getShedStockVarietyTotal(variety, ungradedTable)
+        : (variety?.[metric] ?? 0);
 
     if (metric === 'shedStock' && variety != null) {
+      const physicalUngraded = getUngradedTableBags(
+        ungradedTable,
+        variety.variety
+      );
       return {
         title: `${selection.variety} · Total`,
-        subtitle:
-          'Variety total (from API, may differ from sum of size columns)',
+        subtitle: 'Variety shed stock including ungraded bags in the shed',
         result: value,
         terms: buildShedStockTerms(
           variety.gradingInitial,
           variety.stored,
-          variety.notInternallyTransferred
+          variety.notInternallyTransferred,
+          physicalUngraded
         ),
         notes: [
-          'Row total uses the variety-level aggregate from the API.',
+          'Graded variety total from API plus ungraded bags in the shed for this variety.',
           'It may not equal the sum of visible size columns when sizes are merged or hidden.',
         ],
       };
@@ -267,6 +391,27 @@ export function buildCellBreakdown(
 
   if (selection.type === 'column-total') {
     const value = columnTotals[selection.size] ?? 0;
+
+    if (metric === 'shedStock' && isUngradedSize(selection.size)) {
+      let physicalTotal = 0;
+      let notInternalTotal = 0;
+      for (const variety of varieties) {
+        physicalTotal += getUngradedTableBags(ungradedTable, variety.variety);
+        notInternalTotal += getNotInternalUngradedBags(
+          notInternalUngraded,
+          variety.variety
+        );
+      }
+      return {
+        title: 'Ungraded · Column Total',
+        subtitle: 'Sum across all varieties for the ungraded column',
+        result: value,
+        terms: buildUngradedShedStockTerms(physicalTotal, notInternalTotal),
+        notes: [
+          'Combines ungraded bags in the shed with ungraded not-internally-transferred dispatch.',
+        ],
+      };
+    }
 
     if (metric === 'shedStock') {
       const grading = sumMetricForSize(
@@ -288,7 +433,6 @@ export function buildCellBreakdown(
         terms: buildShedStockTerms(grading, stored, notInternal),
         notes: [
           'Column total is the sum of each variety’s value for this size.',
-          'Ungraded bags are not allocated per size column.',
         ],
       };
     }

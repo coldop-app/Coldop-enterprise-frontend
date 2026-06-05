@@ -51,6 +51,10 @@ export function canonicalSizeLabel(size: string): string {
   return CANONICAL_LABEL_BY_KEY[key] ?? size.trim();
 }
 
+export function isUngradedSize(size: string): boolean {
+  return normalizeSizeKey(size) === 'ungraded';
+}
+
 function sizeSortIndex(size: string): number {
   const key = normalizeSizeKey(size);
   const idx = SIZE_SORT_ORDER.indexOf(key);
