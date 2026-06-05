@@ -1,5 +1,6 @@
 export interface Station {
   _id: string;
+  coldStorageId: string;
   name: string;
   rate?: number;
   createdAt: string;
@@ -8,6 +9,7 @@ export interface Station {
 
 /** Request body for POST /station */
 export interface CreateStationInput {
+  coldStorageId: string;
   name: string;
   rate?: number;
 }
@@ -21,6 +23,7 @@ export interface CreateStationApiResponse {
 
 /** Request body for PUT /station/:id */
 export interface EditStationInput {
+  coldStorageId: string;
   name?: string;
   rate?: number | null;
 }
@@ -36,6 +39,11 @@ export interface EditStationApiResponse {
   message?: string;
 }
 
+/** Query params for GET /station */
+export interface GetStationsParams {
+  coldStorageId: string;
+}
+
 /** API response for GET /station */
 export interface GetStationsApiResponse {
   success: boolean;
@@ -45,4 +53,15 @@ export interface GetStationsApiResponse {
 
 export interface GetStationsResult {
   data: Station[];
+}
+
+export interface DeleteStationParams {
+  id: string;
+}
+
+/** API response for DELETE /station/:id */
+export interface DeleteStationApiResponse {
+  success: boolean;
+  data?: Station | null;
+  message?: string;
 }

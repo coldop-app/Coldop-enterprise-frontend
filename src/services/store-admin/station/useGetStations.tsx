@@ -8,6 +8,7 @@ import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
   GetStationsApiResponse,
+  GetStationsParams,
   GetStationsResult,
 } from '@/types/station';
 import { stationKeys } from './keys';
@@ -39,10 +40,18 @@ function getStationsErrorMessage(errorOrData: unknown): string {
   return 'Failed to fetch stations';
 }
 
-async function fetchStations(): Promise<GetStationsResult> {
+async function fetchStations(
+  params: GetStationsParams
+): Promise<GetStationsResult> {
   try {
-    const { data } =
-      await storeAdminAxiosClient.get<GetStationsApiResponse>('/station/');
+    const { data } = await storeAdminAxiosClient.get<GetStationsApiResponse>(
+      '/station/',
+      {
+        params: {
+          coldStorageId: params.coldStorageId.trim(),
+        },
+      }
+    );
 
     if (!data.success) {
       throw new Error(data.message ?? 'Failed to fetch stations');
@@ -57,24 +66,28 @@ async function fetchStations(): Promise<GetStationsResult> {
 }
 
 /** Query options — usable with useQuery, prefetchQuery, or route loaders */
-export const stationsQueryOptions = () =>
+export const stationsQueryOptions = (params: GetStationsParams) =>
   queryOptions({
-    queryKey: stationKeys.lists(),
-    queryFn: fetchStations,
+    queryKey: stationKeys.lists(params.coldStorageId),
+    queryFn: () => fetchStations(params),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 10,
   });
 
 /** Hook to fetch stations. GET /station */
-export function useGetStations(options?: { enabled?: boolean }) {
+export function useGetStations(
+  params: GetStationsParams,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
-    ...stationsQueryOptions(),
+    ...stationsQueryOptions(params),
     placeholderData: keepPreviousData,
-    enabled: options?.enabled ?? true,
+    enabled:
+      (options?.enabled ?? true) && Boolean(params.coldStorageId?.trim()),
   });
 }
 
 /** Prefetch stations — e.g. on route hover or before navigation */
-export function prefetchStations() {
-  return queryClient.prefetchQuery(stationsQueryOptions());
+export function prefetchStations(params: GetStationsParams) {
+  return queryClient.prefetchQuery(stationsQueryOptions(params));
 }

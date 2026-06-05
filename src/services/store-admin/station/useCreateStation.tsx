@@ -41,6 +41,7 @@ function normalizeCreateStationPayload(
   payload: CreateStationInput
 ): CreateStationInput {
   const normalizedPayload: CreateStationInput = {
+    coldStorageId: payload.coldStorageId.trim(),
     name: payload.name.trim(),
   };
 

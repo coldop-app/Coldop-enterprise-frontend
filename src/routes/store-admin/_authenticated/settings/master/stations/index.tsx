@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Trash2,
   XCircle,
 } from 'lucide-react';
 
@@ -59,6 +60,7 @@ import {
 import { formatDate } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { useCreateStation } from '@/services/store-admin/station/useCreateStation';
+import { useDeleteStation } from '@/services/store-admin/station/useDeleteStation';
 import { useEditStation } from '@/services/store-admin/station/useEditStation';
 import { useGetStations } from '@/services/store-admin/station/useGetStations';
 import { useStore } from '@/stores/store';
@@ -109,7 +111,13 @@ function parseRateInput(value: string): number | undefined {
   return Number(trimmed);
 }
 
-function CreateStationDialog({ canCreate }: { canCreate: boolean }) {
+function CreateStationDialog({
+  canCreate,
+  coldStorageId,
+}: {
+  canCreate: boolean;
+  coldStorageId: string;
+}) {
   const [open, setOpen] = useState(false);
   const { mutate: createStation, isPending } = useCreateStation();
 
@@ -125,6 +133,7 @@ function CreateStationDialog({ canCreate }: { canCreate: boolean }) {
     onSubmit: async ({ value }) => {
       createStation(
         {
+          coldStorageId,
           name: value.name.trim(),
           rate: parseRateInput(value.rate),
         },
@@ -265,11 +274,13 @@ function EditStationDialog({
   open,
   onOpenChange,
   canUpdate,
+  coldStorageId,
 }: {
   station: Station | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canUpdate: boolean;
+  coldStorageId: string;
 }) {
   const { mutate: editStation, isPending } = useEditStation();
 
@@ -289,6 +300,7 @@ function EditStationDialog({
       editStation(
         {
           id: station._id,
+          coldStorageId,
           name: value.name.trim(),
           rate: trimmedRate === '' ? null : Number(trimmedRate),
         },
@@ -422,20 +434,93 @@ function EditStationDialog({
   );
 }
 
+function DeleteStationDialog({
+  station,
+  open,
+  onOpenChange,
+  canDelete,
+}: {
+  station: Station | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  canDelete: boolean;
+}) {
+  const { mutate: deleteStation, isPending } = useDeleteStation();
+
+  const handleDelete = () => {
+    if (!station) return;
+
+    deleteStation(
+      { id: station._id },
+      {
+        onSuccess: (data) => {
+          if (data.success) {
+            onOpenChange(false);
+          }
+        },
+      }
+    );
+  };
+
+  if (!canDelete) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="font-custom sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Delete Station</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete{' '}
+            <span className="text-foreground font-medium">
+              {station?.name ?? 'this station'}
+            </span>
+            ? This action cannot be undone. Stations assigned to farmer storage
+            links cannot be deleted.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter className="mt-6 gap-2 sm:justify-end">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isPending}>
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isPending || !station}
+            className="font-bold"
+            onClick={handleDelete}
+          >
+            {isPending ? 'Deleting…' : 'Delete Station'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RouteComponent() {
+  const coldStorageId = useStore(
+    (state) => state.coldStorage?._id ?? state.admin?.coldStorageId ?? ''
+  );
   const role = useStore((state) => state.admin?.role);
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
   const isAdmin = role === 'Admin';
   const canCreate = isAdmin || hasPermission('station', 'create');
   const canUpdate = isAdmin || hasPermission('station', 'update');
+  const canDelete = isAdmin || hasPermission('station', 'delete');
+  const canManage = canUpdate || canDelete;
 
   const [search, setSearch] = useDebounceValue('', 300);
   const [sortBy, setSortBy] = useState('name-asc');
   const [editingStation, setEditingStation] = useState<Station | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [deletingStation, setDeletingStation] = useState<Station | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data, isLoading, isFetching, isError, error, refetch } =
-    useGetStations();
+    useGetStations({ coldStorageId });
 
   const stations = useMemo(() => data?.data ?? [], [data?.data]);
 
@@ -478,6 +563,11 @@ function RouteComponent() {
   const handleEdit = (station: Station) => {
     setEditingStation(station);
     setEditOpen(true);
+  };
+
+  const handleDelete = (station: Station) => {
+    setDeletingStation(station);
+    setDeleteOpen(true);
   };
 
   if (isLoading) {
@@ -594,7 +684,10 @@ function RouteComponent() {
             />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <CreateStationDialog canCreate={canCreate} />
+          <CreateStationDialog
+            canCreate={canCreate}
+            coldStorageId={coldStorageId}
+          />
         </div>
       </FilterBar>
 
@@ -608,8 +701,8 @@ function RouteComponent() {
                 <TableHead className="font-custom hidden sm:table-cell">
                   Updated
                 </TableHead>
-                {canUpdate && (
-                  <TableHead className="font-custom w-[100px] text-right">
+                {canManage && (
+                  <TableHead className="font-custom w-[180px] text-right">
                     Actions
                   </TableHead>
                 )}
@@ -627,17 +720,32 @@ function RouteComponent() {
                   <TableCell className="font-custom text-muted-foreground hidden sm:table-cell">
                     {formatStationDate(station.updatedAt)}
                   </TableCell>
-                  {canUpdate && (
+                  {canManage && (
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="font-custom gap-2"
-                        onClick={() => handleEdit(station)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        {canUpdate && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="font-custom gap-2"
+                            onClick={() => handleEdit(station)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="font-custom text-destructive hover:bg-destructive/10 hover:text-destructive gap-2"
+                            onClick={() => handleDelete(station)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -663,7 +771,10 @@ function RouteComponent() {
             </EmptyDescription>
           </EmptyHeader>
           {stations.length === 0 && canCreate && (
-            <CreateStationDialog canCreate={canCreate} />
+            <CreateStationDialog
+              canCreate={canCreate}
+              coldStorageId={coldStorageId}
+            />
           )}
         </Empty>
       )}
@@ -673,6 +784,14 @@ function RouteComponent() {
         open={editOpen}
         onOpenChange={setEditOpen}
         canUpdate={canUpdate}
+        coldStorageId={coldStorageId}
+      />
+
+      <DeleteStationDialog
+        station={deletingStation}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        canDelete={canDelete}
       />
     </main>
   );

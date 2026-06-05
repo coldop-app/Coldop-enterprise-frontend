@@ -4,29 +4,28 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  EditStationApiResponse,
-  EditStationInput,
-  EditStationParams,
+  DeleteStationApiResponse,
+  DeleteStationParams,
 } from '@/types/station';
 import { stationKeys } from './keys';
 
 /** API error shape: { success, error: { code, message } } */
-type EditStationApiError = {
+type DeleteStationApiError = {
   success?: boolean;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-const DEFAULT_ERROR_MESSAGE = 'Failed to update station';
+const DEFAULT_ERROR_MESSAGE = 'Failed to delete station';
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
-  400: 'Invalid station update payload',
   401: 'Authentication token is required',
   404: 'Station not found',
+  409: 'Station is assigned to one or more farmer storage links and cannot be deleted',
 };
 
-function getEditStationErrorMessage(
-  data: EditStationApiError | undefined,
+function getDeleteStationErrorMessage(
+  data: DeleteStationApiError | undefined,
   status?: number
 ): string {
   return (
@@ -39,41 +38,21 @@ function getEditStationErrorMessage(
   );
 }
 
-function normalizeEditStationPayload(
-  payload: EditStationInput
-): EditStationInput {
-  const normalizedPayload: EditStationInput = {
-    coldStorageId: payload.coldStorageId.trim(),
-  };
-
-  if (payload.name !== undefined) {
-    normalizedPayload.name = payload.name.trim();
-  }
-
-  if (payload.rate !== undefined) {
-    normalizedPayload.rate =
-      payload.rate === null ? null : Number(payload.rate);
-  }
-
-  return normalizedPayload;
-}
-
-/** Hook to update a station. PUT /station/:id */
-export function useEditStation() {
+/** Hook to delete a station. DELETE /station/:id */
+export function useDeleteStation() {
   return useMutation<
-    EditStationApiResponse,
-    AxiosError<EditStationApiError>,
-    EditStationParams
+    DeleteStationApiResponse,
+    AxiosError<DeleteStationApiError>,
+    DeleteStationParams
   >({
-    mutationKey: [...stationKeys.all, 'edit'],
-    mutationFn: async ({ id, ...payload }) => {
+    mutationKey: [...stationKeys.all, 'delete'],
+    mutationFn: async ({ id }) => {
       const safeId = encodeURIComponent(id);
-      const normalizedPayload = normalizeEditStationPayload(payload);
 
-      const { data } = await storeAdminAxiosClient.put<EditStationApiResponse>(
-        `/station/${safeId}`,
-        normalizedPayload
-      );
+      const { data } =
+        await storeAdminAxiosClient.delete<DeleteStationApiResponse>(
+          `/station/${safeId}`
+        );
 
       return data;
     },
@@ -83,7 +62,7 @@ export function useEditStation() {
         return;
       }
 
-      toast.success(data.message ?? 'Station updated successfully');
+      toast.success(data.message ?? 'Station deleted successfully');
       await queryClient.invalidateQueries({
         queryKey: stationKeys.all,
       });
@@ -91,7 +70,7 @@ export function useEditStation() {
     onError: (error) => {
       const status = error.response?.status;
       const errMsg = error.response?.data
-        ? getEditStationErrorMessage(error.response.data, status)
+        ? getDeleteStationErrorMessage(error.response.data, status)
         : status !== undefined && status in STATUS_ERROR_MESSAGES
           ? STATUS_ERROR_MESSAGES[status]
           : error.message || DEFAULT_ERROR_MESSAGE;

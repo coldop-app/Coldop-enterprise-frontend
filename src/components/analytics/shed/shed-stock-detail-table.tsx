@@ -419,7 +419,10 @@ const ShedStockDetailTable = ({
             </div>
             <div className="border-border flex flex-wrap gap-1 border-b">
               {TAB_CONFIG.map(({ id, label }) => {
-                const count = totals[id];
+                const count =
+                  id === 'shedStock'
+                    ? totals.shedStock + ungradedBags
+                    : totals[id];
                 const isActive = activeTab === id;
                 return (
                   <button
