@@ -21,18 +21,28 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   blurTargetOnNumberWheel,
   businessNumberSpinnerClassName,
   preventArrowUpDownOnNumericInput,
 } from '@/lib/business-number-input';
 import { cn } from '@/lib/utils';
 import { useEditFarmer } from '@/services/store-admin/people/useEditFarmer';
+import { useGetStations } from '@/services/store-admin/station/useGetStations';
+import { useStore } from '@/stores/store';
 
 export interface EditFarmerDialogInitialValues {
   name: string;
   address: string;
   mobileNumber: string;
   accountNumber: number;
+  station: string;
 }
 
 export interface EditFarmerDialogProps {
@@ -49,6 +59,18 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
   initialValues,
 }: EditFarmerDialogProps) {
   const { mutate: editFarmer, isPending } = useEditFarmer();
+  const { coldStorage } = useStore();
+  const coldStorageId = coldStorage?._id ?? '';
+
+  const { data: stationsResult, isLoading: isStationsLoading } = useGetStations(
+    { coldStorageId },
+    { enabled: open && Boolean(coldStorageId.trim()) }
+  );
+
+  const stations = useMemo(
+    () => stationsResult?.data ?? [],
+    [stationsResult?.data]
+  );
 
   const formSchema = useMemo(
     () =>
@@ -70,6 +92,7 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
                 return !Number.isNaN(num) && num > 0;
               }, 'Please enter an account number')
           ),
+        station: z.string().trim().min(1, 'Station is required'),
       }),
     []
   );
@@ -80,6 +103,7 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
       address: '',
       mobileNumber: '',
       accountNumber: '',
+      station: '',
     },
     validators: {
       onBlur: formSchema,
@@ -93,6 +117,7 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
           address: value.address.trim(),
           mobileNumber: value.mobileNumber,
           accountNumber: Number(value.accountNumber),
+          station: value.station,
         },
         {
           onSuccess: (data) => {
@@ -115,6 +140,7 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
         initialValues.accountNumber > 0
           ? String(initialValues.accountNumber)
           : '',
+      station: initialValues.station,
     });
   }, [open, initialValues, form]);
 
@@ -261,6 +287,64 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
                       aria-invalid={isInvalid}
                       autoComplete="street-address"
                     />
+                    {isInvalid && (
+                      <FieldError
+                        errors={
+                          field.state.meta.errors as Array<
+                            { message?: string } | undefined
+                          >
+                        }
+                      />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+
+            <form.Field
+              name="station"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor={field.name}>Station</FieldLabel>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(value) => {
+                        field.handleChange(value);
+                        field.handleBlur();
+                      }}
+                      disabled={isStationsLoading || stations.length === 0}
+                    >
+                      <SelectTrigger
+                        id={field.name}
+                        aria-invalid={isInvalid}
+                        className="font-custom w-full"
+                      >
+                        <SelectValue
+                          placeholder={
+                            isStationsLoading
+                              ? 'Loading stations…'
+                              : stations.length === 0
+                                ? 'No stations available'
+                                : 'Select a station'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stations.map((station) => (
+                          <SelectItem
+                            key={station._id}
+                            value={station._id}
+                            className="font-custom"
+                          >
+                            {station.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {isInvalid && (
                       <FieldError
                         errors={

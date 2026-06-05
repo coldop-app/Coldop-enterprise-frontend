@@ -37,6 +37,14 @@ const EMPTY_TOTALS: GatePassesTotals = {
 const PROFILE_TABS = ['seed', 'incoming', 'grading'] as const;
 type ProfileTab = (typeof PROFILE_TABS)[number];
 
+function getStationId(
+  station: string | { _id: string; name?: string } | null | undefined
+): string {
+  if (!station) return '';
+  if (typeof station === 'string') return station;
+  return station._id ?? '';
+}
+
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
 )({
@@ -121,6 +129,9 @@ function RouteComponent() {
                     mobileNumber={
                       gatePassesResponse.farmerStorageLink?.mobileNumber
                     }
+                    stationId={getStationId(
+                      gatePassesResponse.farmerStorageLink?.station
+                    )}
                     farmerStorageLinkId={farmerStorageLinkId}
                     aggregates={aggregates}
                   />

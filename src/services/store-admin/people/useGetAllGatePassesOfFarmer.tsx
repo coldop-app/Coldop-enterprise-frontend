@@ -21,6 +21,7 @@ export interface FarmerStorageLinkInPassesPayload {
   name: string;
   mobileNumber: string;
   address: string;
+  station?: string | { _id: string; name?: string } | null;
 }
 
 export interface StorageGatePassWithLink {

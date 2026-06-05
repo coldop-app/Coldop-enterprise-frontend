@@ -91,6 +91,7 @@ export interface FarmerProfileOverviewProps {
   accountNumber?: string;
   address?: string;
   mobileNumber?: string;
+  stationId?: string;
   /** When set, Farmer report / Accounting report navigate to the corresponding routes. */
   farmerStorageLinkId?: string;
   onEdit?: () => void;
@@ -114,6 +115,7 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   accountNumber: accountNumberProp,
   address: addressProp,
   mobileNumber: mobileNumberProp,
+  stationId: stationIdProp,
   farmerStorageLinkId,
   onEdit,
   editAriaLabel = 'Edit farmer',
@@ -141,8 +143,9 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
         const n = Number(accountNumberProp);
         return Number.isFinite(n) && n > 0 ? n : 0;
       })(),
+      station: stationIdProp ?? '',
     }),
-    [nameProp, addressProp, mobileNumberProp, accountNumberProp]
+    [nameProp, addressProp, mobileNumberProp, accountNumberProp, stationIdProp]
   );
 
   const handleEditClick = () => {
