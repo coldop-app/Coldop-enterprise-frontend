@@ -4,6 +4,7 @@ export type FilterField =
   | 'date'
   | 'farmerName'
   | 'variety'
+  | 'bagType'
   | 'totalBags'
   | 'bagsReceived'
   | 'netWeightKg'

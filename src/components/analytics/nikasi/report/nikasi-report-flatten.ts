@@ -1,32 +1,38 @@
 import { resolveBagSizeColumnId } from '@/lib/bag-size-columns';
-import type { NikasiGatePassReportRow } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
-import type { NikasiGatePassBagSize } from '@/services/store-admin/nikasi-gate-pass/useGetNikasiGatePasses';
-import {
-  createEmptyNikasiBagFields,
-  getDecimalPlaces,
-  type NikasiReportBagFields,
-  type NikasiReportRow,
-} from './columns';
+import type {
+  NikasiGatePassReportBagSize,
+  NikasiGatePassReportDataRow,
+} from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 
-function totalBagsIssued(bagSize?: NikasiGatePassBagSize[]): number {
-  if (!bagSize?.length) return 0;
-  return bagSize.reduce((sum, b) => sum + (Number(b.quantityIssued) || 0), 0);
+export type NikasiBagSizeCellValue = {
+  quantity: number;
+  bagType: string;
+};
+
+export type NikasiReportBagFields = Record<string, NikasiBagSizeCellValue>;
+
+export interface NikasiReportDisplayRow extends NikasiGatePassReportDataRow {
+  gatePassId: string;
+  varietyRowIndex: number;
+  varietyRowSpan: number;
+  bagSizeFields: NikasiReportBagFields;
 }
 
-/** Varieties in first-seen order within `bagSize`. */
 function orderedVarietyGroups(
-  bags: NikasiGatePassBagSize[]
-): Array<{ variety: string; lines: NikasiGatePassBagSize[] }> {
+  bags: NikasiGatePassReportBagSize[]
+): Array<{ variety: string; lines: NikasiGatePassReportBagSize[] }> {
   const order: string[] = [];
-  const map = new Map<string, NikasiGatePassBagSize[]>();
-  for (const b of bags) {
-    const variety = (b.variety ?? '').trim() || '-';
+  const map = new Map<string, NikasiGatePassReportBagSize[]>();
+
+  for (const bag of bags) {
+    const variety = (bag.variety ?? '').trim() || '-';
     if (!map.has(variety)) {
       order.push(variety);
       map.set(variety, []);
     }
-    map.get(variety)!.push(b);
+    map.get(variety)!.push(bag);
   }
+
   return order.map((variety) => ({
     variety,
     lines: map.get(variety) ?? [],
@@ -34,97 +40,83 @@ function orderedVarietyGroups(
 }
 
 function accumulateBagFields(
-  lines: NikasiGatePassBagSize[]
+  lines: NikasiGatePassReportBagSize[]
 ): NikasiReportBagFields {
   const acc: NikasiReportBagFields = {};
+
   for (const line of lines) {
-    const col = resolveBagSizeColumnId(String(line.size || ''));
-    const q = Number(line.quantityIssued) || 0;
-    acc[col] = (acc[col] ?? 0) + q;
+    const columnId = resolveBagSizeColumnId(String(line.size || ''));
+    const quantity = Number(line.quantityIssued) || 0;
+    const bagType = (line.bagType ?? '').trim();
+
+    if (!acc[columnId]) {
+      acc[columnId] = { quantity, bagType };
+      continue;
+    }
+
+    acc[columnId].quantity += quantity;
+    if (bagType && acc[columnId].bagType !== bagType) {
+      const types = new Set(acc[columnId].bagType.split(' / ').filter(Boolean));
+      types.add(bagType);
+      acc[columnId].bagType = Array.from(types).join(' / ');
+    }
   }
+
   return acc;
 }
 
-export type NikasiReportTableRowContext = {
-  toDisplayDate: (value?: string) => string;
-  toSortableDateValue: (value?: string) => number;
-};
+function varietyGroupsFromRow(
+  row: NikasiGatePassReportDataRow
+): Array<{ variety: string; lines: NikasiGatePassReportBagSize[] }> {
+  const bags = row.bagSizes ?? [];
 
-export function flattenNikasiGatePassToRows(
-  item: NikasiGatePassReportRow,
-  ctx: NikasiReportTableRowContext
-): NikasiReportRow[] {
-  const fsl = item.farmerStorageLinkId;
-  const farmer = fsl?.farmerId;
-  const dispatch = item.dispatchLedgerId;
-  const manual = item.manualGatePassNumber;
-  const manualStr =
-    manual !== undefined && manual !== null && String(manual) !== ''
-      ? String(manual)
-      : '-';
-
-  const net = Number(item.netWeight ?? 0);
-  const netPrecision = getDecimalPlaces(net);
-  const avg = Number(item.averageWeightPerBag ?? 0);
-  const avgPrecision = getDecimalPlaces(avg);
-
-  const storageLabel =
-    fsl?.accountNumber !== undefined && fsl?.accountNumber !== null
-      ? String(fsl.accountNumber)
-      : '-';
-
-  const bagsTotal = totalBagsIssued(item.bagSize);
-  const bags = item.bagSize ?? [];
-
-  const base = {
-    gatePassNo: item.gatePassNo,
-    manualGatePassNumber: manualStr,
-    date: ctx.toDisplayDate(item.date),
-    dateSortValue: ctx.toSortableDateValue(item.date),
-    farmerMobile: farmer?.mobileNumber ?? '-',
-    storageAccountLabel: storageLabel,
-    linkedByName: fsl?.linkedById?.name ?? '-',
-    location: dispatch?.name ?? '-',
-    dispatchLedgerMobile: dispatch?.mobileNumber ?? '-',
-    createdByName: item.createdBy?.name ?? '-',
-    nikasiFrom: item.from ?? '-',
-    nikasiTo: item.to ?? '-',
-    truckNumber: item.truckNumber ?? '-',
-    bagsReceived: bagsTotal,
-    netWeightKg: net,
-    netWeightPrecision: netPrecision,
-    averageWeightPerBag: avg,
-    averageWeightPrecision: avgPrecision,
-    remarks: item.remarks ?? '-',
-    isInternalTransferLabel: item.isInternalTransfer ? 'Yes' : 'No',
-    createdAt: ctx.toDisplayDate(item.createdAt),
-    updatedAt: ctx.toDisplayDate(item.updatedAt),
-  };
-
-  if (!bags.length) {
-    return [
-      {
-        ...base,
-        ...createEmptyNikasiBagFields(),
-        id: `${item._id}::`,
-        gatePassId: item._id,
-        variety: '-',
-        varietyRowIndex: 0,
-        varietyRowSpan: 1,
-      },
-    ];
+  if (bags.length > 0) {
+    return orderedVarietyGroups(bags);
   }
 
-  const groups = orderedVarietyGroups(bags);
-  const span = groups.length;
+  if (row.variety) {
+    const varieties = row.variety
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
-  return groups.map(({ variety, lines }, index) => ({
-    ...base,
-    ...accumulateBagFields(lines),
-    id: `${item._id}::${variety}`,
-    gatePassId: item._id,
-    variety,
-    varietyRowIndex: index,
-    varietyRowSpan: span,
-  }));
+    if (varieties.length > 0) {
+      return varieties.map((variety) => ({ variety, lines: [] }));
+    }
+  }
+
+  return [{ variety: '-', lines: [] }];
+}
+
+export function flattenNikasiReportRows(
+  rows: NikasiGatePassReportDataRow[]
+): NikasiReportDisplayRow[] {
+  const flattened: NikasiReportDisplayRow[] = [];
+
+  for (const row of rows) {
+    const groups = varietyGroupsFromRow(row);
+    const span = groups.length;
+
+    groups.forEach(({ variety, lines }, index) => {
+      flattened.push({
+        ...row,
+        id: `${row.id}::${variety}::${index}`,
+        gatePassId: row.id,
+        variety,
+        bagSizes: lines,
+        bagSizeFields: accumulateBagFields(lines),
+        varietyRowIndex: index,
+        varietyRowSpan: span,
+      });
+    });
+  }
+
+  return flattened;
+}
+
+export function getNikasiBagSizeQuantity(
+  row: NikasiReportDisplayRow,
+  columnId: string
+): number {
+  return row.bagSizeFields[columnId]?.quantity ?? 0;
 }
