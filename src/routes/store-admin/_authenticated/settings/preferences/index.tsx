@@ -13,6 +13,7 @@ import {
   FINANCE_COST_DRIVER_OPTIONS,
 } from '@/services/store-admin/preferences/useGetPreferences';
 import { useUpdatePreferences } from '@/services/store-admin/preferences/useUpdatePreferences';
+import { toast } from 'sonner';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
@@ -1020,8 +1021,21 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   const resetToServer = usePreferencesStore((s) => s.resetToServer);
   const { mutateAsync, isPending } = useUpdatePreferences();
   const [dirty, setDirty] = useState(false);
+  const [addParticularOpen, setAddParticularOpen] = useState(false);
+  const [newParticularName, setNewParticularName] = useState('');
+  const [newParticularCostDriver, setNewParticularCostDriver] =
+    useState<FinanceCostDriver>('Acres');
+  const [newParticularRate, setNewParticularRate] = useState('0');
 
   if (!data) return null;
+
+  const financeParticulars = data.custom.financeConstants.particulars;
+  const hasBuyBackPayableRow = financeParticulars.some(
+    (row) => row.costDriver === 'Buy-back-payable'
+  );
+  const addableCostDriverOptions = FINANCE_COST_DRIVER_OPTIONS.filter(
+    (option) => option.value !== 'Buy-back-payable' || !hasBuyBackPayableRow
+  );
 
   const standardSeedEntries = data.custom.standardSeedBagsPerAcre ?? [];
 
@@ -1271,6 +1285,83 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
       },
     }));
     setDirty(true);
+  };
+
+  const addFinanceParticular = (row: FinanceParticularRow): boolean => {
+    if (!canCreatePreferences) return false;
+    const name = row.name.trim();
+    if (!name) {
+      toast.error('Field name is required');
+      return false;
+    }
+    if (financeParticulars.some((existing) => existing.name.trim() === name)) {
+      toast.error('A particular with this name already exists');
+      return false;
+    }
+    if (row.costDriver === 'Buy-back-payable' && hasBuyBackPayableRow) {
+      toast.error('Only one Buy-back payable row is allowed');
+      return false;
+    }
+
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        financeConstants: {
+          ...p.custom.financeConstants,
+          particulars: [
+            ...p.custom.financeConstants.particulars,
+            {
+              name,
+              rate: Number(row.rate) || 0,
+              costDriver: row.costDriver,
+            },
+          ],
+        },
+      },
+    }));
+    setDirty(true);
+    return true;
+  };
+
+  const removeFinanceParticular = (index: number) => {
+    if (!canUpdatePreferences) return;
+    const row = financeParticulars[index];
+    if (row?.costDriver === 'Buy-back-payable') {
+      toast.error('Buy-back payable row cannot be removed');
+      return;
+    }
+    updatePreferences((p) => ({
+      ...p,
+      custom: {
+        ...p.custom,
+        financeConstants: {
+          ...p.custom.financeConstants,
+          particulars: p.custom.financeConstants.particulars.filter(
+            (_, i) => i !== index
+          ),
+        },
+      },
+    }));
+    setDirty(true);
+  };
+
+  const resetAddParticularDialog = () => {
+    setNewParticularName('');
+    setNewParticularCostDriver('Acres');
+    setNewParticularRate('0');
+  };
+
+  const confirmAddFinanceParticular = () => {
+    const rate = parseFloat(newParticularRate);
+    const added = addFinanceParticular({
+      name: newParticularName,
+      costDriver: newParticularCostDriver,
+      rate: Number.isFinite(rate) ? rate : 0,
+    });
+    if (!added) return;
+    resetAddParticularDialog();
+    setAddParticularOpen(false);
   };
 
   const setFinanceGrading40mmSize = (size: string, on: boolean) => {
@@ -1843,7 +1934,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 />
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="hidden gap-2 sm:grid sm:grid-cols-[1fr_180px_140px]">
+                <div className="hidden gap-2 sm:grid sm:grid-cols-[1fr_180px_140px_40px]">
                   <Label className="font-custom text-muted-foreground text-xs font-medium">
                     Field Name
                   </Label>
@@ -1853,14 +1944,15 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                   <Label className="font-custom text-muted-foreground text-xs font-medium">
                     Rate
                   </Label>
+                  <span className="sr-only">Actions</span>
                 </div>
-                {data.custom.financeConstants.particulars.map((row, index) => (
+                {financeParticulars.map((row, index) => (
                   <div
-                    key={`finance-particular-${index}-${row.name.slice(0, 24)}`}
-                    className="grid gap-2 sm:grid-cols-[1fr_180px_140px]"
+                    key={`finance-particular-${index}-${row.name}`}
+                    className="grid gap-2 sm:grid-cols-[1fr_180px_140px_40px]"
                   >
                     <Input
-                      defaultValue={row.name}
+                      value={row.name}
                       disabled={!canUpdatePreferences}
                       onChange={(e) =>
                         updateFinanceParticular(index, {
@@ -1896,18 +1988,145 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       <Input
                         type="number"
                         step="0.01"
-                        defaultValue={row.rate}
+                        value={Number.isFinite(row.rate) ? row.rate : 0}
                         disabled={!canUpdatePreferences}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
                           updateFinanceParticular(index, {
-                            rate: parseFloat(e.target.value),
-                          })
-                        }
+                            rate: Number.isFinite(val) ? val : 0,
+                          });
+                        }}
                         className="bg-background h-9 pl-6 font-mono text-sm"
                       />
                     </div>
+                    <div className="flex items-center justify-end sm:justify-center">
+                      {row.costDriver !== 'Buy-back-payable' &&
+                      canUpdatePreferences ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => removeFinanceParticular(index)}
+                          className="text-muted-foreground hover:text-destructive focus-visible:ring-primary h-8 w-8 shrink-0 rounded-md transition-colors duration-200"
+                          aria-label={`Remove ${row.name || 'particular'}`}
+                        >
+                          <X size={14} />
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
+
+                {canCreatePreferences ? (
+                  <Dialog
+                    open={addParticularOpen}
+                    onOpenChange={(open) => {
+                      setAddParticularOpen(open);
+                      if (!open) resetAddParticularDialog();
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="font-custom text-muted-foreground hover:text-foreground mt-1 h-8 rounded-full border-dashed px-3 text-xs transition-colors duration-200"
+                      >
+                        <Plus size={12} className="mr-1" />
+                        Add particular
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="font-custom sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="text-sm">
+                          Add finance particular
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="mt-2 space-y-4">
+                        <div className="space-y-2">
+                          <Label className="font-custom text-xs font-medium">
+                            Field Name
+                          </Label>
+                          <Input
+                            value={newParticularName}
+                            onChange={(e) =>
+                              setNewParticularName(e.target.value)
+                            }
+                            placeholder="e.g. Transport charges"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-custom text-xs font-medium">
+                            Cost Driver
+                          </Label>
+                          <Select
+                            value={newParticularCostDriver}
+                            onValueChange={(value) =>
+                              setNewParticularCostDriver(
+                                value as FinanceCostDriver
+                              )
+                            }
+                          >
+                            <SelectTrigger className="bg-background w-full">
+                              <SelectValue placeholder="Cost driver" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {addableCostDriverOptions.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-custom text-xs font-medium">
+                            Rate
+                          </Label>
+                          <div className="relative">
+                            <span className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">
+                              ₹
+                            </span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newParticularRate}
+                              onChange={(e) =>
+                                setNewParticularRate(e.target.value)
+                              }
+                              className="bg-background pl-6 font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="mt-4">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            resetAddParticularDialog();
+                            setAddParticularOpen(false);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={confirmAddFinanceParticular}
+                          disabled={!newParticularName.trim()}
+                        >
+                          Add
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                ) : null}
               </CardContent>
             </Card>
 
