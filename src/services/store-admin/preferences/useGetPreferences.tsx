@@ -30,17 +30,39 @@ export interface StandardSeedBagsPerAcreEntry {
   sizes: StandardSeedBagSizeRow[];
 }
 
-/** One row in finance report particulars (name + default rate). */
+export type FinanceCostDriver =
+  | 'Fixed'
+  | 'Weight'
+  | 'Acres'
+  | 'IncomingBags'
+  | 'GradingBags'
+  | 'Buy-back-payable';
+
+export const FINANCE_COST_DRIVER_OPTIONS: {
+  value: FinanceCostDriver;
+  label: string;
+}[] = [
+  { value: 'Fixed', label: 'Fixed' },
+  { value: 'Weight', label: 'Weight' },
+  { value: 'Acres', label: 'Acres' },
+  { value: 'IncomingBags', label: 'Incoming bags' },
+  { value: 'GradingBags', label: 'Grading bags' },
+  { value: 'Buy-back-payable', label: 'Buy-back payable' },
+];
+
+const VALID_FINANCE_COST_DRIVERS = new Set<string>(
+  FINANCE_COST_DRIVER_OPTIONS.map((o) => o.value)
+);
+
+/** One row in finance report particulars (name + default rate + cost driver). */
 export interface FinanceParticularRow {
   name: string;
   rate: number;
+  costDriver: FinanceCostDriver;
 }
 
 /** Nested under `custom` — drives finance report calculations and the Finance preferences tab. */
 export interface FinanceConstantsData {
-  incomingBagsTimesRateParticularNames: string[];
-  acresTimesRateParticularNames: string[];
-  gradingBagsTimesRateParticularNames: string[];
   gradingBagSizes40mmAndAbove: string[];
   particulars: FinanceParticularRow[];
   actualCostWithoutSubsidy: BuyBackCost[];
@@ -53,28 +75,32 @@ function cloneFinanceConstants(
   return structuredClone(data);
 }
 
+/** Legacy name lists — used only to infer `costDriver` when API omits it. */
+const LEGACY_INCOMING_BAGS_PARTICULAR_NAMES = [
+  'Paladaar Charges From Field (Unloading Charges)',
+  'Bardana (Multiple use) from field',
+  'Sutli (Incoming Bags)',
+  'Marka Expenses (Incoming Jute Bags)',
+] as const;
+
+const LEGACY_ACRES_PARTICULAR_NAMES = [
+  'Roughing Charges',
+  'Salary plus other employee expense',
+  'Daily labour',
+  'Room rent charges, Miscellaneous',
+] as const;
+
+const LEGACY_GRADING_BAGS_PARTICULAR_NAMES = [
+  'Grading Charges',
+  'Paladaar Charges (Tanka + Tolai)',
+  'Paladaar Charge Shifting after grading (Dhank)',
+  'Sutli + Tag & Parchi after Grading',
+  'Paladaar Charges after loading after grading',
+  'Storage Charges',
+] as const;
+
 /** Default finance constants (former `finance-constants.ts`); used when API omits or empties `financeConstants`. */
 export const DEFAULT_FINANCE_CONSTANTS: FinanceConstantsData = Object.freeze({
-  incomingBagsTimesRateParticularNames: [
-    'Paladaar Charges From Field (Unloading Charges)',
-    'Bardana (Multiple use) from field',
-    'Sutli (Incoming Bags)',
-    'Marka Expenses (Incoming Jute Bags)',
-  ],
-  acresTimesRateParticularNames: [
-    'Roughing Charges',
-    'Salary plus other employee expense',
-    'Daily labour',
-    'Room rent charges, Miscellaneous',
-  ],
-  gradingBagsTimesRateParticularNames: [
-    'Grading Charges',
-    'Paladaar Charges (Tanka + Tolai)',
-    'Paladaar Charge Shifting after grading (Dhank)',
-    'Sutli + Tag & Parchi after Grading',
-    'Paladaar Charges after loading after grading',
-    'Storage Charges',
-  ],
   gradingBagSizes40mmAndAbove: [
     '40-45',
     '40-50',
@@ -85,35 +111,71 @@ export const DEFAULT_FINANCE_CONSTANTS: FinanceConstantsData = Object.freeze({
     'Cut',
   ],
   particulars: [
-    { name: 'Freight: Seed (Dispatched)', rate: 32124.0 },
+    {
+      name: 'Freight: Seed (Dispatched)',
+      rate: 32124.0,
+      costDriver: 'Fixed',
+    },
     {
       name: 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)',
       rate: 20,
+      costDriver: 'Weight',
     },
-    { name: 'Roughing Charges', rate: 1000 },
+    { name: 'Roughing Charges', rate: 1000, costDriver: 'Acres' },
     {
       name: 'Paladaar Charges From Field (Unloading Charges)',
       rate: 5.5,
+      costDriver: 'IncomingBags',
     },
-    { name: 'Bardana (Multiple use) from field', rate: 33.6 },
-    { name: 'Sutli (Incoming Bags)', rate: 0.95 },
-    { name: 'Marka Expenses (Incoming Jute Bags)', rate: 0.96 },
-    { name: 'Grading Charges', rate: 14.2 },
-    { name: 'Paladaar Charges (Tanka + Tolai)', rate: 3 },
+    {
+      name: 'Bardana (Multiple use) from field',
+      rate: 33.6,
+      costDriver: 'IncomingBags',
+    },
+    { name: 'Sutli (Incoming Bags)', rate: 0.95, costDriver: 'IncomingBags' },
+    {
+      name: 'Marka Expenses (Incoming Jute Bags)',
+      rate: 0.96,
+      costDriver: 'IncomingBags',
+    },
+    { name: 'Grading Charges', rate: 14.2, costDriver: 'GradingBags' },
+    {
+      name: 'Paladaar Charges (Tanka + Tolai)',
+      rate: 3,
+      costDriver: 'GradingBags',
+    },
     {
       name: 'Paladaar Charge Shifting after grading (Dhank)',
       rate: 5.5,
+      costDriver: 'GradingBags',
     },
-    { name: 'Sutli + Tag & Parchi after Grading', rate: 2.9 },
+    {
+      name: 'Sutli + Tag & Parchi after Grading',
+      rate: 2.9,
+      costDriver: 'GradingBags',
+    },
     {
       name: 'Paladaar Charges after loading after grading',
       rate: 5.5,
+      costDriver: 'GradingBags',
     },
-    { name: 'Storage Charges', rate: 200 },
-    { name: 'Multiplication Expenses', rate: 0 },
-    { name: 'Salary plus other employee expense', rate: 2000 },
-    { name: 'Daily labour', rate: 3.43 },
-    { name: 'Room rent charges, Miscellaneous', rate: 200 },
+    { name: 'Storage Charges', rate: 200, costDriver: 'GradingBags' },
+    {
+      name: 'Multiplication Expenses',
+      rate: 0,
+      costDriver: 'Buy-back-payable',
+    },
+    {
+      name: 'Salary plus other employee expense',
+      rate: 2000,
+      costDriver: 'Acres',
+    },
+    { name: 'Daily labour', rate: 3.43, costDriver: 'Acres' },
+    {
+      name: 'Room rent charges, Miscellaneous',
+      rate: 200,
+      costDriver: 'Acres',
+    },
   ],
   actualCostWithoutSubsidy: [
     {
@@ -240,9 +302,54 @@ function normalizeStringList(
   return next.length > 0 ? next : [...fallback];
 }
 
+type LegacyFinanceNameLists = {
+  incomingBagsTimesRateParticularNames: string[];
+  acresTimesRateParticularNames: string[];
+  gradingBagsTimesRateParticularNames: string[];
+};
+
+function normalizeCostDriverValue(raw: unknown): FinanceCostDriver | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (VALID_FINANCE_COST_DRIVERS.has(trimmed)) {
+    return trimmed as FinanceCostDriver;
+  }
+  if (trimmed.toLowerCase() === 'buy-back-payable') {
+    return 'Buy-back-payable';
+  }
+  return null;
+}
+
+function inferCostDriverFromLegacy(
+  name: string,
+  legacy: LegacyFinanceNameLists
+): FinanceCostDriver {
+  if (name === 'Freight: Seed (Dispatched)') return 'Fixed';
+  if (name === 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)') {
+    return 'Weight';
+  }
+  if (name === 'Multiplication Expenses') return 'Buy-back-payable';
+
+  if (legacy.incomingBagsTimesRateParticularNames.includes(name)) {
+    return 'IncomingBags';
+  }
+  if (legacy.acresTimesRateParticularNames.includes(name)) return 'Acres';
+  if (legacy.gradingBagsTimesRateParticularNames.includes(name)) {
+    return 'GradingBags';
+  }
+
+  const defaultRow = DEFAULT_FINANCE_CONSTANTS.particulars.find(
+    (row) => row.name === name
+  );
+  if (defaultRow) return defaultRow.costDriver;
+
+  return 'Fixed';
+}
+
 function normalizeFinanceParticulars(
   raw: unknown,
-  fallback: FinanceParticularRow[]
+  fallback: FinanceParticularRow[],
+  legacy: LegacyFinanceNameLists
 ): FinanceParticularRow[] {
   if (!Array.isArray(raw)) {
     return fallback.map((row) => ({ ...row }));
@@ -250,11 +357,16 @@ function normalizeFinanceParticulars(
   const rows: FinanceParticularRow[] = [];
   for (const p of raw) {
     if (!p || typeof p !== 'object') continue;
-    const name = String((p as FinanceParticularRow).name ?? '').trim();
+    const item = p as FinanceParticularRow & { costDriver?: unknown };
+    const name = String(item.name ?? '').trim();
     if (!name) continue;
+    const costDriver =
+      normalizeCostDriverValue(item.costDriver) ??
+      inferCostDriverFromLegacy(name, legacy);
     rows.push({
       name,
-      rate: Number((p as FinanceParticularRow).rate) || 0,
+      rate: Number(item.rate) || 0,
+      costDriver,
     });
   }
   return rows.length > 0 ? rows : [...fallback];
@@ -327,10 +439,25 @@ export function normalizeFinanceConstants(raw: unknown): FinanceConstantsData {
   }
 
   const r = raw as Record<string, unknown>;
+  const legacy: LegacyFinanceNameLists = {
+    incomingBagsTimesRateParticularNames: normalizeStringList(
+      r.incomingBagsTimesRateParticularNames,
+      LEGACY_INCOMING_BAGS_PARTICULAR_NAMES
+    ),
+    acresTimesRateParticularNames: normalizeStringList(
+      r.acresTimesRateParticularNames,
+      LEGACY_ACRES_PARTICULAR_NAMES
+    ),
+    gradingBagsTimesRateParticularNames: normalizeStringList(
+      r.gradingBagsTimesRateParticularNames,
+      LEGACY_GRADING_BAGS_PARTICULAR_NAMES
+    ),
+  };
   const particularsRaw = r.particulars;
   const particulars = normalizeFinanceParticulars(
     particularsRaw,
-    defaults.particulars
+    defaults.particulars,
+    legacy
   );
 
   if (particulars.length === 0) {
@@ -338,18 +465,6 @@ export function normalizeFinanceConstants(raw: unknown): FinanceConstantsData {
   }
 
   return {
-    incomingBagsTimesRateParticularNames: normalizeStringList(
-      r.incomingBagsTimesRateParticularNames,
-      defaults.incomingBagsTimesRateParticularNames
-    ),
-    acresTimesRateParticularNames: normalizeStringList(
-      r.acresTimesRateParticularNames,
-      defaults.acresTimesRateParticularNames
-    ),
-    gradingBagsTimesRateParticularNames: normalizeStringList(
-      r.gradingBagsTimesRateParticularNames,
-      defaults.gradingBagsTimesRateParticularNames
-    ),
     gradingBagSizes40mmAndAbove: normalizeStringList(
       r.gradingBagSizes40mmAndAbove,
       defaults.gradingBagSizes40mmAndAbove

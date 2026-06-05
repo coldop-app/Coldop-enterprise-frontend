@@ -9,6 +9,8 @@ import {
   type StandardSeedBagsPerAcreEntry,
   type StandardSeedBagSizeRow,
   type FinanceParticularRow,
+  type FinanceCostDriver,
+  FINANCE_COST_DRIVER_OPTIONS,
 } from '@/services/store-admin/preferences/useGetPreferences';
 import { useUpdatePreferences } from '@/services/store-admin/preferences/useUpdatePreferences';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -46,6 +48,13 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Tooltip,
   TooltipContent,
@@ -1264,47 +1273,6 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     setDirty(true);
   };
 
-  type FinanceNameListKey =
-    | 'incomingBagsTimesRateParticularNames'
-    | 'acresTimesRateParticularNames'
-    | 'gradingBagsTimesRateParticularNames';
-
-  const addFinanceNameListItem = (key: FinanceNameListKey, item: string) => {
-    if (!canCreatePreferences) return;
-    const trimmed = item.trim();
-    if (!trimmed) return;
-    updatePreferences((p) => {
-      const cur = p.custom.financeConstants[key];
-      if (cur.includes(trimmed)) return p;
-      return {
-        ...p,
-        custom: {
-          ...p.custom,
-          financeConstants: {
-            ...p.custom.financeConstants,
-            [key]: [...cur, trimmed],
-          },
-        },
-      };
-    });
-    setDirty(true);
-  };
-
-  const removeFinanceNameListItem = (key: FinanceNameListKey, item: string) => {
-    if (!canUpdatePreferences) return;
-    updatePreferences((p) => ({
-      ...p,
-      custom: {
-        ...p.custom,
-        financeConstants: {
-          ...p.custom.financeConstants,
-          [key]: p.custom.financeConstants[key].filter((x) => x !== item),
-        },
-      },
-    }));
-    setDirty(true);
-  };
-
   const setFinanceGrading40mmSize = (size: string, on: boolean) => {
     if (!canUpdatePreferences) return;
     updatePreferences((p) => {
@@ -1878,7 +1846,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 {data.custom.financeConstants.particulars.map((row, index) => (
                   <div
                     key={`finance-particular-${index}-${row.name.slice(0, 24)}`}
-                    className="grid gap-2 sm:grid-cols-[1fr_140px]"
+                    className="grid gap-2 sm:grid-cols-[1fr_180px_140px]"
                   >
                     <Input
                       defaultValue={row.name}
@@ -1890,6 +1858,26 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       }
                       className="bg-background h-9 text-sm"
                     />
+                    <Select
+                      value={row.costDriver}
+                      disabled={!canUpdatePreferences}
+                      onValueChange={(value) =>
+                        updateFinanceParticular(index, {
+                          costDriver: value as FinanceCostDriver,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="bg-background h-9 w-full text-sm">
+                        <SelectValue placeholder="Cost driver" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FINANCE_COST_DRIVER_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <div className="relative">
                       <span className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2 text-xs">
                         ₹
@@ -1913,96 +1901,6 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
             </Card>
 
             <div className="grid gap-5 lg:grid-cols-1">
-              <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
-                <CardHeader className="pb-2">
-                  <SectionHeader
-                    icon={Scale}
-                    title="Charge rules (particular names)"
-                    description="Which particulars use acres × rate, incoming bags × rate, or grading bags × rate"
-                  />
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <Label className="text-muted-foreground mb-2 block font-mono text-xs">
-                      Incoming bags × rate
-                    </Label>
-                    <TagList
-                      items={
-                        data.custom.financeConstants
-                          .incomingBagsTimesRateParticularNames
-                      }
-                      onRemove={(item) =>
-                        removeFinanceNameListItem(
-                          'incomingBagsTimesRateParticularNames',
-                          item
-                        )
-                      }
-                      onAdd={(item) =>
-                        addFinanceNameListItem(
-                          'incomingBagsTimesRateParticularNames',
-                          item
-                        )
-                      }
-                      canAdd={canCreatePreferences}
-                      canRemove={canUpdatePreferences}
-                      addPlaceholder="Particular name (exact match)"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground mb-2 block font-mono text-xs">
-                      Net acres × rate
-                    </Label>
-                    <TagList
-                      items={
-                        data.custom.financeConstants
-                          .acresTimesRateParticularNames
-                      }
-                      onRemove={(item) =>
-                        removeFinanceNameListItem(
-                          'acresTimesRateParticularNames',
-                          item
-                        )
-                      }
-                      onAdd={(item) =>
-                        addFinanceNameListItem(
-                          'acresTimesRateParticularNames',
-                          item
-                        )
-                      }
-                      canAdd={canCreatePreferences}
-                      canRemove={canUpdatePreferences}
-                      addPlaceholder="Particular name (exact match)"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground mb-2 block font-mono text-xs">
-                      Grading bags × rate
-                    </Label>
-                    <TagList
-                      items={
-                        data.custom.financeConstants
-                          .gradingBagsTimesRateParticularNames
-                      }
-                      onRemove={(item) =>
-                        removeFinanceNameListItem(
-                          'gradingBagsTimesRateParticularNames',
-                          item
-                        )
-                      }
-                      onAdd={(item) =>
-                        addFinanceNameListItem(
-                          'gradingBagsTimesRateParticularNames',
-                          item
-                        )
-                      }
-                      canAdd={canCreatePreferences}
-                      canRemove={canUpdatePreferences}
-                      addPlaceholder="Particular name (exact match)"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
               <Card className="border-border/40 bg-card rounded-2xl border shadow-sm">
                 <CardHeader className="pb-2">
                   <SectionHeader

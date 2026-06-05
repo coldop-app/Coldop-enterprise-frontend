@@ -36,6 +36,7 @@ import {
 import {
   getFinanceConstants,
   type FinanceConstantsData,
+  type FinanceCostDriver,
   type FinanceParticularRow,
   type PreferencesData,
 } from '@/services/store-admin/preferences/useGetPreferences';
@@ -43,53 +44,11 @@ import type { FarmerSeedGatePass } from '@/services/store-admin/people/useGetAll
 import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
-/** Must match particulars row names from preferences / API. */
-const FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME = 'Freight: Seed (Dispatched)';
-const BUY_BACK_FREIGHT_PARTICULAR_NAME =
-  'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)';
-const MULTIPLICATION_EXPENSES_PARTICULAR_NAME = 'Multiplication Expenses';
+/** Row names that split grading bag counts by size band. */
 const PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME =
   'Paladaar Charges after loading after grading';
 const STORAGE_CHARGES_PARTICULAR_NAME = 'Storage Charges';
-const GRADING_CHARGES_PARTICULAR_NAME = 'Grading Charges';
-
-function getParticularBoundaryIndices(fc: FinanceConstantsData): {
-  gradingIdx: number;
-  storageIdx: number;
-} {
-  const particulars = fc.particulars;
-  return {
-    gradingIdx: particulars.findIndex(
-      (item) => item.name === GRADING_CHARGES_PARTICULAR_NAME
-    ),
-    storageIdx: particulars.findIndex(
-      (item) => item.name === STORAGE_CHARGES_PARTICULAR_NAME
-    ),
-  };
-}
-
-function particularsRowUsesIncomingBagsAndWeight(
-  index: number,
-  fc: FinanceConstantsData
-): boolean {
-  const { gradingIdx } = getParticularBoundaryIndices(fc);
-  if (gradingIdx < 0) return true;
-  return index < gradingIdx;
-}
-
-/** From Grading Charges through the row before Storage Charges (inclusive). */
-function particularsRowUsesGradingBagsAndWeight(
-  index: number,
-  fc: FinanceConstantsData
-): boolean {
-  const { gradingIdx, storageIdx } = getParticularBoundaryIndices(fc);
-  if (gradingIdx < 0) return false;
-  if (index < gradingIdx) return false;
-  if (storageIdx >= 0 && index >= storageIdx) {
-    return false;
-  }
-  return true;
-}
+const BUY_BACK_PAYABLE_COST_DRIVER: FinanceCostDriver = 'Buy-back-payable';
 
 export type FinancePlantingVarietyGroup = {
   varietyKey: string;
@@ -164,20 +123,25 @@ export function computeFinanceGradingVarietyTotals(
  */
 export function computePlantingVarietyNetAmount(
   seedRows: FinancePlantingRow[],
-  particularsRows: FinancePlantingRow[]
+  particularsRows: FinancePlantingRow[],
+  preferences: PreferencesData | null | undefined
 ): number {
-  const multiplicationRow = particularsRows.find(
-    (r) => r.particulars === MULTIPLICATION_EXPENSES_PARTICULAR_NAME
+  const fc = getFinanceConstants(preferences);
+  const buyBackPayableRowIndex = fc.particulars.findIndex(
+    (item) => item.costDriver === BUY_BACK_PAYABLE_COST_DRIVER
   );
-  const buyBackPayable = Number(multiplicationRow?.amount) || 0;
+  const buyBackPayable =
+    buyBackPayableRowIndex >= 0
+      ? Number(particularsRows[buyBackPayableRowIndex]?.amount) || 0
+      : 0;
 
   let totalOutflow = 0;
   for (const row of seedRows) {
     totalOutflow += Number(row.amount) || 0;
   }
-  for (const row of particularsRows) {
-    if (row.particulars === MULTIPLICATION_EXPENSES_PARTICULAR_NAME) continue;
-    totalOutflow += Number(row.amount) || 0;
+  for (let i = 0; i < particularsRows.length; i++) {
+    if (i === buyBackPayableRowIndex) continue;
+    totalOutflow += Number(particularsRows[i]?.amount) || 0;
   }
 
   return roundMax2(buyBackPayable - totalOutflow);
@@ -472,49 +436,98 @@ type ParticularsAmountContext = {
   summaryAmountPayable: number;
 };
 
-/** Amount rules for static particulars rows (extend per row as needed). */
+/** Amount rules for static particulars rows driven by `costDriver`. */
 function resolveParticularsRowAmount(
   item: FinanceParticularRow,
-  context: ParticularsAmountContext,
-  fc: FinanceConstantsData
+  context: ParticularsAmountContext
 ): number | null {
   const rate = Number(item.rate);
   if (!Number.isFinite(rate)) return null;
 
-  const acresTimesRate = new Set(fc.acresTimesRateParticularNames);
-  const incomingBagsTimesRate = new Set(
-    fc.incomingBagsTimesRateParticularNames
-  );
-  const gradingBagsTimesRate = new Set(fc.gradingBagsTimesRateParticularNames);
-
-  if (item.name === FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME) {
-    return roundMax2(rate);
+  switch (item.costDriver) {
+    case 'Fixed':
+      return roundMax2(rate);
+    case 'Weight': {
+      const netKg = Number(context.incomingNetWeightKg) || 0;
+      const quintals = netKg / KG_PER_QUINTAL;
+      return roundMax2(quintals * rate);
+    }
+    case 'Acres': {
+      const acres = Number(context.netAcres) || 0;
+      return roundMax2(acres * rate);
+    }
+    case 'IncomingBags':
+    case 'GradingBags': {
+      const bags = Number(context.numberOfBags) || 0;
+      return roundMax2(bags * rate);
+    }
+    case 'Buy-back-payable':
+      return roundMax2(Number(context.summaryAmountPayable) || 0);
+    default:
+      return null;
   }
+}
 
-  if (item.name === BUY_BACK_FREIGHT_PARTICULAR_NAME) {
-    const netKg = Number(context.incomingNetWeightKg) || 0;
-    const quintals = netKg / KG_PER_QUINTAL;
-    return roundMax2(quintals * rate);
+function resolveGradingBagsForParticular(
+  item: FinanceParticularRow,
+  gradingTotals: GradingTableFinanceTotals,
+  gradingTotals40MmAndAbove: GradingTableFinanceTotals,
+  gradingTotalsBelow40: GradingTableFinanceTotals
+): number {
+  if (item.name === STORAGE_CHARGES_PARTICULAR_NAME) {
+    return gradingTotalsBelow40.totalBags;
   }
-
-  if (acresTimesRate.has(item.name)) {
-    const acres = Number(context.netAcres) || 0;
-    return roundMax2(acres * rate);
+  if (item.name === PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME) {
+    return gradingTotals40MmAndAbove.totalBags;
   }
+  return gradingTotals.totalBags;
+}
 
-  if (
-    incomingBagsTimesRate.has(item.name) ||
-    gradingBagsTimesRate.has(item.name)
-  ) {
-    const bags = Number(context.numberOfBags) || 0;
-    return roundMax2(bags * rate);
+function resolveParticularQuantityColumns(
+  item: FinanceParticularRow,
+  netAcres: number,
+  incomingTotals: IncomingTableTotals,
+  gradingTotals: GradingTableFinanceTotals,
+  gradingTotals40MmAndAbove: GradingTableFinanceTotals,
+  gradingTotalsBelow40: GradingTableFinanceTotals
+): Pick<FinancePlantingRow, 'areaPlantedAcres' | 'numberOfBags' | 'bagWeight'> {
+  switch (item.costDriver) {
+    case 'Acres':
+      return {
+        areaPlantedAcres: netAcres,
+        numberOfBags: null,
+        bagWeight: null,
+      };
+    case 'Weight':
+      return {
+        areaPlantedAcres: null,
+        numberOfBags: null,
+        bagWeight: incomingTotals.totalActualKg,
+      };
+    case 'IncomingBags':
+      return {
+        areaPlantedAcres: null,
+        numberOfBags: incomingTotals.totalBags,
+        bagWeight: null,
+      };
+    case 'GradingBags':
+      return {
+        areaPlantedAcres: null,
+        numberOfBags: resolveGradingBagsForParticular(
+          item,
+          gradingTotals,
+          gradingTotals40MmAndAbove,
+          gradingTotalsBelow40
+        ),
+        bagWeight: null,
+      };
+    default:
+      return {
+        areaPlantedAcres: null,
+        numberOfBags: null,
+        bagWeight: null,
+      };
   }
-
-  if (item.name === MULTIPLICATION_EXPENSES_PARTICULAR_NAME) {
-    return roundMax2(Number(context.summaryAmountPayable) || 0);
-  }
-
-  return null;
 }
 
 export function buildParticularsPlantingRows(
@@ -536,57 +549,30 @@ export function buildParticularsPlantingRows(
   const safeKey = varietyKey.replace(/[^a-zA-Z0-9_-]/g, '_');
 
   return fc.particulars.map((item, index) => {
-    const usesIncomingQty = particularsRowUsesIncomingBagsAndWeight(index, fc);
-    const usesGradingQty = particularsRowUsesGradingBagsAndWeight(index, fc);
-    const isPaladaarAfterLoading =
-      item.name === PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME;
-    const isStorageCharges = item.name === STORAGE_CHARGES_PARTICULAR_NAME;
-    const isMultiplicationExpenses =
-      item.name === MULTIPLICATION_EXPENSES_PARTICULAR_NAME;
-    const usesFullGradingBagsAndWeight =
-      usesGradingQty || isMultiplicationExpenses;
     const gradingTotalsBelow40 = gradingTotalsBelow40Mm(
       gradingTotals,
       gradingTotals40MmAndAbove
     );
-
-    const bags = isStorageCharges
-      ? gradingTotalsBelow40.totalBags
-      : isPaladaarAfterLoading
-        ? gradingTotals40MmAndAbove.totalBags
-        : usesFullGradingBagsAndWeight
-          ? gradingTotals.totalBags
-          : usesIncomingQty
-            ? incomingTotals.totalBags
-            : null;
-
-    const weight = isStorageCharges
-      ? gradingTotalsBelow40.totalActualWeightKg
-      : isPaladaarAfterLoading
-        ? gradingTotals40MmAndAbove.totalActualWeightKg
-        : usesFullGradingBagsAndWeight
-          ? gradingTotals.totalActualWeightKg
-          : usesIncomingQty
-            ? incomingTotals.totalActualKg
-            : null;
+    const quantityColumns = resolveParticularQuantityColumns(
+      item,
+      netAcres,
+      incomingTotals,
+      gradingTotals,
+      gradingTotals40MmAndAbove,
+      gradingTotalsBelow40
+    );
 
     return {
       id: `particular-${safeKey}-${index}`,
       particulars: item.name,
-      areaPlantedAcres: netAcres,
-      numberOfBags: bags,
-      bagWeight: weight,
+      ...quantityColumns,
       ratePerAcreOrBag: item.rate,
-      amount: resolveParticularsRowAmount(
-        item,
-        {
-          incomingNetWeightKg: incomingTotals.totalActualKg,
-          netAcres,
-          numberOfBags: bags,
-          summaryAmountPayable,
-        },
-        fc
-      ),
+      amount: resolveParticularsRowAmount(item, {
+        incomingNetWeightKg: incomingTotals.totalActualKg,
+        netAcres,
+        numberOfBags: quantityColumns.numberOfBags,
+        summaryAmountPayable,
+      }),
     };
   });
 }
@@ -732,7 +718,8 @@ export function buildFinancePlantingVarietyGroups(
       particularsRows,
       netAmount: computePlantingVarietyNetAmount(
         seedRowsMapped,
-        particularsRows
+        particularsRows,
+        preferences
       ),
     };
   });
