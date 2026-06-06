@@ -87,6 +87,13 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  blurTargetOnNumberWheel,
+  businessNumberSpinnerClassName,
+  parseNonNegativeNumber,
+  preventArrowUpDownOnNumericInput,
+  preventMinusOnNumericInput,
+} from '@/lib/business-number-input';
+import {
   usePreferencesStore,
   usePreferencesStoreHydrated,
 } from '@/stores/usePreferencesStore';
@@ -711,13 +718,29 @@ function BuyBackTable({
                   </span>
                   <Input
                     type="number"
+                    min={0}
                     step="0.25"
                     defaultValue={rate}
                     disabled={!canEdit}
-                    onChange={(e) =>
-                      onChange(entry.variety, size, parseFloat(e.target.value))
-                    }
-                    className="bg-background focus-visible:bg-background h-8 pl-6 font-mono text-sm transition-colors duration-200"
+                    onChange={(e) => {
+                      const sanitized = parseNonNegativeNumber(e.target.value);
+                      if (
+                        Number.isFinite(sanitized) &&
+                        parseFloat(e.target.value) !== sanitized
+                      ) {
+                        e.target.value = String(sanitized);
+                      }
+                      onChange(entry.variety, size, sanitized);
+                    }}
+                    onWheel={blurTargetOnNumberWheel}
+                    onKeyDown={(e) => {
+                      preventArrowUpDownOnNumericInput(e);
+                      preventMinusOnNumericInput(e);
+                    }}
+                    className={cn(
+                      'bg-background focus-visible:bg-background h-8 pl-6 font-mono text-sm transition-colors duration-200',
+                      businessNumberSpinnerClassName
+                    )}
                   />
                 </div>
               </div>
@@ -1249,16 +1272,23 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
   // Buy-back rates
   const updateRate = (variety: string, size: string, rate: number) => {
     if (!canUpdatePreferences) return;
+    const sanitizedRate = Number.isFinite(rate) ? Math.max(0, rate) : rate;
     updatePreferences((p) => {
       const idx = p.custom.buyBackCost.findIndex((e) => e.variety === variety);
       const nextBuyBack =
         idx >= 0
           ? p.custom.buyBackCost.map((e) =>
               e.variety === variety
-                ? { ...e, sizeRates: { ...e.sizeRates, [size]: rate } }
+                ? {
+                    ...e,
+                    sizeRates: { ...e.sizeRates, [size]: sanitizedRate },
+                  }
                 : e
             )
-          : [...p.custom.buyBackCost, { variety, sizeRates: { [size]: rate } }];
+          : [
+              ...p.custom.buyBackCost,
+              { variety, sizeRates: { [size]: sanitizedRate } },
+            ];
       return {
         ...p,
         custom: { ...p.custom, buyBackCost: nextBuyBack },

@@ -230,7 +230,7 @@ function RouteComponent() {
                 <AnalyticsStorageTab />
               </TabsContent>
               <TabsContent value="dispatch-pre-outgoing">
-                <AnalyticsNikasiTab />
+                <AnalyticsNikasiTab dateRange={appliedDateRange} />
               </TabsContent>
               <TabsContent value="dispatch-outgoing">
                 <AnalyticsOutgoingTab />

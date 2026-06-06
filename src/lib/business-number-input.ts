@@ -22,3 +22,17 @@ export function preventArrowUpDownOnNumericInput(
 ): void {
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
 }
+
+/** Blocks typing a minus sign into rate / amount fields. */
+export function preventMinusOnNumericInput(
+  e: ReactKeyboardEvent<HTMLInputElement>
+): void {
+  if (e.key === '-' || e.key === 'Minus') e.preventDefault();
+}
+
+/** Parses a number input value and clamps finite results to >= 0. */
+export function parseNonNegativeNumber(value: string): number {
+  const parsed = parseFloat(value);
+  if (!Number.isFinite(parsed)) return parsed;
+  return Math.max(0, parsed);
+}

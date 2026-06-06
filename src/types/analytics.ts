@@ -450,16 +450,27 @@ export interface GetNikasiGatePassReportApiResponse {
 
 // --- Nikasi summary by variety/size (GET /analytics/nikasi-summary) ---
 
+/** Internal transfer quantity in nikasi summary */
+export interface NikasiSummaryByInternalTransfer {
+  isInternalTransfer: boolean;
+  quantityIssued: number;
+}
+
 /** One size bucket in nikasi summary */
 export interface NikasiSummarySizeItem {
   size: string;
   quantityIssued: number;
+  internallyTransferred: number;
+  notInternallyTransferred: number;
+  byInternalTransfer: NikasiSummaryByInternalTransfer[];
 }
 
 /** One variety row in GET /analytics/nikasi-summary */
 export interface NikasiSummaryVarietyItem {
   variety: string;
   quantityIssued: number;
+  internallyTransferred: number;
+  notInternallyTransferred: number;
   sizes: NikasiSummarySizeItem[];
 }
 
