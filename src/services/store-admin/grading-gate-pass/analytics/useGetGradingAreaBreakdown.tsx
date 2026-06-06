@@ -15,6 +15,8 @@ export const gradingAreaBreakdownKeys = {
 /** Params for GET /analytics/farmers-stock-by-filters */
 export interface GetGradingAreaBreakdownParams {
   area?: string;
+  variety?: string;
+  size?: string;
 }
 
 function sanitizeParams(
@@ -27,6 +29,8 @@ function sanitizeParams(
 
   return {
     area: sanitizeString(params.area),
+    variety: sanitizeString(params.variety),
+    size: sanitizeString(params.size),
   };
 }
 
@@ -58,6 +62,8 @@ async function fetchGradingAreaBreakdown(
     const safeParams = sanitizeParams(params);
     const requestParams: GetGradingAreaBreakdownParams = {
       ...(safeParams.area ? { area: safeParams.area } : {}),
+      ...(safeParams.variety ? { variety: safeParams.variety } : {}),
+      ...(safeParams.size ? { size: safeParams.size } : {}),
     };
 
     const { data } =

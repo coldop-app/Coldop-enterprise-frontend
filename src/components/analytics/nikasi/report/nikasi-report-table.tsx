@@ -1,10 +1,5 @@
-import { memo, useMemo, useState } from 'react';
-import {
-  FileSpreadsheet,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +8,12 @@ import {
   useGetNikasiGatePassReport,
   type NikasiGatePassReportDataRow,
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
+import { useStore } from '@/stores/store';
 import NikasiReportDataTable from './data-table';
+import {
+  NikasiExcelButton,
+  type NikasiReportExportContext,
+} from './nikasi-excel-button';
 
 function toApiDate(value: string): string | undefined {
   const [day, month, year] = value.split('.');
@@ -41,12 +41,24 @@ function filterSourceRowsByManualGatePassSearch(
 }
 
 const NikasiReportTable = () => {
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [appliedFromDate, setAppliedFromDate] = useState('');
   const [appliedToDate, setAppliedToDate] = useState('');
   const [manualGatePassSearch, setManualGatePassSearch] = useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = useState(false);
+  const [exportContext, setExportContext] =
+    useState<NikasiReportExportContext | null>(null);
+
+  const handleExportContextChange = useCallback(
+    (context: NikasiReportExportContext | null) => {
+      setExportContext(context);
+    },
+    []
+  );
 
   const hasDateFilters = Boolean(fromDate && toDate);
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
@@ -153,15 +165,10 @@ const NikasiReportTable = () => {
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 View Filters
               </Button>
-              <Button
-                type="button"
-                className="h-8 rounded-lg px-4 text-sm shadow-none"
-                disabled
-                aria-label="Excel export coming soon"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-                Excel
-              </Button>
+              <NikasiExcelButton
+                exportContext={exportContext}
+                coldStorageName={coldStorageName}
+              />
               <Button
                 type="button"
                 variant="ghost"
@@ -192,6 +199,7 @@ const NikasiReportTable = () => {
           isLoading={isLoading}
           isViewFiltersOpen={isViewFiltersOpen}
           onViewFiltersOpenChange={setIsViewFiltersOpen}
+          onExportContextChange={handleExportContextChange}
         />
       </div>
     </main>

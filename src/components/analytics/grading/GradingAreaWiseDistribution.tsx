@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { FileText, Layers, MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +26,11 @@ import {
   type GetGradingAreaDistributionParams,
 } from '@/services/store-admin/grading-gate-pass/analytics/useGetGradingAreaDistribution';
 import { useStore } from '@/stores/store';
+import {
+  canonicalSizeLabel,
+  sortSizeLabels,
+} from '@/components/analytics/shed/shed-report-utils';
+import { cn } from '@/lib/utils';
 import type { AreaWiseChartAreaItem } from '@/types/analytics';
 
 interface GradingAreaWiseDistributionProps {
@@ -37,17 +43,64 @@ type AreaRow = {
   total: number;
 };
 
-const SIZE_ORDER = [
-  'Below 30',
-  '30–40',
-  '35–40',
-  '40–45',
-  '45–50',
-  '50–55',
-  'Above 50',
-  'Above 55',
-  'Cut',
-] as const;
+type AreaBreakdownNavigationParams = {
+  area?: string;
+  variety: string;
+  size?: string;
+};
+
+const clickableCellButtonClassName =
+  'font-custom block w-full rounded px-0 py-0 text-inherit transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+
+const clickableDataCellClassName =
+  'cursor-pointer transition-colors duration-200 hover:bg-primary/5 hover:text-primary';
+
+function navigateToAreaBreakdown(
+  navigate: ReturnType<typeof useNavigate>,
+  params: AreaBreakdownNavigationParams
+) {
+  void navigate({
+    to: '/store-admin/analytics/area-breakdown/',
+    search: {
+      ...(params.area ? { area: params.area } : {}),
+      variety: params.variety,
+      ...(params.size ? { size: params.size } : {}),
+    },
+  });
+}
+
+type ClickableBreakdownCellProps = {
+  className?: string;
+  ariaLabel: string;
+  onNavigate: () => void;
+  children: ReactNode;
+};
+
+function ClickableBreakdownCell({
+  className,
+  ariaLabel,
+  onNavigate,
+  children,
+}: ClickableBreakdownCellProps) {
+  return (
+    <TableCell
+      className={cn(
+        'font-custom border-border border px-4 py-2',
+        clickableDataCellClassName,
+        className
+      )}
+    >
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        onClick={onNavigate}
+        className={clickableCellButtonClassName}
+      >
+        {children}
+      </button>
+    </TableCell>
+  );
+}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-IN').format(value);
@@ -83,22 +136,19 @@ function getVarieties(chartData: AreaWiseChartAreaItem[]): string[] {
 }
 
 function getSizeKeys(chartData: AreaWiseChartAreaItem[]): string[] {
-  const set = new Set<string>();
+  const rawLabels: string[] = [];
+
   for (const area of chartData) {
     for (const variety of area.varieties ?? []) {
       for (const bagType of variety.bagTypes ?? []) {
         for (const size of bagType.sizes ?? []) {
-          set.add(size.name);
+          if (size.name) rawLabels.push(size.name);
         }
       }
     }
   }
 
-  const known = SIZE_ORDER.filter((size) => set.has(size));
-  const rest = [...set]
-    .filter((size) => !known.includes(size as (typeof SIZE_ORDER)[number]))
-    .sort((a, b) => a.localeCompare(b));
-  return [...known, ...rest];
+  return sortSizeLabels(rawLabels);
 }
 
 function buildRowsByVariety(
@@ -117,8 +167,9 @@ function buildRowsByVariety(
     if (selectedVariety) {
       for (const bagType of selectedVariety.bagTypes ?? []) {
         for (const size of bagType.sizes ?? []) {
-          sizeValues[size.name] =
-            Number(sizeValues[size.name] ?? 0) + Number(size.value ?? 0);
+          const canonicalKey = canonicalSizeLabel(size.name);
+          sizeValues[canonicalKey] =
+            Number(sizeValues[canonicalKey] ?? 0) + Number(size.value ?? 0);
         }
       }
     }
@@ -138,6 +189,7 @@ function buildRowsByVariety(
 const GradingAreaWiseDistribution = ({
   dateParams,
 }: GradingAreaWiseDistributionProps) => {
+  const navigate = useNavigate();
   const [varietyTab, setVarietyTab] = useState<string>('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const objectUrlRef = useRef<string | null>(null);
@@ -416,22 +468,48 @@ const GradingAreaWiseDistribution = ({
                           key={`${variety}-${row.area}`}
                           className="border-border hover:bg-transparent"
                         >
-                          <TableCell className="font-custom border-border border px-4 py-2 font-medium whitespace-nowrap">
+                          <ClickableBreakdownCell
+                            className="font-medium whitespace-nowrap"
+                            ariaLabel={`View area breakdown for ${row.area}, ${variety}`}
+                            onNavigate={() =>
+                              navigateToAreaBreakdown(navigate, {
+                                area: row.area,
+                                variety,
+                              })
+                            }
+                          >
                             {row.area}
-                          </TableCell>
+                          </ClickableBreakdownCell>
                           {sizeKeys.map((sizeKey) => (
-                            <TableCell
+                            <ClickableBreakdownCell
                               key={`${variety}-${row.area}-${sizeKey}`}
-                              className="font-custom border-border border px-4 py-2 text-right tabular-nums"
+                              className="text-right tabular-nums"
+                              ariaLabel={`View area breakdown for ${row.area}, ${variety}, ${sizeKey}`}
+                              onNavigate={() =>
+                                navigateToAreaBreakdown(navigate, {
+                                  area: row.area,
+                                  variety,
+                                  size: sizeKey,
+                                })
+                              }
                             >
                               {formatNumber(
                                 Number(row.sizeValues[sizeKey] ?? 0)
                               )}
-                            </TableCell>
+                            </ClickableBreakdownCell>
                           ))}
-                          <TableCell className="font-custom text-primary border-border bg-primary/10 border px-4 py-2 text-right font-bold tabular-nums">
+                          <ClickableBreakdownCell
+                            className="text-primary bg-primary/10 text-right font-bold tabular-nums"
+                            ariaLabel={`View area breakdown for ${row.area}, ${variety}`}
+                            onNavigate={() =>
+                              navigateToAreaBreakdown(navigate, {
+                                area: row.area,
+                                variety,
+                              })
+                            }
+                          >
                             {formatNumber(row.total)}
-                          </TableCell>
+                          </ClickableBreakdownCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -441,16 +519,29 @@ const GradingAreaWiseDistribution = ({
                           Bag Total
                         </TableHead>
                         {sizeKeys.map((sizeKey) => (
-                          <TableCell
+                          <ClickableBreakdownCell
                             key={`${variety}-footer-${sizeKey}`}
-                            className="font-custom bg-muted/50 border-border border px-4 py-2 text-right font-bold tabular-nums"
+                            className="bg-muted/50 text-right font-bold tabular-nums"
+                            ariaLabel={`View area breakdown for ${variety}, ${sizeKey}`}
+                            onNavigate={() =>
+                              navigateToAreaBreakdown(navigate, {
+                                variety,
+                                size: sizeKey,
+                              })
+                            }
                           >
                             {formatNumber(tabFooterTotals[sizeKey] ?? 0)}
-                          </TableCell>
+                          </ClickableBreakdownCell>
                         ))}
-                        <TableCell className="font-custom text-primary bg-primary/10 border-border border px-4 py-2 text-right font-bold tabular-nums">
+                        <ClickableBreakdownCell
+                          className="text-primary bg-primary/10 text-right font-bold tabular-nums"
+                          ariaLabel={`View area breakdown for ${variety}`}
+                          onNavigate={() =>
+                            navigateToAreaBreakdown(navigate, { variety })
+                          }
+                        >
                           {formatNumber(tabTotalBags)}
-                        </TableCell>
+                        </ClickableBreakdownCell>
                       </TableRow>
                     </TableFooter>
                   </Table>

@@ -779,6 +779,20 @@ export interface GetFarmersStockByFiltersApiResponse {
   message?: string;
 }
 
+// --- Area breakdown (GET /analytics/area-breakdown) ---
+
+/** Data shape for GET /analytics/area-breakdown */
+export interface AreaBreakdownData {
+  farmers: AreaBreakdownFarmerEntry[];
+}
+
+/** API response for GET /analytics/area-breakdown */
+export interface GetAreaBreakdownApiResponse {
+  success: boolean;
+  data: AreaBreakdownData;
+  message?: string;
+}
+
 // --- Shed stock report (GET /analytics/shed-stock-report) ---
 
 /** Size line in grading / storage / dispatch sections */

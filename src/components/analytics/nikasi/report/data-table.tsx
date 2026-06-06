@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   memo,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -76,6 +77,7 @@ import {
   computeNikasiReportTotals,
   getNikasiTotalsCellValue,
 } from './nikasi-report-totals';
+import type { NikasiReportExportContext } from './nikasi-excel-button';
 
 const DEFAULT_PAGE_SIZE = 100;
 
@@ -150,6 +152,7 @@ export type NikasiReportDataTableProps = {
   isLoading: boolean;
   isViewFiltersOpen: boolean;
   onViewFiltersOpenChange: (open: boolean) => void;
+  onExportContextChange?: (context: NikasiReportExportContext | null) => void;
 };
 
 const NikasiReportDataTable = ({
@@ -158,6 +161,7 @@ const NikasiReportDataTable = ({
   isLoading,
   isViewFiltersOpen,
   onViewFiltersOpenChange,
+  onExportContextChange,
 }: NikasiReportDataTableProps) => {
   const preferences = usePreferencesStore((state) => state.preferences);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -413,6 +417,39 @@ const NikasiReportDataTable = ({
     (currentPageIndex + 1) * currentPageSize,
     totalEntries
   );
+
+  const getExportRows = useCallback((): NikasiTableRow[] => {
+    if (isGroupingActive) {
+      return table.getGroupedRowModel().rows;
+    }
+    return flatSortedTableRows;
+  }, [flatSortedTableRows, isGroupingActive, table]);
+
+  useEffect(() => {
+    if (!onExportContextChange) return;
+
+    if (isLoading || columns.length === 0) {
+      onExportContextChange(null);
+      return;
+    }
+
+    onExportContextChange({
+      table,
+      totals,
+      bagSizeColumnIds,
+      getExportRows,
+      isGroupingActive,
+    });
+  }, [
+    bagSizeColumnIds,
+    columns.length,
+    getExportRows,
+    isGroupingActive,
+    isLoading,
+    onExportContextChange,
+    table,
+    totals,
+  ]);
 
   if (isLoading) {
     return (

@@ -4,6 +4,7 @@ import type {
   FilterFn,
   Row,
   SortingFn,
+  VisibilityState,
 } from '@tanstack/react-table';
 import {
   type BagSizeColumnConfigEntry,
@@ -329,7 +330,21 @@ function renderNikasiBagSizeQuantityCell(value?: NikasiBagSizeCellValue) {
   );
 }
 
-export function formatNikasiReportCellValue(value: unknown): string {
+function formatNikasiDisplayDate(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '-';
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('en-GB');
+}
+
+export function formatNikasiReportCellValue(
+  value: unknown,
+  columnId?: string
+): string {
+  if (columnId === 'date') {
+    return formatNikasiDisplayDate(value);
+  }
+
   if (value === null || value === undefined || value === '') return '-';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (Array.isArray(value)) {
@@ -357,7 +372,7 @@ export function getNikasiColumnFilterValue(
     return value > 0 ? String(value) : '-';
   }
 
-  return formatNikasiReportCellValue(value);
+  return formatNikasiReportCellValue(value, columnId);
 }
 
 export const nikasiMultiValueFilterFn: FilterFn<NikasiReportDisplayRow> = (
@@ -384,7 +399,9 @@ function isBagSizesApiColumn(column: NikasiGatePassReportColumn): boolean {
   return column.id === 'bagSizes' || column.accessorKey === 'bagSizes';
 }
 
-export const defaultNikasiReportColumnVisibility = {};
+export const defaultNikasiReportColumnVisibility: VisibilityState = {
+  gatePassNo: false,
+};
 
 export function getNikasiColumnLabels(
   apiColumns: NikasiGatePassReportColumn[],
@@ -486,7 +503,7 @@ export function buildNikasiReportColumns(
       filterFn: nikasiMultiValueFilterFn,
       cell: ({ getValue }) => (
         <span className="font-custom block w-full text-sm wrap-break-word whitespace-normal">
-          {formatNikasiReportCellValue(getValue())}
+          {formatNikasiReportCellValue(getValue(), column.id)}
         </span>
       ),
     });
