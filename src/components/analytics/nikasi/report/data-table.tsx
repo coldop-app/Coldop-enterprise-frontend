@@ -66,9 +66,13 @@ import { ViewFiltersSheet } from './view-filters-sheet/index';
 import {
   flattenNikasiReportRows,
   getNikasiBagSizeQuantity,
-  recomputeNikasiVarietyRowSpans,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
+import {
+  buildNikasiRowSpanMetaById,
+  nikasiActiveFiltersTargetSplitColumns,
+  normalizeNikasiFilteredDisplayRows,
+} from './nikasi-report-filter-normalize';
 import {
   globalNikasiReportFilterFn,
   type NikasiGlobalFilterValue,
@@ -355,9 +359,27 @@ const NikasiReportDataTable = ({
   const filteredTableRows = table.getFilteredRowModel().rows;
   const filteredDisplayRows = filteredTableRows.map((row) => row.original);
 
+  const splitColumnFilteringActive = useMemo(
+    () =>
+      nikasiActiveFiltersTargetSplitColumns(
+        columnFilters,
+        globalFilter,
+        bagSizeColumnIds
+      ),
+    [columnFilters, globalFilter, bagSizeColumnIds]
+  );
+
   const spanAdjustedDisplayRows = useMemo(
-    () => recomputeNikasiVarietyRowSpans(filteredDisplayRows),
-    [filteredDisplayRows]
+    () =>
+      normalizeNikasiFilteredDisplayRows(filteredDisplayRows, displayRows, {
+        preserveGatePassBlocks: !splitColumnFilteringActive,
+      }),
+    [filteredDisplayRows, displayRows, splitColumnFilteringActive]
+  );
+
+  const spanMetaByRowId = useMemo(
+    () => buildNikasiRowSpanMetaById(spanAdjustedDisplayRows),
+    [spanAdjustedDisplayRows]
   );
 
   const filteredSourceRows = useMemo(() => {
@@ -450,6 +472,7 @@ const NikasiReportDataTable = ({
       bagSizeColumnIds,
       getExportRows,
       isGroupingActive,
+      spanMetaByRowId,
     });
   }, [
     bagSizeColumnIds,
@@ -458,6 +481,7 @@ const NikasiReportDataTable = ({
     isGroupingActive,
     isLoading,
     onExportContextChange,
+    spanMetaByRowId,
     table,
     totals,
   ]);
@@ -574,7 +598,11 @@ const NikasiReportDataTable = ({
                     );
                   }
 
-                  const { varietyRowIndex, varietyRowSpan } = row.original;
+                  const spanMeta = spanMetaByRowId.get(row.id);
+                  const varietyRowIndex =
+                    spanMeta?.varietyRowIndex ?? row.original.varietyRowIndex;
+                  const varietyRowSpan =
+                    spanMeta?.varietyRowSpan ?? row.original.varietyRowSpan;
 
                   return (
                     <TableRow

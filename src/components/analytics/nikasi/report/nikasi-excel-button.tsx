@@ -49,6 +49,10 @@ export type NikasiReportExportContext = {
   bagSizeColumnIds: Set<string>;
   getExportRows: () => Row<NikasiReportDisplayRow>[];
   isGroupingActive: boolean;
+  spanMetaByRowId: Map<
+    string,
+    { varietyRowIndex: number; varietyRowSpan: number }
+  >;
 };
 
 type NikasiExcelButtonProps = {
@@ -268,7 +272,11 @@ function getExcelBodyRows(
   >,
   bagSizeColumnIds: Set<string>,
   numericColumnIds: Set<string>,
-  isGroupingActive: boolean
+  isGroupingActive: boolean,
+  spanMetaByRowId: Map<
+    string,
+    { varietyRowIndex: number; varietyRowSpan: number }
+  >
 ): Array<{
   values: Array<string | number>;
   boldByColumn: boolean[];
@@ -303,13 +311,16 @@ function getExcelBodyRows(
         const isGroupedCell = cell.getIsGrouped();
         const isAggregatedCell = cell.getIsAggregated();
         const isPlaceholderCell = cell.getIsPlaceholder();
+        const varietyRowIndex =
+          spanMetaByRowId.get(row.id)?.varietyRowIndex ??
+          row.original.varietyRowIndex;
         const hideRepeatedMergedCell =
           !isGroupingActive &&
           !isGroupedCell &&
           !isAggregatedCell &&
           !isPlaceholderCell &&
           !isNikasiVarietySplitColumn(columnId, bagSizeColumnIds) &&
-          row.original.varietyRowIndex > 0;
+          varietyRowIndex > 0;
 
         if (hideRepeatedMergedCell) {
           nextRow[columnIndex] = '';
@@ -396,7 +407,13 @@ export const NikasiExcelButton = ({
       setIsGeneratingExcel(true);
 
       await openExcelPreviewInNewTab(previewUrlsRef, async () => {
-        const { table, totals, bagSizeColumnIds, getExportRows } = ctx;
+        const {
+          table,
+          totals,
+          bagSizeColumnIds,
+          getExportRows,
+          spanMetaByRowId,
+        } = ctx;
         const visibleColumns = table.getVisibleLeafColumns();
         const numericColumnIds = getNikasiNumericColumnIds(bagSizeColumnIds);
         const exportColumnIds = visibleColumns.map((column) => column.id);
@@ -409,7 +426,8 @@ export const NikasiExcelButton = ({
           visibleColumns,
           bagSizeColumnIds,
           numericColumnIds,
-          ctx.isGroupingActive
+          ctx.isGroupingActive,
+          spanMetaByRowId
         );
         const totalsRowValues = buildNikasiTotalsRowValues(
           visibleColumns,
