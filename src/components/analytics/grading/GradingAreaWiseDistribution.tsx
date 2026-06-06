@@ -60,7 +60,7 @@ function navigateToAreaBreakdown(
   params: AreaBreakdownNavigationParams
 ) {
   void navigate({
-    to: '/store-admin/analytics/area-breakdown/',
+    to: '/store-admin/analytics/area-breakdown',
     search: {
       ...(params.area ? { area: params.area } : {}),
       variety: params.variety,
