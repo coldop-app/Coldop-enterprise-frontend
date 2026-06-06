@@ -474,7 +474,10 @@ const AccountingReportTable = ({
                   </div>
                 ) : (
                   <div className="w-full">
-                    <SummaryTable varietyGroups={varietyGroupedSummary} />
+                    <SummaryTable
+                      varietyGroups={varietyGroupedSummary}
+                      showFiftyKgBagCount
+                    />
                   </div>
                 )}
               </div>

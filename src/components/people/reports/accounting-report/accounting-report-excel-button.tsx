@@ -4,9 +4,21 @@ import ExcelJS from 'exceljs';
 import { Button } from '@/components/ui/button';
 import type { AccountingReportVarietySection } from './accounting-report-variety-sections';
 import type { AccountingIncomingRow } from '@/components/people/reports/incoming-table';
-import type { GradingBagTypeQtySummaryRow } from '@/components/people/reports/summary-table';
+import {
+  bags50KgFromActualWeight,
+  type GradingBagTypeQtySummaryRow,
+} from '@/components/people/reports/helpers/summary-prepare';
 import type { FarmerSeedRow } from '@/components/people/reports/helpers/seed-prepare';
 import type { FarmerStorageLinkInPassesPayload } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import type { AccountingGradingRow } from '@/components/people/reports/grading-table';
+import {
+  ACCOUNTING_GRADING_BAG_SIZE_ORDER,
+  computeGradingTableTotals,
+  extraGradingSizeLabelsFromRows,
+  gradingTotalsAverageWeightPerBagKg,
+  sizeLabelsWithAnyQuantity,
+  totalBagsForAccountingGradingRow,
+} from '@/components/people/reports/helpers/grading-prepare';
 
 const COLORS = {
   titleBg: 'FFFFFFFF',
@@ -51,6 +63,10 @@ type AccountingReportExcelButtonProps = {
     summary: number;
     seed: number;
   };
+  /** When false, omits the Grading section (farmer report). Defaults to true. */
+  includeGradingTable?: boolean;
+  /** When true, adds No. of bags (50kg) to summary (accounting report). Defaults to true. */
+  showFiftyKgBagCount?: boolean;
 };
 
 const INCOMING_EXCEL_HEADERS: string[] = [
@@ -78,7 +94,8 @@ const SEED_EXCEL_HEADERS: string[] = [
 ];
 
 function computeSummaryExcelHeaders(
-  summaryRows: GradingBagTypeQtySummaryRow[]
+  summaryRows: GradingBagTypeQtySummaryRow[],
+  showFiftyKgBagCount: boolean
 ): {
   summaryHeaders: string[];
   summarySizeLabels: string[];
@@ -93,6 +110,7 @@ function computeSummaryExcelHeaders(
     'Weight Received (kg)',
     'Bardana Weight (kg)',
     'Actual Weight (kg)',
+    ...(showFiftyKgBagCount ? ['No. of bags (50kg)'] : []),
     'Rate per bag (₹)',
     'Amount Payable (₹)',
     '% of Graded Sizes',
@@ -154,7 +172,8 @@ function buildIncomingTotalsRow(
 
 function buildSummaryRawRows(
   summaryRows: GradingBagTypeQtySummaryRow[],
-  summarySizeLabels: string[]
+  summarySizeLabels: string[],
+  showFiftyKgBagCount: boolean
 ): Array<Array<string | number>> {
   return coerceRows(
     summaryRows.map((row) => [
@@ -166,6 +185,9 @@ function buildSummaryRawRows(
       formatZeroAsDash(row.weightReceivedKg),
       formatZeroAsDash(row.bardanaWeightKg),
       formatZeroAsDash(row.actualWeightKg),
+      ...(showFiftyKgBagCount
+        ? [formatZeroAsDash(bags50KgFromActualWeight(row.actualWeightKg))]
+        : []),
       formatZeroAsDash(row.rate ?? ''),
       formatZeroAsDash(row.amountPayable ?? ''),
       formatZeroAsDash(row.gradedSizesPercent),
@@ -175,8 +197,13 @@ function buildSummaryRawRows(
 
 function buildSummaryTotalsRow(
   summaryRows: GradingBagTypeQtySummaryRow[],
-  summarySizeLabels: string[]
+  summarySizeLabels: string[],
+  showFiftyKgBagCount: boolean
 ): Array<string | number> {
+  const totalActualWeightKg = summaryRows.reduce(
+    (s, r) => s + (Number(r.actualWeightKg) || 0),
+    0
+  );
   const summaryTotalsRow: Array<string | number> = ['Total'];
   for (const label of summarySizeLabels) {
     summaryTotalsRow.push(
@@ -196,15 +223,21 @@ function buildSummaryTotalsRow(
     formatZeroAsDash(
       summaryRows.reduce((s, r) => s + (Number(r.bardanaWeightKg) || 0), 0)
     ),
-    formatZeroAsDash(
-      summaryRows.reduce((s, r) => s + (Number(r.actualWeightKg) || 0), 0)
-    ),
+    formatZeroAsDash(totalActualWeightKg),
+    ...(showFiftyKgBagCount
+      ? [formatZeroAsDash(bags50KgFromActualWeight(totalActualWeightKg))]
+      : []),
     '',
     formatZeroAsDash(
       summaryRows.reduce((s, r) => s + (Number(r.amountPayable) || 0), 0)
     ),
     formatZeroAsDash(
-      summaryRows.reduce((s, r) => s + (Number(r.gradedSizesPercent) || 0), 0)
+      summaryRows.some((r) => (Number(r.actualWeightKg) || 0) > 0)
+        ? 100
+        : summaryRows.reduce(
+            (s, r) => s + (Number(r.gradedSizesPercent) || 0),
+            0
+          )
     )
   );
   return summaryTotalsRow;
@@ -223,6 +256,88 @@ function buildSeedRawRows(
       formatZeroAsDash(row.totalSeedAmount),
     ])
   );
+}
+
+function computeGradingExcelMetadata(allGradingRows: AccountingGradingRow[]): {
+  gradingHeaders: string[];
+  gradingSizeLabels: string[];
+  sizeLabelsOrdered: readonly string[];
+} {
+  const extras = extraGradingSizeLabelsFromRows(allGradingRows);
+  const sizeLabelsOrdered = [...ACCOUNTING_GRADING_BAG_SIZE_ORDER, ...extras];
+  const totals = computeGradingTableTotals(allGradingRows, sizeLabelsOrdered);
+  const gradingSizeLabels = sizeLabelsWithAnyQuantity(
+    sizeLabelsOrdered,
+    totals
+  );
+  const gradingHeaders = [
+    'Incoming Manual Gate Pass Number',
+    'Grading Manual Gate Pass Number',
+    'Variety',
+    'Grading Date',
+    ...gradingSizeLabels.flatMap((label) => [
+      `${label} (mm)`,
+      'Weight (Kg)',
+      'Bag Type',
+    ]),
+    'Total bags',
+  ];
+  return { gradingHeaders, gradingSizeLabels, sizeLabelsOrdered };
+}
+
+function buildGradingRawRows(
+  gradingRows: AccountingGradingRow[],
+  gradingSizeLabels: readonly string[],
+  sizeLabelsOrdered: readonly string[]
+): Array<Array<string | number>> {
+  return coerceRows(
+    gradingRows.map((row) => {
+      const base: Array<string | number> = [
+        row.isContinuation ? '' : row.incomingManualGatePassNumber,
+        row.isContinuation ? '' : row.gradingManualGatePassNumber,
+        row.isContinuation ? '' : row.variety,
+        row.isContinuation ? '' : row.gradingDate,
+      ];
+      const sizeCells = gradingSizeLabels.flatMap((label) => {
+        const cell = row.sizes[label];
+        if (cell === undefined) {
+          return ['', '', ''];
+        }
+        const bags = Number(cell.bags) || 0;
+        const weightPerBag = Number(cell.weightPerBagKg);
+        return [
+          formatZeroAsDash(bags),
+          !Number.isFinite(weightPerBag) || weightPerBag === 0
+            ? ''
+            : formatZeroAsDash(weightPerBag),
+          cell.bagType ?? '',
+        ];
+      });
+      const totalBags = totalBagsForAccountingGradingRow(
+        row,
+        sizeLabelsOrdered
+      );
+      return [...base, ...sizeCells, formatZeroAsDash(totalBags)];
+    })
+  );
+}
+
+function buildGradingTotalsRow(
+  gradingRows: AccountingGradingRow[],
+  gradingSizeLabels: readonly string[],
+  sizeLabelsOrdered: readonly string[]
+): Array<string | number> {
+  const totals = computeGradingTableTotals(gradingRows, sizeLabelsOrdered);
+  const row: Array<string | number> = ['Total', '', '', ''];
+  for (const label of gradingSizeLabels) {
+    row.push(formatZeroAsDash(totals.bySize[label]?.bags ?? 0));
+    row.push(
+      formatZeroAsDash(gradingTotalsAverageWeightPerBagKg(totals, label))
+    );
+    row.push('');
+  }
+  row.push(formatZeroAsDash(totals.totalBags));
+  return row;
 }
 
 function buildSeedTotalsRow(
@@ -437,8 +552,6 @@ function buildReportHeader(
     cell.alignment = { horizontal: 'left', vertical: 'middle' }; // ← left
     applyBorder(cell, COLORS.borderColor);
   }
-
-  ws.addRow([]);
 }
 
 function addColumnHeaderRow(ws: ExcelJS.Worksheet, headers: string[]) {
@@ -574,6 +687,8 @@ export const AccountingReportExcelButton = ({
   reportPeriodLabel,
   reportTitle = 'Accounting Report',
   rowStats,
+  includeGradingTable = true,
+  showFiftyKgBagCount = true,
 }: AccountingReportExcelButtonProps) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = React.useState(false);
 
@@ -591,23 +706,35 @@ export const AccountingReportExcelButton = ({
       wb.creator = safeName;
 
       const allSummaryRows = varietySections.flatMap((s) => s.summaryRows);
-      const { summaryHeaders, summarySizeLabels } =
-        computeSummaryExcelHeaders(allSummaryRows);
+      const { summaryHeaders, summarySizeLabels } = computeSummaryExcelHeaders(
+        allSummaryRows,
+        showFiftyKgBagCount
+      );
+
+      const allGradingRows = varietySections.flatMap((s) => s.gradingRows);
+      const gradingExcelMeta = includeGradingTable
+        ? computeGradingExcelMetadata(allGradingRows)
+        : null;
 
       const maxColumns = Math.max(
         INCOMING_EXCEL_HEADERS.length,
         SEED_EXCEL_HEADERS.length,
         summaryHeaders.length,
+        gradingExcelMeta?.gradingHeaders.length ?? 0,
         2
       );
 
       const reportSheet = wb.addWorksheet(reportTitle);
 
-      const allHeaders = mergeHeaderRowForWidth(maxColumns, [
+      const headerSetsForWidth = [
         INCOMING_EXCEL_HEADERS,
         SEED_EXCEL_HEADERS,
         summaryHeaders,
-      ]);
+      ];
+      if (gradingExcelMeta) {
+        headerSetsForWidth.push(gradingExcelMeta.gradingHeaders);
+      }
+      const allHeaders = mergeHeaderRowForWidth(maxColumns, headerSetsForWidth);
 
       const allBodyRowsForWidth: Array<Array<string | number>> = [];
       for (const section of varietySections) {
@@ -630,6 +757,38 @@ export const AccountingReportExcelButton = ({
           )
         );
       }
+      if (gradingExcelMeta) {
+        const { gradingHeaders, gradingSizeLabels, sizeLabelsOrdered } =
+          gradingExcelMeta;
+        for (const section of varietySections) {
+          allBodyRowsForWidth.push(
+            padRowToMaxColumns(
+              [
+                `Variety: ${section.varietyLabel}`,
+                ...Array(gradingHeaders.length - 1).fill(''),
+              ],
+              maxColumns
+            )
+          );
+          for (const r of buildGradingRawRows(
+            section.gradingRows,
+            gradingSizeLabels,
+            sizeLabelsOrdered
+          )) {
+            allBodyRowsForWidth.push(padRowToMaxColumns(r, maxColumns));
+          }
+          allBodyRowsForWidth.push(
+            padRowToMaxColumns(
+              buildGradingTotalsRow(
+                section.gradingRows,
+                gradingSizeLabels,
+                sizeLabelsOrdered
+              ),
+              maxColumns
+            )
+          );
+        }
+      }
       for (const section of varietySections) {
         allBodyRowsForWidth.push(
           padRowToMaxColumns(
@@ -642,13 +801,18 @@ export const AccountingReportExcelButton = ({
         );
         for (const r of buildSummaryRawRows(
           section.summaryRows,
-          summarySizeLabels
+          summarySizeLabels,
+          showFiftyKgBagCount
         )) {
           allBodyRowsForWidth.push(padRowToMaxColumns(r, maxColumns));
         }
         allBodyRowsForWidth.push(
           padRowToMaxColumns(
-            buildSummaryTotalsRow(section.summaryRows, summarySizeLabels),
+            buildSummaryTotalsRow(
+              section.summaryRows,
+              summarySizeLabels,
+              showFiftyKgBagCount
+            ),
             maxColumns
           )
         );
@@ -693,7 +857,6 @@ export const AccountingReportExcelButton = ({
         overviewLines
       );
 
-      reportSheet.addRow([]);
       addSectionTitle(reportSheet, 'Incoming', maxColumns);
       addColumnHeaderRow(reportSheet, INCOMING_EXCEL_HEADERS);
       for (const section of varietySections) {
@@ -710,6 +873,38 @@ export const AccountingReportExcelButton = ({
         addTotalsRow(reportSheet, buildIncomingTotalsRow(section.incomingRows));
       }
 
+      if (gradingExcelMeta) {
+        const { gradingHeaders, gradingSizeLabels, sizeLabelsOrdered } =
+          gradingExcelMeta;
+        reportSheet.addRow([]);
+        addSectionTitle(reportSheet, 'Grading', maxColumns);
+        addColumnHeaderRow(reportSheet, gradingHeaders);
+        for (const section of varietySections) {
+          addVarietyBandRow(
+            reportSheet,
+            gradingHeaders.length,
+            section.varietyLabel
+          );
+          addDataRowsStriped(
+            reportSheet,
+            buildGradingRawRows(
+              section.gradingRows,
+              gradingSizeLabels,
+              sizeLabelsOrdered
+            ),
+            0
+          );
+          addTotalsRow(
+            reportSheet,
+            buildGradingTotalsRow(
+              section.gradingRows,
+              gradingSizeLabels,
+              sizeLabelsOrdered
+            )
+          );
+        }
+      }
+
       reportSheet.addRow([]);
       addSectionTitle(reportSheet, 'Summary', maxColumns);
       addColumnHeaderRow(reportSheet, summaryHeaders);
@@ -721,12 +916,20 @@ export const AccountingReportExcelButton = ({
         );
         addDataRowsStriped(
           reportSheet,
-          buildSummaryRawRows(section.summaryRows, summarySizeLabels),
+          buildSummaryRawRows(
+            section.summaryRows,
+            summarySizeLabels,
+            showFiftyKgBagCount
+          ),
           0
         );
         addTotalsRow(
           reportSheet,
-          buildSummaryTotalsRow(section.summaryRows, summarySizeLabels)
+          buildSummaryTotalsRow(
+            section.summaryRows,
+            summarySizeLabels,
+            showFiftyKgBagCount
+          )
         );
       }
 
@@ -769,6 +972,8 @@ export const AccountingReportExcelButton = ({
     coldStorageName,
     farmerDetails,
     isGeneratingExcel,
+    includeGradingTable,
+    showFiftyKgBagCount,
     reportTitle,
     reportPeriodLabel,
     rowStats,

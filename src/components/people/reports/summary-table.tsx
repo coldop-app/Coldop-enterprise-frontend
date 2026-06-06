@@ -10,6 +10,7 @@ import type { GradingGatePass } from '@/types/grading-gate-pass';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import {
   aggregateSummaryBagsTotals,
+  bags50KgFromActualWeight,
   prepareAccountingGradingSummary,
   visibleSummarySizeLabels,
   type GradingBagTypeQtySummaryRow,
@@ -66,6 +67,8 @@ export interface SummaryTableProps {
         gradingGatePasses: GradingGatePass[];
       }[]
     | null;
+  /** Accounting report only: actual weight ÷ 50 after Actual Weight (kg). */
+  showFiftyKgBagCount?: boolean;
 }
 
 const columnHelper = createColumnHelper<GradingBagTypeQtySummaryRow>();
@@ -80,7 +83,10 @@ function qtyForSize(
   return n === 0 ? null : n;
 }
 
-function useSummaryColumns(visibleSizes: readonly string[]) {
+function useSummaryColumns(
+  visibleSizes: readonly string[],
+  showFiftyKgBagCount: boolean
+) {
   return useMemo((): ColumnDef<GradingBagTypeQtySummaryRow, any>[] => {
     const base: ColumnDef<GradingBagTypeQtySummaryRow, any>[] = [
       columnHelper.accessor('typeLabel', {
@@ -196,6 +202,30 @@ function useSummaryColumns(visibleSizes: readonly string[]) {
         },
       })
     );
+    if (showFiftyKgBagCount) {
+      base.push(
+        columnHelper.accessor(
+          (row) => bags50KgFromActualWeight(row.actualWeightKg),
+          {
+            id: 'bags50Kg',
+            header: () => (
+              <div className="w-full text-right">No. of bags (50kg)</div>
+            ),
+            cell: (info) => {
+              const v = Number(info.getValue());
+              if (!Number.isFinite(v) || v === 0) {
+                return '';
+              }
+              return (
+                <div className="w-full text-right tabular-nums">
+                  {formatIndianNumber(v, 0)}
+                </div>
+              );
+            },
+          }
+        )
+      );
+    }
     base.push(
       columnHelper.accessor('rate', {
         id: 'rate',
@@ -255,7 +285,7 @@ function useSummaryColumns(visibleSizes: readonly string[]) {
     );
 
     return base;
-  }, [visibleSizes]);
+  }, [visibleSizes, showFiftyKgBagCount]);
 }
 
 function useNumericColumnIds(
@@ -267,6 +297,7 @@ function useNumericColumnIds(
       'weightReceivedKg',
       'bardanaWeightKg',
       'actualWeightKg',
+      'bags50Kg',
       'rate',
       'amountPayable',
       'gradedSizesPercent',
@@ -290,6 +321,7 @@ function useNumericColumnIds(
 const SummaryTable = ({
   gradingGatePasses,
   varietyGroups,
+  showFiftyKgBagCount = false,
 }: SummaryTableProps) => {
   const preferences = usePreferencesStore((s) => s.preferences);
 
@@ -326,7 +358,7 @@ const SummaryTable = ({
     [orderedSizeLabels, columnTotals]
   );
 
-  const columns = useSummaryColumns(visibleSizes);
+  const columns = useSummaryColumns(visibleSizes, showFiftyKgBagCount);
   const numericColumnIds = useNumericColumnIds(columns);
   const totalWeightReceivedKg = useMemo(
     () =>
@@ -356,14 +388,6 @@ const SummaryTable = ({
     () =>
       summaryRows.reduce(
         (sum, row) => sum + (Number(row.amountPayable) || 0),
-        0
-      ),
-    [summaryRows]
-  );
-  const totalGradedSizesPercent = useMemo(
-    () =>
-      summaryRows.reduce(
-        (sum, row) => sum + (Number(row.gradedSizesPercent) || 0),
         0
       ),
     [summaryRows]
@@ -498,10 +522,6 @@ const SummaryTable = ({
                   (s, r) => s + (Number(r.amountPayable) || 0),
                   0
                 );
-                const tgp = prep.rows.reduce(
-                  (s, r) => s + (Number(r.gradedSizesPercent) || 0),
-                  0
-                );
                 out.push(
                   <TableRow
                     key={`ft-${group.varietyKey}`}
@@ -565,6 +585,16 @@ const SummaryTable = ({
                                 {formatIndianWeightKg(ta)}
                               </div>
                             );
+                        } else if (columnId === 'bags50Kg') {
+                          const bags50 = bags50KgFromActualWeight(ta);
+                          content =
+                            bags50 === 0 ? (
+                              ''
+                            ) : (
+                              <div className="w-full text-right tabular-nums">
+                                {formatIndianNumber(bags50, 0)}
+                              </div>
+                            );
                         } else if (columnId === 'amountPayable') {
                           content =
                             tap === 0 ? (
@@ -576,11 +606,11 @@ const SummaryTable = ({
                             );
                         } else if (columnId === 'gradedSizesPercent') {
                           content =
-                            tgp === 0 ? (
+                            prep.rows.length === 0 || ta === 0 ? (
                               ''
                             ) : (
                               <div className="w-full text-right tabular-nums">
-                                {formatIndianNumber(tgp, 2)}%
+                                {formatIndianNumber(100, 2)}%
                               </div>
                             );
                         } else {
@@ -703,6 +733,17 @@ const SummaryTable = ({
                           {formatIndianWeightKg(totalActualWeightKg)}
                         </div>
                       );
+                  } else if (columnId === 'bags50Kg') {
+                    const bags50 =
+                      bags50KgFromActualWeight(totalActualWeightKg);
+                    content =
+                      bags50 === 0 ? (
+                        ''
+                      ) : (
+                        <div className="w-full text-right tabular-nums">
+                          {formatIndianNumber(bags50, 0)}
+                        </div>
+                      );
                   } else if (columnId === 'amountPayable') {
                     content =
                       totalAmountPayable === 0 ? (
@@ -714,11 +755,11 @@ const SummaryTable = ({
                       );
                   } else if (columnId === 'gradedSizesPercent') {
                     content =
-                      totalGradedSizesPercent === 0 ? (
+                      summaryRows.length === 0 || totalActualWeightKg === 0 ? (
                         ''
                       ) : (
                         <div className="w-full text-right tabular-nums">
-                          {formatIndianNumber(totalGradedSizesPercent, 2)}%
+                          {formatIndianNumber(100, 2)}%
                         </div>
                       );
                   } else {

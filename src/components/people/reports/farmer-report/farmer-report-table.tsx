@@ -363,6 +363,8 @@ const FarmerReportTable = ({ farmerStorageLinkId }: FarmerReportTableProps) => {
                 reportPeriodLabel={reportPeriodLabel}
                 reportTitle="Farmer Report"
                 rowStats={rowStats}
+                includeGradingTable={false}
+                showFiftyKgBagCount={false}
               />
               <Button
                 type="button"

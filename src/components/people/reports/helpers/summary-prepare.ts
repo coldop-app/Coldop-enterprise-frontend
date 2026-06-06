@@ -35,6 +35,35 @@ function normalizeBuyBackSizeToken(raw: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * Split 100% across weights using largest-remainder at 0.01% precision so the
+ * displayed parts always sum to exactly 100.
+ */
+function percentagesFromWeights(weights: readonly number[]): number[] {
+  if (weights.length === 0) return [];
+
+  const total = weights.reduce((sum, w) => sum + (Number(w) || 0), 0);
+  if (total <= 0) return weights.map(() => 0);
+
+  const hundredths = weights.map((w) => ((Number(w) || 0) / total) * 100 * 100);
+  const floors = hundredths.map((v) => Math.floor(v + 1e-9));
+  let remainder = 10000 - floors.reduce((sum, f) => sum + f, 0);
+
+  const byFractionDesc = hundredths
+    .map((v, index) => ({ index, fraction: v - floors[index] }))
+    .sort((a, b) => b.fraction - a.fraction);
+
+  const adjusted = [...floors];
+  let cursor = 0;
+  while (remainder > 0) {
+    adjusted[byFractionDesc[cursor % byFractionDesc.length].index] += 1;
+    remainder -= 1;
+    cursor += 1;
+  }
+
+  return adjusted.map((hundredth) => hundredth / 100);
+}
+
 function compactBuyBackSizeKey(raw: string): string {
   return normalizeBuyBackSizeToken(raw).replace(/\s+/g, '').toLowerCase();
 }
@@ -126,6 +155,15 @@ export type GradingBagTypeQtySummaryRow = {
 
 /** Sum bags per size column across summary rows (for footer alignment). */
 export type GradingSummaryColumnTotals = Record<string, number>;
+
+const FIFTY_KG_BAG_DIVISOR = 50;
+
+/** Accounting report: rounded 50 kg bag count from net actual weight. */
+export function bags50KgFromActualWeight(actualWeightKg: number): number {
+  const n = Number(actualWeightKg);
+  if (!Number.isFinite(n) || n === 0) return 0;
+  return Math.round(n / FIFTY_KG_BAG_DIVISOR);
+}
 
 /**
  * Builds `type|size|weight|variety`. Size and type use the same rules as grading prep.
@@ -475,17 +513,12 @@ function sparseSummaryRowsFromGroupedMap(
     });
   }
 
-  const totalActualWeightKg = rows.reduce(
-    (sum, row) => sum + (Number(row.actualWeightKg) || 0),
-    0
-  );
+  const weights = rows.map((row) => Number(row.actualWeightKg) || 0);
+  const percents = percentagesFromWeights(weights);
 
-  return rows.map((row) => ({
+  return rows.map((row, index) => ({
     ...row,
-    gradedSizesPercent:
-      totalActualWeightKg > 0
-        ? roundMax2((row.actualWeightKg / totalActualWeightKg) * 100)
-        : 0,
+    gradedSizesPercent: percents[index] ?? 0,
   }));
 }
 
