@@ -66,6 +66,7 @@ import { ViewFiltersSheet } from './view-filters-sheet/index';
 import {
   flattenNikasiReportRows,
   getNikasiBagSizeQuantity,
+  recomputeNikasiVarietyRowSpans,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
 import {
@@ -354,6 +355,11 @@ const NikasiReportDataTable = ({
   const filteredTableRows = table.getFilteredRowModel().rows;
   const filteredDisplayRows = filteredTableRows.map((row) => row.original);
 
+  const spanAdjustedDisplayRows = useMemo(
+    () => recomputeNikasiVarietyRowSpans(filteredDisplayRows),
+    [filteredDisplayRows]
+  );
+
   const filteredSourceRows = useMemo(() => {
     const gatePassIds = new Set(
       filteredDisplayRows.map((row) => row.gatePassId)
@@ -376,16 +382,21 @@ const NikasiReportDataTable = ({
 
     const rowById = new Map(filteredTableRows.map((row) => [row.id, row]));
     const sortedDisplayRows = sortNikasiDisplayRowsByGatePassBlocks(
-      filteredDisplayRows,
+      spanAdjustedDisplayRows,
       sorting,
       bagSizeColumnIds
     );
 
     return sortedDisplayRows
-      .map((row) => rowById.get(row.id))
+      .map((adjustedRow) => {
+        const tableRow = rowById.get(adjustedRow.id);
+        if (!tableRow) return null;
+        tableRow.original = adjustedRow;
+        return tableRow;
+      })
       .filter((row): row is (typeof filteredTableRows)[number] => Boolean(row));
   }, [
-    filteredDisplayRows,
+    spanAdjustedDisplayRows,
     filteredTableRows,
     isGroupingActive,
     sorting,

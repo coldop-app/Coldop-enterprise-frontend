@@ -114,6 +114,42 @@ export function flattenNikasiReportRows(
   return flattened;
 }
 
+/** Reassigns varietyRowIndex/varietyRowSpan after column filters remove sub-rows. */
+export function recomputeNikasiVarietyRowSpans(
+  rows: NikasiReportDisplayRow[]
+): NikasiReportDisplayRow[] {
+  if (rows.length === 0) return rows;
+
+  const blocksByGatePassId = new Map<string, NikasiReportDisplayRow[]>();
+  const gatePassOrder: string[] = [];
+
+  for (const row of rows) {
+    if (!blocksByGatePassId.has(row.gatePassId)) {
+      gatePassOrder.push(row.gatePassId);
+      blocksByGatePassId.set(row.gatePassId, []);
+    }
+    blocksByGatePassId.get(row.gatePassId)!.push(row);
+  }
+
+  const adjusted: NikasiReportDisplayRow[] = [];
+
+  for (const gatePassId of gatePassOrder) {
+    const block = blocksByGatePassId.get(gatePassId)!;
+    block.sort((a, b) => a.varietyRowIndex - b.varietyRowIndex);
+
+    const span = block.length;
+    block.forEach((row, index) => {
+      adjusted.push({
+        ...row,
+        varietyRowIndex: index,
+        varietyRowSpan: span,
+      });
+    });
+  }
+
+  return adjusted;
+}
+
 export function getNikasiBagSizeQuantity(
   row: NikasiReportDisplayRow,
   columnId: string
