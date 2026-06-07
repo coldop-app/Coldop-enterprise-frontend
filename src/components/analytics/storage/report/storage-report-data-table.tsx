@@ -11,7 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { BagSizeColumnId, IncomingReportRow } from './columns';
+import {
+  formatIndianNumber,
+  type BagSizeColumnId,
+  type IncomingReportRow,
+} from './columns';
 
 const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
@@ -19,6 +23,12 @@ const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 const isFirefoxBrowser =
   typeof window !== 'undefined' &&
   window.navigator.userAgent.includes('Firefox');
+
+function formatTotalCellValue(value: number | undefined): string {
+  const numericValue = Number(value ?? 0);
+  if (numericValue === 0) return '';
+  return formatIndianNumber(numericValue, 0);
+}
 
 function getColumnFlexStyle(size: number): React.CSSProperties {
   return {
@@ -290,9 +300,9 @@ export function StorageReportDataTable({
                   const cellValue = bagSizeColumnIds.includes(
                     columnId as BagSizeColumnId
                   )
-                    ? totalsByColumn[columnId] || ''
+                    ? formatTotalCellValue(totalsByColumn[columnId])
                     : columnId === 'totalBags'
-                      ? totalsByColumn.totalBags || ''
+                      ? formatTotalCellValue(totalsByColumn.totalBags)
                       : '';
                   const isRightAligned = numericColumnIds.has(columnId);
                   const columnSize = table.getColumn(columnId)?.getSize() ?? 0;
