@@ -241,7 +241,7 @@ function addTotalsRow(
   numericColumnIds: Set<string>
 ) {
   const exRow = ws.addRow(values);
-  exRow.height = 24;
+  exRow.height = 40;
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     const colId = columnIds[colNumber - 1];
@@ -521,7 +521,7 @@ export const NikasiExcelButton = ({
         worksheet.addRow([]);
 
         const columnHeaderRow = worksheet.addRow(headerLabels);
-        columnHeaderRow.height = 36;
+        columnHeaderRow.height = 40;
         columnHeaderRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -538,7 +538,7 @@ export const NikasiExcelButton = ({
           const background = dataRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
-          excelRow.height = 22;
+          excelRow.height = 40;
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);
