@@ -9,9 +9,19 @@ import {
   MapPinned,
 } from 'lucide-react';
 import type { DispatchLedger } from '@/types/dispatch-ledger';
-import type { FarmerStorageLink } from '@/types/incoming-gate-pass';
 
-type FarmerCardItem = FarmerStorageLink & {
+type FarmerCardItem = {
+  _id: string;
+  farmerId: {
+    _id: string;
+    name: string;
+    address: string;
+    mobileNumber: string;
+  };
+  accountNumber: number;
+  isActive: boolean;
+  stationId?: string | { name?: string } | null;
+  localityId?: string | { name?: string } | null;
   dispatchLedger?: DispatchLedger;
 };
 
