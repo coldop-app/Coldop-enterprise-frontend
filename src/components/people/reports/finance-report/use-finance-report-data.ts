@@ -1,6 +1,9 @@
 import { useEffect, useMemo } from 'react';
 
-import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import {
+  resolveStationRates,
+  useGetAllGatePassesOfFarmer,
+} from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import {
   normalizePreferences,
   useGetPreferences,
@@ -53,15 +56,21 @@ export function useFinanceReportData(farmerStorageLinkId: string) {
     [storePreferences, serverPreferences]
   );
 
+  const stationRates = useMemo(
+    () => resolveStationRates(farmerStorageLink?.station),
+    [farmerStorageLink?.station]
+  );
+
   const reportData = useMemo(
     () =>
       buildFinanceReportData(
         farmerSeedList,
         incomingList,
         gradingList ?? [],
-        preferences
+        preferences,
+        stationRates
       ),
-    [farmerSeedList, incomingList, gradingList, preferences]
+    [farmerSeedList, incomingList, gradingList, preferences, stationRates]
   );
 
   const reportPeriodLabel = useMemo(

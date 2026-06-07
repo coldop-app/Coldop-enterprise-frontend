@@ -42,13 +42,19 @@ import {
   type FinanceParticularRow,
   type PreferencesData,
 } from '@/services/store-admin/preferences/useGetPreferences';
-import type { FarmerSeedGatePass } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import type {
+  FarmerSeedGatePass,
+  StationRates,
+} from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import type { IncomingGatePassByFarmerStorageLinkItem } from '@/types/incoming-gate-pass';
 import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 const PALADAAR_AFTER_LOADING_GRADING_PARTICULAR_NAME =
   'Paladaar Charges after loading after grading';
 const STORAGE_CHARGES_PARTICULAR_NAME = 'Storage Charges';
+const FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME = 'Freight: Seed (Dispatched)';
+const FREIGHT_BUY_BACK_PARTICULAR_NAME =
+  'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)';
 const BUY_BACK_PAYABLE_COST_DRIVER: FinanceCostDriver = 'Buy-back-payable';
 const NET_AMOUNT_PAYABLE_COST_DRIVER: FinanceCostDriver = 'NetAmountPayable';
 const KG_PER_QUINTAL = 100;
@@ -318,19 +324,37 @@ export function resolveSalePricePerBagRate(
   );
 }
 
-/** Matches accounting farmer seed table: gate-pass quantity × gate-pass rate. */
+/** Planting seed lines: bags from gate passes; rate/amount from preferences (actual cost without subsidy). */
 function mapFarmerSeedRowToFinancePlantingRow(
-  seedRow: FarmerSeedRow
+  seedRow: FarmerSeedRow,
+  varietyKey: string,
+  preferences: PreferencesData | null | undefined
 ): FinancePlantingRow {
+  const rate = resolveActualCostWithoutSubsidyRate(
+    varietyKey,
+    seedRow.seedSize,
+    preferences
+  );
+  const bags = Number(seedRow.totalBagsGiven) || 0;
+  const amount = rate != null ? roundMax2(bags * rate) : null;
+
   return {
     id: seedRow.id,
     particulars: seedRow.seedSize,
     areaPlantedAcres: seedRow.areaPlantedAcres,
     numberOfBags: seedRow.totalBagsGiven,
     bagWeight: null,
-    ratePerAcreOrBag: seedRow.seedRatePerBag,
-    amount: seedRow.totalSeedAmount,
+    ratePerAcreOrBag: rate,
+    amount,
   };
+}
+
+function aggregateMappedSeedAmount(rows: FinancePlantingRow[]): number {
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number(row.amount) || 0;
+  }
+  return roundMax2(sum);
 }
 
 function findNetPayableParticularRowIndex(
@@ -522,12 +546,52 @@ function amountFromWeightKgPerQuintal(kg: number, rate: number): number {
   return roundMax2((netKg / KG_PER_QUINTAL) * rate);
 }
 
+function normalizeParticularName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function isFreightSeedDispatchedParticular(
+  item: FinanceParticularRow
+): boolean {
+  const name = normalizeParticularName(item.name);
+  return (
+    name === normalizeParticularName(FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME) ||
+    name.startsWith('freight: seed')
+  );
+}
+
+function isFreightBuyBackParticular(item: FinanceParticularRow): boolean {
+  const name = normalizeParticularName(item.name);
+  return (
+    name === normalizeParticularName(FREIGHT_BUY_BACK_PARTICULAR_NAME) ||
+    name.startsWith('freight: buy back') ||
+    (item.costDriver === 'IncomingWeightWithoutBardana' &&
+      name.includes('freight') &&
+      name.includes('buy back'))
+  );
+}
+
+function resolveParticularRate(
+  item: FinanceParticularRow,
+  stationRates: StationRates | null | undefined
+): number {
+  if (stationRates) {
+    if (isFreightSeedDispatchedParticular(item)) {
+      return stationRates.seedDispatchRatePerBag;
+    }
+    if (isFreightBuyBackParticular(item)) {
+      return stationRates.seedBuyBackRatePerQuintal;
+    }
+  }
+  return Number(item.rate);
+}
+
 function resolveParticularsRowAmount(
   item: FinanceParticularRow,
   metrics: VarietyFinanceMetrics,
-  numberOfBags: number | null
+  numberOfBags: number | null,
+  rate: number
 ): number | null {
-  const rate = Number(item.rate);
   if (!Number.isFinite(rate)) return null;
 
   switch (item.costDriver) {
@@ -570,23 +634,26 @@ function resolveParticularsRowAmount(
 
 function buildParticularsPlantingRows(
   metrics: VarietyFinanceMetrics,
-  preferences: PreferencesData | null | undefined
+  preferences: PreferencesData | null | undefined,
+  stationRates: StationRates | null | undefined = undefined
 ): FinancePlantingRow[] {
   const fc = getFinanceConstants(preferences);
   const safeKey = metrics.varietyKey.replace(/[^a-zA-Z0-9_-]/g, '_');
 
   return fc.particulars.map((item, index) => {
     const quantityColumns = resolveParticularQuantityColumns(item, metrics);
+    const rate = resolveParticularRate(item, stationRates);
 
     return {
       id: `particular-${safeKey}-${index}`,
       particulars: item.name,
       ...quantityColumns,
-      ratePerAcreOrBag: item.rate,
+      ratePerAcreOrBag: rate,
       amount: resolveParticularsRowAmount(
         item,
         metrics,
-        quantityColumns.numberOfBags
+        quantityColumns.numberOfBags,
+        rate
       ),
     };
   });
@@ -615,6 +682,10 @@ function computeVarietyMetricsFromSection(
     summaryRows
   );
 
+  const seedRowsMapped = farmerSeedRows.map((row) =>
+    mapFarmerSeedRowToFinancePlantingRow(row, varietyKey, preferences)
+  );
+
   return {
     varietyKey,
     gradingForVariety,
@@ -625,7 +696,7 @@ function computeVarietyMetricsFromSection(
       (sum, row) => sum + (Number(row.totalBagsGiven) || 0),
       0
     ),
-    totalSeedAmount: aggregateTotalSeedAmount(farmerSeedRows),
+    totalSeedAmount: aggregateMappedSeedAmount(seedRowsMapped),
     totalGradingWeightWithBardanaKg:
       aggregateSummaryWeightReceivedKg(summaryRows),
     gradingTotals,
@@ -635,7 +706,7 @@ function computeVarietyMetricsFromSection(
       gradingTotals40MmAndAbove
     ),
     summaryAmountPayable: aggregateSummaryAmountPayable(summaryRows),
-    seedRowsMapped: farmerSeedRows.map(mapFarmerSeedRowToFinancePlantingRow),
+    seedRowsMapped,
   };
 }
 
@@ -715,7 +786,8 @@ export function buildFinanceReportGroups(
   farmerSeeds: FarmerSeedGatePass[] | null | undefined,
   incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
   gradingPasses: GradingGatePass[] | null | undefined,
-  preferences: PreferencesData | null | undefined = undefined
+  preferences: PreferencesData | null | undefined = undefined,
+  stationRates: StationRates | null | undefined = undefined
 ): FinanceReportGroups {
   const seeds = farmerSeeds ?? [];
   const incoming = incomingPasses ?? [];
@@ -748,7 +820,11 @@ export function buildFinanceReportGroups(
       totals: computeFinanceGradingVarietyTotals(gradingRows),
     });
 
-    const particularsRows = buildParticularsPlantingRows(metrics, preferences);
+    const particularsRows = buildParticularsPlantingRows(
+      metrics,
+      preferences,
+      stationRates
+    );
 
     plantingGroups.push({
       varietyKey,
@@ -770,13 +846,15 @@ export function buildFinanceReportData(
   farmerSeeds: FarmerSeedGatePass[] | null | undefined,
   incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
   gradingPasses: GradingGatePass[] | null | undefined,
-  preferences: PreferencesData | null | undefined = undefined
+  preferences: PreferencesData | null | undefined = undefined,
+  stationRates: StationRates | null | undefined = undefined
 ): FinanceReportData {
   const { plantingGroups, gradingGroups } = buildFinanceReportGroups(
     farmerSeeds,
     incomingPasses,
     gradingPasses,
-    preferences
+    preferences,
+    stationRates
   );
 
   return {
