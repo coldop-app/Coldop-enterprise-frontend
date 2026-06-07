@@ -57,8 +57,12 @@ export function useFinanceReportData(farmerStorageLinkId: string) {
   );
 
   const stationRates = useMemo(
-    () => resolveStationRates(farmerStorageLink?.station),
-    [farmerStorageLink?.station]
+    () =>
+      resolveStationRates(
+        farmerStorageLink?.station,
+        farmerStorageLink?.localityId
+      ),
+    [farmerStorageLink?.station, farmerStorageLink?.localityId]
   );
 
   const reportData = useMemo(

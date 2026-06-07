@@ -1,21 +1,21 @@
+import type { Locality } from '@/types/locality';
+
 export interface Station {
   _id: string;
   coldStorageId: string;
   name: string;
-  locality: string;
-  seedDispatchRatePerBag: number;
-  seedBuyBackRatePerQuintal: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StationWithLocalities extends Station {
+  localities: Locality[];
 }
 
 /** Request body for POST /station */
 export interface CreateStationInput {
   coldStorageId: string;
   name: string;
-  locality: string;
-  seedDispatchRatePerBag: number;
-  seedBuyBackRatePerQuintal: number;
 }
 
 /** API response for POST /station */
@@ -28,10 +28,7 @@ export interface CreateStationApiResponse {
 /** Request body for PUT /station/:id */
 export interface EditStationInput {
   coldStorageId: string;
-  name?: string;
-  locality?: string;
-  seedDispatchRatePerBag?: number;
-  seedBuyBackRatePerQuintal?: number;
+  name: string;
 }
 
 export type EditStationParams = EditStationInput & {

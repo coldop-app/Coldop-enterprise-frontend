@@ -4,29 +4,30 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  EditStationApiResponse,
-  EditStationInput,
-  EditStationParams,
-} from '@/types/station';
-import { stationKeys } from './keys';
+  EditLocalityApiResponse,
+  EditLocalityInput,
+  EditLocalityParams,
+} from '@/types/locality';
+import { stationKeys } from '../station/keys';
+import { localityKeys } from './keys';
 
-/** API error shape: { success, error: { code, message } } */
-type EditStationApiError = {
+type EditLocalityApiError = {
   success?: boolean;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-const DEFAULT_ERROR_MESSAGE = 'Failed to update station';
+const DEFAULT_ERROR_MESSAGE = 'Failed to update locality';
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
-  400: 'Invalid station update payload',
+  400: 'Invalid locality update payload',
   401: 'Authentication token is required',
-  404: 'Station not found',
+  404: 'Locality not found',
+  409: 'A locality with this name already exists under this station',
 };
 
-function getEditStationErrorMessage(
-  data: EditStationApiError | undefined,
+function getEditLocalityErrorMessage(
+  data: EditLocalityApiError | undefined,
   status?: number
 ): string {
   return (
@@ -39,26 +40,28 @@ function getEditStationErrorMessage(
   );
 }
 
-function normalizeEditStationPayload(payload: EditStationInput) {
+function normalizeEditLocalityPayload(payload: EditLocalityInput) {
   return {
     name: payload.name.trim(),
+    seedDispatchRatePerBag: Number(payload.seedDispatchRatePerBag),
+    seedBuyBackRatePerQuintal: Number(payload.seedBuyBackRatePerQuintal),
   };
 }
 
-/** Hook to update a station. PUT /station/:id */
-export function useEditStation() {
+/** Hook to update a locality. PUT /locality/:id */
+export function useEditLocality() {
   return useMutation<
-    EditStationApiResponse,
-    AxiosError<EditStationApiError>,
-    EditStationParams
+    EditLocalityApiResponse,
+    AxiosError<EditLocalityApiError>,
+    EditLocalityParams
   >({
-    mutationKey: [...stationKeys.all, 'edit'],
+    mutationKey: [...localityKeys.all, 'edit'],
     mutationFn: async ({ id, ...payload }) => {
       const safeId = encodeURIComponent(id);
-      const normalizedPayload = normalizeEditStationPayload(payload);
+      const normalizedPayload = normalizeEditLocalityPayload(payload);
 
-      const { data } = await storeAdminAxiosClient.put<EditStationApiResponse>(
-        `/station/${safeId}`,
+      const { data } = await storeAdminAxiosClient.put<EditLocalityApiResponse>(
+        `/locality/${safeId}`,
         normalizedPayload
       );
 
@@ -70,6 +73,12 @@ export function useEditStation() {
         return;
       }
 
+      const stationId = data.data?.stationId;
+      if (stationId) {
+        await queryClient.invalidateQueries({
+          queryKey: localityKeys.lists(stationId),
+        });
+      }
       await queryClient.invalidateQueries({
         queryKey: stationKeys.all,
       });
@@ -77,7 +86,7 @@ export function useEditStation() {
     onError: (error) => {
       const status = error.response?.status;
       const errMsg = error.response?.data
-        ? getEditStationErrorMessage(error.response.data, status)
+        ? getEditLocalityErrorMessage(error.response.data, status)
         : status !== undefined && status in STATUS_ERROR_MESSAGES
           ? STATUS_ERROR_MESSAGES[status]
           : error.message || DEFAULT_ERROR_MESSAGE;

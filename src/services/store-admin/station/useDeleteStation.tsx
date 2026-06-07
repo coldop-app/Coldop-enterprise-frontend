@@ -21,7 +21,7 @@ const DEFAULT_ERROR_MESSAGE = 'Failed to delete station';
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
   401: 'Authentication token is required',
   404: 'Station not found',
-  409: 'Station is assigned to one or more farmer storage links and cannot be deleted',
+  409: 'Delete all localities first, or remove farmer storage links before deleting this station',
 };
 
 function getDeleteStationErrorMessage(

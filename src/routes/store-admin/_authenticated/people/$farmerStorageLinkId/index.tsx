@@ -17,6 +17,7 @@ import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import type { GatePassesTotals } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import {
   prefetchAllGatePassesOfFarmer,
+  resolveEntityId,
   useGetAllGatePassesOfFarmer,
 } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import { buildFarmerProfileAggregates } from './helpers/-calculations';
@@ -36,14 +37,6 @@ const EMPTY_TOTALS: GatePassesTotals = {
 
 const PROFILE_TABS = ['seed', 'incoming', 'grading'] as const;
 type ProfileTab = (typeof PROFILE_TABS)[number];
-
-function getStationId(
-  station: string | { _id: string; name?: string } | null | undefined
-): string {
-  if (!station) return '';
-  if (typeof station === 'string') return station;
-  return station._id ?? '';
-}
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/people/$farmerStorageLinkId/'
@@ -129,8 +122,11 @@ function RouteComponent() {
                     mobileNumber={
                       gatePassesResponse.farmerStorageLink?.mobileNumber
                     }
-                    stationId={getStationId(
-                      gatePassesResponse.farmerStorageLink?.station
+                    stationId={resolveEntityId(
+                      gatePassesResponse.farmerStorageLink?.stationId
+                    )}
+                    localityId={resolveEntityId(
+                      gatePassesResponse.farmerStorageLink?.localityId
                     )}
                     farmerStorageLinkId={farmerStorageLinkId}
                     aggregates={aggregates}

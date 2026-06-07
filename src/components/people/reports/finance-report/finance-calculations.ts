@@ -38,7 +38,6 @@ import {
 import {
   getFinanceConstants,
   type FinanceConstantsData,
-  type FinanceCostDriver,
   type FinanceParticularRow,
   type PreferencesData,
 } from '@/services/store-admin/preferences/useGetPreferences';
@@ -55,8 +54,6 @@ const STORAGE_CHARGES_PARTICULAR_NAME = 'Storage Charges';
 const FREIGHT_SEED_DISPATCHED_PARTICULAR_NAME = 'Freight: Seed (Dispatched)';
 const FREIGHT_BUY_BACK_PARTICULAR_NAME =
   'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)';
-const BUY_BACK_PAYABLE_COST_DRIVER: FinanceCostDriver = 'Buy-back-payable';
-const NET_AMOUNT_PAYABLE_COST_DRIVER: FinanceCostDriver = 'NetAmountPayable';
 const KG_PER_QUINTAL = 100;
 const GRADING_SHORTAGE_RATE = 0.06;
 const POST_STORAGE_BAG_KG = 50;
@@ -355,18 +352,6 @@ function aggregateMappedSeedAmount(rows: FinancePlantingRow[]): number {
     sum += Number(row.amount) || 0;
   }
   return roundMax2(sum);
-}
-
-function findNetPayableParticularRowIndex(
-  particulars: FinanceParticularRow[]
-): number {
-  const netAmountIndex = particulars.findIndex(
-    (item) => item.costDriver === NET_AMOUNT_PAYABLE_COST_DRIVER
-  );
-  if (netAmountIndex >= 0) return netAmountIndex;
-  return particulars.findIndex(
-    (item) => item.costDriver === BUY_BACK_PAYABLE_COST_DRIVER
-  );
 }
 
 export function aggregateVarietyNetAcres(
@@ -710,25 +695,16 @@ function computeVarietyMetricsFromSection(
   };
 }
 
-export function computePlantingVarietyNetAmount(
-  _seedRows: FinancePlantingRow[],
-  particularsRows: FinancePlantingRow[],
-  preferences: PreferencesData | null | undefined
+/** Sum of all Amount column values in a variety's planting table (seed + particulars rows). */
+export function sumPlantingVarietyRowAmounts(
+  seedRows: FinancePlantingRow[],
+  particularsRows: FinancePlantingRow[]
 ): number {
-  const fc = getFinanceConstants(preferences);
-  const netPayableRowIndex = findNetPayableParticularRowIndex(fc.particulars);
-  const multiplicationExpenses =
-    netPayableRowIndex >= 0
-      ? Number(particularsRows[netPayableRowIndex]?.amount) || 0
-      : 0;
-
-  let totalOutflow = 0;
-  for (let i = 0; i < particularsRows.length; i++) {
-    if (i === netPayableRowIndex) continue;
-    totalOutflow += Number(particularsRows[i]?.amount) || 0;
+  let sum = 0;
+  for (const row of [...seedRows, ...particularsRows]) {
+    sum += Number(row.amount) || 0;
   }
-
-  return roundMax2(multiplicationExpenses - totalOutflow);
+  return roundMax2(sum);
 }
 
 export function computeFinanceReportRowStats(
@@ -769,6 +745,7 @@ export function computeFinanceReportSummary(
   }
   totalGradingSaleAmount = roundMax2(totalGradingSaleAmount);
 
+  // Net revenue = total grading table sale amount − total planting table amount.
   const netRevenue = roundMax2(totalGradingSaleAmount - totalPlantingNetAmount);
   const netAmountPerAcre =
     totalAcresPlanted > 0 ? roundMax2(netRevenue / totalAcresPlanted) : null;
@@ -831,10 +808,9 @@ export function buildFinanceReportGroups(
       varietyLabel: section.varietyLabel,
       seedRows: metrics.seedRowsMapped,
       particularsRows,
-      netAmount: computePlantingVarietyNetAmount(
+      netAmount: sumPlantingVarietyRowAmounts(
         metrics.seedRowsMapped,
-        particularsRows,
-        preferences
+        particularsRows
       ),
     });
   }

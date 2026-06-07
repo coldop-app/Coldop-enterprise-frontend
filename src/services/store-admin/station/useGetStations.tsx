@@ -40,7 +40,7 @@ function getStationsErrorMessage(errorOrData: unknown): string {
   return 'Failed to fetch stations';
 }
 
-async function fetchStations(
+export async function fetchStations(
   params: GetStationsParams
 ): Promise<GetStationsResult> {
   try {

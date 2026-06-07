@@ -4,27 +4,29 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  CreateStationApiResponse,
-  CreateStationInput,
-} from '@/types/station';
-import { stationKeys } from './keys';
+  CreateLocalityApiResponse,
+  CreateLocalityInput,
+} from '@/types/locality';
+import { stationKeys } from '../station/keys';
+import { localityKeys } from './keys';
 
-/** API error shape: { success, error: { code, message } } */
-type CreateStationApiError = {
+type CreateLocalityApiError = {
   success?: boolean;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-const DEFAULT_ERROR_MESSAGE = 'Failed to create station';
+const DEFAULT_ERROR_MESSAGE = 'Failed to create locality';
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
-  400: 'Invalid station payload',
+  400: 'Invalid locality payload',
   401: 'Authentication token is required',
+  404: 'Station not found',
+  409: 'A locality with this name already exists under this station',
 };
 
-function getCreateStationErrorMessage(
-  data: CreateStationApiError | undefined,
+function getCreateLocalityErrorMessage(
+  data: CreateLocalityApiError | undefined,
   status?: number
 ): string {
   return (
@@ -37,37 +39,43 @@ function getCreateStationErrorMessage(
   );
 }
 
-function normalizeCreateStationPayload(payload: CreateStationInput) {
+function normalizeCreateLocalityPayload(payload: CreateLocalityInput) {
   return {
+    stationId: payload.stationId.trim(),
     name: payload.name.trim(),
+    seedDispatchRatePerBag: Number(payload.seedDispatchRatePerBag),
+    seedBuyBackRatePerQuintal: Number(payload.seedBuyBackRatePerQuintal),
   };
 }
 
-/** Hook to create a station. POST /station */
-export function useCreateStation() {
+/** Hook to create a locality. POST /locality */
+export function useCreateLocality() {
   return useMutation<
-    CreateStationApiResponse,
-    AxiosError<CreateStationApiError>,
-    CreateStationInput
+    CreateLocalityApiResponse,
+    AxiosError<CreateLocalityApiError>,
+    CreateLocalityInput
   >({
-    mutationKey: [...stationKeys.all, 'create'],
+    mutationKey: [...localityKeys.all, 'create'],
     mutationFn: async (payload) => {
-      const normalizedPayload = normalizeCreateStationPayload(payload);
+      const normalizedPayload = normalizeCreateLocalityPayload(payload);
 
       const { data } =
-        await storeAdminAxiosClient.post<CreateStationApiResponse>(
-          '/station/',
+        await storeAdminAxiosClient.post<CreateLocalityApiResponse>(
+          '/locality/',
           normalizedPayload
         );
 
       return data;
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       if (!data.success) {
         toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
         return;
       }
 
+      await queryClient.invalidateQueries({
+        queryKey: localityKeys.lists(variables.stationId),
+      });
       await queryClient.invalidateQueries({
         queryKey: stationKeys.all,
       });
@@ -75,7 +83,7 @@ export function useCreateStation() {
     onError: (error) => {
       const status = error.response?.status;
       const errMsg = error.response?.data
-        ? getCreateStationErrorMessage(error.response.data, status)
+        ? getCreateLocalityErrorMessage(error.response.data, status)
         : status !== undefined && status in STATUS_ERROR_MESSAGES
           ? STATUS_ERROR_MESSAGES[status]
           : error.message || DEFAULT_ERROR_MESSAGE;

@@ -14,11 +14,20 @@ import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 export type { GradingGatePass };
 
-/** Populated station on GET .../passes `farmerStorageLink.station` */
+/** Populated station on GET .../passes `farmerStorageLink.stationId` */
 export interface StationInPassesPayload {
   _id: string;
   name?: string;
   locality?: string;
+  seedDispatchRatePerBag?: number;
+  seedBuyBackRatePerQuintal?: number;
+}
+
+/** Populated locality on GET .../passes `farmerStorageLink.localityId` */
+export interface LocalityInPassesPayload {
+  _id: string;
+  name?: string;
+  stationId?: string;
   seedDispatchRatePerBag?: number;
   seedBuyBackRatePerQuintal?: number;
 }
@@ -28,6 +37,14 @@ export type StationRates = {
   seedBuyBackRatePerQuintal: number;
 };
 
+export function resolveEntityId(
+  value: string | { _id?: string } | null | undefined
+): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  return value._id ?? '';
+}
+
 /** Farmer storage link summary included in GET .../passes `data` */
 export interface FarmerStorageLinkInPassesPayload {
   _id: string;
@@ -35,13 +52,28 @@ export interface FarmerStorageLinkInPassesPayload {
   name: string;
   mobileNumber: string;
   address: string;
+  stationId?: string | StationInPassesPayload | null;
+  localityId?: string | LocalityInPassesPayload | null;
+  /** @deprecated Legacy populated station blob; prefer localityId for rates */
   station?: string | StationInPassesPayload | null;
 }
 
-/** Resolves station freight rates when the passes API returns a populated station object. */
+/** Resolves station freight rates when the passes API returns a populated station or locality object. */
 export function resolveStationRates(
-  station: FarmerStorageLinkInPassesPayload['station']
+  station: FarmerStorageLinkInPassesPayload['station'],
+  locality?: FarmerStorageLinkInPassesPayload['localityId']
 ): StationRates | null {
+  if (locality != null && typeof locality === 'object') {
+    const dispatch = Number(locality.seedDispatchRatePerBag);
+    const buyBack = Number(locality.seedBuyBackRatePerQuintal);
+    if (Number.isFinite(dispatch) && Number.isFinite(buyBack)) {
+      return {
+        seedDispatchRatePerBag: dispatch,
+        seedBuyBackRatePerQuintal: buyBack,
+      };
+    }
+  }
+
   if (station == null || typeof station === 'string') return null;
 
   const dispatch = Number(station.seedDispatchRatePerBag);

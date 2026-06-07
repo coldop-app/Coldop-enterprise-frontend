@@ -25,7 +25,8 @@ export interface EditFarmerStorageLinkInput {
   mobileNumber: string;
   accountNumber: number;
   address: string;
-  station: string;
+  stationId: string;
+  localityId: string;
 }
 
 export interface EditFarmerStorageLinkApiResponse {

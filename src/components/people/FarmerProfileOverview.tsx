@@ -92,6 +92,7 @@ export interface FarmerProfileOverviewProps {
   address?: string;
   mobileNumber?: string;
   stationId?: string;
+  localityId?: string;
   /** When set, Farmer report / Accounting report navigate to the corresponding routes. */
   farmerStorageLinkId?: string;
   onEdit?: () => void;
@@ -115,7 +116,8 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   accountNumber: accountNumberProp,
   address: addressProp,
   mobileNumber: mobileNumberProp,
-  stationId: stationIdProp,
+  stationId: stationIdProp = '',
+  localityId: localityIdProp = '',
   farmerStorageLinkId,
   onEdit,
   editAriaLabel = 'Edit farmer',
@@ -136,16 +138,25 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
 
   const editFarmerInitialValues = useMemo(
     () => ({
-      name: nameProp?.trim() ? nameProp : '',
-      address: addressProp?.trim() ? addressProp : '',
-      mobileNumber: mobileNumberProp ?? '',
+      name: nameProp?.trim() ?? '',
+      address: addressProp?.trim() ?? '',
+      mobileNumber: mobileNumberProp?.trim() ?? '',
       accountNumber: (() => {
-        const n = Number(accountNumberProp);
-        return Number.isFinite(n) && n > 0 ? n : 0;
+        if (accountNumberProp == null || accountNumberProp === '') return 0;
+        const parsed = Number(accountNumberProp);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
       })(),
-      station: stationIdProp ?? '',
+      stationId: stationIdProp,
+      localityId: localityIdProp,
     }),
-    [nameProp, addressProp, mobileNumberProp, accountNumberProp, stationIdProp]
+    [
+      nameProp,
+      addressProp,
+      mobileNumberProp,
+      accountNumberProp,
+      stationIdProp,
+      localityIdProp,
+    ]
   );
 
   const handleEditClick = () => {
@@ -163,7 +174,7 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
 
   return (
     <div className="space-y-6">
-      {farmerStorageLinkId != null && onEdit == null ? (
+      {farmerStorageLinkId != null && onEdit == null && editFarmerDialogOpen ? (
         <EditFarmerDialog
           open={editFarmerDialogOpen}
           onOpenChange={setEditFarmerDialogOpen}

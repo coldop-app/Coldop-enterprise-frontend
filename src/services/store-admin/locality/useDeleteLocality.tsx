@@ -4,29 +4,28 @@ import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 import type {
-  EditStationApiResponse,
-  EditStationInput,
-  EditStationParams,
-} from '@/types/station';
-import { stationKeys } from './keys';
+  DeleteLocalityApiResponse,
+  DeleteLocalityParams,
+} from '@/types/locality';
+import { stationKeys } from '../station/keys';
+import { localityKeys } from './keys';
 
-/** API error shape: { success, error: { code, message } } */
-type EditStationApiError = {
+type DeleteLocalityApiError = {
   success?: boolean;
   message?: string;
   error?: { code?: string; message?: string };
 };
 
-const DEFAULT_ERROR_MESSAGE = 'Failed to update station';
+const DEFAULT_ERROR_MESSAGE = 'Failed to delete locality';
 
 const STATUS_ERROR_MESSAGES: Record<number, string> = {
-  400: 'Invalid station update payload',
   401: 'Authentication token is required',
-  404: 'Station not found',
+  404: 'Locality not found',
+  409: 'Locality is assigned to one or more farmer storage links and cannot be deleted',
 };
 
-function getEditStationErrorMessage(
-  data: EditStationApiError | undefined,
+function getDeleteLocalityErrorMessage(
+  data: DeleteLocalityApiError | undefined,
   status?: number
 ): string {
   return (
@@ -39,37 +38,36 @@ function getEditStationErrorMessage(
   );
 }
 
-function normalizeEditStationPayload(payload: EditStationInput) {
-  return {
-    name: payload.name.trim(),
-  };
-}
-
-/** Hook to update a station. PUT /station/:id */
-export function useEditStation() {
+/** Hook to delete a locality. DELETE /locality/:id */
+export function useDeleteLocality() {
   return useMutation<
-    EditStationApiResponse,
-    AxiosError<EditStationApiError>,
-    EditStationParams
+    DeleteLocalityApiResponse,
+    AxiosError<DeleteLocalityApiError>,
+    DeleteLocalityParams & { stationId?: string }
   >({
-    mutationKey: [...stationKeys.all, 'edit'],
-    mutationFn: async ({ id, ...payload }) => {
+    mutationKey: [...localityKeys.all, 'delete'],
+    mutationFn: async ({ id }) => {
       const safeId = encodeURIComponent(id);
-      const normalizedPayload = normalizeEditStationPayload(payload);
 
-      const { data } = await storeAdminAxiosClient.put<EditStationApiResponse>(
-        `/station/${safeId}`,
-        normalizedPayload
-      );
+      const { data } =
+        await storeAdminAxiosClient.delete<DeleteLocalityApiResponse>(
+          `/locality/${safeId}`
+        );
 
       return data;
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       if (!data.success) {
         toast.error(data.message ?? DEFAULT_ERROR_MESSAGE);
         return;
       }
 
+      const stationId = variables.stationId ?? data.data?.stationId;
+      if (stationId) {
+        await queryClient.invalidateQueries({
+          queryKey: localityKeys.lists(stationId),
+        });
+      }
       await queryClient.invalidateQueries({
         queryKey: stationKeys.all,
       });
@@ -77,7 +75,7 @@ export function useEditStation() {
     onError: (error) => {
       const status = error.response?.status;
       const errMsg = error.response?.data
-        ? getEditStationErrorMessage(error.response.data, status)
+        ? getDeleteLocalityErrorMessage(error.response.data, status)
         : status !== undefined && status in STATUS_ERROR_MESSAGES
           ? STATUS_ERROR_MESSAGES[status]
           : error.message || DEFAULT_ERROR_MESSAGE;

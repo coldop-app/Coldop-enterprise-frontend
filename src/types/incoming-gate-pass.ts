@@ -20,11 +20,26 @@ export interface LinkedBy {
 }
 
 /** Farmer–cold-storage link; list APIs often omit bookkeeping fields. */
+export interface FarmerStorageLinkStationRef {
+  _id: string;
+  name?: string;
+}
+
+export interface FarmerStorageLinkLocalityRef {
+  _id: string;
+  name?: string;
+  stationId?: string;
+  seedDispatchRatePerBag?: number;
+  seedBuyBackRatePerQuintal?: number;
+}
+
 export interface FarmerStorageLink {
   _id: string;
   farmerId: Farmer;
   coldStorageId: string;
   linkedById?: LinkedBy;
+  stationId?: string | FarmerStorageLinkStationRef;
+  localityId?: string | FarmerStorageLinkLocalityRef;
   accountNumber: number;
   isActive: boolean;
   createdAt?: string;

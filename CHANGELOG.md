@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-07
+
+### Added
+- Locality master data module with CRUD service hooks (`useCreateLocality`, `useEditLocality`, `useDeleteLocality`, `useGetLocalities`) and shared `Locality` typings.
+- Reusable station management components (`StationFormDialog`, `DeleteStationDialog`, `StationsTable`, `station-form-utils`, `station-form-handlers`) for Settings → Master → Stations.
+- `useGetStationsWithLocalities` for loading stations with nested locality lists in the stations master screen.
+- Edit farmer dialog now links farmers to a station and locality with cascading locality loading and a dedicated Location section.
+- `resolveEntityId` helper on farmer gate-pass services for normalizing populated or string entity IDs.
+
+### Changed
+- Station master data refactored so stations hold name metadata only; seed dispatch and buy-back rates now live on locality records under each station.
+- Settings → Master → Stations page simplified to use extracted station components, `StationWithLocalities` typing, and locality-aware search.
+- Farmer storage links and profile flows now use `stationId` and `localityId` instead of a flat `station` field; edit-farmer and profile overview wiring updated accordingly.
+- Finance report planting variety totals now sum all planting table row amounts; net revenue is grading sale amount minus total planting amount, with station rates resolved from station and locality context.
+- `FarmerProfileOverview` mounts `EditFarmerDialog` only while the edit dialog is open.
+- Project version updated to `1.1.0` for this locality-aware stations and finance report release.
+
 ## [1.0.0] - 2026-05-20
 
 ### Added
