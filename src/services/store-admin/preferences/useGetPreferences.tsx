@@ -32,10 +32,15 @@ export interface StandardSeedBagsPerAcreEntry {
 
 export type FinanceCostDriver =
   | 'Fixed'
-  | 'Weight'
   | 'Acres'
   | 'IncomingBags'
   | 'GradingBags'
+  | 'SeedBags'
+  | 'IncomingWeightWithoutBardana'
+  | 'IncomingWeightWithBardana'
+  | 'GradingWeightWithoutBardana'
+  | 'GradingWeightWithBardana'
+  | 'NetAmountPayable'
   | 'Buy-back-payable';
 
 export const FINANCE_COST_DRIVER_OPTIONS: {
@@ -43,10 +48,27 @@ export const FINANCE_COST_DRIVER_OPTIONS: {
   label: string;
 }[] = [
   { value: 'Fixed', label: 'Fixed' },
-  { value: 'Weight', label: 'Weight' },
   { value: 'Acres', label: 'Acres' },
   { value: 'IncomingBags', label: 'Incoming bags' },
   { value: 'GradingBags', label: 'Grading bags' },
+  { value: 'SeedBags', label: 'Number of seed bags' },
+  {
+    value: 'IncomingWeightWithoutBardana',
+    label: 'Net incoming weight without bardana',
+  },
+  {
+    value: 'IncomingWeightWithBardana',
+    label: 'Net incoming weight with bardana',
+  },
+  {
+    value: 'GradingWeightWithoutBardana',
+    label: 'Net grading weight without bardana',
+  },
+  {
+    value: 'GradingWeightWithBardana',
+    label: 'Net grading weight with bardana',
+  },
+  { value: 'NetAmountPayable', label: 'Net Amount Payable' },
   { value: 'Buy-back-payable', label: 'Buy-back payable' },
 ];
 
@@ -119,7 +141,7 @@ export const DEFAULT_FINANCE_CONSTANTS: FinanceConstantsData = Object.freeze({
     {
       name: 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)',
       rate: 20,
-      costDriver: 'Weight',
+      costDriver: 'IncomingWeightWithoutBardana',
     },
     { name: 'Roughing Charges', rate: 1000, costDriver: 'Acres' },
     {
@@ -311,6 +333,9 @@ type LegacyFinanceNameLists = {
 function normalizeCostDriverValue(raw: unknown): FinanceCostDriver | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
+  if (trimmed === 'Weight') {
+    return 'IncomingWeightWithoutBardana';
+  }
   if (VALID_FINANCE_COST_DRIVERS.has(trimmed)) {
     return trimmed as FinanceCostDriver;
   }
@@ -326,7 +351,7 @@ function inferCostDriverFromLegacy(
 ): FinanceCostDriver {
   if (name === 'Freight: Seed (Dispatched)') return 'Fixed';
   if (name === 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)') {
-    return 'Weight';
+    return 'IncomingWeightWithoutBardana';
   }
   if (name === 'Multiplication Expenses') return 'Buy-back-payable';
 

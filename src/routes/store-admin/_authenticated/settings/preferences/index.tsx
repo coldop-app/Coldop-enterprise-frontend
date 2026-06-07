@@ -718,7 +718,6 @@ function BuyBackTable({
                     ₹
                   </span>
                   <Input
-                    key={`${entry.variety}-${size}-${rate}`}
                     type="number"
                     min={0}
                     step="0.25"
@@ -1980,7 +1979,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 />
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="hidden gap-2 sm:grid sm:grid-cols-[1fr_180px_140px_40px]">
+                <div className="hidden gap-2 sm:grid sm:grid-cols-[1fr_280px_140px_40px]">
                   <Label className="font-custom text-muted-foreground text-xs font-medium">
                     Field Name
                   </Label>
@@ -1995,7 +1994,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                 {financeParticulars.map((row, index) => (
                   <div
                     key={`finance-particular-${index}-${row.name}`}
-                    className="grid gap-2 sm:grid-cols-[1fr_180px_140px_40px]"
+                    className="grid gap-2 sm:grid-cols-[1fr_280px_140px_40px]"
                   >
                     <Input
                       value={row.name}

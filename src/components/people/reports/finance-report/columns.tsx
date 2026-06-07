@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 
+import { formatNullableAmount, formatNullableNumber } from './format-utils';
+
+const MDASH = '\u2014';
+
 export type FinancePlantingRow = {
   id: string;
   particulars: string;
@@ -24,33 +28,9 @@ export type FinanceGradingRow = {
   saleAmount: number | null;
 };
 
-function formatIndianNumber(value: number, precision = 0): string {
-  return value.toLocaleString('en-IN', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
-}
-
-function formatNullableNumber(
-  value: number | null | undefined,
-  precision = 2
-): string {
-  if (value == null || !Number.isFinite(value)) {
-    return '—';
-  }
-  return formatIndianNumber(value, precision);
-}
-
 function formatNullableText(value: string | null | undefined): string {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : '—';
-}
-
-function formatAmount(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) {
-    return '—';
-  }
-  return `₹${formatIndianNumber(value, 2)}`;
+  return trimmed ? trimmed : MDASH;
 }
 
 const rightAlignedHeader = (label: string) => (
@@ -127,7 +107,7 @@ function numericCell(
 function amountCell(value: number | null | undefined): ReactNode {
   return (
     <div className="font-custom text-right font-medium tabular-nums">
-      {formatAmount(value)}
+      {formatNullableAmount(value)}
     </div>
   );
 }

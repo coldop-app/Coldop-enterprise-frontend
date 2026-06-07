@@ -354,6 +354,17 @@ export function aggregateSummaryActualWeightKg(
   return Math.round((sum + Number.EPSILON) * 100) / 100;
 }
 
+/** Sum of Weight Received (kg) across summary rows (graded weight with bardana). */
+export function aggregateSummaryWeightReceivedKg(
+  rows: GradingBagTypeQtySummaryRow[]
+): number {
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number(row.weightReceivedKg) || 0;
+  }
+  return Math.round((sum + Number.EPSILON) * 100) / 100;
+}
+
 /** Sum of Amount Payable (₹) across summary rows (matches summary table footer). */
 export function aggregateSummaryAmountPayable(
   rows: GradingBagTypeQtySummaryRow[]

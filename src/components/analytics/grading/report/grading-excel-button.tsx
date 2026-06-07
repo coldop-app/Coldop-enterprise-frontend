@@ -9,6 +9,7 @@ import {
   type ExcelPreviewUrls,
 } from '@/lib/excel-preview-tab';
 import {
+  formatGradingBagSizeCellForExport,
   isGradingSplitSpanColumn,
   type GradingReportTableRow,
 } from './columns';
@@ -82,7 +83,8 @@ function estimateColWidth(
     if (cell !== '' && cell != null) {
       const str =
         typeof cell === 'number' ? cell.toLocaleString('en-IN') : String(cell);
-      maxDataChars = Math.max(maxDataChars, str.length);
+      const lineLengths = str.split('\n').map((line) => line.length);
+      maxDataChars = Math.max(maxDataChars, ...lineLengths);
     }
   }
 
@@ -365,21 +367,33 @@ function getExportDateLabel(date: Date): string {
   return `${day} ${month} ${year}`;
 }
 
-function normalizeExcelValue(
-  value: unknown,
-  columnId: string
-): string | number {
+function normalizeExcelValue(value: unknown): string | number {
   if (value == null) return '';
   if (typeof value === 'string' || typeof value === 'number') return value;
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-
-  if (columnId.startsWith('bagSize__') && typeof value === 'object') {
-    const withTotal = value as { totalQuantity?: unknown };
-    if (typeof withTotal.totalQuantity === 'number')
-      return withTotal.totalQuantity;
-  }
-
   return String(value);
+}
+
+function getBagSizeExcelValue(
+  row: Row<GradingReportTableRow>,
+  columnId: string
+): string {
+  const canon = GRADING_BAG_SIZE_COLUMN_ID_TO_CANON.get(columnId);
+  if (!canon) return '-';
+  return formatGradingBagSizeCellForExport(
+    row.original.bagSizeAggregate.get(canon)
+  );
+}
+
+function isMultilineBagSizeValue(
+  columnId: string,
+  value: string | number
+): boolean {
+  return (
+    columnId.startsWith('bagSize__') &&
+    typeof value === 'string' &&
+    value.includes('\n')
+  );
 }
 
 function getExcelBodyRows(
@@ -442,17 +456,16 @@ function getExcelBodyRows(
           hasGroupedOrAggregatedCell = true;
           nextRow[columnIndex] = hideGroupedAggregations
             ? ''
-            : normalizeExcelValue(row.getValue(columnId), columnId);
+            : normalizeExcelValue(row.getValue(columnId));
           if (!hideGroupedAggregations) {
             boldByColumn[columnIndex] = true;
           }
         } else if (isPlaceholderCell) {
           nextRow[columnIndex] = '';
+        } else if (columnId.startsWith('bagSize__')) {
+          nextRow[columnIndex] = getBagSizeExcelValue(row, columnId);
         } else {
-          nextRow[columnIndex] = normalizeExcelValue(
-            row.getValue(columnId),
-            columnId
-          );
+          nextRow[columnIndex] = normalizeExcelValue(row.getValue(columnId));
         }
       }
 
@@ -648,7 +661,20 @@ export const GradingExcelButton = ({
           const background = dataRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
-          excelRow.height = 22;
+          let maxLineCount = 1;
+          for (let i = 0; i < dataRow.values.length; i += 1) {
+            const colId = exportColumnIds[i];
+            const value = dataRow.values[i];
+            if (
+              colId != null &&
+              isMultilineBagSizeValue(colId, value) &&
+              typeof value === 'string'
+            ) {
+              maxLineCount = Math.max(maxLineCount, value.split('\n').length);
+            }
+          }
+          excelRow.height =
+            maxLineCount > 1 ? Math.max(22, maxLineCount * 16) : 22;
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);
@@ -665,7 +691,15 @@ export const GradingExcelButton = ({
               raw === '-' &&
               colId != null &&
               EXCEL_NUMERIC_DISPLAY_COLUMN_IDS.has(colId);
-            if (isNumber) {
+            const isMultilineBagSize =
+              colId != null && isMultilineBagSizeValue(colId, raw);
+            if (isMultilineBagSize) {
+              cell.alignment = {
+                horizontal: 'left',
+                vertical: 'top',
+                wrapText: true,
+              };
+            } else if (isNumber) {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
               cell.numFmt = SMART_NUMBER_FORMAT;
             } else if (isDashNumeric) {

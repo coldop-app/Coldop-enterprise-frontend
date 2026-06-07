@@ -4,8 +4,9 @@ import {
   plantingColumns,
   renderPlantingColumnHeaders,
   renderPlantingDataCells,
-} from '@/components/people/reports/finance-report/columns';
-import type { FinancePlantingVarietyGroup } from '@/components/people/reports/finance-report/finance-calculations';
+} from './columns';
+import type { FinancePlantingVarietyGroup } from './finance-calculations';
+import { formatAmount, formatIndianNumber, MDASH } from './format-utils';
 import {
   Table,
   TableBody,
@@ -17,18 +18,6 @@ import {
 
 const PLANTING_COLUMN_COUNT = plantingColumns.length;
 const PLANTING_HEADERS = renderPlantingColumnHeaders();
-const MDASH = '\u2014';
-
-function formatIndianNumber(value: number, precision = 0): string {
-  return value.toLocaleString('en-IN', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
-}
-
-function formatAmount(value: number): string {
-  return `₹${formatIndianNumber(value, 2)}`;
-}
 
 function PlantingTableShell({ children }: { children: ReactNode }) {
   return (

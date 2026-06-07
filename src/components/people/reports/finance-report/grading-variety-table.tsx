@@ -4,11 +4,12 @@ import {
   gradingColumns,
   renderGradingColumnHeaders,
   renderGradingDataCells,
-} from '@/components/people/reports/finance-report/columns';
+} from './columns';
 import type {
   FinanceGradingVarietyGroup,
   FinanceGradingVarietyTotals,
-} from '@/components/people/reports/finance-report/finance-calculations';
+} from './finance-calculations';
+import { formatAmount, formatIndianNumber, MDASH } from './format-utils';
 import {
   Table,
   TableBody,
@@ -20,18 +21,6 @@ import {
 
 const GRADING_COLUMN_COUNT = gradingColumns.length;
 const GRADING_HEADERS = renderGradingColumnHeaders();
-const MDASH = '\u2014';
-
-function formatIndianNumber(value: number, precision = 0): string {
-  return value.toLocaleString('en-IN', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
-}
-
-function formatAmount(value: number): string {
-  return `₹${formatIndianNumber(value, 2)}`;
-}
 
 function formatTotalNumber(value: number, precision: number): string {
   return value === 0 ? MDASH : formatIndianNumber(value, precision);

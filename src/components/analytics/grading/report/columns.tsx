@@ -287,6 +287,32 @@ const GradedBagSizeCell = React.memo(function GradedBagSizeCell({
   );
 });
 
+/** Plain-text bag-size cell for Excel export and HTML preview (matches GradedBagSizeCell). */
+export function formatGradingBagSizeCellForExport(
+  cell: GradingBagSizeAggregateCell | undefined
+): string {
+  if (!cell || cell.totalQuantity <= 0 || cell.lines.length === 0) {
+    return '-';
+  }
+
+  const lines = [formatIndianNumber(cell.totalQuantity, 0)];
+
+  if (cell.lines.length > 1) {
+    for (const line of cell.lines) {
+      lines.push(
+        `${formatBagTypeLabel(line.bagType)} ${formatIndianNumber(line.initialQuantity, 0)} (${formatWeightPerBagKg(line.weightPerBagKg)})`
+      );
+    }
+  } else {
+    const line = cell.lines[0]!;
+    lines.push(
+      `${formatBagTypeLabel(line.bagType)} (${formatWeightPerBagKg(line.weightPerBagKg)})`
+    );
+  }
+
+  return lines.join('\n');
+}
+
 export function toDisplayDate(value?: string): string {
   if (!value) return '-';
   const parsed = new Date(value);

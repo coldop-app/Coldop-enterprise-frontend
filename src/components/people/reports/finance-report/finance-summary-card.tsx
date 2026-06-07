@@ -2,30 +2,16 @@ import { memo } from 'react';
 import { IndianRupee, Sprout } from 'lucide-react';
 
 import type { FinanceReportSummary } from './finance-calculations';
-
-const MDASH = '—';
-
-function formatIndianNumber(value: number, precision = 0): string {
-  return value.toLocaleString('en-IN', {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
-}
-
-function formatAmount(value: number): string {
-  return `₹${formatIndianNumber(value, 2)}`;
-}
-
-function formatPerAcre(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return MDASH;
-  return formatAmount(value);
-}
+import {
+  formatAmount,
+  formatIndianNumber,
+  formatPerAcre,
+} from './format-utils';
 
 export interface FinanceSummaryStatItemsProps {
   summary: FinanceReportSummary;
 }
 
-/** Net revenue and per-acre stats — matches accounting report meta card grid cells. */
 function FinanceSummaryStatItems({ summary }: FinanceSummaryStatItemsProps) {
   return (
     <>
