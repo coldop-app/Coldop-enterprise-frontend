@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 
 import {
-  resolveStationRates,
+  resolveEntityName,
+  resolveLocalityRates,
   useGetAllGatePassesOfFarmer,
 } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import {
@@ -56,13 +57,19 @@ export function useFinanceReportData(farmerStorageLinkId: string) {
     [storePreferences, serverPreferences]
   );
 
-  const stationRates = useMemo(
-    () =>
-      resolveStationRates(
-        farmerStorageLink?.station,
-        farmerStorageLink?.localityId
-      ),
-    [farmerStorageLink?.station, farmerStorageLink?.localityId]
+  const localityRates = useMemo(
+    () => resolveLocalityRates(farmerStorageLink?.localityId),
+    [farmerStorageLink?.localityId]
+  );
+
+  const stationName = useMemo(
+    () => resolveEntityName(farmerStorageLink?.stationId),
+    [farmerStorageLink?.stationId]
+  );
+
+  const localityName = useMemo(
+    () => resolveEntityName(farmerStorageLink?.localityId),
+    [farmerStorageLink?.localityId]
   );
 
   const reportData = useMemo(
@@ -72,9 +79,9 @@ export function useFinanceReportData(farmerStorageLinkId: string) {
         incomingList,
         gradingList ?? [],
         preferences,
-        stationRates
+        localityRates
       ),
-    [farmerSeedList, incomingList, gradingList, preferences, stationRates]
+    [farmerSeedList, incomingList, gradingList, preferences, localityRates]
   );
 
   const reportPeriodLabel = useMemo(
@@ -94,6 +101,9 @@ export function useFinanceReportData(farmerStorageLinkId: string) {
   return {
     coldStorageName,
     farmerStorageLink,
+    stationName,
+    localityName,
+    localityRates,
     isLoading,
     isError,
     errorDescription: gatePassesErrorMessage(farmerSeedsError),

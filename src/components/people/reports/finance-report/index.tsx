@@ -17,6 +17,9 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
   const {
     coldStorageName,
     farmerStorageLink,
+    stationName,
+    localityName,
+    localityRates,
     isLoading,
     isError,
     errorDescription,
@@ -70,7 +73,12 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
             />
 
             {farmerStorageLink ? (
-              <FarmerDetailsSection farmerStorageLink={farmerStorageLink} />
+              <FarmerDetailsSection
+                farmerStorageLink={farmerStorageLink}
+                stationName={stationName}
+                localityName={localityName}
+                localityRates={localityRates}
+              />
             ) : null}
 
             {showSummary ? <ReportSnapshotBar rowStats={rowStats} /> : null}

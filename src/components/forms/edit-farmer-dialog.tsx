@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import * as z from 'zod';
 import { Building, MapPin, Save } from 'lucide-react';
@@ -122,6 +122,8 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
         {
           onSuccess: (data) => {
             if (data.success) {
+              form.reset();
+              setSelectedStationId(initialValues.stationId);
               onOpenChange(false);
             }
           },
@@ -133,6 +135,38 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
   const [selectedStationId, setSelectedStationId] = useState(
     initialValues.stationId
   );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const defaults = toFormDefaultValues(initialValues);
+    form.setFieldValue('name', defaults.name);
+    form.setFieldValue('address', defaults.address);
+    form.setFieldValue('mobileNumber', defaults.mobileNumber);
+    form.setFieldValue('accountNumber', defaults.accountNumber);
+    form.setFieldValue('stationId', defaults.stationId);
+    form.setFieldValue('localityId', defaults.localityId);
+    setSelectedStationId(defaults.stationId);
+  }, [
+    form,
+    initialValues.accountNumber,
+    initialValues.address,
+    initialValues.localityId,
+    initialValues.mobileNumber,
+    initialValues.name,
+    initialValues.stationId,
+    open,
+  ]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) {
+      form.reset();
+      setSelectedStationId(initialValues.stationId);
+    }
+  };
 
   const { data: stationsResult, isLoading: isStationsLoading } = useGetStations(
     { coldStorageId },
@@ -156,7 +190,7 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="font-custom max-h-[90vh] overflow-y-auto sm:max-w-[480px]">
         <form
           onSubmit={(e) => {

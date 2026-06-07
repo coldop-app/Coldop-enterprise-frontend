@@ -45,6 +45,13 @@ export function resolveEntityId(
   return value._id ?? '';
 }
 
+export function resolveEntityName(
+  value: string | { name?: string } | null | undefined
+): string {
+  if (value == null || typeof value === 'string') return '';
+  return value.name?.trim() ?? '';
+}
+
 /** Farmer storage link summary included in GET .../passes `data` */
 export interface FarmerStorageLinkInPassesPayload {
   _id: string;
@@ -58,21 +65,29 @@ export interface FarmerStorageLinkInPassesPayload {
   station?: string | StationInPassesPayload | null;
 }
 
+/** Resolves freight rates from a populated locality on the farmer storage link. */
+export function resolveLocalityRates(
+  locality: FarmerStorageLinkInPassesPayload['localityId']
+): StationRates | null {
+  if (locality == null || typeof locality !== 'object') return null;
+
+  const dispatch = Number(locality.seedDispatchRatePerBag);
+  const buyBack = Number(locality.seedBuyBackRatePerQuintal);
+  if (!Number.isFinite(dispatch) || !Number.isFinite(buyBack)) return null;
+
+  return {
+    seedDispatchRatePerBag: dispatch,
+    seedBuyBackRatePerQuintal: buyBack,
+  };
+}
+
 /** Resolves station freight rates when the passes API returns a populated station or locality object. */
 export function resolveStationRates(
   station: FarmerStorageLinkInPassesPayload['station'],
   locality?: FarmerStorageLinkInPassesPayload['localityId']
 ): StationRates | null {
-  if (locality != null && typeof locality === 'object') {
-    const dispatch = Number(locality.seedDispatchRatePerBag);
-    const buyBack = Number(locality.seedBuyBackRatePerQuintal);
-    if (Number.isFinite(dispatch) && Number.isFinite(buyBack)) {
-      return {
-        seedDispatchRatePerBag: dispatch,
-        seedBuyBackRatePerQuintal: buyBack,
-      };
-    }
-  }
+  const localityRates = resolveLocalityRates(locality);
+  if (localityRates) return localityRates;
 
   if (station == null || typeof station === 'string') return null;
 

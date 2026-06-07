@@ -18,6 +18,8 @@ import type { GatePassesTotals } from '@/services/store-admin/people/useGetAllGa
 import {
   prefetchAllGatePassesOfFarmer,
   resolveEntityId,
+  resolveEntityName,
+  resolveStationRates,
   useGetAllGatePassesOfFarmer,
 } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import { buildFarmerProfileAggregates } from './helpers/-calculations';
@@ -126,6 +128,16 @@ function RouteComponent() {
                       gatePassesResponse.farmerStorageLink?.stationId
                     )}
                     localityId={resolveEntityId(
+                      gatePassesResponse.farmerStorageLink?.localityId
+                    )}
+                    stationName={resolveEntityName(
+                      gatePassesResponse.farmerStorageLink?.stationId
+                    )}
+                    localityName={resolveEntityName(
+                      gatePassesResponse.farmerStorageLink?.localityId
+                    )}
+                    localityRates={resolveStationRates(
+                      gatePassesResponse.farmerStorageLink?.station,
                       gatePassesResponse.farmerStorageLink?.localityId
                     )}
                     farmerStorageLinkId={farmerStorageLinkId}

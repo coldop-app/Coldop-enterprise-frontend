@@ -24,6 +24,16 @@ import { FarmerCard } from '@/components/people/FarmerCard';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
+function resolveEntityName(
+  value: string | { name?: string } | null | undefined
+): string {
+  if (value == null || typeof value === 'string') {
+    return '';
+  }
+
+  return value.name?.trim() ?? '';
+}
+
 const FarmerTab = () => {
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
   const canCreateFarmerProfile = hasPermission('farmer-profile', 'create');
@@ -50,6 +60,8 @@ const FarmerTab = () => {
         farmer.farmerId.address,
         farmer.farmerId.mobileNumber,
         String(farmer.accountNumber),
+        resolveEntityName(farmer.stationId),
+        resolveEntityName(farmer.localityId),
       ]
         .join(' ')
         .toLowerCase();

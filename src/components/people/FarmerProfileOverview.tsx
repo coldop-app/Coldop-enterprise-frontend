@@ -3,12 +3,14 @@ import { Link } from '@tanstack/react-router';
 import {
   ArrowUpFromLine,
   BookOpen,
+  Building,
   Clock,
   Edit,
   FileText,
   Hash,
   Layers,
   MapPin,
+  MapPinned,
   Package,
   Phone,
   Sprout,
@@ -25,6 +27,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { EditFarmerDialog } from '@/components/forms/edit-farmer-dialog';
+import type { StationRates } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 export interface FarmerProfileAggregates {
@@ -93,6 +96,9 @@ export interface FarmerProfileOverviewProps {
   mobileNumber?: string;
   stationId?: string;
   localityId?: string;
+  stationName?: string;
+  localityName?: string;
+  localityRates?: StationRates | null;
   /** When set, Farmer report / Accounting report navigate to the corresponding routes. */
   farmerStorageLinkId?: string;
   onEdit?: () => void;
@@ -118,6 +124,9 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   mobileNumber: mobileNumberProp,
   stationId: stationIdProp = '',
   localityId: localityIdProp = '',
+  stationName,
+  localityName,
+  localityRates,
   farmerStorageLinkId,
   onEdit,
   editAriaLabel = 'Edit farmer',
@@ -171,10 +180,11 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
   const name = nameProp ?? PLACEHOLDER_NAME;
   const accountNumber = accountNumberProp ?? PLACEHOLDER_ACCOUNT;
   const address = addressProp ?? PLACEHOLDER_ADDRESS;
+  const hasLocationInfo = Boolean(stationName?.trim() || localityName?.trim());
 
   return (
     <div className="space-y-6">
-      {farmerStorageLinkId != null && onEdit == null && editFarmerDialogOpen ? (
+      {farmerStorageLinkId != null && onEdit == null ? (
         <EditFarmerDialog
           open={editFarmerDialogOpen}
           onOpenChange={setEditFarmerDialogOpen}
@@ -219,6 +229,59 @@ export const FarmerProfileOverview = memo(function FarmerProfileOverview({
                     />
                     <span className="tabular-nums">{mobileNumberProp}</span>
                   </p>
+                ) : null}
+                {hasLocationInfo ? (
+                  <div className="border-border/50 bg-muted/20 mt-2 grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
+                    {stationName?.trim() ? (
+                      <div className="flex min-w-0 items-start gap-2.5">
+                        <div className="bg-primary/10 flex h-7 w-7 shrink-0 items-center justify-center rounded-md">
+                          <Building
+                            className="text-primary h-3.5 w-3.5"
+                            aria-hidden
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+                            Station
+                          </p>
+                          <p className="font-custom text-foreground truncate text-sm">
+                            {stationName}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {localityName?.trim() ? (
+                      <div className="flex min-w-0 items-start gap-2.5">
+                        <div className="bg-primary/10 flex h-7 w-7 shrink-0 items-center justify-center rounded-md">
+                          <MapPinned
+                            className="text-primary h-3.5 w-3.5"
+                            aria-hidden
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+                            Locality
+                          </p>
+                          <p className="font-custom text-foreground truncate text-sm">
+                            {localityName}
+                          </p>
+                          {localityRates ? (
+                            <p className="font-custom text-muted-foreground mt-0.5 text-xs tabular-nums">
+                              Dispatch ₹
+                              {localityRates.seedDispatchRatePerBag.toLocaleString(
+                                'en-IN'
+                              )}
+                              /bag · Buy-back ₹
+                              {localityRates.seedBuyBackRatePerQuintal.toLocaleString(
+                                'en-IN'
+                              )}
+                              /qtl
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </div>
