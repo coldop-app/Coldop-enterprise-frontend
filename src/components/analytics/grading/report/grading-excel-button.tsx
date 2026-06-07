@@ -259,7 +259,7 @@ function addTotalsRow(
   columnIds: string[]
 ) {
   const exRow = ws.addRow(values);
-  exRow.height = 24;
+  exRow.height = 40;
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     const colId = columnIds[colNumber - 1];
@@ -644,7 +644,7 @@ export const GradingExcelButton = ({
         worksheet.addRow([]);
 
         const columnHeaderRow = worksheet.addRow(headerLabels);
-        columnHeaderRow.height = 36;
+        columnHeaderRow.height = 40;
         columnHeaderRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -674,7 +674,7 @@ export const GradingExcelButton = ({
             }
           }
           excelRow.height =
-            maxLineCount > 1 ? Math.max(22, maxLineCount * 16) : 22;
+            maxLineCount > 1 ? Math.max(40, maxLineCount * 16) : 40;
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);
