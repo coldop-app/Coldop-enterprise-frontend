@@ -290,7 +290,7 @@ function addTotalsRow(
 ) {
   const bold = options?.bold !== false;
   const row = worksheet.addRow(totalsRowValues);
-  row.height = 24;
+  row.height = 40;
   row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
     const value = totalsRowValues[columnNumber - 1];
     const columnId = visibleColumnIds[columnNumber - 1];
@@ -445,7 +445,7 @@ export const ContractFarmingExcelButton = ({
         worksheet.addRow([]);
 
         const headerRow = worksheet.addRow(headerLabels);
-        headerRow.height = 36;
+        headerRow.height = 40;
         headerRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -470,7 +470,7 @@ export const ContractFarmingExcelButton = ({
               ? farmerValue.split('\n').length
               : 1;
           excelRow.height =
-            farmerLineCount > 1 ? Math.max(22, farmerLineCount * 16) : 22;
+            farmerLineCount > 1 ? Math.max(40, farmerLineCount * 16) : 40;
           const bgArgb = bodyRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;

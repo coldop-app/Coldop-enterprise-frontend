@@ -3,8 +3,11 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
-import type { PreferencesData } from './useGetPreferences';
-import { preferencesKeys } from './useGetPreferences';
+import {
+  canonicalizeCustomSizeRates,
+  preferencesKeys,
+  type PreferencesData,
+} from './useGetPreferences';
 
 type UpdatePreferencesApiError = {
   success?: boolean;
@@ -39,12 +42,18 @@ function getUpdatePreferencesErrorMessage(
 function normalizeUpdatePreferencesPayload(
   payload: UpdatePreferencesInput
 ): UpdatePreferencesInput {
+  const bagSizes = payload.bagSizes?.map(String);
+  const custom =
+    payload.custom !== undefined && bagSizes?.length
+      ? canonicalizeCustomSizeRates(payload.custom, bagSizes)
+      : payload.custom;
+
   return {
-    ...(payload.bagSizes !== undefined && { bagSizes: payload.bagSizes }),
+    ...(bagSizes !== undefined && { bagSizes }),
     ...(payload.reportFormat !== undefined && {
       reportFormat: payload.reportFormat.trim(),
     }),
-    ...(payload.custom !== undefined && { custom: payload.custom }),
+    ...(custom !== undefined && { custom }),
   };
 }
 

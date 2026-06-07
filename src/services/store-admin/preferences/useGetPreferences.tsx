@@ -2,6 +2,26 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
 
+/** Canonical keys under `custom` (legacy fields such as `standardBagsPerAcre` are not supported). */
+const CANONICAL_CUSTOM_KEYS = new Set([
+  'potatoVarieties',
+  'farmerSeedGenerations',
+  'graderOptions',
+  'incomingLocations',
+  'bagConfig',
+  'standardSeedBagsPerAcre',
+  'buyBackCost',
+  'financeConstants',
+]);
+
+/** Canonical keys under `custom.financeConstants` (legacy name-list fields are not supported). */
+const CANONICAL_FINANCE_CONSTANTS_KEYS = new Set([
+  'gradingBagSizes40mmAndAbove',
+  'particulars',
+  'actualCostWithoutSubsidy',
+  'salePricePerBag',
+]);
+
 export interface PreferenceOption {
   label: string;
   value: string;
@@ -83,7 +103,10 @@ export interface FinanceParticularRow {
   costDriver: FinanceCostDriver;
 }
 
-/** Nested under `custom` — drives finance report calculations and the Finance preferences tab. */
+/**
+ * Nested under `custom.financeConstants`.
+ * `sizeRates` keys may use en-dashes (e.g. `25–30`) while `bagSizes` use hyphens (`25-30`).
+ */
 export interface FinanceConstantsData {
   gradingBagSizes40mmAndAbove: string[];
   particulars: FinanceParticularRow[];
@@ -91,251 +114,89 @@ export interface FinanceConstantsData {
   salePricePerBag: BuyBackCost[];
 }
 
-function cloneFinanceConstants(
-  data: FinanceConstantsData
-): FinanceConstantsData {
-  return structuredClone(data);
+export class PreferencesValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferencesValidationError';
+  }
 }
 
-/** Legacy name lists — used only to infer `costDriver` when API omits it. */
-const LEGACY_INCOMING_BAGS_PARTICULAR_NAMES = [
-  'Paladaar Charges From Field (Unloading Charges)',
-  'Bardana (Multiple use) from field',
-  'Sutli (Incoming Bags)',
-  'Marka Expenses (Incoming Jute Bags)',
-] as const;
+function resolveRequired<T>(
+  primary: T | undefined,
+  fallbackValue: T | undefined,
+  field: string
+): T {
+  const value = primary ?? fallbackValue;
+  if (value === undefined || value === null) {
+    throw new PreferencesValidationError(`Missing ${field}`);
+  }
+  return value;
+}
 
-const LEGACY_ACRES_PARTICULAR_NAMES = [
-  'Roughing Charges',
-  'Salary plus other employee expense',
-  'Daily labour',
-  'Room rent charges, Miscellaneous',
-] as const;
-
-const LEGACY_GRADING_BAGS_PARTICULAR_NAMES = [
-  'Grading Charges',
-  'Paladaar Charges (Tanka + Tolai)',
-  'Paladaar Charge Shifting after grading (Dhank)',
-  'Sutli + Tag & Parchi after Grading',
-  'Paladaar Charges after loading after grading',
-  'Storage Charges',
-] as const;
-
-/** Default finance constants (former `finance-constants.ts`); used when API omits or empties `financeConstants`. */
-export const DEFAULT_FINANCE_CONSTANTS: FinanceConstantsData = Object.freeze({
-  gradingBagSizes40mmAndAbove: [
-    '40-45',
-    '40-50',
-    '45-50',
-    '50-55',
-    'Above 50',
-    'Above 55',
-    'Cut',
-  ],
-  particulars: [
-    {
-      name: 'Freight: Seed (Dispatched)',
-      rate: 32124.0,
-      costDriver: 'Fixed',
-    },
-    {
-      name: 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)',
-      rate: 20,
-      costDriver: 'IncomingWeightWithoutBardana',
-    },
-    { name: 'Roughing Charges', rate: 1000, costDriver: 'Acres' },
-    {
-      name: 'Paladaar Charges From Field (Unloading Charges)',
-      rate: 5.5,
-      costDriver: 'IncomingBags',
-    },
-    {
-      name: 'Bardana (Multiple use) from field',
-      rate: 33.6,
-      costDriver: 'IncomingBags',
-    },
-    { name: 'Sutli (Incoming Bags)', rate: 0.95, costDriver: 'IncomingBags' },
-    {
-      name: 'Marka Expenses (Incoming Jute Bags)',
-      rate: 0.96,
-      costDriver: 'IncomingBags',
-    },
-    { name: 'Grading Charges', rate: 14.2, costDriver: 'GradingBags' },
-    {
-      name: 'Paladaar Charges (Tanka + Tolai)',
-      rate: 3,
-      costDriver: 'GradingBags',
-    },
-    {
-      name: 'Paladaar Charge Shifting after grading (Dhank)',
-      rate: 5.5,
-      costDriver: 'GradingBags',
-    },
-    {
-      name: 'Sutli + Tag & Parchi after Grading',
-      rate: 2.9,
-      costDriver: 'GradingBags',
-    },
-    {
-      name: 'Paladaar Charges after loading after grading',
-      rate: 5.5,
-      costDriver: 'GradingBags',
-    },
-    { name: 'Storage Charges', rate: 200, costDriver: 'GradingBags' },
-    {
-      name: 'Multiplication Expenses',
-      rate: 0,
-      costDriver: 'Buy-back-payable',
-    },
-    {
-      name: 'Salary plus other employee expense',
-      rate: 2000,
-      costDriver: 'Acres',
-    },
-    { name: 'Daily labour', rate: 3.43, costDriver: 'Acres' },
-    {
-      name: 'Room rent charges, Miscellaneous',
-      rate: 200,
-      costDriver: 'Acres',
-    },
-  ],
-  actualCostWithoutSubsidy: [
-    {
-      variety: 'Himalini',
-      sizeRates: {
-        'Below 25': 15.25,
-        '25–30': 15.25,
-        'Below 30': 15.25,
-        '30–35': 15.25,
-        '35–40': 15.25,
-        '30–40': 15.25,
-        '40–45': 12.25,
-        '40–50': 11.25,
-        '45–50': 10.25,
-        '50–55': 8.75,
-        'Above 50': 8.75,
-        'Above 55': 8.75,
-        Cut: 3,
-      },
-    },
-    {
-      variety: 'Jyoti',
-      sizeRates: {
-        'Below 25': 15.25,
-        '25–30': 15.25,
-        'Below 30': 15.25,
-        '30–35': 15.25,
-        '35–40': 15.25,
-        '30–40': 15.25,
-        '40–45': 12.25,
-        '40–50': 11.25,
-        '45–50': 10.25,
-        '50–55': 8.75,
-        'Above 50': 8.75,
-        'Above 55': 8.75,
-        Cut: 3,
-      },
-    },
-    {
-      variety: 'B101',
-      sizeRates: {
-        'Below 25': 19.25,
-        '25–30': 19.25,
-        'Below 30': 19.25,
-        '30–35': 19.25,
-        '35–40': 19.25,
-        '30–40': 19.25,
-        '40–45': 16.25,
-        '40–50': 14.75,
-        '45–50': 13.25,
-        '50–55': 8.25,
-        'Above 50': 8.25,
-        'Above 55': 8.25,
-        Cut: 3,
-      },
-    },
-  ],
-  salePricePerBag: [
-    {
-      variety: 'Himalini',
-      sizeRates: {
-        'Below 25': 1740,
-        '25–30': 1740,
-        'Below 30': 1740,
-        '30–35': 1740,
-        '35–40': 1740,
-        '30–40': 1740,
-        '40–45': 1160,
-        '40–50': 500,
-        '45–50': 940,
-        '50–55': 500,
-        'Above 50': 500,
-        'Above 55': 500,
-        Cut: 150,
-      },
-    },
-    {
-      variety: 'Jyoti',
-      sizeRates: {
-        'Below 25': 1740,
-        '25–30': 1740,
-        'Below 30': 1740,
-        '30–35': 1740,
-        '35–40': 1740,
-        '30–40': 1740,
-        '40–45': 1160,
-        '40–50': 500,
-        '45–50': 940,
-        '50–55': 500,
-        'Above 50': 500,
-        'Above 55': 500,
-        Cut: 150,
-      },
-    },
-    {
-      variety: 'B101',
-      sizeRates: {
-        'Below 25': 1740,
-        '25–30': 1740,
-        'Below 30': 1740,
-        '30–35': 1740,
-        '35–40': 1740,
-        '30–40': 1740,
-        '40–45': 1160,
-        '40–50': 500,
-        '45–50': 940,
-        '50–55': 500,
-        'Above 50': 500,
-        'Above 55': 500,
-        Cut: 150,
-      },
-    },
-  ],
-}) as FinanceConstantsData;
-
-function normalizeStringList(
-  raw: unknown,
-  fallback: readonly string[]
-): string[] {
-  if (!Array.isArray(raw)) return [...fallback];
-  const next = raw
+function requireNonEmptyStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new PreferencesValidationError(`Missing or invalid ${field}`);
+  }
+  const items = value
     .map((x) => (typeof x === 'string' ? x.trim() : String(x ?? '').trim()))
     .filter(Boolean);
-  return next.length > 0 ? next : [...fallback];
+  if (items.length === 0) {
+    throw new PreferencesValidationError(`Empty ${field}`);
+  }
+  return items;
 }
 
-type LegacyFinanceNameLists = {
-  incomingBagsTimesRateParticularNames: string[];
-  acresTimesRateParticularNames: string[];
-  gradingBagsTimesRateParticularNames: string[];
-};
+function requireStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new PreferencesValidationError(`Missing or invalid ${field}`);
+  }
+  return value
+    .map((x) => (typeof x === 'string' ? x.trim() : String(x ?? '').trim()))
+    .filter(Boolean);
+}
+
+function parsePreferenceOptions(
+  value: unknown,
+  field: string
+): PreferenceOption[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new PreferencesValidationError(`Missing or empty ${field}`);
+  }
+  const options: PreferenceOption[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      throw new PreferencesValidationError(`Invalid entry in ${field}`);
+    }
+    const label = String((item as PreferenceOption).label ?? '').trim();
+    const val = String((item as PreferenceOption).value ?? '').trim();
+    if (!label || !val) {
+      throw new PreferencesValidationError(`Invalid entry in ${field}`);
+    }
+    options.push({ label, value: val });
+  }
+  return options;
+}
+
+function parseBagConfig(value: unknown, field = 'custom.bagConfig'): BagConfig {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new PreferencesValidationError(`Missing or invalid ${field}`);
+  }
+  const v = value as Record<string, unknown>;
+  const bagTypes = requireStringArray(v.bagTypes, `${field}.bagTypes`);
+  if (bagTypes.length === 0) {
+    throw new PreferencesValidationError(`Empty ${field}.bagTypes`);
+  }
+  const juteBagWeight = Number(v.juteBagWeight);
+  const lenoBagWeight = Number(v.lenoBagWeight);
+  if (!Number.isFinite(juteBagWeight) || !Number.isFinite(lenoBagWeight)) {
+    throw new PreferencesValidationError(`Invalid bag weights in ${field}`);
+  }
+  return { juteBagWeight, lenoBagWeight, bagTypes };
+}
 
 function normalizeCostDriverValue(raw: unknown): FinanceCostDriver | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
-  if (trimmed === 'Weight') {
-    return 'IncomingWeightWithoutBardana';
-  }
   if (VALID_FINANCE_COST_DRIVERS.has(trimmed)) {
     return trimmed as FinanceCostDriver;
   }
@@ -345,56 +206,101 @@ function normalizeCostDriverValue(raw: unknown): FinanceCostDriver | null {
   return null;
 }
 
-function inferCostDriverFromLegacy(
-  name: string,
-  legacy: LegacyFinanceNameLists
-): FinanceCostDriver {
-  if (name === 'Freight: Seed (Dispatched)') return 'Fixed';
-  if (name === 'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)') {
-    return 'IncomingWeightWithoutBardana';
+function requireNonEmptyString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new PreferencesValidationError(`Missing or invalid ${field}`);
   }
-  if (name === 'Multiplication Expenses') return 'Buy-back-payable';
-
-  if (legacy.incomingBagsTimesRateParticularNames.includes(name)) {
-    return 'IncomingBags';
-  }
-  if (legacy.acresTimesRateParticularNames.includes(name)) return 'Acres';
-  if (legacy.gradingBagsTimesRateParticularNames.includes(name)) {
-    return 'GradingBags';
-  }
-
-  const defaultRow = DEFAULT_FINANCE_CONSTANTS.particulars.find(
-    (row) => row.name === name
-  );
-  if (defaultRow) return defaultRow.costDriver;
-
-  return 'Fixed';
+  return value.trim();
 }
 
-function normalizeFinanceParticulars(
-  raw: unknown,
-  fallback: FinanceParticularRow[],
-  legacy: LegacyFinanceNameLists
+function requireMetadata(
+  preferences: PreferencesData,
+  fallback?: PreferencesData
+): Pick<
+  PreferencesData,
+  '_id' | 'coldStorageId' | 'createdAt' | 'updatedAt' | '__v'
+> {
+  if (fallback) {
+    return {
+      _id: preferences._id ?? fallback._id,
+      coldStorageId: preferences.coldStorageId ?? fallback.coldStorageId,
+      createdAt: preferences.createdAt ?? fallback.createdAt,
+      updatedAt: preferences.updatedAt ?? fallback.updatedAt,
+      __v: preferences.__v ?? fallback.__v,
+    };
+  }
+
+  return {
+    _id: requireNonEmptyString(preferences._id, '_id'),
+    coldStorageId: requireNonEmptyString(
+      preferences.coldStorageId,
+      'coldStorageId'
+    ),
+    createdAt: requireNonEmptyString(preferences.createdAt, 'createdAt'),
+    updatedAt: requireNonEmptyString(preferences.updatedAt, 'updatedAt'),
+    __v: Number(preferences.__v) || 0,
+  };
+}
+
+function validateVarietyTableCoverage(
+  table: BuyBackCost[],
+  potatoVarieties: PreferenceOption[],
+  field: string
+): BuyBackCost[] {
+  const expected = new Set(
+    potatoVarieties.map((v) => v.value.trim()).filter(Boolean)
+  );
+  const found = new Set(table.map((row) => row.variety.trim()).filter(Boolean));
+
+  for (const variety of expected) {
+    if (!found.has(variety)) {
+      throw new PreferencesValidationError(
+        `Missing ${field} entry for variety "${variety}"`
+      );
+    }
+  }
+
+  for (const variety of found) {
+    if (!expected.has(variety)) {
+      throw new PreferencesValidationError(
+        `Unexpected ${field} entry for variety "${variety}"`
+      );
+    }
+  }
+
+  return table;
+}
+
+function parseFinanceParticulars(
+  value: unknown,
+  field: string
 ): FinanceParticularRow[] {
-  if (!Array.isArray(raw)) {
-    return fallback.map((row) => ({ ...row }));
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new PreferencesValidationError(`Missing or empty ${field}`);
   }
   const rows: FinanceParticularRow[] = [];
-  for (const p of raw) {
-    if (!p || typeof p !== 'object') continue;
+  for (const p of value) {
+    if (!p || typeof p !== 'object') {
+      throw new PreferencesValidationError(`Invalid entry in ${field}`);
+    }
     const item = p as FinanceParticularRow & { costDriver?: unknown };
     const name = String(item.name ?? '').trim();
-    if (!name) continue;
-    const costDriver =
-      normalizeCostDriverValue(item.costDriver) ??
-      inferCostDriverFromLegacy(name, legacy);
+    if (!name) {
+      throw new PreferencesValidationError(`Missing name in ${field}`);
+    }
+    const costDriver = normalizeCostDriverValue(item.costDriver);
+    if (!costDriver) {
+      throw new PreferencesValidationError(
+        `Missing or invalid costDriver for "${name}" in ${field}`
+      );
+    }
     rows.push({
       name,
       rate: Number(item.rate) || 0,
       costDriver,
     });
   }
-  return rows.length > 0 ? rows : [...fallback];
+  return rows;
 }
 
 function normalizeSizeRatesRecord(raw: unknown): Record<string, number> {
@@ -407,117 +313,194 @@ function normalizeSizeRatesRecord(raw: unknown): Record<string, number> {
   return out;
 }
 
-/** Merge API variety/size tables with defaults (defaults define order; API overrides and adds varieties). */
-function mergeVarietySizeRateTables(
-  fromApi: unknown,
-  defaults: BuyBackCost[]
-): BuyBackCost[] {
-  const base = defaults.map((row) => ({
-    variety: row.variety.trim(),
-    sizeRates: { ...row.sizeRates },
-  }));
+/** Collapse en-dash / hyphen variants to a single comparable key. */
+export function sizeRateCanonicalKey(raw: string): string {
+  return raw.replace(/[–—−-]/g, '-').trim();
+}
 
-  if (!Array.isArray(fromApi) || fromApi.length === 0) return base;
-
-  const byVariety = new Map<string, BuyBackCost>();
-  for (const row of base) {
-    byVariety.set(row.variety.trim(), {
-      variety: row.variety.trim(),
-      sizeRates: { ...row.sizeRates },
-    });
+/** Resolve a rate for `canonicalSize`, preferring an exact key match over dash aliases. */
+export function resolveSizeRateFromRecord(
+  sizeRates: Record<string, number>,
+  canonicalSize: string
+): number | undefined {
+  if (Object.prototype.hasOwnProperty.call(sizeRates, canonicalSize)) {
+    const exact = Number(sizeRates[canonicalSize]);
+    if (Number.isFinite(exact)) return exact;
   }
 
-  for (const item of fromApi) {
-    if (!item || typeof item !== 'object') continue;
-    const variety = String((item as BuyBackCost).variety ?? '').trim();
-    if (!variety) continue;
-    const patch = normalizeSizeRatesRecord((item as BuyBackCost).sizeRates);
-    const prev = byVariety.get(variety);
-    if (prev) {
-      byVariety.set(variety, {
-        variety,
-        sizeRates: { ...prev.sizeRates, ...patch },
-      });
-    } else {
-      byVariety.set(variety, { variety, sizeRates: patch });
+  const target = sizeRateCanonicalKey(canonicalSize);
+  for (const [k, v] of Object.entries(sizeRates)) {
+    if (k === canonicalSize) continue;
+    if (sizeRateCanonicalKey(k) !== target) continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+
+  return undefined;
+}
+
+/** Keep one entry per `bagSizes` label (hyphen form); drop stale en-dash duplicates. */
+export function canonicalizeSizeRatesRecord(
+  sizeRates: Record<string, number>,
+  canonicalSizes: string[]
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const size of canonicalSizes) {
+    const rate = resolveSizeRateFromRecord(sizeRates, size);
+    if (rate !== undefined) {
+      out[size] = rate;
     }
   }
+  return out;
+}
 
-  const ordered: BuyBackCost[] = [];
-  const seen = new Set<string>();
-  for (const row of base) {
-    const v = row.variety.trim();
-    ordered.push(byVariety.get(v)!);
-    seen.add(v);
+export function canonicalizeVarietySizeRateTables(
+  tables: BuyBackCost[],
+  canonicalSizes: string[]
+): BuyBackCost[] {
+  return tables.map(({ variety, sizeRates }) => ({
+    variety,
+    sizeRates: canonicalizeSizeRatesRecord(sizeRates, canonicalSizes),
+  }));
+}
+
+/** Set a size rate and remove dash-variant aliases for the same size. */
+export function applySizeRateUpdate(
+  sizeRates: Record<string, number>,
+  size: string,
+  rate: number
+): Record<string, number> {
+  const target = sizeRateCanonicalKey(size);
+  const next: Record<string, number> = {};
+  for (const [k, v] of Object.entries(sizeRates)) {
+    if (sizeRateCanonicalKey(k) !== target) {
+      next[k] = v;
+    }
   }
-  for (const [v, row] of byVariety) {
-    if (!seen.has(v)) ordered.push(row);
+  next[size] = rate;
+  return next;
+}
+
+/** Normalize sizeRates on PATCH payloads so en-dash keys are not sent alongside hyphens. */
+export function canonicalizeCustomSizeRates(
+  custom: Record<string, unknown>,
+  bagSizes: string[]
+): Record<string, unknown> {
+  const next = { ...custom };
+
+  if (Array.isArray(next.buyBackCost)) {
+    next.buyBackCost = canonicalizeVarietySizeRateTables(
+      next.buyBackCost.map((item) => {
+        const row = item as BuyBackCost;
+        return {
+          variety: String(row.variety ?? ''),
+          sizeRates: normalizeSizeRatesRecord(row.sizeRates),
+        };
+      }),
+      bagSizes
+    );
   }
-  return ordered;
+
+  const financeConstants = next.financeConstants;
+  if (
+    financeConstants &&
+    typeof financeConstants === 'object' &&
+    !Array.isArray(financeConstants)
+  ) {
+    const fc = { ...(financeConstants as Record<string, unknown>) };
+
+    for (const table of [
+      'actualCostWithoutSubsidy',
+      'salePricePerBag',
+    ] as const) {
+      if (!Array.isArray(fc[table])) continue;
+      fc[table] = canonicalizeVarietySizeRateTables(
+        (fc[table] as BuyBackCost[]).map((item) => ({
+          variety: String(item.variety ?? ''),
+          sizeRates: normalizeSizeRatesRecord(item.sizeRates),
+        })),
+        bagSizes
+      );
+    }
+
+    next.financeConstants = fc;
+  }
+
+  return next;
+}
+
+function parseVarietySizeRateTables(
+  value: unknown,
+  field: string
+): BuyBackCost[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new PreferencesValidationError(`Missing or empty ${field}`);
+  }
+  const rows: BuyBackCost[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      throw new PreferencesValidationError(`Invalid entry in ${field}`);
+    }
+    const variety = String((item as BuyBackCost).variety ?? '').trim();
+    if (!variety) {
+      throw new PreferencesValidationError(`Missing variety in ${field}`);
+    }
+    rows.push({
+      variety,
+      sizeRates: normalizeSizeRatesRecord((item as BuyBackCost).sizeRates),
+    });
+  }
+  return rows;
 }
 
 export function normalizeFinanceConstants(raw: unknown): FinanceConstantsData {
-  const defaults = cloneFinanceConstants(DEFAULT_FINANCE_CONSTANTS);
-
-  if (!raw || typeof raw !== 'object') {
-    return defaults;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new PreferencesValidationError('Missing custom.financeConstants');
   }
-
   const r = raw as Record<string, unknown>;
-  const legacy: LegacyFinanceNameLists = {
-    incomingBagsTimesRateParticularNames: normalizeStringList(
-      r.incomingBagsTimesRateParticularNames,
-      LEGACY_INCOMING_BAGS_PARTICULAR_NAMES
-    ),
-    acresTimesRateParticularNames: normalizeStringList(
-      r.acresTimesRateParticularNames,
-      LEGACY_ACRES_PARTICULAR_NAMES
-    ),
-    gradingBagsTimesRateParticularNames: normalizeStringList(
-      r.gradingBagsTimesRateParticularNames,
-      LEGACY_GRADING_BAGS_PARTICULAR_NAMES
-    ),
-  };
-  const particularsRaw = r.particulars;
-  const particulars = normalizeFinanceParticulars(
-    particularsRaw,
-    defaults.particulars,
-    legacy
-  );
 
-  if (particulars.length === 0) {
-    return defaults;
+  for (const key of Object.keys(r)) {
+    if (!CANONICAL_FINANCE_CONSTANTS_KEYS.has(key)) {
+      throw new PreferencesValidationError(
+        `Unsupported field custom.financeConstants.${key}`
+      );
+    }
   }
 
   return {
-    gradingBagSizes40mmAndAbove: normalizeStringList(
+    gradingBagSizes40mmAndAbove: requireNonEmptyStringArray(
       r.gradingBagSizes40mmAndAbove,
-      defaults.gradingBagSizes40mmAndAbove
+      'custom.financeConstants.gradingBagSizes40mmAndAbove'
     ),
-    particulars,
-    actualCostWithoutSubsidy: mergeVarietySizeRateTables(
+    particulars: parseFinanceParticulars(
+      r.particulars,
+      'custom.financeConstants.particulars'
+    ),
+    actualCostWithoutSubsidy: parseVarietySizeRateTables(
       r.actualCostWithoutSubsidy,
-      defaults.actualCostWithoutSubsidy
+      'custom.financeConstants.actualCostWithoutSubsidy'
     ),
-    salePricePerBag: mergeVarietySizeRateTables(
+    salePricePerBag: parseVarietySizeRateTables(
       r.salePricePerBag,
-      defaults.salePricePerBag
+      'custom.financeConstants.salePricePerBag'
     ),
   };
 }
 
+/** Canonical `custom` block returned by GET/PATCH `/preferences`. */
 export interface PreferencesCustomData {
   potatoVarieties: PreferenceOption[];
   farmerSeedGenerations: PreferenceOption[];
   graderOptions: string[];
   incomingLocations: string[];
   bagConfig: BagConfig;
-  /** Per variety: standard bags/acre and rate per bag by graded size */
+  /** Per variety: standard bags/acre and rate per bag by graded size (`name` matches `bagSizes`). */
   standardSeedBagsPerAcre: StandardSeedBagsPerAcreEntry[];
   buyBackCost: BuyBackCost[];
   financeConstants: FinanceConstantsData;
 }
 
+/** Cold-storage preferences document (API shape after normalization). */
 export interface PreferencesData {
   _id: string;
   coldStorageId: string;
@@ -535,30 +518,22 @@ export interface GetPreferencesApiResponse {
   message?: string;
 }
 
-/** Resolved finance constants for reports (always defined after `normalizePreferences`). */
+/** Resolved finance constants for reports (requires normalized preferences). */
 export function getFinanceConstants(
   preferences: PreferencesData | null | undefined
 ): FinanceConstantsData {
-  return (
-    preferences?.custom?.financeConstants ??
-    cloneFinanceConstants(DEFAULT_FINANCE_CONSTANTS)
-  );
+  if (!preferences?.custom?.financeConstants) {
+    throw new PreferencesValidationError(
+      'Finance constants are missing from preferences'
+    );
+  }
+  return preferences.custom.financeConstants;
 }
 
 function dashKeyVariants(label: string): string[] {
   return [label, label.replace(/-/g, '–'), label.replace(/–/g, '-')].filter(
     (v, i, a) => a.indexOf(v) === i
   );
-}
-
-function pickNumericFromMap(
-  map: Record<string, number>,
-  key: string
-): number | undefined {
-  for (const k of dashKeyVariants(key)) {
-    if (map[k] !== undefined) return map[k];
-  }
-  return undefined;
 }
 
 function findSizeRow(
@@ -619,42 +594,41 @@ export function getStandardSeedEntryForVariety(
   );
 }
 
-/** Build / merge standardSeedBagsPerAcre from API + bag sizes + varieties */
+/** Align standardSeedBagsPerAcre from API with bag sizes and varieties. */
 export function normalizeStandardSeedBagsPerAcre(
-  custom: Record<string, unknown>,
+  raw: unknown,
   bagSizes: string[],
   potatoVarieties: PreferenceOption[]
 ): StandardSeedBagsPerAcreEntry[] {
-  const rawNew = custom.standardSeedBagsPerAcre;
-  const fromApi =
-    Array.isArray(rawNew) &&
-    rawNew.every(
-      (e) =>
-        e &&
-        typeof e === 'object' &&
-        typeof (e as StandardSeedBagsPerAcreEntry).variety === 'string' &&
-        Array.isArray((e as StandardSeedBagsPerAcreEntry).sizes)
-    )
-      ? (rawNew as StandardSeedBagsPerAcreEntry[])
-      : [];
-
-  const oldFlat = custom.standardBagsPerAcre;
-  const oldMap: Record<string, number> =
-    oldFlat &&
-    typeof oldFlat === 'object' &&
-    !Array.isArray(oldFlat) &&
-    oldFlat !== null
-      ? (oldFlat as Record<string, number>)
-      : {};
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new PreferencesValidationError(
+      'Missing or empty custom.standardSeedBagsPerAcre'
+    );
+  }
 
   const byVariety = new Map<string, StandardSeedBagsPerAcreEntry>();
-
-  for (const row of fromApi) {
-    const v = row.variety?.trim() ?? '';
-    if (!v) continue;
-    byVariety.set(v, {
-      variety: v,
-      sizes: (row.sizes ?? []).map((s) => ({
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') {
+      throw new PreferencesValidationError(
+        'Invalid entry in custom.standardSeedBagsPerAcre'
+      );
+    }
+    const variety = String(
+      (row as StandardSeedBagsPerAcreEntry).variety ?? ''
+    ).trim();
+    if (!variety) {
+      throw new PreferencesValidationError(
+        'Missing variety in custom.standardSeedBagsPerAcre'
+      );
+    }
+    if (!Array.isArray((row as StandardSeedBagsPerAcreEntry).sizes)) {
+      throw new PreferencesValidationError(
+        `Missing sizes for variety "${variety}" in custom.standardSeedBagsPerAcre`
+      );
+    }
+    byVariety.set(variety, {
+      variety,
+      sizes: (row as StandardSeedBagsPerAcreEntry).sizes.map((s) => ({
         name: String(s.name ?? ''),
         ratePerBag: Number(s.ratePerBag) || 0,
         bagsPerAcre: Number(s.bagsPerAcre) || 0,
@@ -662,42 +636,27 @@ export function normalizeStandardSeedBagsPerAcre(
     });
   }
 
-  const legacyFlatOnly = fromApi.length === 0 && Object.keys(oldMap).length > 0;
-
+  const result: StandardSeedBagsPerAcreEntry[] = [];
   for (const { value } of potatoVarieties) {
     const key = value.trim();
     if (!key) continue;
-    if (!byVariety.has(key)) {
-      byVariety.set(key, {
-        variety: key,
-        sizes: bagSizes.map((name) => ({
+    const entry = byVariety.get(key);
+    if (!entry) {
+      throw new PreferencesValidationError(
+        `Missing standardSeedBagsPerAcre entry for variety "${key}"`
+      );
+    }
+    result.push({
+      variety: key,
+      sizes: bagSizes.map((name) => {
+        const existing = findSizeRow(entry.sizes, name);
+        return {
           name,
-          ratePerBag: 0,
-          bagsPerAcre: legacyFlatOnly
-            ? (pickNumericFromMap(oldMap, name) ?? 0)
-            : 0,
-        })),
-      });
-    }
-  }
-
-  const result: StandardSeedBagsPerAcreEntry[] = potatoVarieties
-    .map(({ value }) => byVariety.get(value.trim()))
-    .filter((e): e is StandardSeedBagsPerAcreEntry => Boolean(e));
-
-  for (const entry of result) {
-    const merged: StandardSeedBagSizeRow[] = [];
-    for (const name of bagSizes) {
-      const existing = findSizeRow(entry.sizes, name);
-      merged.push({
-        name,
-        ratePerBag: existing?.ratePerBag ?? 0,
-        bagsPerAcre:
-          existing?.bagsPerAcre ??
-          (legacyFlatOnly ? (pickNumericFromMap(oldMap, name) ?? 0) : 0),
-      });
-    }
-    entry.sizes = merged;
+          ratePerBag: existing?.ratePerBag ?? 0,
+          bagsPerAcre: existing?.bagsPerAcre ?? 0,
+        };
+      }),
+    });
   }
 
   return result;
@@ -707,58 +666,120 @@ export function normalizePreferences(
   preferences: PreferencesData,
   fallback?: PreferencesData
 ): PreferencesData {
-  const custom = preferences.custom ?? ({} as PreferencesData['custom']);
+  const bagSizes = resolveRequired(
+    preferences.bagSizes,
+    fallback?.bagSizes,
+    'bagSizes'
+  );
+  if (!Array.isArray(bagSizes) || bagSizes.length === 0) {
+    throw new PreferencesValidationError('Missing or empty bagSizes');
+  }
+
+  const reportFormat = resolveRequired(
+    preferences.reportFormat,
+    fallback?.reportFormat,
+    'reportFormat'
+  );
+  if (typeof reportFormat !== 'string' || !reportFormat.trim()) {
+    throw new PreferencesValidationError('Missing or invalid reportFormat');
+  }
+
+  const custom = preferences.custom ?? fallback?.custom;
+  if (!custom) {
+    throw new PreferencesValidationError('Missing custom');
+  }
   const fallbackCustom = fallback?.custom;
-  const bagConfig =
-    custom.bagConfig ?? ({} as PreferencesData['custom']['bagConfig']);
-  const fallbackBagConfig = fallbackCustom?.bagConfig;
 
-  const bagSizes = preferences.bagSizes ?? fallback?.bagSizes ?? [];
-  const potatoVarieties =
-    custom.potatoVarieties ?? fallbackCustom?.potatoVarieties ?? [];
+  if (!fallback) {
+    for (const key of Object.keys(custom as object)) {
+      if (!CANONICAL_CUSTOM_KEYS.has(key)) {
+        throw new PreferencesValidationError(`Unsupported field custom.${key}`);
+      }
+    }
+  }
 
-  const customRecord = custom as unknown as Record<string, unknown>;
-  const fallbackCustomRecord = fallbackCustom as unknown as
-    | Record<string, unknown>
-    | undefined;
+  const potatoVarieties = parsePreferenceOptions(
+    custom.potatoVarieties ?? fallbackCustom?.potatoVarieties,
+    'custom.potatoVarieties'
+  );
 
-  const mergedCustom = {
-    ...custom,
+  const farmerSeedGenerations = parsePreferenceOptions(
+    custom.farmerSeedGenerations ?? fallbackCustom?.farmerSeedGenerations,
+    'custom.farmerSeedGenerations'
+  );
+
+  const graderOptions = requireStringArray(
+    custom.graderOptions ?? fallbackCustom?.graderOptions,
+    'custom.graderOptions'
+  );
+
+  const incomingLocations = requireStringArray(
+    custom.incomingLocations ?? fallbackCustom?.incomingLocations,
+    'custom.incomingLocations'
+  );
+
+  const bagConfig = parseBagConfig(
+    custom.bagConfig ?? fallbackCustom?.bagConfig
+  );
+
+  const buyBackCost = validateVarietyTableCoverage(
+    canonicalizeVarietySizeRateTables(
+      parseVarietySizeRateTables(
+        custom.buyBackCost ?? fallbackCustom?.buyBackCost,
+        'custom.buyBackCost'
+      ),
+      bagSizes
+    ),
     potatoVarieties,
-    farmerSeedGenerations:
-      custom.farmerSeedGenerations ??
-      fallbackCustom?.farmerSeedGenerations ??
-      [],
-    graderOptions: custom.graderOptions ?? fallbackCustom?.graderOptions ?? [],
-    incomingLocations:
-      custom.incomingLocations ?? fallbackCustom?.incomingLocations ?? [],
-    bagConfig: {
-      ...bagConfig,
-      juteBagWeight:
-        bagConfig.juteBagWeight ?? fallbackBagConfig?.juteBagWeight ?? 0,
-      lenoBagWeight:
-        bagConfig.lenoBagWeight ?? fallbackBagConfig?.lenoBagWeight ?? 0,
-      bagTypes: bagConfig.bagTypes ?? fallbackBagConfig?.bagTypes ?? [],
-    },
-    standardSeedBagsPerAcre: normalizeStandardSeedBagsPerAcre(
-      customRecord,
-      bagSizes,
-      potatoVarieties
-    ),
-    buyBackCost: custom.buyBackCost ?? fallbackCustom?.buyBackCost ?? [],
-    financeConstants: normalizeFinanceConstants(
-      customRecord.financeConstants ?? fallbackCustomRecord?.financeConstants
-    ),
-  };
+    'custom.buyBackCost'
+  );
 
-  const { standardBagsPerAcre: _legacyStandardBags, ...customWithoutLegacy } =
-    mergedCustom as unknown as Record<string, unknown>;
+  const financeConstantsRaw =
+    custom.financeConstants ?? fallbackCustom?.financeConstants;
+  const financeConstants = normalizeFinanceConstants(financeConstantsRaw);
+  const actualCostWithoutSubsidy = validateVarietyTableCoverage(
+    canonicalizeVarietySizeRateTables(
+      financeConstants.actualCostWithoutSubsidy,
+      bagSizes
+    ),
+    potatoVarieties,
+    'custom.financeConstants.actualCostWithoutSubsidy'
+  );
+  const salePricePerBag = validateVarietyTableCoverage(
+    canonicalizeVarietySizeRateTables(
+      financeConstants.salePricePerBag,
+      bagSizes
+    ),
+    potatoVarieties,
+    'custom.financeConstants.salePricePerBag'
+  );
+
+  const standardSeedBagsPerAcre = normalizeStandardSeedBagsPerAcre(
+    custom.standardSeedBagsPerAcre ?? fallbackCustom?.standardSeedBagsPerAcre,
+    bagSizes,
+    potatoVarieties
+  );
+
+  const metadata = requireMetadata(preferences, fallback);
 
   return {
-    ...preferences,
+    ...metadata,
     bagSizes,
-    reportFormat: preferences.reportFormat ?? fallback?.reportFormat ?? '',
-    custom: customWithoutLegacy as unknown as PreferencesCustomData,
+    reportFormat: reportFormat.trim(),
+    custom: {
+      potatoVarieties,
+      farmerSeedGenerations,
+      graderOptions,
+      incomingLocations,
+      bagConfig,
+      standardSeedBagsPerAcre,
+      buyBackCost,
+      financeConstants: {
+        ...financeConstants,
+        actualCostWithoutSubsidy,
+        salePricePerBag,
+      },
+    },
   };
 }
 

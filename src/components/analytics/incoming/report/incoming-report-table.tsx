@@ -23,6 +23,7 @@ import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useGetIncomingGatePassReport } from '@/services/store-admin/incoming-gate-pass/analytics/useGetIncomingGatePassReport';
+import { useGetUngradedGatePassesReport } from '@/services/store-admin/incoming-gate-pass/analytics/useGetUngradedGatePassesReport';
 import type { IncomingGatePassWithLink } from '@/types/incoming-gate-pass';
 import { useStore } from '@/stores/store';
 import { IncomingExcelButton } from './incoming-excel-button';
@@ -45,7 +46,7 @@ const DEFAULT_COLUMN_MIN_SIZE = 120;
 const DEFAULT_COLUMN_MAX_SIZE = 550;
 
 type IncomingReportTableProps = {
-  enforcedStatus?: string;
+  variant?: 'incoming' | 'ungraded';
 };
 
 function getFarmerName(gatePass: IncomingGatePassWithLink): string {
@@ -164,11 +165,10 @@ function subtractWithPrecision(
   return { value, precision };
 }
 
-function normalizeStatusValue(value: string): string {
-  return value.trim().replace(/_/g, ' ').toUpperCase();
-}
-
-const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
+const IncomingReportTable = ({
+  variant = 'incoming',
+}: IncomingReportTableProps) => {
+  const isUngradedReport = variant === 'ungraded';
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
@@ -202,16 +202,21 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
   const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
   const canApply = Boolean(fromDate && toDate);
 
+  const reportParams = {
+    fromDate: hasAppliedDateFilters ? appliedFromDate : undefined,
+    toDate: hasAppliedDateFilters ? appliedToDate : undefined,
+  };
+
+  const incomingQuery = useGetIncomingGatePassReport(reportParams, {
+    enabled: !isUngradedReport,
+  });
+
+  const ungradedQuery = useGetUngradedGatePassesReport(reportParams, {
+    enabled: isUngradedReport,
+  });
+
   const { data, isFetching, isLoading, isError, error, refetch } =
-    useGetIncomingGatePassReport(
-      {
-        fromDate: hasAppliedDateFilters ? appliedFromDate : undefined,
-        toDate: hasAppliedDateFilters ? appliedToDate : undefined,
-      },
-      {
-        enabled: true,
-      }
-    );
+    isUngradedReport ? ungradedQuery : incomingQuery;
 
   const incomingReportData = React.useMemo<IncomingReportRow[]>(
     () =>
@@ -251,18 +256,9 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
     [data]
   );
 
-  const filteredIncomingReportData = React.useMemo(() => {
-    if (!enforcedStatus) return incomingReportData;
-    const normalizedEnforcedStatus = normalizeStatusValue(enforcedStatus);
-    return incomingReportData.filter(
-      (row) =>
-        normalizeStatusValue(String(row.status)) === normalizedEnforcedStatus
-    );
-  }, [enforcedStatus, incomingReportData]);
-
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<IncomingReportRow>({
-    data: filteredIncomingReportData,
+    data: incomingReportData,
     columns: incomingReportColumns,
     defaultColumn: {
       size: DEFAULT_COLUMN_SIZE,
@@ -459,7 +455,9 @@ const IncomingReportTable = ({ enforcedStatus }: IncomingReportTableProps) => {
             <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error instanceof Error
                 ? error.message
-                : 'Failed to load incoming report'}
+                : isUngradedReport
+                  ? 'Failed to load ungraded report'
+                  : 'Failed to load incoming report'}
             </p>
           )}
 

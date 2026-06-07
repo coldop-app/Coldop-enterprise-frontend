@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-07
+
+### Added
+- Dedicated ungraded gate pass report service (`useGetUngradedGatePassesReport`) for `/incoming-gate-pass/ungraded/report`, with query keys, prefetch, and typed error handling.
+- Size-rate canonicalization helpers (`sizeRateCanonicalKey`, `resolveSizeRateFromRecord`, `canonicalizeSizeRatesRecord`, `canonicalizeVarietySizeRateTables`, `applySizeRateUpdate`, `canonicalizeCustomSizeRates`) so en-dash and hyphen bag-size aliases stay consistent across preferences and PATCH payloads.
+
+### Changed
+- Ungraded analytics report route now loads via `IncomingReportTable variant="ungraded"` and the dedicated ungraded API instead of client-side status filtering on the incoming report.
+- Analytics Excel exports (contract farming, farmer seed, incoming, storage) use 40px row heights for headers, body rows, and totals for improved readability.
+- Preferences normalization is strict: only canonical `custom` and `financeConstants` fields are accepted, API data is required (embedded defaults and legacy fallbacks removed), and `PreferencesValidationError` surfaces missing or invalid configuration.
+- Settings preferences editor applies `applySizeRateUpdate` when editing buy-back and finance size rates so duplicate dash-variant keys are not kept.
+- Preferences PATCH payloads canonicalize `buyBackCost` and finance `sizeRates` before save; persisted preferences migration bumped to version 5 and clears invalid cached preferences on migration failure.
+- Project version updated to `1.2.0` for this ungraded report API, preferences validation, and Excel export release.
+
 ## [1.1.0] - 2026-06-07
 
 ### Added

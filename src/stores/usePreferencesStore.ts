@@ -77,16 +77,22 @@ export const usePreferencesStore = create<PreferencesStore>()(
         preferences: state.preferences,
         syncedColdStorageId: state.syncedColdStorageId,
       }),
-      version: 4,
+      version: 5,
       migrate: (persisted) => {
         const state = persisted as PreferencesPersistSlice;
 
-        return {
-          ...state,
-          preferences: state.preferences
-            ? normalizePreferences(state.preferences)
-            : null,
-        };
+        if (!state.preferences) {
+          return state;
+        }
+
+        try {
+          return {
+            ...state,
+            preferences: normalizePreferences(state.preferences),
+          };
+        } catch {
+          return { preferences: null, syncedColdStorageId: null };
+        }
       },
     }
   )

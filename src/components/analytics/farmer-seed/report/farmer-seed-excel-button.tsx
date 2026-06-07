@@ -102,7 +102,7 @@ function buildFarmerSeedTotalsRowValues(
 
 function addTotalsRow(ws: ExcelJS.Worksheet, values: Array<string | number>) {
   const exRow = ws.addRow(values);
-  exRow.height = 24;
+  exRow.height = 40;
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     applyFill(cell, COLORS.totalRowBg);
@@ -508,7 +508,7 @@ export const FarmerSeedExcelButton = ({
 
         // ── Column header row ────────────────────────────────────────────────────
         const columnHeaderRow = worksheet.addRow(headerLabels);
-        columnHeaderRow.height = 36; // taller to accommodate wrapped text
+        columnHeaderRow.height = 40;
         columnHeaderRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -526,7 +526,7 @@ export const FarmerSeedExcelButton = ({
           const background = dataRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
-          excelRow.height = 22; // taller body rows
+          excelRow.height = 40;
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);

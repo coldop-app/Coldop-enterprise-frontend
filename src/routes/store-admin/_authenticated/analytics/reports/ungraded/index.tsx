@@ -4,5 +4,5 @@ import IncomingReportTable from '@/components/analytics/incoming/report/incoming
 export const Route = createFileRoute(
   '/store-admin/_authenticated/analytics/reports/ungraded/'
 )({
-  component: () => <IncomingReportTable enforcedStatus="NOT GRADED" />,
+  component: () => <IncomingReportTable variant="ungraded" />,
 });

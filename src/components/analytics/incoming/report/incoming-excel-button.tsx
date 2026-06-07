@@ -288,7 +288,7 @@ function addStyledTable(
   }>
 ) {
   const headerRow = ws.addRow(headers);
-  headerRow.height = 36;
+  headerRow.height = 40;
   headerRow.eachCell((cell) => {
     applyFill(cell, COLORS.headerBg);
     applyBorder(cell, COLORS.borderColor);
@@ -302,7 +302,7 @@ function addStyledTable(
 
   rows.forEach((dataRow) => {
     const exRow = ws.addRow(dataRow.values);
-    exRow.height = 22;
+    exRow.height = 40;
     const bgArgb = dataRow.isGroupedOrAggregatedRow
       ? COLORS.rowEven
       : COLORS.rowOdd;
@@ -326,7 +326,7 @@ function addStyledTable(
 
 function addTotalsRow(ws: ExcelJS.Worksheet, values: Array<string | number>) {
   const exRow = ws.addRow(values);
-  exRow.height = 24;
+  exRow.height = 40;
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     applyFill(cell, COLORS.totalRowBg);

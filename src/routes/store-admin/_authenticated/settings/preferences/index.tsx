@@ -4,6 +4,7 @@ import {
   useGetPreferences,
   normalizePreferences,
   normalizeFinanceConstants,
+  applySizeRateUpdate,
   type PreferencesData,
   type PreferenceOption,
   type BuyBackCost,
@@ -1282,7 +1283,11 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
               e.variety === variety
                 ? {
                     ...e,
-                    sizeRates: { ...e.sizeRates, [size]: sanitizedRate },
+                    sizeRates: applySizeRateUpdate(
+                      e.sizeRates,
+                      size,
+                      sanitizedRate
+                    ),
                   }
                 : e
             )
@@ -1432,7 +1437,10 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
         idx >= 0
           ? list.map((e) =>
               e.variety === variety
-                ? { ...e, sizeRates: { ...e.sizeRates, [size]: rate } }
+                ? {
+                    ...e,
+                    sizeRates: applySizeRateUpdate(e.sizeRates, size, rate),
+                  }
                 : e
             )
           : [...list, { variety, sizeRates: { [size]: rate } }];
