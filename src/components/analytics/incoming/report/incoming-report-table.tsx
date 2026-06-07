@@ -17,8 +17,9 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
+import { Info, RefreshCw, Search, SlidersHorizontal } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Item } from '@/components/ui/item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -355,6 +356,19 @@ const IncomingReportTable = ({
     <>
       <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
         <div className="space-y-4">
+          {isUngradedReport && (
+            <Alert className="border-border/50 bg-muted/30 rounded-xl">
+              <Info className="text-primary h-4 w-4" />
+              <AlertDescription className="font-custom">
+                This report lists incoming gate passes from the selected period
+                that were never linked to a grading gate pass. The{' '}
+                <span className="text-foreground font-medium">Status</span>{' '}
+                column shows each pass&apos;s current status, which may differ
+                from its status at the time of receipt.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Item
             variant="outline"
             size="sm"

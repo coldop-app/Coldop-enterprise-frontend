@@ -184,11 +184,18 @@ const NikasiEditForm = memo(function NikasiEditForm({
       const sizeVarieties = { ...defaultSizeVarieties };
       const extraQuantityRows: ExtraQuantityRow[] = [];
 
+      const consumedFixedSizes = new Set<string>();
+
       for (const row of editData.bagSize ?? []) {
         const qty = Number(row.quantityIssued) || 0;
         const rowBagType = row.bagType?.trim() || defaultBagType;
-        if (gradingSizes.includes(row.size)) {
-          sizeQuantities[row.size] = (sizeQuantities[row.size] ?? 0) + qty;
+        const isGradingSize = gradingSizes.includes(row.size);
+        const isFirstFixedRowForSize =
+          isGradingSize && !consumedFixedSizes.has(row.size);
+
+        if (isFirstFixedRowForSize) {
+          consumedFixedSizes.add(row.size);
+          sizeQuantities[row.size] = qty;
           sizeVarieties[row.size] = row.variety ?? '';
           sizeBagTypes[row.size] = rowBagType;
         } else {
