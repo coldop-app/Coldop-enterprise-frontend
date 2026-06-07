@@ -9,6 +9,7 @@ import {
   type NikasiGatePassReportDataRow,
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 import { useStore } from '@/stores/store';
+import { ensureNikasiFromReportColumn } from './columns';
 import NikasiReportDataTable from './data-table';
 import {
   NikasiExcelButton,
@@ -80,6 +81,11 @@ const NikasiReportTable = () => {
         manualGatePassSearch
       ),
     [data?.data, manualGatePassSearch]
+  );
+
+  const reportColumns = useMemo(
+    () => ensureNikasiFromReportColumn(data?.columns ?? []),
+    [data?.columns]
   );
 
   return (
@@ -194,7 +200,7 @@ const NikasiReportTable = () => {
         ) : null}
 
         <NikasiReportDataTable
-          apiColumns={data?.columns ?? []}
+          apiColumns={reportColumns}
           sourceRows={filteredSourceRows}
           isLoading={isLoading}
           isViewFiltersOpen={isViewFiltersOpen}

@@ -27,6 +27,7 @@ export type FilterableColumnId =
   | 'gatePassNo'
   | 'manualGatePassNumber'
   | 'date'
+  | 'from'
   | 'dispatchLedger'
   | 'to'
   | 'truckNumber'

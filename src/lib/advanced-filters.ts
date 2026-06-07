@@ -57,6 +57,7 @@ export type FilterField =
   | 'linkedByName'
   | 'createdByName'
   | 'dispatchLedgerMobile'
+  | 'from'
   | 'nikasiFrom'
   | 'nikasiTo'
   | 'storageAccountLabel'

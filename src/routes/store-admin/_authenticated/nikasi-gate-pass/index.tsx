@@ -143,6 +143,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     ? NIKASI_FIXED_FARMER_STORAGE_LINK_ID
     : farmerStorageLinkId;
 
+  const [selectedFromLocation, setSelectedFromLocation] = useState('');
   const [dispatchLedgerId, setDispatchLedgerId] = useState('');
   const [toField, setToField] = useState('');
   /** Optional override for API `to`; when empty, selected ledger name (`toField`) is used. */
@@ -170,6 +171,19 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     );
     return selectedFarmer?.farmerId?.name?.trim() ?? '';
   }, [farmerLinks, effectiveFarmerStorageLinkId]);
+
+  const fromLocationOptions = useMemo<Option<string>[]>(() => {
+    const options = (preferences?.custom.incomingLocations ?? [])
+      .filter((location) => location.trim().length > 0)
+      .map((location) => ({ label: location, value: location }));
+
+    const exists = options.some((opt) => opt.value === selectedFromLocation);
+    if (!selectedFromLocation || exists) return options;
+    return [
+      ...options,
+      { label: selectedFromLocation, value: selectedFromLocation },
+    ];
+  }, [preferences?.custom.incomingLocations, selectedFromLocation]);
 
   const totalQty = useMemo(() => {
     const fixed = Object.values(sizeQuantities ?? {}).reduce(
@@ -216,6 +230,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
         {
           date,
           farmerName: selectedFarmerName,
+          fromLocation: selectedFromLocation.trim(),
           dispatchLedgerName: toField.trim(),
           destination: toLabelOptional.trim() || toField.trim(),
           remarks,
@@ -244,6 +259,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
     netWeight,
     remarks,
     selectedFarmerName,
+    selectedFromLocation,
     sizeBagTypes,
     sizeQuantities,
     sizeVarieties,
@@ -265,6 +281,8 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
       );
     if (!dispatchLedgerId.trim())
       return toast.error('Please select a dispatch ledger.');
+    if (!selectedFromLocation.trim())
+      return toast.error('Please select a from location.');
     if (!date.trim()) return toast.error('Date is required.');
     if (totalQty <= 0)
       return toast.error('Please enter at least one quantity.');
@@ -300,7 +318,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
         truckNumber: truckNumber.trim() || undefined,
         isInternalTransfer,
         date: formatDateToISO(date),
-        from: selectedFarmerName,
+        from: selectedFromLocation.trim(),
         dispatchLedgerId: dispatchLedgerId.trim(),
         to: toLabelOptional.trim() || toField.trim() || undefined,
         bagSizes,
@@ -397,6 +415,25 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
               />
             </Field>
           ) : null}
+
+          <Field>
+            <FieldLabel
+              htmlFor="nikasi-create-from"
+              className="font-custom mb-2 block text-base font-semibold"
+            >
+              From
+            </FieldLabel>
+            <SearchSelector
+              id="nikasi-create-from"
+              options={fromLocationOptions}
+              placeholder="Select location"
+              searchPlaceholder="Search location..."
+              value={selectedFromLocation}
+              onSelect={(value) => setSelectedFromLocation(value ?? '')}
+              className="w-full"
+              buttonClassName="w-full justify-between"
+            />
+          </Field>
 
           <Field>
             <FieldLabel className="font-custom mb-2 block text-base font-semibold">
@@ -748,6 +785,7 @@ const NikasiCreateForm = memo(function NikasiCreateForm() {
               setTruckNumber('');
               setManualGatePassNumber(undefined);
               if (!isFixedFarmerColdStorage) setFarmerStorageLinkId('');
+              setSelectedFromLocation('');
               setDispatchLedgerId('');
               setToField('');
               setToLabelOptional('');

@@ -35,10 +35,13 @@ export const NIKASI_EXCLUDED_TABLE_COLUMN_IDS = new Set<string>([
  * Gate-pass-level fields duplicated on every variety sub-row.
  * Most suppress aggregates; weight/bag totals use deduped gate-pass aggregation.
  */
+export const NIKASI_FROM_COLUMN_ID = 'from';
+
 export const NIKASI_GATE_PASS_LEVEL_COLUMN_IDS = new Set<string>([
   'gatePassNo',
   'manualGatePassNumber',
   'date',
+  NIKASI_FROM_COLUMN_ID,
   'dispatchLedger',
   'to',
   'truckNumber',
@@ -53,6 +56,7 @@ const NIKASI_AGGREGATION_SUPPRESSED_COLUMN_IDS = new Set<string>([
   'gatePassNo',
   'manualGatePassNumber',
   'date',
+  NIKASI_FROM_COLUMN_ID,
   'dispatchLedger',
   'to',
   'truckNumber',
@@ -402,6 +406,42 @@ function isBagSizesApiColumn(column: NikasiGatePassReportColumn): boolean {
 export const defaultNikasiReportColumnVisibility: VisibilityState = {
   gatePassNo: false,
 };
+
+const NIKASI_FROM_REPORT_COLUMN: NikasiGatePassReportColumn = {
+  id: NIKASI_FROM_COLUMN_ID,
+  header: 'From',
+  accessorKey: NIKASI_FROM_COLUMN_ID,
+};
+
+function hasNikasiFromReportColumn(
+  apiColumns: NikasiGatePassReportColumn[]
+): boolean {
+  return apiColumns.some(
+    (column) =>
+      column.id === NIKASI_FROM_COLUMN_ID ||
+      column.accessorKey === NIKASI_FROM_COLUMN_ID
+  );
+}
+
+/** Ensures the gate-pass origin column is present (API may omit column metadata). */
+export function ensureNikasiFromReportColumn(
+  apiColumns: NikasiGatePassReportColumn[]
+): NikasiGatePassReportColumn[] {
+  if (hasNikasiFromReportColumn(apiColumns)) return apiColumns;
+
+  const insertBeforeIndex = apiColumns.findIndex(
+    (column) =>
+      column.id === 'dispatchLedger' || column.accessorKey === 'dispatchLedger'
+  );
+  const insertAt =
+    insertBeforeIndex >= 0 ? insertBeforeIndex : apiColumns.length;
+
+  return [
+    ...apiColumns.slice(0, insertAt),
+    NIKASI_FROM_REPORT_COLUMN,
+    ...apiColumns.slice(insertAt),
+  ];
+}
 
 export function getNikasiColumnLabels(
   apiColumns: NikasiGatePassReportColumn[],

@@ -37,6 +37,8 @@ export interface NikasiSummaryPassValues {
   date: string;
   /** Farmer / account holder */
   farmerName: string;
+  /** Origin location (API `from`) */
+  fromLocation?: string;
   /** Selected dispatch ledger name */
   dispatchLedgerName: string;
   /** Destination label (optional override; defaults to ledger when blank on submit) */
@@ -199,6 +201,7 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                 const {
                   date,
                   farmerName,
+                  fromLocation,
                   dispatchLedgerName,
                   destination,
                   remarks,
@@ -233,6 +236,11 @@ export const NikasiSummarySheet = memo(function NikasiSummarySheet({
                           label="Farmer"
                           value={farmerName?.trim() || null}
                           icon={User}
+                        />
+                        <MetaItem
+                          label="From"
+                          value={fromLocation?.trim() || null}
+                          icon={MapPin}
                         />
                         <MetaItem
                           label="Destination"

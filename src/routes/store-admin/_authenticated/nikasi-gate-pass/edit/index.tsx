@@ -66,6 +66,7 @@ const formSchema = z.object({
   truckNumber: z.string().max(120).default(''),
   farmerStorageLinkId: z.string().min(1, 'Please select a farmer account'),
   dispatchLedgerId: z.string().trim().min(1, 'Please select a dispatch ledger'),
+  fromLocation: z.string().trim().min(1, 'Please select a from location'),
   toField: z.string().trim().optional().default(''),
   toLabelOptional: z.string().max(200).optional().default(''),
   date: z.string().trim().min(1, 'Date is required'),
@@ -111,13 +112,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
     [dispatchLedgersResponse?.data]
   );
   const preferences = usePreferencesStore((state) => state.preferences);
-  const incomingLocationSuggestions = useMemo(
-    () =>
-      (preferences?.custom.incomingLocations ?? []).filter(
-        (location) => location.trim().length > 0
-      ),
-    [preferences?.custom.incomingLocations]
-  );
   const gradingSizes = useMemo(
     () =>
       (preferences?.bagSizes ?? []).filter((size) => size.trim().length > 0),
@@ -229,6 +223,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         truckNumber: editData.truckNumber ?? '',
         farmerStorageLinkId: editData.farmerLinkId ?? '',
         dispatchLedgerId: editData.dispatchLedgerId ?? '',
+        fromLocation: (editData.from ?? '').trim(),
         toField: editData.dispatchLedgerName || editData.toField || '',
         toLabelOptional: initialToLabelOptional,
         date: toDatePickerDisplayValue(editData.date),
@@ -304,7 +299,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
           truckNumber: value.truckNumber.trim(),
           isInternalTransfer: value.isInternalTransfer,
           date: parseDisplayDateToIso(value.date),
-          from: selectedFarmerName,
+          from: value.fromLocation.trim(),
           dispatchLedgerId: value.dispatchLedgerId.trim(),
           to: value.toLabelOptional.trim() || value.toField.trim() || undefined,
           bagSizes,
@@ -339,8 +334,22 @@ const NikasiEditForm = memo(function NikasiEditForm({
     farmerLinks
       ?.find((link) => link._id === effectiveFarmerLinkId)
       ?.farmerId?.name?.trim() ||
-    editData.from ||
+    editData.farmerName ||
     '';
+
+  const fromLocationOptions = useMemo<Option<string>[]>(() => {
+    const selectedFromLocation = form.state.values.fromLocation ?? '';
+    const options = (preferences?.custom.incomingLocations ?? [])
+      .filter((location) => location.trim().length > 0)
+      .map((location) => ({ label: location, value: location }));
+
+    const exists = options.some((opt) => opt.value === selectedFromLocation);
+    if (!selectedFromLocation || exists) return options;
+    return [
+      ...options,
+      { label: selectedFromLocation, value: selectedFromLocation },
+    ];
+  }, [form.state.values.fromLocation, preferences?.custom.incomingLocations]);
 
   const totalQty = useMemo(() => {
     const fixed = Object.values(form.state.values.sizeQuantities ?? {}).reduce(
@@ -388,6 +397,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
         {
           date: values.date,
           farmerName: selectedFarmerName,
+          fromLocation: values.fromLocation.trim(),
           dispatchLedgerName: values.toField.trim(),
           destination: values.toLabelOptional.trim() || values.toField.trim(),
           remarks: values.remarks,
@@ -521,6 +531,30 @@ const NikasiEditForm = memo(function NikasiEditForm({
           ) : null}
 
           <form.Field
+            name="fromLocation"
+            children={(field) => (
+              <Field>
+                <FieldLabel
+                  htmlFor="nikasi-edit-from"
+                  className="font-custom mb-2 block text-base font-semibold"
+                >
+                  From
+                </FieldLabel>
+                <SearchSelector
+                  id="nikasi-edit-from"
+                  options={fromLocationOptions}
+                  placeholder="Select location"
+                  searchPlaceholder="Search location..."
+                  value={field.state.value}
+                  onSelect={(value) => field.handleChange(value ?? '')}
+                  className="w-full"
+                  buttonClassName="w-full justify-between"
+                />
+              </Field>
+            )}
+          />
+
+          <form.Field
             name="dispatchLedgerId"
             children={(field) => (
               <form.Field
@@ -568,7 +602,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
                           </p>
                           <Input
                             id="nikasi-edit-to-label-optional"
-                            list="nikasi-edit-incoming-location-suggestions"
                             value={optField.state.value}
                             onChange={(e) =>
                               optField.handleChange(e.target.value)
@@ -577,11 +610,6 @@ const NikasiEditForm = memo(function NikasiEditForm({
                             maxLength={200}
                             className="font-custom focus-visible:ring-primary mt-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                           />
-                          <datalist id="nikasi-edit-incoming-location-suggestions">
-                            {incomingLocationSuggestions.map((location) => (
-                              <option key={location} value={location} />
-                            ))}
-                          </datalist>
                         </>
                       )}
                     />

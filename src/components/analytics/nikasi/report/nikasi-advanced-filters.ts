@@ -20,6 +20,7 @@ const NIKASI_STANDARD_FILTER_FIELDS = [
   'gatePassNo',
   'manualGatePassNumber',
   'date',
+  'from',
   'dispatchLedger',
   'to',
   'truckNumber',

@@ -33,6 +33,7 @@ export interface NikasiGatePassReportDataRow {
   gatePassNo?: number;
   manualGatePassNumber?: number | null;
   date?: string;
+  from?: string;
   to?: string;
   truckNumber?: string;
   variety?: string;
