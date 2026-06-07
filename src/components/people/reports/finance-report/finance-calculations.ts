@@ -35,6 +35,7 @@ import {
   aggregateSummaryAmountPayable,
   prepareAccountingGradingSummary,
   summaryActualWeightKgForSizeLabel,
+  type GradingBagTypeQtySummaryRow,
 } from '@/components/people/reports/helpers/summary-prepare';
 import {
   getFinanceConstants,
@@ -72,6 +73,12 @@ export type FinanceGradingVarietyGroup = {
   varietyKey: string;
   varietyLabel: string;
   gradingRows: FinanceGradingRow[];
+  totals: FinanceGradingVarietyTotals;
+};
+
+export type FinanceReportGroups = {
+  plantingGroups: FinancePlantingVarietyGroup[];
+  gradingGroups: FinanceGradingVarietyGroup[];
 };
 
 export type FinanceGradingVarietyTotals = {
@@ -170,9 +177,7 @@ export function computeFinanceReportSummary(
 
   let totalGradingSaleAmount = 0;
   for (const group of gradingGroups) {
-    totalGradingSaleAmount += computeFinanceGradingVarietyTotals(
-      group.gradingRows
-    ).saleAmount;
+    totalGradingSaleAmount += group.totals.saleAmount;
   }
   totalGradingSaleAmount = roundMax2(totalGradingSaleAmount);
 
@@ -247,7 +252,8 @@ function collectFinanceVarietyKeys(
 function buildFinanceGradingRowsForPasses(
   passes: GradingGatePass[],
   varietyKey: string,
-  preferences: PreferencesData | null | undefined = undefined
+  preferences: PreferencesData | null | undefined = undefined,
+  preparedSummaryRows?: GradingBagTypeQtySummaryRow[]
 ): FinanceGradingRow[] {
   const fc = getFinanceConstants(preferences);
   const accountingRows = prepareDataForGradingTable(passes);
@@ -259,7 +265,9 @@ function buildFinanceGradingRowsForPasses(
   ];
   const totals = computeGradingTableTotals(accountingRows, sizeLabelsOrdered);
   const visibleLabels = sizeLabelsWithAnyQuantity(sizeLabelsOrdered, totals);
-  const summaryRows = prepareAccountingGradingSummary(passes, preferences).rows;
+  const summaryRows =
+    preparedSummaryRows ??
+    prepareAccountingGradingSummary(passes, preferences).rows;
   const actualWeightKgBySize =
     aggregateSummaryActualWeightKgBySize(summaryRows);
 
@@ -661,35 +669,37 @@ export function buildParticularsPlantingRows(
 
 function aggregateGradingFinanceTotalsForPasses(
   gradingGatePasses: GradingGatePass[],
-  preferences: PreferencesData | null | undefined
+  preferences: PreferencesData | null | undefined,
+  summaryRows?: GradingBagTypeQtySummaryRow[]
 ): GradingTableFinanceTotals {
-  const summaryRows = prepareAccountingGradingSummary(
-    gradingGatePasses,
-    preferences ?? undefined
-  ).rows;
+  const rows =
+    summaryRows ??
+    prepareAccountingGradingSummary(gradingGatePasses, preferences ?? undefined)
+      .rows;
   return {
     totalBags: aggregateGradingTableTotalBagsForPasses(gradingGatePasses),
-    totalActualWeightKg: aggregateSummaryActualWeightKg(summaryRows),
+    totalActualWeightKg: aggregateSummaryActualWeightKg(rows),
   };
 }
 
 function aggregateGradingFinanceTotals40MmAndAbove(
   gradingGatePasses: GradingGatePass[],
-  preferences: PreferencesData | null | undefined
+  preferences: PreferencesData | null | undefined,
+  summaryRows?: GradingBagTypeQtySummaryRow[]
 ): GradingTableFinanceTotals {
   const fc = getFinanceConstants(preferences);
   const sizeBand = fc.gradingBagSizes40mmAndAbove;
-  const summaryRows = prepareAccountingGradingSummary(
-    gradingGatePasses,
-    preferences ?? undefined
-  ).rows;
+  const rows =
+    summaryRows ??
+    prepareAccountingGradingSummary(gradingGatePasses, preferences ?? undefined)
+      .rows;
   return {
     totalBags: aggregateGradingTableTotalBagsForPassesAndSizes(
       gradingGatePasses,
       sizeBand
     ),
     totalActualWeightKg: aggregateSummaryActualWeightKgForSizeLabels(
-      summaryRows,
+      rows,
       sizeBand
     ),
   };
@@ -714,47 +724,43 @@ function gradingTotalsBelow40Mm(
   };
 }
 
-export function buildFinanceGradingVarietyGroups(
-  farmerSeeds: FarmerSeedGatePass[] | null | undefined,
-  incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
-  gradingPasses: GradingGatePass[] | null | undefined,
-  preferences: PreferencesData | null | undefined = undefined
-): FinanceGradingVarietyGroup[] {
-  const seeds = farmerSeeds ?? [];
-  const incoming = incomingPasses ?? [];
-  const grading = gradingPasses ?? [];
-  const keysToRender = collectFinanceVarietyKeys(seeds, incoming, grading);
-
-  return keysToRender.map((varietyKey) => {
-    const gradingForVariety = grading.filter(
-      (p) => normalizeAccountingVarietyKey(p.variety) === varietyKey
-    );
-
-    return {
-      varietyKey,
-      varietyLabel: displayAccountingVarietyLabel(varietyKey),
-      gradingRows: buildFinanceGradingRowsForPasses(
-        gradingForVariety,
-        varietyKey,
-        preferences
-      ),
-    };
-  });
-}
-
-export function buildFinancePlantingVarietyGroups(
+export function buildFinanceReportGroups(
   farmerSeeds: FarmerSeedGatePass[] | null | undefined,
   incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
   gradingPasses: GradingGatePass[] | null | undefined,
   preferences: PreferencesData | null | undefined = undefined,
   stationRates: StationRates | null = null
-): FinancePlantingVarietyGroup[] {
+): FinanceReportGroups {
   const seeds = farmerSeeds ?? [];
   const incoming = incomingPasses ?? [];
   const grading = gradingPasses ?? [];
   const keysToRender = collectFinanceVarietyKeys(seeds, incoming, grading);
 
-  return keysToRender.map((varietyKey) => {
+  const plantingGroups: FinancePlantingVarietyGroup[] = [];
+  const gradingGroups: FinanceGradingVarietyGroup[] = [];
+
+  for (const varietyKey of keysToRender) {
+    const gradingForVariety = grading.filter(
+      (p) => normalizeAccountingVarietyKey(p.variety) === varietyKey
+    );
+    const summaryRows = prepareAccountingGradingSummary(
+      gradingForVariety,
+      preferences
+    ).rows;
+
+    const gradingRows = buildFinanceGradingRowsForPasses(
+      gradingForVariety,
+      varietyKey,
+      preferences,
+      summaryRows
+    );
+    gradingGroups.push({
+      varietyKey,
+      varietyLabel: displayAccountingVarietyLabel(varietyKey),
+      gradingRows,
+      totals: computeFinanceGradingVarietyTotals(gradingRows),
+    });
+
     const seedsForVariety = seeds.filter(
       (p) => normalizeAccountingVarietyKey(p.variety) === varietyKey
     );
@@ -774,20 +780,17 @@ export function buildFinancePlantingVarietyGroups(
     const varietyIncomingTotals = aggregateIncomingTableTotals(
       getAllIncomingRowsForVariety(varietyKey, incoming)
     );
-    const gradingForVariety = grading.filter(
-      (p) => normalizeAccountingVarietyKey(p.variety) === varietyKey
-    );
     const gradingTotals = aggregateGradingFinanceTotalsForPasses(
       gradingForVariety,
-      preferences
+      preferences,
+      summaryRows
     );
     const gradingTotals40MmAndAbove = aggregateGradingFinanceTotals40MmAndAbove(
       gradingForVariety,
-      preferences
+      preferences,
+      summaryRows
     );
-    const summaryAmountPayable = aggregateSummaryAmountPayable(
-      prepareAccountingGradingSummary(gradingForVariety, preferences).rows
-    );
+    const summaryAmountPayable = aggregateSummaryAmountPayable(summaryRows);
 
     const seedRowsMapped = seedRows.map((row) =>
       mapFarmerSeedRowToFinancePlantingRow(row, varietyKey, preferences)
@@ -806,7 +809,7 @@ export function buildFinancePlantingVarietyGroups(
       totalSeedAmount
     );
 
-    return {
+    plantingGroups.push({
       varietyKey,
       varietyLabel: displayAccountingVarietyLabel(varietyKey),
       seedRows: seedRowsMapped,
@@ -816,6 +819,38 @@ export function buildFinancePlantingVarietyGroups(
         particularsRows,
         preferences
       ),
-    };
-  });
+    });
+  }
+
+  return { plantingGroups, gradingGroups };
+}
+
+export function buildFinanceGradingVarietyGroups(
+  farmerSeeds: FarmerSeedGatePass[] | null | undefined,
+  incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
+  gradingPasses: GradingGatePass[] | null | undefined,
+  preferences: PreferencesData | null | undefined = undefined
+): FinanceGradingVarietyGroup[] {
+  return buildFinanceReportGroups(
+    farmerSeeds,
+    incomingPasses,
+    gradingPasses,
+    preferences
+  ).gradingGroups;
+}
+
+export function buildFinancePlantingVarietyGroups(
+  farmerSeeds: FarmerSeedGatePass[] | null | undefined,
+  incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
+  gradingPasses: GradingGatePass[] | null | undefined,
+  preferences: PreferencesData | null | undefined = undefined,
+  stationRates: StationRates | null = null
+): FinancePlantingVarietyGroup[] {
+  return buildFinanceReportGroups(
+    farmerSeeds,
+    incomingPasses,
+    gradingPasses,
+    preferences,
+    stationRates
+  ).plantingGroups;
 }

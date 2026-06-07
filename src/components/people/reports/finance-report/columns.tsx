@@ -61,6 +61,58 @@ const leftAlignedHeader = (label: string) => (
   <span className="font-custom">{label}</span>
 );
 
+export function renderPlantingColumnHeaders(): ReactNode[] {
+  return plantingColumns.map((col, index) => {
+    const header = col.header;
+    if (typeof header === 'function') {
+      return header({
+        column: { id: col.id ?? String(index) },
+      } as Parameters<NonNullable<typeof header>>[0]);
+    }
+    return header ?? null;
+  });
+}
+
+export function renderGradingColumnHeaders(): ReactNode[] {
+  return gradingColumns.map((col, index) => {
+    const header = col.header;
+    if (typeof header === 'function') {
+      return header({
+        column: { id: col.id ?? String(index) },
+      } as Parameters<NonNullable<typeof header>>[0]);
+    }
+    return header ?? null;
+  });
+}
+
+export function renderPlantingDataCells(row: FinancePlantingRow): ReactNode[] {
+  return [
+    <span key="particulars" className="font-custom text-foreground">
+      {row.particulars}
+    </span>,
+    numericCell(row.areaPlantedAcres, 2),
+    numericCell(row.numberOfBags, 0),
+    numericCell(row.bagWeight, 2),
+    numericCell(row.ratePerAcreOrBag, 2),
+    amountCell(row.amount),
+  ];
+}
+
+export function renderGradingDataCells(row: FinanceGradingRow): ReactNode[] {
+  return [
+    <span key="gradingSizes" className="font-custom text-foreground">
+      {formatNullableText(row.gradingSizes)}
+    </span>,
+    numericCell(row.bagsAfterGrading, 0),
+    numericCell(row.weightStoredOrDispatchedKg, 2),
+    numericCell(row.readyBagsPostStorage50kg, 0),
+    numericCell(row.shortageAtSixPercent, 0),
+    numericCell(row.afterShortageBag, 0),
+    amountCell(row.salePricePerBag),
+    amountCell(row.saleAmount),
+  ];
+}
+
 function numericCell(
   value: number | null | undefined,
   precision = 2

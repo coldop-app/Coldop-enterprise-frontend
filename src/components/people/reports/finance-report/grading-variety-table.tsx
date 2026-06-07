@@ -1,17 +1,13 @@
 import { type ReactNode, memo } from 'react';
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
 
 import {
   gradingColumns,
-  type FinanceGradingRow,
+  renderGradingColumnHeaders,
+  renderGradingDataCells,
 } from '@/components/people/reports/finance-report/columns';
-import {
-  computeFinanceGradingVarietyTotals,
-  type FinanceGradingVarietyGroup,
+import type {
+  FinanceGradingVarietyGroup,
+  FinanceGradingVarietyTotals,
 } from '@/components/people/reports/finance-report/finance-calculations';
 import {
   Table,
@@ -23,6 +19,7 @@ import {
 } from '@/components/ui/table';
 
 const GRADING_COLUMN_COUNT = gradingColumns.length;
+const GRADING_HEADERS = renderGradingColumnHeaders();
 const MDASH = '\u2014';
 
 function formatIndianNumber(value: number, precision = 0): string {
@@ -53,44 +50,29 @@ function GradingTableShell({ children }: { children: ReactNode }) {
 }
 
 function GradingTableHeader() {
-  const table = useReactTable({
-    data: [],
-    columns: gradingColumns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
     <TableHeader className="bg-secondary border-border/60 sticky top-0 z-10 border-b">
-      {table.getHeaderGroups().map((headerGroup) => (
-        <TableRow key={headerGroup.id} className="hover:bg-transparent">
-          {headerGroup.headers.map((header) => (
-            <TableHead
-              key={header.id}
-              className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase last:border-r-0"
-            >
-              {header.isPlaceholder
-                ? null
-                : flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-            </TableHead>
-          ))}
-        </TableRow>
-      ))}
+      <TableRow className="hover:bg-transparent">
+        {GRADING_HEADERS.map((header, index) => (
+          <TableHead
+            key={gradingColumns[index]?.id ?? index}
+            className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase last:border-r-0"
+          >
+            {header}
+          </TableHead>
+        ))}
+      </TableRow>
     </TableHeader>
   );
 }
 
 function GradingVarietyFooterRow({
   varietyKey,
-  rows,
+  totals,
 }: {
   varietyKey: string;
-  rows: FinanceGradingRow[];
+  totals: FinanceGradingVarietyTotals;
 }) {
-  const totals = computeFinanceGradingVarietyTotals(rows);
-
   return (
     <TableRow
       key={`ft-${varietyKey}`}
@@ -128,29 +110,21 @@ function GradingDataRow({
   row,
   stripeClassName,
 }: {
-  row: FinanceGradingRow;
+  row: FinanceGradingVarietyGroup['gradingRows'][number];
   stripeClassName: string;
 }) {
-  const table = useReactTable({
-    data: [row],
-    columns: gradingColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (r) => r.id,
-  });
-
-  const tableRow = table.getRowModel().rows[0];
-  if (!tableRow) return null;
+  const dataCells = renderGradingDataCells(row);
 
   return (
     <TableRow
       className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${stripeClassName}`}
     >
-      {tableRow.getVisibleCells().map((cell) => (
+      {dataCells.map((cell, index) => (
         <TableCell
-          key={cell.id}
+          key={gradingColumns[index]?.id ?? index}
           className="font-custom border-border/40 border-r px-3 py-2.5 text-sm last:border-r-0"
         >
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          {cell}
         </TableCell>
       ))}
     </TableRow>
@@ -227,7 +201,7 @@ function GradingVarietyTable({ varietyGroups }: GradingVarietyTableProps) {
                   <GradingVarietyFooterRow
                     key={`ft-${group.varietyKey}`}
                     varietyKey={group.varietyKey}
-                    rows={group.gradingRows}
+                    totals={group.totals}
                   />
                 );
               }

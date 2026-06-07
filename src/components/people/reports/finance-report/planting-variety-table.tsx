@@ -1,13 +1,9 @@
 import { type ReactNode, memo } from 'react';
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
 
 import {
   plantingColumns,
-  type FinancePlantingRow,
+  renderPlantingColumnHeaders,
+  renderPlantingDataCells,
 } from '@/components/people/reports/finance-report/columns';
 import type { FinancePlantingVarietyGroup } from '@/components/people/reports/finance-report/finance-calculations';
 import {
@@ -20,6 +16,7 @@ import {
 } from '@/components/ui/table';
 
 const PLANTING_COLUMN_COUNT = plantingColumns.length;
+const PLANTING_HEADERS = renderPlantingColumnHeaders();
 const MDASH = '\u2014';
 
 function formatIndianNumber(value: number, precision = 0): string {
@@ -42,31 +39,18 @@ function PlantingTableShell({ children }: { children: ReactNode }) {
 }
 
 function PlantingTableHeader() {
-  const table = useReactTable({
-    data: [],
-    columns: plantingColumns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
     <TableHeader className="bg-secondary border-border/60 sticky top-0 z-10 border-b">
-      {table.getHeaderGroups().map((headerGroup) => (
-        <TableRow key={headerGroup.id} className="hover:bg-transparent">
-          {headerGroup.headers.map((header) => (
-            <TableHead
-              key={header.id}
-              className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase last:border-r-0"
-            >
-              {header.isPlaceholder
-                ? null
-                : flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-            </TableHead>
-          ))}
-        </TableRow>
-      ))}
+      <TableRow className="hover:bg-transparent">
+        {PLANTING_HEADERS.map((header, index) => (
+          <TableHead
+            key={plantingColumns[index]?.id ?? index}
+            className="font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.08em] uppercase last:border-r-0"
+          >
+            {header}
+          </TableHead>
+        ))}
+      </TableRow>
     </TableHeader>
   );
 }
@@ -76,21 +60,11 @@ function PlantingDataRow({
   serial,
   stripeClassName,
 }: {
-  row: FinancePlantingRow;
+  row: FinancePlantingVarietyGroup['seedRows'][number];
   serial: number;
   stripeClassName: string;
 }) {
-  const table = useReactTable({
-    data: [row],
-    columns: plantingColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (r) => r.id,
-  });
-
-  const tableRow = table.getRowModel().rows[0];
-  if (!tableRow) return null;
-
-  const dataCells = tableRow.getVisibleCells().slice(1);
+  const dataCells = renderPlantingDataCells(row);
 
   return (
     <TableRow
@@ -99,12 +73,12 @@ function PlantingDataRow({
       <TableCell className="font-custom border-border/40 text-muted-foreground border-r px-3 py-2.5 align-middle tabular-nums">
         {serial}
       </TableCell>
-      {dataCells.map((cell) => (
+      {dataCells.map((cell, index) => (
         <TableCell
-          key={cell.id}
+          key={plantingColumns[index + 1]?.id ?? index}
           className="font-custom border-border/40 border-r px-3 py-2.5 text-sm last:border-r-0"
         >
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          {cell}
         </TableCell>
       ))}
     </TableRow>

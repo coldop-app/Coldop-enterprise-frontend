@@ -37,8 +37,7 @@ import {
   usePreferencesStoreHydrated,
 } from '@/stores/store';
 import {
-  buildFinanceGradingVarietyGroups,
-  buildFinancePlantingVarietyGroups,
+  buildFinanceReportGroups,
   computeFinanceReportSummary,
 } from './finance-calculations';
 import FinanceSummaryStatItems from './finance-summary-card';
@@ -123,9 +122,12 @@ function FinanceReport({ farmerStorageLinkId }: FinanceReportProps) {
   const isError = isFarmerSeedsError;
   const error = farmerSeedsError;
 
-  const plantingVarietyGroups = useMemo(
+  const {
+    plantingGroups: plantingVarietyGroups,
+    gradingGroups: gradingVarietyGroups,
+  } = useMemo(
     () =>
-      buildFinancePlantingVarietyGroups(
+      buildFinanceReportGroups(
         farmerSeedList,
         incomingList,
         gradingList ?? [],
@@ -133,17 +135,6 @@ function FinanceReport({ farmerStorageLinkId }: FinanceReportProps) {
         stationRates
       ),
     [farmerSeedList, incomingList, gradingList, preferences, stationRates]
-  );
-
-  const gradingVarietyGroups = useMemo(
-    () =>
-      buildFinanceGradingVarietyGroups(
-        farmerSeedList,
-        incomingList,
-        gradingList ?? [],
-        preferences
-      ),
-    [farmerSeedList, incomingList, gradingList, preferences]
   );
 
   const reportSummary = useMemo(
