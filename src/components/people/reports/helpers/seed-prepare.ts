@@ -63,3 +63,12 @@ export function prepareDataForFarmerSeedTable(
 
   return rows;
 }
+
+/** Sum of Total Seed Amount (Rs) across farmer seed table rows (gate pass quantity × rate). */
+export function aggregateTotalSeedAmount(rows: FarmerSeedRow[]): number {
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number(row.totalSeedAmount) || 0;
+  }
+  return roundMax2(sum);
+}

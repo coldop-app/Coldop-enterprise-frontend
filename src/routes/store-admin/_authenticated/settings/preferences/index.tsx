@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import {
   useGetPreferences,
   normalizePreferences,
+  normalizeFinanceConstants,
   type PreferencesData,
   type PreferenceOption,
   type BuyBackCost,
@@ -671,7 +672,7 @@ function BuyBackTable({
   bagSizes,
   onChange,
   canEdit = true,
-  unitCaption = '₹ per kg',
+  unitCaption = '₹ per bag',
 }: {
   entry: BuyBackCost;
   bagSizes: string[];
@@ -717,6 +718,7 @@ function BuyBackTable({
                     ₹
                   </span>
                   <Input
+                    key={`${entry.variety}-${size}-${rate}`}
                     type="number"
                     min={0}
                     step="0.25"
@@ -1529,7 +1531,21 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
         custom: data.custom as unknown as Record<string, unknown>,
       });
       if (!res.success) return;
-      if (res.data) resetToServer(res.data);
+      if (res.data) {
+        const savedFinanceConstants = data.custom.financeConstants;
+        resetToServer({
+          ...res.data,
+          custom: {
+            ...res.data.custom,
+            financeConstants: {
+              ...normalizeFinanceConstants(res.data.custom?.financeConstants),
+              actualCostWithoutSubsidy:
+                savedFinanceConstants.actualCostWithoutSubsidy,
+              salePricePerBag: savedFinanceConstants.salePricePerBag,
+            },
+          },
+        });
+      }
       setDirty(false);
     } catch {
       // Toast + messaging handled by useUpdatePreferences.onError
@@ -2017,16 +2033,25 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                       </span>
                       <Input
                         type="number"
+                        min={0}
                         step="0.01"
                         value={Number.isFinite(row.rate) ? row.rate : 0}
                         disabled={!canUpdatePreferences}
                         onChange={(e) => {
-                          const val = parseFloat(e.target.value);
+                          const val = parseNonNegativeNumber(e.target.value);
                           updateFinanceParticular(index, {
                             rate: Number.isFinite(val) ? val : 0,
                           });
                         }}
-                        className="bg-background h-9 pl-6 font-mono text-sm"
+                        onWheel={blurTargetOnNumberWheel}
+                        onKeyDown={(e) => {
+                          preventArrowUpDownOnNumericInput(e);
+                          preventMinusOnNumericInput(e);
+                        }}
+                        className={cn(
+                          'bg-background h-9 pl-6 font-mono text-sm',
+                          businessNumberSpinnerClassName
+                        )}
                       />
                     </div>
                     <div className="flex items-center justify-end sm:justify-center">
@@ -2123,12 +2148,21 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                             </span>
                             <Input
                               type="number"
+                              min={0}
                               step="0.01"
                               value={newParticularRate}
                               onChange={(e) =>
                                 setNewParticularRate(e.target.value)
                               }
-                              className="bg-background pl-6 font-mono"
+                              onWheel={blurTargetOnNumberWheel}
+                              onKeyDown={(e) => {
+                                preventArrowUpDownOnNumericInput(e);
+                                preventMinusOnNumericInput(e);
+                              }}
+                              className={cn(
+                                'bg-background pl-6 font-mono',
+                                businessNumberSpinnerClassName
+                              )}
                             />
                           </div>
                         </div>
@@ -2207,7 +2241,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
 
             <div>
               <h3 className="text-foreground mb-3 text-sm font-semibold">
-                Actual cost without subsidy (₹ / kg)
+                Actual cost without subsidy (₹ / bag)
               </h3>
               <div className="space-y-4">
                 {data.custom.potatoVarieties.map((v) => {
@@ -2228,7 +2262,7 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                           rate
                         )
                       }
-                      unitCaption="₹ / kg"
+                      unitCaption="₹ per bag"
                       canEdit={canUpdatePreferences}
                     />
                   );

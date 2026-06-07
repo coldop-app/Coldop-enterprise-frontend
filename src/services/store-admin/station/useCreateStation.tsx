@@ -40,16 +40,13 @@ function getCreateStationErrorMessage(
 function normalizeCreateStationPayload(
   payload: CreateStationInput
 ): CreateStationInput {
-  const normalizedPayload: CreateStationInput = {
+  return {
     coldStorageId: payload.coldStorageId.trim(),
     name: payload.name.trim(),
+    locality: payload.locality.trim(),
+    seedDispatchRatePerBag: Number(payload.seedDispatchRatePerBag),
+    seedBuyBackRatePerQuintal: Number(payload.seedBuyBackRatePerQuintal),
   };
-
-  if (payload.rate !== undefined && payload.rate !== null) {
-    normalizedPayload.rate = Number(payload.rate);
-  }
-
-  return normalizedPayload;
 }
 
 /** Hook to create a station. POST /station */

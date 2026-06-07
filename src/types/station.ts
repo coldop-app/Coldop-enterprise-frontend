@@ -2,7 +2,9 @@ export interface Station {
   _id: string;
   coldStorageId: string;
   name: string;
-  rate?: number;
+  locality: string;
+  seedDispatchRatePerBag: number;
+  seedBuyBackRatePerQuintal: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -11,7 +13,9 @@ export interface Station {
 export interface CreateStationInput {
   coldStorageId: string;
   name: string;
-  rate?: number;
+  locality: string;
+  seedDispatchRatePerBag: number;
+  seedBuyBackRatePerQuintal: number;
 }
 
 /** API response for POST /station */
@@ -25,7 +29,9 @@ export interface CreateStationApiResponse {
 export interface EditStationInput {
   coldStorageId: string;
   name?: string;
-  rate?: number | null;
+  locality?: string;
+  seedDispatchRatePerBag?: number;
+  seedBuyBackRatePerQuintal?: number;
 }
 
 export type EditStationParams = EditStationInput & {

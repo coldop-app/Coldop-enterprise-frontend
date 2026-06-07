@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import {
   CalendarDays,
   FileText,
@@ -22,8 +22,20 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useGetAllGatePassesOfFarmer } from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
-import { useStore, usePreferencesStore } from '@/stores/store';
+import {
+  resolveStationRates,
+  useGetAllGatePassesOfFarmer,
+  type StationInPassesPayload,
+} from '@/services/store-admin/people/useGetAllGatePassesOfFarmer';
+import {
+  normalizePreferences,
+  useGetPreferences,
+} from '@/services/store-admin/preferences/useGetPreferences';
+import {
+  useStore,
+  usePreferencesStore,
+  usePreferencesStoreHydrated,
+} from '@/stores/store';
 import {
   buildFinanceGradingVarietyGroups,
   buildFinancePlantingVarietyGroups,
@@ -76,7 +88,36 @@ function FinanceReport({ farmerStorageLinkId }: FinanceReportProps) {
     gatePasses.incoming;
   const { data: gradingList } = gatePasses.grading;
   const farmerStorageLink = gatePasses.farmerStorageLink;
-  const preferences = usePreferencesStore((state) => state.preferences);
+  const { data: serverPreferences } = useGetPreferences();
+  const storePreferences = usePreferencesStore((state) => state.preferences);
+  const hydrated = usePreferencesStoreHydrated();
+  const syncFromServerIfNeeded = usePreferencesStore(
+    (state) => state.syncFromServerIfNeeded
+  );
+
+  useEffect(() => {
+    if (!serverPreferences || !hydrated) return;
+    syncFromServerIfNeeded(serverPreferences);
+  }, [serverPreferences, hydrated, syncFromServerIfNeeded]);
+
+  const preferences = useMemo(
+    () =>
+      storePreferences && serverPreferences
+        ? normalizePreferences(storePreferences, serverPreferences)
+        : storePreferences,
+    [storePreferences, serverPreferences]
+  );
+
+  const stationRates = useMemo(
+    () => resolveStationRates(farmerStorageLink?.station),
+    [farmerStorageLink?.station]
+  );
+
+  const populatedStation = useMemo((): StationInPassesPayload | null => {
+    const station = farmerStorageLink?.station;
+    if (station == null || typeof station === 'string') return null;
+    return station;
+  }, [farmerStorageLink?.station]);
 
   const isLoading = isFarmerSeedsLoading || isIncomingLoading;
   const isError = isFarmerSeedsError;
@@ -88,9 +129,10 @@ function FinanceReport({ farmerStorageLinkId }: FinanceReportProps) {
         farmerSeedList,
         incomingList,
         gradingList ?? [],
-        preferences
+        preferences,
+        stationRates
       ),
-    [farmerSeedList, incomingList, gradingList, preferences]
+    [farmerSeedList, incomingList, gradingList, preferences, stationRates]
   );
 
   const gradingVarietyGroups = useMemo(
@@ -260,6 +302,20 @@ function FinanceReport({ farmerStorageLinkId }: FinanceReportProps) {
                       {farmerStorageLink.address}
                     </p>
                   </div>
+                  {populatedStation ? (
+                    <div className="border-border/50 bg-card rounded-xl border p-3 sm:col-span-2">
+                      <p className="font-custom text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+                        <MapPin className="h-3.5 w-3.5" />
+                        Station
+                      </p>
+                      <p className="font-custom text-foreground text-sm font-semibold">
+                        {populatedStation.name?.trim() || '—'}
+                        {populatedStation.locality?.trim()
+                          ? ` · ${populatedStation.locality.trim()}`
+                          : ''}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </section>
             ) : null}

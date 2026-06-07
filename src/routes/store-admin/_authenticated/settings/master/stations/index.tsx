@@ -75,24 +75,25 @@ export const Route = createFileRoute(
 
 const stationNameSchema = z.string().trim().min(1, 'Name is required');
 
-const optionalRateSchema = z
+const localitySchema = z.string().trim().min(1, 'Locality is required');
+
+const requiredRateSchema = z
   .string()
   .transform((value) => value.trim())
   .refine(
     (value) =>
-      value === '' || (!Number.isNaN(Number(value)) && Number(value) >= 0),
-    'Rate must be a valid non-negative number'
+      value !== '' && !Number.isNaN(Number(value)) && Number(value) >= 0,
+    'Must be a valid non-negative number'
   );
 
 const createStationSchema = z.object({
   name: stationNameSchema,
-  rate: optionalRateSchema,
+  locality: localitySchema,
+  seedDispatchRatePerBag: requiredRateSchema,
+  seedBuyBackRatePerQuintal: requiredRateSchema,
 });
 
-const editStationSchema = z.object({
-  name: stationNameSchema,
-  rate: optionalRateSchema,
-});
+const editStationSchema = createStationSchema;
 
 function formatStationDate(value: string): string {
   const parsed = new Date(value);
@@ -100,15 +101,13 @@ function formatStationDate(value: string): string {
   return formatDate(parsed);
 }
 
-function formatRate(rate?: number | null): string {
-  if (rate === undefined || rate === null) return '—';
-  return String(rate);
+function formatNumberValue(value?: number | null): string {
+  if (value === undefined || value === null) return '—';
+  return String(value);
 }
 
-function parseRateInput(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  return Number(trimmed);
+function parseRequiredNumberInput(value: string): number {
+  return Number(value.trim());
 }
 
 function CreateStationDialog({
@@ -124,7 +123,9 @@ function CreateStationDialog({
   const form = useForm({
     defaultValues: {
       name: '',
-      rate: '',
+      locality: '',
+      seedDispatchRatePerBag: '',
+      seedBuyBackRatePerQuintal: '',
     },
     validators: {
       onBlur: createStationSchema,
@@ -135,7 +136,13 @@ function CreateStationDialog({
         {
           coldStorageId,
           name: value.name.trim(),
-          rate: parseRateInput(value.rate),
+          locality: value.locality.trim(),
+          seedDispatchRatePerBag: parseRequiredNumberInput(
+            value.seedDispatchRatePerBag
+          ),
+          seedBuyBackRatePerQuintal: parseRequiredNumberInput(
+            value.seedBuyBackRatePerQuintal
+          ),
         },
         {
           onSuccess: (data) => {
@@ -176,7 +183,8 @@ function CreateStationDialog({
           <DialogHeader>
             <DialogTitle>Add Station</DialogTitle>
             <DialogDescription>
-              Create a new station with an optional rate.
+              Create a new station with locality and seed dispatch and buy-back
+              rates.
             </DialogDescription>
           </DialogHeader>
 
@@ -214,18 +222,90 @@ function CreateStationDialog({
             />
 
             <form.Field
-              name="rate"
+              name="locality"
               children={(field) => {
                 const isInvalid =
                   field.state.meta.isTouched && !field.state.meta.isValid;
 
                 return (
                   <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor="create-station-rate">
-                      Rate (optional)
+                    <FieldLabel htmlFor="create-station-locality">
+                      Locality
                     </FieldLabel>
                     <Input
-                      id="create-station-rate"
+                      id="create-station-locality"
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={isInvalid}
+                    />
+                    {isInvalid && (
+                      <FieldError
+                        errors={
+                          field.state.meta.errors as Array<
+                            { message?: string } | undefined
+                          >
+                        }
+                      />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+
+            <form.Field
+              name="seedDispatchRatePerBag"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor="create-station-dispatch-rate">
+                      Seed dispatch rate per bag
+                    </FieldLabel>
+                    <Input
+                      id="create-station-dispatch-rate"
+                      name={field.name}
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={isInvalid}
+                      className={cn(businessNumberSpinnerClassName)}
+                      onWheel={blurTargetOnNumberWheel}
+                      onKeyDown={preventArrowUpDownOnNumericInput}
+                    />
+                    {isInvalid && (
+                      <FieldError
+                        errors={
+                          field.state.meta.errors as Array<
+                            { message?: string } | undefined
+                          >
+                        }
+                      />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+
+            <form.Field
+              name="seedBuyBackRatePerQuintal"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor="create-station-buyback-rate">
+                      Seed buy-back rate per quintal
+                    </FieldLabel>
+                    <Input
+                      id="create-station-buyback-rate"
                       name={field.name}
                       type="number"
                       min={0}
@@ -287,7 +367,9 @@ function EditStationDialog({
   const form = useForm({
     defaultValues: {
       name: '',
-      rate: '',
+      locality: '',
+      seedDispatchRatePerBag: '',
+      seedBuyBackRatePerQuintal: '',
     },
     validators: {
       onBlur: editStationSchema,
@@ -296,13 +378,18 @@ function EditStationDialog({
     onSubmit: async ({ value }) => {
       if (!station) return;
 
-      const trimmedRate = value.rate.trim();
       editStation(
         {
           id: station._id,
           coldStorageId,
           name: value.name.trim(),
-          rate: trimmedRate === '' ? null : Number(trimmedRate),
+          locality: value.locality.trim(),
+          seedDispatchRatePerBag: parseRequiredNumberInput(
+            value.seedDispatchRatePerBag
+          ),
+          seedBuyBackRatePerQuintal: parseRequiredNumberInput(
+            value.seedBuyBackRatePerQuintal
+          ),
         },
         {
           onSuccess: (data) => {
@@ -319,10 +406,9 @@ function EditStationDialog({
     if (!open || !station) return;
     form.reset({
       name: station.name,
-      rate:
-        station.rate === undefined || station.rate === null
-          ? ''
-          : String(station.rate),
+      locality: station.locality,
+      seedDispatchRatePerBag: String(station.seedDispatchRatePerBag),
+      seedBuyBackRatePerQuintal: String(station.seedBuyBackRatePerQuintal),
     });
   }, [open, station, form]);
 
@@ -341,7 +427,8 @@ function EditStationDialog({
           <DialogHeader>
             <DialogTitle>Edit Station</DialogTitle>
             <DialogDescription>
-              Update the station name or rate. Leave rate empty to clear it.
+              Update the station name, locality, and seed dispatch and buy-back
+              rates.
             </DialogDescription>
           </DialogHeader>
 
@@ -379,18 +466,90 @@ function EditStationDialog({
             />
 
             <form.Field
-              name="rate"
+              name="locality"
               children={(field) => {
                 const isInvalid =
                   field.state.meta.isTouched && !field.state.meta.isValid;
 
                 return (
                   <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor="edit-station-rate">
-                      Rate (optional)
+                    <FieldLabel htmlFor="edit-station-locality">
+                      Locality
                     </FieldLabel>
                     <Input
-                      id="edit-station-rate"
+                      id="edit-station-locality"
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={isInvalid}
+                    />
+                    {isInvalid && (
+                      <FieldError
+                        errors={
+                          field.state.meta.errors as Array<
+                            { message?: string } | undefined
+                          >
+                        }
+                      />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+
+            <form.Field
+              name="seedDispatchRatePerBag"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor="edit-station-dispatch-rate">
+                      Seed dispatch rate per bag
+                    </FieldLabel>
+                    <Input
+                      id="edit-station-dispatch-rate"
+                      name={field.name}
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={isInvalid}
+                      className={cn(businessNumberSpinnerClassName)}
+                      onWheel={blurTargetOnNumberWheel}
+                      onKeyDown={preventArrowUpDownOnNumericInput}
+                    />
+                    {isInvalid && (
+                      <FieldError
+                        errors={
+                          field.state.meta.errors as Array<
+                            { message?: string } | undefined
+                          >
+                        }
+                      />
+                    )}
+                  </Field>
+                );
+              }}
+            />
+
+            <form.Field
+              name="seedBuyBackRatePerQuintal"
+              children={(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid;
+
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel htmlFor="edit-station-buyback-rate">
+                      Seed buy-back rate per quintal
+                    </FieldLabel>
+                    <Input
+                      id="edit-station-buyback-rate"
                       name={field.name}
                       type="number"
                       min={0}
@@ -530,7 +689,12 @@ function RouteComponent() {
     const filtered = stations.filter((station) => {
       if (!trimmedSearch) return true;
 
-      const searchableText = [station.name, formatRate(station.rate)]
+      const searchableText = [
+        station.name,
+        station.locality,
+        formatNumberValue(station.seedDispatchRatePerBag),
+        formatNumberValue(station.seedBuyBackRatePerQuintal),
+      ]
         .join(' ')
         .toLowerCase();
 
@@ -542,12 +706,28 @@ function RouteComponent() {
         return b.name.localeCompare(a.name);
       }
 
-      if (sortBy === 'rate-asc') {
-        return (a.rate ?? -1) - (b.rate ?? -1);
+      if (sortBy === 'locality-asc') {
+        return a.locality.localeCompare(b.locality);
       }
 
-      if (sortBy === 'rate-desc') {
-        return (b.rate ?? -1) - (a.rate ?? -1);
+      if (sortBy === 'locality-desc') {
+        return b.locality.localeCompare(a.locality);
+      }
+
+      if (sortBy === 'dispatch-rate-asc') {
+        return a.seedDispatchRatePerBag - b.seedDispatchRatePerBag;
+      }
+
+      if (sortBy === 'dispatch-rate-desc') {
+        return b.seedDispatchRatePerBag - a.seedDispatchRatePerBag;
+      }
+
+      if (sortBy === 'buyback-rate-asc') {
+        return a.seedBuyBackRatePerQuintal - b.seedBuyBackRatePerQuintal;
+      }
+
+      if (sortBy === 'buyback-rate-desc') {
+        return b.seedBuyBackRatePerQuintal - a.seedBuyBackRatePerQuintal;
       }
 
       if (sortBy === 'updated-desc') {
@@ -666,8 +846,24 @@ function RouteComponent() {
         sortOptions={[
           { label: 'Name (A-Z)', value: 'name-asc' },
           { label: 'Name (Z-A)', value: 'name-desc' },
-          { label: 'Rate (Low-High)', value: 'rate-asc' },
-          { label: 'Rate (High-Low)', value: 'rate-desc' },
+          { label: 'Locality (A-Z)', value: 'locality-asc' },
+          { label: 'Locality (Z-A)', value: 'locality-desc' },
+          {
+            label: 'Dispatch rate (Low-High)',
+            value: 'dispatch-rate-asc',
+          },
+          {
+            label: 'Dispatch rate (High-Low)',
+            value: 'dispatch-rate-desc',
+          },
+          {
+            label: 'Buy-back rate (Low-High)',
+            value: 'buyback-rate-asc',
+          },
+          {
+            label: 'Buy-back rate (High-Low)',
+            value: 'buyback-rate-desc',
+          },
           { label: 'Recently Updated', value: 'updated-desc' },
         ]}
       >
@@ -697,7 +893,13 @@ function RouteComponent() {
             <TableHeader>
               <TableRow>
                 <TableHead className="font-custom">Name</TableHead>
-                <TableHead className="font-custom">Rate</TableHead>
+                <TableHead className="font-custom">Locality</TableHead>
+                <TableHead className="font-custom hidden md:table-cell">
+                  Dispatch rate / bag
+                </TableHead>
+                <TableHead className="font-custom hidden md:table-cell">
+                  Buy-back rate / quintal
+                </TableHead>
                 <TableHead className="font-custom hidden sm:table-cell">
                   Updated
                 </TableHead>
@@ -715,7 +917,13 @@ function RouteComponent() {
                     {station.name}
                   </TableCell>
                   <TableCell className="font-custom">
-                    {formatRate(station.rate)}
+                    {station.locality}
+                  </TableCell>
+                  <TableCell className="font-custom hidden md:table-cell">
+                    {formatNumberValue(station.seedDispatchRatePerBag)}
+                  </TableCell>
+                  <TableCell className="font-custom hidden md:table-cell">
+                    {formatNumberValue(station.seedBuyBackRatePerQuintal)}
                   </TableCell>
                   <TableCell className="font-custom text-muted-foreground hidden sm:table-cell">
                     {formatStationDate(station.updatedAt)}

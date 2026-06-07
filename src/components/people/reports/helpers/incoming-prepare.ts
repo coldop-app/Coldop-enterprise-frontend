@@ -66,7 +66,10 @@ export function prepareDataForIncomingTable(
 
 export type IncomingTableTotals = {
   totalBags: number;
+  /** Net product weight (gross − tare − bardana). */
   totalActualKg: number;
+  /** Gross − tare weight (includes bardana). */
+  totalNetKg: number;
 };
 
 /** Totals for accounting incoming footer / finance buy-back row (matches incoming-table subtotal). */
@@ -75,12 +78,16 @@ export function aggregateIncomingTableTotals(
 ): IncomingTableTotals {
   let totalBags = 0;
   let totalActualKg = 0;
+  let totalNetKg = 0;
   for (const row of rows) {
     totalBags += Number(row.bags) || 0;
     totalActualKg += Number(row.actualKg) || 0;
+    totalNetKg += Number(row.netKg) || 0;
   }
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   return {
     totalBags,
-    totalActualKg: Math.round((totalActualKg + Number.EPSILON) * 100) / 100,
+    totalActualKg: round2(totalActualKg),
+    totalNetKg: round2(totalNetKg),
   };
 }

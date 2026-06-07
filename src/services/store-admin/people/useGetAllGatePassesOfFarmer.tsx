@@ -14,6 +14,20 @@ import type { GradingGatePass } from '@/types/grading-gate-pass';
 
 export type { GradingGatePass };
 
+/** Populated station on GET .../passes `farmerStorageLink.station` */
+export interface StationInPassesPayload {
+  _id: string;
+  name?: string;
+  locality?: string;
+  seedDispatchRatePerBag?: number;
+  seedBuyBackRatePerQuintal?: number;
+}
+
+export type StationRates = {
+  seedDispatchRatePerBag: number;
+  seedBuyBackRatePerQuintal: number;
+};
+
 /** Farmer storage link summary included in GET .../passes `data` */
 export interface FarmerStorageLinkInPassesPayload {
   _id: string;
@@ -21,7 +35,23 @@ export interface FarmerStorageLinkInPassesPayload {
   name: string;
   mobileNumber: string;
   address: string;
-  station?: string | { _id: string; name?: string } | null;
+  station?: string | StationInPassesPayload | null;
+}
+
+/** Resolves station freight rates when the passes API returns a populated station object. */
+export function resolveStationRates(
+  station: FarmerStorageLinkInPassesPayload['station']
+): StationRates | null {
+  if (station == null || typeof station === 'string') return null;
+
+  const dispatch = Number(station.seedDispatchRatePerBag);
+  const buyBack = Number(station.seedBuyBackRatePerQuintal);
+  if (!Number.isFinite(dispatch) || !Number.isFinite(buyBack)) return null;
+
+  return {
+    seedDispatchRatePerBag: dispatch,
+    seedBuyBackRatePerQuintal: buyBack,
+  };
 }
 
 export interface StorageGatePassWithLink {

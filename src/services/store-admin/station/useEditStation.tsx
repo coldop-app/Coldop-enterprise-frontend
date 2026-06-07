@@ -50,9 +50,20 @@ function normalizeEditStationPayload(
     normalizedPayload.name = payload.name.trim();
   }
 
-  if (payload.rate !== undefined) {
-    normalizedPayload.rate =
-      payload.rate === null ? null : Number(payload.rate);
+  if (payload.locality !== undefined) {
+    normalizedPayload.locality = payload.locality.trim();
+  }
+
+  if (payload.seedDispatchRatePerBag !== undefined) {
+    normalizedPayload.seedDispatchRatePerBag = Number(
+      payload.seedDispatchRatePerBag
+    );
+  }
+
+  if (payload.seedBuyBackRatePerQuintal !== undefined) {
+    normalizedPayload.seedBuyBackRatePerQuintal = Number(
+      payload.seedBuyBackRatePerQuintal
+    );
   }
 
   return normalizedPayload;
