@@ -172,6 +172,16 @@ function seedSizeRowHasValues(
 const standardSeedPrefRowGridClass =
   'grid w-full min-w-[16rem] grid-cols-[minmax(5.5rem,8.5rem)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3';
 
+/** Finance particulars whose rate comes from station settings, not this field. */
+const FINANCE_PARTICULARS_WITH_READONLY_RATE = new Set([
+  'Freight: Seed (Dispatched)',
+  'Freight: Buy Back material (Trolly Charges Rs. 20/- Qtl)',
+]);
+
+function isFinanceParticularRateReadOnly(name: string): boolean {
+  return FINANCE_PARTICULARS_WITH_READONLY_RATE.has(name.trim());
+}
+
 /** Subtle variety accents; unknown names use theme-muted fallback */
 const VARIETY_COLORS: Record<string, string> = {
   Himalini:
@@ -1308,6 +1318,14 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
     patch: Partial<FinanceParticularRow>
   ) => {
     if (!canUpdatePreferences) return;
+    const row = financeParticulars[index];
+    if (
+      row &&
+      patch.rate !== undefined &&
+      isFinanceParticularRateReadOnly(row.name)
+    ) {
+      return;
+    }
     updatePreferences((p) => ({
       ...p,
       custom: {
@@ -2043,7 +2061,10 @@ function PreferencesEditor({ baseline }: { baseline: PreferencesData }) {
                         min={0}
                         step="0.01"
                         value={Number.isFinite(row.rate) ? row.rate : 0}
-                        disabled={!canUpdatePreferences}
+                        disabled={
+                          !canUpdatePreferences ||
+                          isFinanceParticularRateReadOnly(row.name)
+                        }
                         onChange={(e) => {
                           const val = parseNonNegativeNumber(e.target.value);
                           updateFinanceParticular(index, {
