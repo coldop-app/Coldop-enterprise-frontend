@@ -1,4 +1,3 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   memo,
@@ -26,10 +25,12 @@ import {
   type ColumnResizeMode,
   type ExpandedState,
   type GroupingState,
+  type PaginationState,
   type Row,
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   TableBody,
@@ -66,6 +67,7 @@ import { ViewFiltersSheet } from './view-filters-sheet/index';
 import {
   flattenNikasiReportRows,
   getNikasiBagSizeQuantity,
+  recomputeNikasiVarietyRowSpans,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
 import {
@@ -88,9 +90,7 @@ const TABLE_SKELETON_COLUMNS = 8;
 const TABLE_SKELETON_ROWS = 10;
 const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
 const TABLE_VIEWPORT_HEIGHT_PX = 560;
-const isFirefoxBrowser =
-  typeof window !== 'undefined' &&
-  window.navigator.userAgent.includes('Firefox');
+const NIKASI_REPORT_PAGE_SIZE_OPTIONS = [50, 100, 200] as const;
 
 type NikasiTableRow = Row<NikasiReportDisplayRow>;
 
@@ -199,6 +199,10 @@ const NikasiReportDataTable = ({
   );
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [grouping, setGrouping] = useState<GroupingState>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 100,
+  });
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [globalFilter, setGlobalFilter] = useState<NikasiGlobalFilterValue>('');
   const [columnResizeMode, setColumnResizeMode] =
@@ -347,6 +351,12 @@ const NikasiReportDataTable = ({
     }
   }, [grouping]);
 
+  useEffect(() => {
+    setPagination((current) =>
+      current.pageIndex === 0 ? current : { ...current, pageIndex: 0 }
+    );
+  }, [columnFilters, globalFilter, grouping, sorting, sourceRows]);
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: displayRows,
@@ -452,22 +462,49 @@ const NikasiReportDataTable = ({
     ? table.getExpandedRowModel().rows
     : [];
 
-  const rows = isGroupingActive ? groupedTableRows : flatSortedTableRows;
+  const allTableRows = isGroupingActive
+    ? groupedTableRows
+    : flatSortedTableRows;
+  const totalFilteredEntries = allTableRows.length;
+  const pageCount = Math.max(
+    1,
+    Math.ceil(totalFilteredEntries / pagination.pageSize)
+  );
+  const safePageIndex = Math.min(pagination.pageIndex, pageCount - 1);
+  const pageStartIndex = safePageIndex * pagination.pageSize;
+  const pageEndIndex = pageStartIndex + pagination.pageSize;
+  const paginatedRows = useMemo(
+    () => allTableRows.slice(pageStartIndex, pageEndIndex),
+    [allTableRows, pageStartIndex, pageEndIndex]
+  );
+  const currentPageStartEntry =
+    totalFilteredEntries === 0 ? 0 : pageStartIndex + 1;
+  const currentPageEndEntry = Math.min(pageEndIndex, totalFilteredEntries);
+  const canPreviousPage = safePageIndex > 0;
+  const canNextPage = safePageIndex < pageCount - 1;
+
+  useEffect(() => {
+    const maxPageIndex = Math.max(0, pageCount - 1);
+    if (pagination.pageIndex > maxPageIndex) {
+      setPagination((current) => ({ ...current, pageIndex: maxPageIndex }));
+    }
+  }, [pageCount, pagination.pageIndex]);
+
+  const pageSpanMetaByRowId = useMemo(() => {
+    if (isGroupingActive || paginatedRows.length === 0) {
+      return spanMetaByRowId;
+    }
+
+    const recomputed = recomputeNikasiVarietyRowSpans(
+      paginatedRows.map((row) => row.original)
+    );
+    return buildNikasiRowSpanMetaById(recomputed);
+  }, [isGroupingActive, paginatedRows, spanMetaByRowId]);
+
   const tableWidth = table.getTotalSize();
   const visibleColumnIds = table
     .getVisibleLeafColumns()
     .map((column) => column.id);
-
-  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
-    count: rows.length,
-    estimateSize: () => 42,
-    getScrollElement: () => tableContainerRef.current,
-    measureElement: isFirefoxBrowser
-      ? undefined
-      : (element) => element?.getBoundingClientRect().height,
-    overscan: 8,
-  });
-  const virtualRows = rowVirtualizer.getVirtualItems();
 
   const getExportRows = useCallback((): NikasiTableRow[] => {
     if (isGroupingActive) {
@@ -559,7 +596,7 @@ const NikasiReportDataTable = ({
               )}
             </div>
           </div>
-        ) : rows.length === 0 ? (
+        ) : totalFilteredEntries === 0 ? (
           <div className="text-muted-foreground flex h-24 items-center justify-center">
             No data found.
           </div>
@@ -672,43 +709,21 @@ const NikasiReportDataTable = ({
               ))}
             </TableHeader>
             <TableBody
-              style={
-                isGroupingActive
-                  ? {
-                      display: 'grid',
-                      height: `${rowVirtualizer.getTotalSize()}px`,
-                      position: 'relative',
-                    }
-                  : undefined
-              }
+              style={isGroupingActive ? { display: 'grid' } : undefined}
             >
-              {(isGroupingActive
-                ? virtualRows.map((virtualRow) => rows[virtualRow.index]!)
-                : rows
-              ).map((row, rowIndex) => {
+              {paginatedRows.map((row, rowIndex) => {
                 if (isGroupingActive) {
-                  const virtualRow = virtualRows[rowIndex];
                   return (
                     <TableRow
                       key={row.id}
-                      data-index={virtualRow?.index}
-                      ref={(node) => rowVirtualizer.measureElement(node)}
                       className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
-                        virtualRow && virtualRow.index % 2 === 0
-                          ? 'bg-background'
-                          : 'bg-muted/25'
+                        rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25'
                       }`}
-                      style={
-                        virtualRow
-                          ? {
-                              display: 'flex',
-                              position: 'absolute',
-                              transform: `translateY(${virtualRow.start}px)`,
-                              width: tableWidth,
-                              minWidth: tableWidth,
-                            }
-                          : undefined
-                      }
+                      style={{
+                        display: 'flex',
+                        width: tableWidth,
+                        minWidth: tableWidth,
+                      }}
                     >
                       {row
                         .getVisibleCells()
@@ -725,7 +740,7 @@ const NikasiReportDataTable = ({
                   );
                 }
 
-                const spanMeta = spanMetaByRowId.get(row.id);
+                const spanMeta = pageSpanMetaByRowId.get(row.id);
                 const varietyRowIndex =
                   spanMeta?.varietyRowIndex ?? row.original.varietyRowIndex;
                 const varietyRowSpan =
@@ -783,7 +798,7 @@ const NikasiReportDataTable = ({
                 );
               })}
             </TableBody>
-            {rows.length > 0 ? (
+            {totalFilteredEntries > 0 ? (
               <TableFooter
                 className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
                 style={
@@ -851,6 +866,106 @@ const NikasiReportDataTable = ({
           </table>
         )}
       </div>
+
+      {!isLoading && totalFilteredEntries > 0 ? (
+        <div className="border-border/50 bg-background/70 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="nikasi-report-page-size"
+              className="font-custom text-muted-foreground text-sm"
+            >
+              Rows per page
+            </label>
+            <select
+              id="nikasi-report-page-size"
+              value={pagination.pageSize}
+              onChange={(event) =>
+                setPagination({
+                  pageIndex: 0,
+                  pageSize: Number(event.target.value),
+                })
+              }
+              className="font-custom border-input bg-background text-foreground h-8 rounded-md border px-2 text-sm"
+            >
+              {NIKASI_REPORT_PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-custom text-muted-foreground text-sm">
+              Showing{' '}
+              <span className="text-foreground font-semibold">
+                {currentPageStartEntry}-{currentPageEndEntry}
+              </span>{' '}
+              of{' '}
+              <span className="text-foreground font-semibold">
+                {totalFilteredEntries}
+              </span>{' '}
+              entries
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() =>
+                setPagination((current) => ({ ...current, pageIndex: 0 }))
+              }
+              disabled={!canPreviousPage}
+            >
+              {'<<'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() =>
+                setPagination((current) => ({
+                  ...current,
+                  pageIndex: Math.max(0, safePageIndex - 1),
+                }))
+              }
+              disabled={!canPreviousPage}
+            >
+              {'<'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() =>
+                setPagination((current) => ({
+                  ...current,
+                  pageIndex: Math.min(pageCount - 1, safePageIndex + 1),
+                }))
+              }
+              disabled={!canNextPage}
+            >
+              {'>'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              onClick={() =>
+                setPagination((current) => ({
+                  ...current,
+                  pageIndex: pageCount - 1,
+                }))
+              }
+              disabled={!canNextPage}
+            >
+              {'>>'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <ViewFiltersSheet
         open={isViewFiltersOpen}
