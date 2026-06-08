@@ -399,11 +399,11 @@ function buildFinanceGradingRowsForPasses(
         : null;
     const shortageAtSixPercent =
       readyBagsPostStorage50kg != null && isGradingSizeBelow40Mm(label, fc)
-        ? roundMax2(readyBagsPostStorage50kg * GRADING_SHORTAGE_RATE)
+        ? Math.round(readyBagsPostStorage50kg * GRADING_SHORTAGE_RATE)
         : null;
     const afterShortageBag =
       readyBagsPostStorage50kg != null
-        ? roundMax2(readyBagsPostStorage50kg - (shortageAtSixPercent ?? 0))
+        ? Math.round(readyBagsPostStorage50kg - (shortageAtSixPercent ?? 0))
         : null;
     const salePricePerBag = resolveSalePricePerBagRate(
       varietyKey,
@@ -441,12 +441,11 @@ export function computeFinanceGradingVarietyTotals(
     readyBagsPostStorage50kg: roundMax2(
       sumFinanceGradingNumeric(rows, (r) => r.readyBagsPostStorage50kg)
     ),
-    shortageAtSixPercent: roundMax2(
-      sumFinanceGradingNumeric(rows, (r) => r.shortageAtSixPercent)
+    shortageAtSixPercent: sumFinanceGradingNumeric(
+      rows,
+      (r) => r.shortageAtSixPercent
     ),
-    afterShortageBag: roundMax2(
-      sumFinanceGradingNumeric(rows, (r) => r.afterShortageBag)
-    ),
+    afterShortageBag: sumFinanceGradingNumeric(rows, (r) => r.afterShortageBag),
     saleAmount: roundMax2(sumFinanceGradingNumeric(rows, (r) => r.saleAmount)),
   };
 }
