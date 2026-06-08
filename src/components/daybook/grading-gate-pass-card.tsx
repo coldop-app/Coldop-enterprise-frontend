@@ -1,6 +1,6 @@
-import { memo, useState, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { usePreferencesStore } from '@/stores/store';
+import { usePreferencesStore, useStore } from '@/stores/store';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -87,7 +87,12 @@ function GradingVoucherCardComponent({
 }: GradingVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [calculationsOpen, setCalculationsOpen] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
   const navigate = useNavigate();
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const canUpdateGradingGatePass = usePermissionsStore((state) =>
     state.hasPermission('grading-gate-pass', 'update')
   );
@@ -130,6 +135,101 @@ function GradingVoucherCardComponent({
 
   const farmerLink = getFarmerStorageLink(gradingGatePass);
   const farmer = farmerLink?.farmerId;
+  const createdBy =
+    typeof gradingGatePass.createdBy === 'object' && gradingGatePass.createdBy
+      ? gradingGatePass.createdBy.name
+      : 'Unknown user';
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePrint = async () => {
+    if (isGeneratingPdf) return;
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      window.alert(
+        'Popup blocked by your browser. Please allow popups and try again.'
+      );
+      return;
+    }
+
+    previewTab.opener = null;
+    previewTab.document.write(
+      '<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>'
+    );
+    previewTab.document.close();
+    setIsGeneratingPdf(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const generatedAt = new Date().toLocaleString('en-IN');
+
+      const [{ pdf }, ReactModule, { default: GradingGatePassPdf }] =
+        await Promise.all([
+          import('@react-pdf/renderer'),
+          import('react'),
+          import('./pdfs/grading-gate-pass-pdf'),
+        ]);
+
+      const document = ReactModule.createElement(GradingGatePassPdf, {
+        coldStorageName,
+        generatedAt,
+        data: {
+          gatePassNo: gradingGatePass.gatePassNo,
+          manualGatePassNumber: gradingGatePass.manualGatePassNumber,
+          date: gradingGatePass.date,
+          variety: gradingGatePass.variety,
+          grader: gradingGatePass.grader ?? '--',
+          remarks: gradingGatePass.remarks ?? '',
+          farmerName: farmer?.name ?? '--',
+          accountNumber:
+            farmerLink?.accountNumber != null
+              ? `#${farmerLink.accountNumber}`
+              : '--',
+          createdBy,
+          isCancelled: isCancelledGatePass,
+          incoming: {
+            rows: incoming.rows,
+            totals: incoming.totals,
+          },
+          grading: {
+            rows: grading.rows,
+            totals: grading.totals,
+          },
+        },
+      });
+
+      const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
+      const nextUrl = URL.createObjectURL(blob);
+
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = nextUrl;
+
+      if (!previewTab.closed) {
+        previewTab.location.replace(nextUrl);
+      } else {
+        window.open(nextUrl, '_blank');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      window.alert(`Failed to generate PDF: ${message}`);
+      if (!previewTab.closed) {
+        previewTab.close();
+      }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   return (
     <>
@@ -274,6 +374,8 @@ function GradingVoucherCardComponent({
               variant="outline"
               size="sm"
               className="font-custom h-8 w-8 p-0"
+              onClick={handlePrint}
+              disabled={isGeneratingPdf}
               aria-label={`Print grading gate pass ${gradingGatePass.gatePassNo}`}
             >
               <Printer className="h-3.5 w-3.5" />

@@ -1,5 +1,6 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useStore } from '@/stores/store';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -209,13 +210,99 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
   entry,
 }: FarmerSeedVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const canUpdateSeedGatePass = usePermissionsStore((state) =>
     state.hasPermission('farmer-seed-gate-pass', 'update')
   );
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+    };
+  }, []);
 
   const seedData = buildViewModel(entry);
   const isCancelledGatePass = seedData.totals.totalBags === 0;
+
+  const handlePrint = async () => {
+    if (isGeneratingPdf) return;
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      alert(
+        'Pop-up blocked. Please allow pop-ups for this site and try again.'
+      );
+      return;
+    }
+    previewTab.opener = null;
+    previewTab.document.write(
+      '<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>'
+    );
+    previewTab.document.close();
+    setIsGeneratingPdf(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const generatedAt = new Date().toLocaleString('en-IN');
+      const [{ pdf }, ReactModule, { default: SeedGatePassPdf }] =
+        await Promise.all([
+          import('@react-pdf/renderer'),
+          import('react'),
+          import('./pdfs/seed-gate-pass-pdf'),
+        ]);
+      const document = ReactModule.createElement(SeedGatePassPdf, {
+        coldStorageName,
+        generatedAt,
+        data: {
+          gatePassNo: seedData.gatePassNo,
+          invoiceNumber: seedData.invoiceNumber,
+          date: (entry.date as string) ?? (entry.createdAt as string) ?? '',
+          variety: seedData.variety === FALLBACK_TEXT ? '' : seedData.variety,
+          generation:
+            seedData.generation === FALLBACK_TEXT ? '' : seedData.generation,
+          farmerName: seedData.farmer.name,
+          accountNumber: seedData.farmer.account,
+          farmerAddress:
+            seedData.farmer.address === FALLBACK_TEXT
+              ? ''
+              : seedData.farmer.address,
+          remarks: seedData.remarks === FALLBACK_TEXT ? '' : seedData.remarks,
+          totalBags: seedData.totals.totalBags,
+          totalAcres: seedData.totals.totalAcres,
+          totalAmount: seedData.totals.totalAmount,
+          isCancelled: isCancelledGatePass,
+          rows: seedData.bagSizes.map((row) => ({
+            name: row.name,
+            quantity: row.quantity,
+            rate: row.rate,
+            acres: row.acres,
+            amount: row.amount,
+          })),
+        },
+      });
+      const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
+      const nextUrl = URL.createObjectURL(blob);
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = nextUrl;
+      if (!previewTab.closed) {
+        previewTab.location.replace(nextUrl);
+      } else {
+        window.open(nextUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const handleEditClick = () => {
     const id = toStringValue(entry._id, '');
@@ -399,6 +486,8 @@ export const FarmerSeedVoucherCard = memo(function FarmerSeedVoucher({
             size="sm"
             className="font-custom h-8 w-8 p-0"
             aria-label={`Print farmer seed voucher ${seedData.gatePassNo || ''}`}
+            onClick={handlePrint}
+            disabled={isGeneratingPdf}
           >
             <Printer className="h-3.5 w-3.5" />
           </Button>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { StorageGatePassWithLink } from '@/types/storage-gate-pass';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/stores/store';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 function formatDateTime(value: string) {
@@ -62,7 +63,12 @@ interface StorageVoucherCardProps {
 
 export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
   const navigate = useNavigate();
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const canUpdateStorageGatePass = usePermissionsStore((state) =>
     state.hasPermission('storage-gate-pass', 'update')
   );
@@ -90,6 +96,90 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
         storageGatePass: gatePass,
       })) as never,
     });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePrint = async () => {
+    if (isGeneratingPdf) return;
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      window.alert(
+        'Popup blocked by your browser. Please allow popups and try again.'
+      );
+      return;
+    }
+
+    previewTab.opener = null;
+    previewTab.document.write(
+      '<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>'
+    );
+    previewTab.document.close();
+    setIsGeneratingPdf(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const generatedAt = new Date().toLocaleString('en-IN');
+
+      const [{ pdf }, ReactModule, { default: StorageGatePassPdf }] =
+        await Promise.all([
+          import('@react-pdf/renderer'),
+          import('react'),
+          import('./pdfs/storage-gate-pass-pdf'),
+        ]);
+
+      const document = ReactModule.createElement(StorageGatePassPdf, {
+        coldStorageName,
+        generatedAt,
+        data: {
+          gatePassNo: gatePass.gatePassNo,
+          manualGatePassNumber: gatePass.manualGatePassNumber,
+          date: gatePass.date,
+          variety: gatePass.variety,
+          farmerName: farmer?.name ?? '--',
+          accountNumber:
+            account != null && String(account).trim().length > 0
+              ? `#${account}`
+              : '--',
+          remarks: gatePass.remarks ?? '',
+          totalCurrent: totalBags,
+          totalInitial,
+          isCancelled: isCancelledGatePass,
+          rows: gatePass.bagSizes,
+        },
+      });
+
+      const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
+      const nextUrl = URL.createObjectURL(blob);
+
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = nextUrl;
+
+      if (!previewTab.closed) {
+        previewTab.location.replace(nextUrl);
+      } else {
+        window.open(nextUrl, '_blank');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      window.alert(`Failed to generate PDF: ${message}`);
+      if (!previewTab.closed) {
+        previewTab.close();
+      }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -214,7 +304,14 @@ export function StorageVoucherCard({ gatePass }: StorageVoucherCardProps) {
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={handlePrint}
+            disabled={isGeneratingPdf}
+            aria-label={`Print storage gate pass ${gatePass.gatePassNo}`}
+          >
             <Printer className="h-3.5 w-3.5" />
           </Button>
         </div>

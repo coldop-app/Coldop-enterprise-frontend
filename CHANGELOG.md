@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-08
+
+### Added
+- PDF composition modules for all five daybook gate pass types: incoming, grading, nikasi, seed, and storage (`src/components/daybook/pdfs/`).
+- Print actions on daybook gate pass cards that lazily load `@react-pdf/renderer` and the matching PDF template, open a preview tab, and display the generated voucher PDF with cold storage branding and generation timestamp.
+
+### Changed
+- Daybook gate pass cards (incoming, grading, nikasi, seed, storage) wire the printer button to `handlePrint` with loading state, popup-block handling, and object URL cleanup on unmount.
+- Incoming, grading, nikasi, and storage cards read the active cold storage name from the store for PDF headers; grading cards also surface created-by metadata in the export payload.
+- Project version updated to `1.3.0` for this daybook gate pass PDF printing release.
+
 ## [1.2.0] - 2026-06-07
 
 ### Added

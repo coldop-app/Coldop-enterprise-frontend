@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/stores/store';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import type {
   NikasiGatePassFarmerStorageLink,
@@ -117,7 +118,12 @@ export function NikasiVoucherCard({
   variant = 'dispatch',
 }: NikasiVoucherCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const objectUrlRef = useRef<string | null>(null);
   const navigate = useNavigate();
+  const coldStorageName = useStore(
+    (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
+  );
   const canUpdateNikasiGatePass = usePermissionsStore((state) =>
     state.hasPermission('nikasi-gate-pass', 'update')
   );
@@ -195,6 +201,104 @@ export function NikasiVoucherCard({
         nikasiGatePass: editState,
       }),
     });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePrint = async () => {
+    if (isGeneratingPdf) return;
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      window.alert(
+        'Popup blocked by your browser. Please allow popups and try again.'
+      );
+      return;
+    }
+
+    previewTab.opener = null;
+    previewTab.document.write(
+      '<!doctype html><html><head><meta charset="utf-8" /><title>Generating PDF...</title></head><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f8fafc">Generating PDF...</body></html>'
+    );
+    previewTab.document.close();
+    setIsGeneratingPdf(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const generatedAt = new Date().toLocaleString('en-IN');
+
+      const [{ pdf }, ReactModule, { default: NikasiGatePassPdf }] =
+        await Promise.all([
+          import('@react-pdf/renderer'),
+          import('react'),
+          import('./pdfs/nikasi-gate-pass-pdf'),
+        ]);
+
+      const document = ReactModule.createElement(NikasiGatePassPdf, {
+        coldStorageName,
+        generatedAt,
+        data: {
+          gatePassNo: gatePass.gatePassNo,
+          manualGatePassNumber: gatePass.manualGatePassNumber,
+          date: gatePass.date,
+          from: gatePass.from ?? '--',
+          to:
+            gatePass.to?.trim() ||
+            gatePass.toField?.trim() ||
+            dispatchLedger?.name?.trim() ||
+            '--',
+          dispatchLedger: dispatchLedger?.name?.trim() || '--',
+          truckNumber: gatePass.truckNumber?.trim() || '--',
+          createdBy,
+          accountNumber:
+            farmerStorageLink?.accountNumber != null
+              ? `#${farmerStorageLink.accountNumber}`
+              : '--',
+          isInternalTransfer: Boolean(gatePass.isInternalTransfer),
+          isCancelled: isCancelledGatePass,
+          totalIssued,
+          netWeight: gatePass.netWeight ?? 0,
+          averageWeightPerBag: gatePass.averageWeightPerBag ?? 0,
+          remarks: gatePass.remarks ?? '',
+          rows: bagDetails.map((row) => ({
+            size: row.size,
+            variety: row.variety,
+            bagType: row.bagType?.trim() || '--',
+            quantityIssued: row.quantityIssued,
+          })),
+        },
+      });
+
+      const blob = await pdf(document as Parameters<typeof pdf>[0]).toBlob();
+      const nextUrl = URL.createObjectURL(blob);
+
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+      objectUrlRef.current = nextUrl;
+
+      if (!previewTab.closed) {
+        previewTab.location.replace(nextUrl);
+      } else {
+        window.open(nextUrl, '_blank');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      window.alert(`Failed to generate PDF: ${message}`);
+      if (!previewTab.closed) {
+        previewTab.close();
+      }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -333,6 +437,9 @@ export function NikasiVoucherCard({
             variant="outline"
             size="sm"
             className="font-custom h-8 w-8 p-0"
+            onClick={handlePrint}
+            disabled={isGeneratingPdf}
+            aria-label={`Print nikasi gate pass ${gatePass.gatePassNo}`}
           >
             <Printer className="h-3.5 w-3.5" />
           </Button>
