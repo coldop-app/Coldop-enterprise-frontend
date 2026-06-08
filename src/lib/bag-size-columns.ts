@@ -16,6 +16,18 @@ export function normalizeBagSizeLabel(value: string): string {
     .toLowerCase();
 }
 
+/** Match a gate-pass/API size to the preference bag size label (dash-tolerant). */
+export function resolvePreferenceBagSizeLabel(
+  rawSize: string,
+  preferenceBagSizes: string[]
+): string | undefined {
+  const key = normalizeBagSizeLabel(rawSize);
+  if (!key) return undefined;
+  return preferenceBagSizes.find(
+    (label) => normalizeBagSizeLabel(label) === key
+  );
+}
+
 const BAG_SIZE_LABEL_TO_COLUMN_ID = new Map<string, string>([
   [normalizeBagSizeLabel('Below 25'), 'bagBelow25'],
   [normalizeBagSizeLabel('25–30'), 'bag25to30'],

@@ -270,7 +270,7 @@ function EditIncomingFormComponent() {
           tareWeightKg: parseNumber(weightSlipTareKg) ?? 0,
         },
         status: search.status ?? 'NOT_GRADED',
-        remarks: remarks.trim() || undefined,
+        remarks: remarks.trim(),
       },
       {
         onSuccess: (data) => {

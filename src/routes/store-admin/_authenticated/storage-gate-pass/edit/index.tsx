@@ -37,6 +37,10 @@ import {
   businessNumberSpinnerClassName,
   preventArrowUpDownOnNumericInput,
 } from '@/lib/business-number-input';
+import {
+  normalizeBagSizeLabel,
+  resolvePreferenceBagSizeLabel,
+} from '@/lib/bag-size-columns';
 import { formatDate } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { useGetReceiptVoucherNumber } from '@/services/store-admin/general/useGetVoucherNumber';
@@ -192,6 +196,106 @@ function toIsoDateFromDisplay(value: string): string {
     : date.toISOString();
 }
 
+type StorageEditFormValues = {
+  isMarkedAsNull: boolean;
+  manualGatePassNumber: number | undefined;
+  farmerStorageLinkId: string;
+  date: string;
+  variety: string;
+  sizeQuantities: Record<string, number>;
+  sizeBagTypes: Record<string, string>;
+  extraQuantityRows: ExtraQuantityRow[];
+  locationBySize: Record<string, LocationEntry>;
+  remarks: string;
+};
+
+type BuildStorageEditFormValuesOptions = {
+  editGatePass?: StorageGatePassWithLink;
+  gradingSizes: string[];
+  defaultSizeQuantities: Record<string, number>;
+  defaultSizeBagTypes: Record<string, string>;
+  defaultBagType: string;
+  initialFarmerStorageLinkId?: string;
+  isFixedFarmerMode: boolean;
+};
+
+function buildStorageEditFormValues(
+  options: BuildStorageEditFormValuesOptions
+): StorageEditFormValues {
+  const {
+    editGatePass,
+    gradingSizes,
+    defaultSizeQuantities,
+    defaultSizeBagTypes,
+    defaultBagType,
+    initialFarmerStorageLinkId,
+    isFixedFarmerMode,
+  } = options;
+
+  const sizeQuantities = { ...defaultSizeQuantities };
+  const sizeBagTypes = { ...defaultSizeBagTypes };
+  const locationBySize: Record<string, LocationEntry> = {};
+  const extraQuantityRows: ExtraQuantityRow[] = [];
+  const consumedFixedSizeKeys = new Set<string>();
+
+  for (const bag of editGatePass?.bagSizes ?? []) {
+    const size = bag.size?.trim() || '';
+    if (!size) continue;
+
+    const qty = bag.currentQuantity ?? 0;
+    const rowBagType = bag.bagType?.trim() || defaultBagType;
+    const resolvedSize = resolvePreferenceBagSizeLabel(size, gradingSizes);
+    const rowSize = resolvedSize ?? size;
+    const normalizedKey = normalizeBagSizeLabel(rowSize);
+    const isGradingSize = resolvedSize != null;
+    const isFirstFixedRowForSize =
+      isGradingSize && !consumedFixedSizeKeys.has(normalizedKey);
+
+    if (isFirstFixedRowForSize) {
+      consumedFixedSizeKeys.add(normalizedKey);
+      sizeQuantities[rowSize] = qty;
+      sizeBagTypes[rowSize] = rowBagType;
+      locationBySize[rowSize] = {
+        chamber: bag.chamber ?? '',
+        floor: bag.floor ?? '',
+        row: bag.row ?? '',
+      };
+    } else {
+      const id = crypto.randomUUID();
+      extraQuantityRows.push({
+        id,
+        size: rowSize,
+        quantity: qty,
+        bagType: rowBagType,
+      });
+      locationBySize[`${EXTRA_ROW_KEY_PREFIX}${id}`] = {
+        chamber: bag.chamber ?? '',
+        floor: bag.floor ?? '',
+        row: bag.row ?? '',
+      };
+    }
+  }
+
+  return {
+    isMarkedAsNull: false,
+    manualGatePassNumber: editGatePass?.manualGatePassNumber as
+      | number
+      | undefined,
+    farmerStorageLinkId: isFixedFarmerMode
+      ? FIXED_FARMER_STORAGE_LINK_ID
+      : (initialFarmerStorageLinkId ??
+        editGatePass?.farmerStorageLinkId?._id ??
+        ''),
+    date: toDisplayDate(editGatePass?.date) || formatDate(new Date()),
+    variety: editGatePass?.variety ?? '',
+    sizeQuantities,
+    sizeBagTypes,
+    extraQuantityRows,
+    locationBySize,
+    remarks: editGatePass?.remarks ?? '',
+  };
+}
+
 const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
   farmerStorageLinkId: initialFarmerStorageLinkId,
   locationState,
@@ -235,7 +339,6 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
       ) as Record<string, string>,
     [defaultBagType, gradingSizes]
   );
-
   const { data: voucherNumber, isLoading: isLoadingVoucher } =
     useGetReceiptVoucherNumber('storage-gate-pass');
   const {
@@ -261,63 +364,53 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
   const openSheetRef = useRef(false);
   const remarksRef = useRef<HTMLTextAreaElement | null>(null);
   const shouldFocusRemarksOnStepTwoRef = useRef(false);
+  const hasPrefilledRef = useRef(false);
   const editGatePass = locationState?.storageGatePass;
 
-  const initialFormValues = useMemo(() => {
-    const bagSizes = editGatePass?.bagSizes ?? [];
-    const sizeQuantities = { ...defaultSizeQuantities };
-    const sizeBagTypes = { ...defaultSizeBagTypes };
-    const locationBySize: Record<string, LocationEntry> = {};
-    const extraRows: ExtraQuantityRow[] = [];
+  const sizeOptions = useMemo(() => {
+    const labels = [...gradingSizes];
+    const seen = new Set(
+      gradingSizes.map((size) => normalizeBagSizeLabel(size))
+    );
 
-    for (const bag of bagSizes) {
-      const size = bag.size?.trim() || '';
-      if (!size) continue;
-
-      if (size in sizeQuantities) {
-        sizeQuantities[size] =
-          (sizeQuantities[size] ?? 0) + (bag.currentQuantity ?? 0);
-        sizeBagTypes[size] = bag.bagType || defaultBagType;
-        locationBySize[size] = {
-          chamber: bag.chamber ?? '',
-          floor: bag.floor ?? '',
-          row: bag.row ?? '',
-        };
-      } else {
-        const id = crypto.randomUUID();
-        extraRows.push({
-          id,
-          size,
-          quantity: bag.currentQuantity ?? 0,
-          bagType: bag.bagType || defaultBagType,
-        });
-        locationBySize[`${EXTRA_ROW_KEY_PREFIX}${id}`] = {
-          chamber: bag.chamber ?? '',
-          floor: bag.floor ?? '',
-          row: bag.row ?? '',
-        };
-      }
+    for (const bag of editGatePass?.bagSizes ?? []) {
+      const raw = bag.size?.trim();
+      if (!raw) continue;
+      const resolved = resolvePreferenceBagSizeLabel(raw, gradingSizes) ?? raw;
+      const key = normalizeBagSizeLabel(resolved);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      labels.push(resolved);
     }
 
-    return {
-      isMarkedAsNull: false,
-      manualGatePassNumber: editGatePass?.manualGatePassNumber as
-        | number
-        | undefined,
-      farmerStorageLinkId: isFixedFarmerMode
-        ? FIXED_FARMER_STORAGE_LINK_ID
-        : (initialFarmerStorageLinkId ??
-          editGatePass?.farmerStorageLinkId?._id ??
-          ''),
-      date: toDisplayDate(editGatePass?.date) || formatDate(new Date()),
-      variety: editGatePass?.variety ?? '',
-      sizeQuantities,
-      sizeBagTypes,
-      extraQuantityRows: extraRows,
-      locationBySize,
-      remarks: editGatePass?.remarks ?? '',
-    };
-  }, [editGatePass, initialFarmerStorageLinkId, isFixedFarmerMode]);
+    return labels;
+  }, [gradingSizes, editGatePass?.bagSizes]);
+
+  const buildFormValuesOptions = useMemo(
+    (): BuildStorageEditFormValuesOptions => ({
+      editGatePass,
+      gradingSizes,
+      defaultSizeQuantities,
+      defaultSizeBagTypes,
+      defaultBagType,
+      initialFarmerStorageLinkId,
+      isFixedFarmerMode,
+    }),
+    [
+      editGatePass,
+      gradingSizes,
+      defaultSizeQuantities,
+      defaultSizeBagTypes,
+      defaultBagType,
+      initialFarmerStorageLinkId,
+      isFixedFarmerMode,
+    ]
+  );
+
+  const initialFormValues = useMemo(
+    () => buildStorageEditFormValues(buildFormValuesOptions),
+    [buildFormValuesOptions]
+  );
 
   const form = useForm({
     defaultValues: initialFormValues,
@@ -378,7 +471,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
         date: toIsoDateFromDisplay(value.date),
         variety: value.variety || undefined,
         bagSizes: [...fixedBagSizes, ...extraBagSizes],
-        remarks: value.remarks?.trim() || undefined,
+        remarks: value.remarks.trim(),
         isMarkedAsNull: value.isMarkedAsNull || undefined,
       };
 
@@ -401,11 +494,12 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
   }, [isFixedFarmerMode, form]);
 
   useEffect(() => {
-    console.log(
-      'Storage gate pass edit form values changed',
-      form.state.values
-    );
-  }, [form.state.values]);
+    if (!editGatePass || gradingSizes.length === 0 || hasPrefilledRef.current) {
+      return;
+    }
+    form.reset(buildStorageEditFormValues(buildFormValuesOptions));
+    hasPrefilledRef.current = true;
+  }, [editGatePass, gradingSizes, buildFormValuesOptions, form]);
 
   const voucherNumberDisplay =
     voucherNumber != null ? `#${voucherNumber}` : null;
@@ -753,6 +847,22 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                       );
                       const totalQty = fixedTotal + extraTotal;
 
+                      const extraRowSizeOptions = (() => {
+                        const seen = new Set(
+                          sizeOptions.map((s) => normalizeBagSizeLabel(s))
+                        );
+                        const merged = [...sizeOptions];
+                        for (const row of extraQuantityRows) {
+                          const label = row.size?.trim();
+                          if (!label) continue;
+                          const key = normalizeBagSizeLabel(label);
+                          if (seen.has(key)) continue;
+                          seen.add(key);
+                          merged.push(label);
+                        }
+                        return merged;
+                      })();
+
                       const addExtraRow = () => {
                         const next: ExtraQuantityRow[] = [
                           ...extraQuantityRows,
@@ -892,7 +1002,7 @@ const StorageGatePassEditForm = memo(function StorageGatePassEditForm({
                                     }
                                     className="border-input bg-background text-foreground font-custom focus-visible:ring-primary h-9 flex-1 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-32"
                                   >
-                                    {gradingSizes.map((s) => (
+                                    {extraRowSizeOptions.map((s) => (
                                       <option key={s} value={s}>
                                         {s}
                                       </option>

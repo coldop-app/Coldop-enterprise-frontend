@@ -541,7 +541,7 @@ function FarmerSeedEditForm() {
             rate: Math.max(0, Number(row.rate ?? 0)),
             acres: Math.max(0, Number(row.acres ?? 0)),
           })),
-        remarks: remarks.trim() || undefined,
+        remarks: remarks.trim(),
         isMarkedAsNull: isMarkedAsNull || undefined,
       },
       {

@@ -310,7 +310,7 @@ const NikasiEditForm = memo(function NikasiEditForm({
           dispatchLedgerId: value.dispatchLedgerId.trim(),
           to: value.toLabelOptional.trim() || value.toField.trim() || undefined,
           bagSizes,
-          remarks: value.remarks.trim() || undefined,
+          remarks: value.remarks.trim(),
           netWeight: value.netWeight,
           averageWeightPerBag: submitAverageWeightPerBag,
         },

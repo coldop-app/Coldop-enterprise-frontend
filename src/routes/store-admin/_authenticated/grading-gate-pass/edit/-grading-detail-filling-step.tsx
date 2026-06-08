@@ -475,7 +475,7 @@ const GradingDetailsStep = ({
     }
 
     if (remarks !== initialRemarks) {
-      payload.remarks = remarks || undefined;
+      payload.remarks = remarks.trim();
     }
 
     const nextVariety = (selectedVariety ?? '').trim();
