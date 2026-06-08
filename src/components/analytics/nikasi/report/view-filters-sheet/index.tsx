@@ -245,21 +245,53 @@ export function ViewFiltersSheet({
     return labels;
   }, [columnLabelById, table]);
 
-  const hidableColumns = React.useMemo(
-    () => table.getAllLeafColumns().filter((column) => column.getCanHide()),
-    [table]
-  );
-  const hidableColumnIds = React.useMemo(
-    () => hidableColumns.map((column) => column.id),
-    [hidableColumns]
+  const manageableColumns = React.useMemo(() => {
+    const leafById = new Map(table.getAllLeafColumns().map((c) => [c.id, c]));
+    const activeOrder = table.getState().columnOrder;
+    const canonical =
+      activeOrder.length > 0
+        ? activeOrder
+        : defaultColumnOrder.length > 0
+          ? defaultColumnOrder
+          : Array.from(leafById.keys());
+    const seen = new Set<string>();
+    const rows: Array<{ id: string; label: string }> = [];
+
+    const pushIfManageable = (id: string) => {
+      if (seen.has(id) || NIKASI_EXCLUDED_TABLE_COLUMN_IDS.has(id)) return;
+      const col = leafById.get(id);
+      if (!col?.getCanHide()) return;
+      seen.add(id);
+      const staticLabel = filterableColumns.find((c) => c.id === id)?.label;
+      const header = col.columnDef.header;
+      rows.push({
+        id,
+        label:
+          resolvedColumnLabels[id] ??
+          staticLabel ??
+          (typeof header === 'string' ? header : id),
+      });
+    };
+
+    canonical.forEach(pushIfManageable);
+    leafById.forEach((_col, id) => {
+      if (!seen.has(id)) pushIfManageable(id);
+    });
+
+    return rows;
+  }, [defaultColumnOrder, resolvedColumnLabels, table]);
+  const manageableColumnIds = React.useMemo(
+    () => manageableColumns.map((column) => column.id),
+    [manageableColumns]
   );
 
   const [draftColumnVisibility, setDraftColumnVisibility] = React.useState<
     Record<string, boolean>
   >(() => {
     const visibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      visibility[column.id] = column.getIsVisible();
+    manageableColumnIds.forEach((id) => {
+      const column = table.getColumn(id);
+      if (column) visibility[id] = column.getIsVisible();
     });
     return visibility;
   });
@@ -268,8 +300,10 @@ export function ViewFiltersSheet({
       const activeOrder = table.getState().columnOrder;
       const validOrder = (
         activeOrder.length ? activeOrder : defaultColumnOrder
-      ).filter((id) => hidableColumnIds.includes(id));
-      const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+      ).filter((id) => manageableColumnIds.includes(id));
+      const missing = manageableColumnIds.filter(
+        (id) => !validOrder.includes(id)
+      );
       return [...validOrder, ...missing];
     }
   );
@@ -445,22 +479,27 @@ export function ViewFiltersSheet({
   const activeTabMeta =
     tabItems.find((tab) => tab.value === activeTab) ?? tabItems[0];
 
+  const defaultColumnOrderKey = React.useMemo(
+    () => defaultColumnOrder.join('|'),
+    [defaultColumnOrder]
+  );
+  const lastSyncedDefaultsKeyRef = React.useRef(defaultColumnOrderKey);
+
   const syncDraftFromTable = React.useCallback(() => {
     const visibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      visibility[column.id] = column.getIsVisible();
+    manageableColumnIds.forEach((id) => {
+      const column = table.getColumn(id);
+      if (column) visibility[id] = column.getIsVisible();
     });
 
-    const leafColumnIds = table.getAllLeafColumns().map((column) => column.id);
     const activeOrder = table.getState().columnOrder;
-    const baseOrder =
-      activeOrder.length > 0
-        ? activeOrder
-        : defaultColumnOrder.length > 0
-          ? defaultColumnOrder
-          : leafColumnIds;
-    const validOrder = baseOrder.filter((id) => hidableColumnIds.includes(id));
-    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+    const baseOrder = activeOrder.length > 0 ? activeOrder : defaultColumnOrder;
+    const validOrder = baseOrder.filter((id) =>
+      manageableColumnIds.includes(id)
+    );
+    const missing = manageableColumnIds.filter(
+      (id) => !validOrder.includes(id)
+    );
 
     const nextValueFilters = getEmptyValueFilters();
 
@@ -481,23 +520,27 @@ export function ViewFiltersSheet({
         ? activeGlobalFilter
         : createDefaultNikasiLogicFilter()
     );
-  }, [
-    availableFilterOptions,
-    defaultColumnOrder,
-    hidableColumnIds,
-    hidableColumns,
-    table,
-  ]);
+  }, [availableFilterOptions, defaultColumnOrder, manageableColumnIds, table]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handle = window.setTimeout(() => {
+      syncDraftFromTable();
+      lastSyncedDefaultsKeyRef.current = defaultColumnOrderKey;
+    }, 0);
+    return () => window.clearTimeout(handle);
+  }, [open, defaultColumnOrderKey, syncDraftFromTable]);
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
       onOpenChange(nextOpen);
       if (!nextOpen) return;
       syncDraftFromTable();
+      lastSyncedDefaultsKeyRef.current = defaultColumnOrderKey;
       setValueFilterTouched(getInitialValueFilterTouched());
       setActiveTab('filters');
     },
-    [onOpenChange, syncDraftFromTable]
+    [defaultColumnOrderKey, onOpenChange, syncDraftFromTable]
   );
 
   const handleResetAll = React.useCallback(() => {
@@ -517,8 +560,7 @@ export function ViewFiltersSheet({
     onColumnResizeDirectionChange('ltr');
 
     const visibility: Record<string, boolean> = {};
-    hidableColumns.forEach((column) => {
-      const id = column.id;
+    manageableColumnIds.forEach((id) => {
       if (emptyBagSizeColumnIds.has(id)) {
         visibility[id] = false;
       } else {
@@ -526,9 +568,11 @@ export function ViewFiltersSheet({
       }
     });
     const validOrder = defaultColumnOrder.filter((id) =>
-      hidableColumnIds.includes(id)
+      manageableColumnIds.includes(id)
     );
-    const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
+    const missing = manageableColumnIds.filter(
+      (id) => !validOrder.includes(id)
+    );
 
     setDraftColumnVisibility(visibility);
     setDraftColumnOrder([...validOrder, ...missing]);
@@ -549,8 +593,7 @@ export function ViewFiltersSheet({
     defaultColumnOrder,
     defaultColumnVisibility,
     emptyBagSizeColumnIds,
-    hidableColumnIds,
-    hidableColumns,
+    manageableColumnIds,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
     table,
@@ -1011,8 +1054,8 @@ export function ViewFiltersSheet({
                       className="text-primary text-xs font-medium hover:underline"
                       onClick={() => {
                         const next = { ...draftColumnVisibility };
-                        hidableColumns.forEach((col) => {
-                          next[col.id] = true;
+                        manageableColumnIds.forEach((id) => {
+                          next[id] = true;
                         });
                         setDraftColumnVisibility(next);
                       }}

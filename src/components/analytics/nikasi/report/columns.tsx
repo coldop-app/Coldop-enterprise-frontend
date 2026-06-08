@@ -399,6 +399,52 @@ const NIKASI_FROM_REPORT_COLUMN: NikasiGatePassReportColumn = {
   accessorKey: NIKASI_FROM_COLUMN_ID,
 };
 
+/** Client-side fallback when the report API omits column metadata. */
+export const DEFAULT_NIKASI_REPORT_API_COLUMNS: NikasiGatePassReportColumn[] = [
+  {
+    id: 'gatePassNo',
+    header: 'System Generated Gate Pass No',
+    accessorKey: 'gatePassNo',
+  },
+  {
+    id: 'manualGatePassNumber',
+    header: 'Manual Gate Pass No',
+    accessorKey: 'manualGatePassNumber',
+  },
+  { id: 'date', header: 'Date', accessorKey: 'date' },
+  NIKASI_FROM_REPORT_COLUMN,
+  {
+    id: 'dispatchLedger',
+    header: 'Dispatch Ledger',
+    accessorKey: 'dispatchLedger',
+  },
+  { id: 'to', header: 'To', accessorKey: 'to' },
+  {
+    id: 'truckNumber',
+    header: 'Truck Number',
+    accessorKey: 'truckNumber',
+  },
+  { id: 'variety', header: 'Variety', accessorKey: 'variety' },
+  { id: 'bagSizes', header: 'Bag Sizes', accessorKey: 'bagSizes' },
+  {
+    id: 'totalBagsIssued',
+    header: 'Total Bags Issued',
+    accessorKey: 'totalBagsIssued',
+  },
+  {
+    id: 'averageWeightPerBag',
+    header: 'Average Weight Per Bag',
+    accessorKey: 'averageWeightPerBag',
+  },
+  { id: 'netWeight', header: 'Net Weight', accessorKey: 'netWeight' },
+  {
+    id: 'isInternalTransfer',
+    header: 'Internal Transfer',
+    accessorKey: 'isInternalTransfer',
+  },
+  { id: 'remarks', header: 'Remarks', accessorKey: 'remarks' },
+];
+
 function hasNikasiFromReportColumn(
   apiColumns: NikasiGatePassReportColumn[]
 ): boolean {
@@ -427,6 +473,15 @@ export function ensureNikasiFromReportColumn(
     NIKASI_FROM_REPORT_COLUMN,
     ...apiColumns.slice(insertAt),
   ];
+}
+
+/** Resolves report columns from the API, falling back to the full default schema. */
+export function resolveNikasiReportApiColumns(
+  apiColumns: NikasiGatePassReportColumn[]
+): NikasiGatePassReportColumn[] {
+  const base =
+    apiColumns.length > 0 ? apiColumns : DEFAULT_NIKASI_REPORT_API_COLUMNS;
+  return ensureNikasiFromReportColumn(base);
 }
 
 export function getNikasiColumnLabels(

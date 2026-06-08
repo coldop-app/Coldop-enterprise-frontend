@@ -207,6 +207,7 @@ const NikasiReportDataTable = ({
     useState<ColumnResizeDirection>('ltr');
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const hasInitializedColumnOrderRef = useRef(false);
+  const lastAppliedDefaultColumnOrderKeyRef = useRef('');
   const hasInitializedBagVisibilityRef = useRef(false);
 
   const preferenceBagSizeColumnConfig = useMemo(
@@ -296,11 +297,30 @@ const NikasiReportDataTable = ({
     return next;
   }, [columnVisibility, emptyBagSizeColumnIds]);
 
+  const defaultColumnOrderKey = useMemo(
+    () => defaultColumnOrder.join('|'),
+    [defaultColumnOrder]
+  );
+
   useEffect(() => {
-    if (hasInitializedColumnOrderRef.current || columns.length === 0) return;
-    setColumnOrder(defaultColumnOrder);
-    hasInitializedColumnOrderRef.current = true;
-  }, [columns.length, defaultColumnOrder]);
+    if (columns.length === 0) return;
+    if (lastAppliedDefaultColumnOrderKeyRef.current === defaultColumnOrderKey) {
+      return;
+    }
+
+    setColumnOrder((current) => {
+      if (!hasInitializedColumnOrderRef.current || current.length === 0) {
+        hasInitializedColumnOrderRef.current = true;
+        lastAppliedDefaultColumnOrderKeyRef.current = defaultColumnOrderKey;
+        return defaultColumnOrder;
+      }
+
+      const missing = defaultColumnOrder.filter((id) => !current.includes(id));
+      lastAppliedDefaultColumnOrderKeyRef.current = defaultColumnOrderKey;
+      if (missing.length === 0) return current;
+      return [...current, ...missing];
+    });
+  }, [columns.length, defaultColumnOrder, defaultColumnOrderKey]);
 
   useEffect(() => {
     if (
@@ -357,7 +377,7 @@ const NikasiReportDataTable = ({
     globalFilterFn: globalNikasiReportFilterFn,
     columnResizeMode,
     columnResizeDirection,
-    groupedColumnMode: false,
+    groupedColumnMode: 'reorder',
     manualSorting: grouping.length === 0,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
