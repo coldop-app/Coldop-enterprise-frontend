@@ -8,6 +8,12 @@ import {
   revokeExcelPreviewUrls,
   type ExcelPreviewUrls,
 } from '@/lib/excel-preview-tab';
+import {
+  EXCEL_DATA_ROW_HEIGHT,
+  applyExcelRowHeight,
+  configureWorksheetForMicrosoftExcel,
+  enforceExcelTableRowHeights,
+} from '@/lib/excel-worksheet-compat';
 import { usePreferencesStore } from '@/stores/store';
 import {
   isContractFarmingFamilySpanColumn,
@@ -290,7 +296,7 @@ function addTotalsRow(
 ) {
   const bold = options?.bold !== false;
   const row = worksheet.addRow(totalsRowValues);
-  row.height = 40;
+  applyExcelRowHeight(row, EXCEL_DATA_ROW_HEIGHT);
   row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
     const value = totalsRowValues[columnNumber - 1];
     const columnId = visibleColumnIds[columnNumber - 1];
@@ -382,6 +388,7 @@ export const ContractFarmingExcelButton = ({
         const workbook = new ExcelJS.Workbook();
         workbook.creator = safeName;
         const worksheet = workbook.addWorksheet('Contract Farming Report');
+        configureWorksheetForMicrosoftExcel(worksheet);
 
         worksheet.columns = headerLabels.map((header, index) => ({
           key: `c${index}`,
@@ -445,7 +452,7 @@ export const ContractFarmingExcelButton = ({
         worksheet.addRow([]);
 
         const headerRow = worksheet.addRow(headerLabels);
-        headerRow.height = 40;
+        applyExcelRowHeight(headerRow, EXCEL_DATA_ROW_HEIGHT);
         headerRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -457,20 +464,9 @@ export const ContractFarmingExcelButton = ({
           };
         });
 
-        const farmerColumnIndex = visibleColumnIds.indexOf('farmer');
-
         bodyRows.forEach((bodyRow) => {
           const excelRow = worksheet.addRow(bodyRow.values);
-          const farmerValue =
-            farmerColumnIndex >= 0
-              ? bodyRow.values[farmerColumnIndex]
-              : undefined;
-          const farmerLineCount =
-            typeof farmerValue === 'string'
-              ? farmerValue.split('\n').length
-              : 1;
-          excelRow.height =
-            farmerLineCount > 1 ? Math.max(40, farmerLineCount * 16) : 40;
+          applyExcelRowHeight(excelRow, EXCEL_DATA_ROW_HEIGHT);
           const bgArgb = bodyRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
@@ -506,6 +502,7 @@ export const ContractFarmingExcelButton = ({
             bold: false,
           });
         }
+        enforceExcelTableRowHeights(worksheet, headerRow.number);
 
         const buffer = await workbook.xlsx.writeBuffer();
         const footerRows = [

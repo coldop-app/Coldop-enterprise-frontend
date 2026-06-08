@@ -9,6 +9,12 @@ import {
   type ExcelPreview,
   type ExcelPreviewUrls,
 } from '@/lib/excel-preview-tab';
+import {
+  EXCEL_DATA_ROW_HEIGHT,
+  applyExcelRowHeight,
+  configureWorksheetForMicrosoftExcel,
+  enforceExcelTableRowHeights,
+} from '@/lib/excel-worksheet-compat';
 import type { IncomingReportRow } from './columns';
 
 const COLORS = {
@@ -286,9 +292,9 @@ function addStyledTable(
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
   }>
-) {
+): number {
   const headerRow = ws.addRow(headers);
-  headerRow.height = 40;
+  applyExcelRowHeight(headerRow, EXCEL_DATA_ROW_HEIGHT);
   headerRow.eachCell((cell) => {
     applyFill(cell, COLORS.headerBg);
     applyBorder(cell, COLORS.borderColor);
@@ -302,7 +308,7 @@ function addStyledTable(
 
   rows.forEach((dataRow) => {
     const exRow = ws.addRow(dataRow.values);
-    exRow.height = 40;
+    applyExcelRowHeight(exRow, EXCEL_DATA_ROW_HEIGHT);
     const bgArgb = dataRow.isGroupedOrAggregatedRow
       ? COLORS.rowEven
       : COLORS.rowOdd;
@@ -322,11 +328,13 @@ function addStyledTable(
       }
     });
   });
+
+  return headerRow.number;
 }
 
 function addTotalsRow(ws: ExcelJS.Worksheet, values: Array<string | number>) {
   const exRow = ws.addRow(values);
-  exRow.height = 40;
+  applyExcelRowHeight(exRow, EXCEL_DATA_ROW_HEIGHT);
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     applyFill(cell, COLORS.totalRowBg);
@@ -489,6 +497,7 @@ async function buildIncomingExcelExport(
   const wb = new ExcelJS.Workbook();
   wb.creator = safeName;
   const ws = wb.addWorksheet('Incoming Report');
+  configureWorksheetForMicrosoftExcel(ws);
 
   applySmartColumnWidths(ws, headerLabels, [...rawBodyRows, totalsRowValues]);
 
@@ -503,8 +512,9 @@ async function buildIncomingExcelExport(
   );
 
   addSectionTitle(ws, 'Incoming', colCount);
-  addStyledTable(ws, headerLabels, styledBodyRows);
+  const tableStartRow = addStyledTable(ws, headerLabels, styledBodyRows);
   addTotalsRow(ws, totalsRowValues);
+  enforceExcelTableRowHeights(ws, tableStartRow);
 
   const buffer = await wb.xlsx.writeBuffer();
 

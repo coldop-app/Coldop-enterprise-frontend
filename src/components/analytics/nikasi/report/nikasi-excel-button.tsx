@@ -9,6 +9,12 @@ import {
   type ExcelPreviewUrls,
 } from '@/lib/excel-preview-tab';
 import {
+  EXCEL_DATA_ROW_HEIGHT,
+  applyExcelRowHeight,
+  configureWorksheetForMicrosoftExcel,
+  enforceExcelTableRowHeights,
+} from '@/lib/excel-worksheet-compat';
+import {
   formatNikasiReportCellValue,
   getNikasiNumericColumnIds,
   isNikasiVarietySplitColumn,
@@ -241,7 +247,7 @@ function addTotalsRow(
   numericColumnIds: Set<string>
 ) {
   const exRow = ws.addRow(values);
-  exRow.height = 40;
+  applyExcelRowHeight(exRow, EXCEL_DATA_ROW_HEIGHT);
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     const colId = columnIds[colNumber - 1];
@@ -453,6 +459,7 @@ export const NikasiExcelButton = ({
         const workbook = new ExcelJS.Workbook();
         workbook.creator = safeName;
         const worksheet = workbook.addWorksheet('Nikasi Report');
+        configureWorksheetForMicrosoftExcel(worksheet);
 
         applySmartColumnWidths(worksheet, headerLabels, allRowsForWidth);
 
@@ -521,7 +528,7 @@ export const NikasiExcelButton = ({
         worksheet.addRow([]);
 
         const columnHeaderRow = worksheet.addRow(headerLabels);
-        columnHeaderRow.height = 40;
+        applyExcelRowHeight(columnHeaderRow, EXCEL_DATA_ROW_HEIGHT);
         columnHeaderRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -538,7 +545,7 @@ export const NikasiExcelButton = ({
           const background = dataRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
-          excelRow.height = 40;
+          applyExcelRowHeight(excelRow, EXCEL_DATA_ROW_HEIGHT);
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);
@@ -570,6 +577,7 @@ export const NikasiExcelButton = ({
           exportColumnIds,
           numericColumnIds
         );
+        enforceExcelTableRowHeights(worksheet, columnHeaderRow.number);
 
         const buffer = await workbook.xlsx.writeBuffer();
         return {

@@ -10,7 +10,7 @@ export type DisplaySpanMetadata = {
 
 export function getDisplayFamilyBlockKey(row: FlattenedRow): string {
   const familyKey = row.familyKey ?? 0;
-  if (familyKey > 0) {
+  if (familyKey > 0 && row.varietyRowKey.startsWith('family-')) {
     return `family:${familyKey}`;
   }
   const fallbackFarmerId = row.varietyRowKey.split('|')[0] ?? row.rowId;

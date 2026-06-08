@@ -8,6 +8,12 @@ import {
   revokeExcelPreviewUrls,
   type ExcelPreviewUrls,
 } from '@/lib/excel-preview-tab';
+import {
+  EXCEL_DATA_ROW_HEIGHT,
+  applyExcelRowHeight,
+  configureWorksheetForMicrosoftExcel,
+  enforceExcelTableRowHeights,
+} from '@/lib/excel-worksheet-compat';
 import type { FarmerSeedReportRow } from './columns';
 
 const COLORS = {
@@ -102,7 +108,7 @@ function buildFarmerSeedTotalsRowValues(
 
 function addTotalsRow(ws: ExcelJS.Worksheet, values: Array<string | number>) {
   const exRow = ws.addRow(values);
-  exRow.height = 40;
+  applyExcelRowHeight(exRow, EXCEL_DATA_ROW_HEIGHT);
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     applyFill(cell, COLORS.totalRowBg);
@@ -425,6 +431,7 @@ export const FarmerSeedExcelButton = ({
         const workbook = new ExcelJS.Workbook();
         workbook.creator = safeName;
         const worksheet = workbook.addWorksheet('Farmer Seed Report');
+        configureWorksheetForMicrosoftExcel(worksheet);
 
         // ── Column widths ────────────────────────────────────────────────────────
         // Calculate smart widths based on header text and data content
@@ -508,7 +515,7 @@ export const FarmerSeedExcelButton = ({
 
         // ── Column header row ────────────────────────────────────────────────────
         const columnHeaderRow = worksheet.addRow(headerLabels);
-        columnHeaderRow.height = 40;
+        applyExcelRowHeight(columnHeaderRow, EXCEL_DATA_ROW_HEIGHT);
         columnHeaderRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -526,7 +533,7 @@ export const FarmerSeedExcelButton = ({
           const background = dataRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
-          excelRow.height = 40;
+          applyExcelRowHeight(excelRow, EXCEL_DATA_ROW_HEIGHT);
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);
@@ -548,6 +555,7 @@ export const FarmerSeedExcelButton = ({
         });
 
         addTotalsRow(worksheet, totalsRowValues);
+        enforceExcelTableRowHeights(worksheet, columnHeaderRow.number);
 
         const buffer = await workbook.xlsx.writeBuffer();
         return {

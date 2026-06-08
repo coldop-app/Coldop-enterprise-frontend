@@ -9,6 +9,12 @@ import {
   type ExcelPreviewUrls,
 } from '@/lib/excel-preview-tab';
 import {
+  EXCEL_DATA_ROW_HEIGHT,
+  applyExcelRowHeight,
+  configureWorksheetForMicrosoftExcel,
+  enforceExcelTableRowHeights,
+} from '@/lib/excel-worksheet-compat';
+import {
   formatGradingBagSizeCellForExport,
   isGradingSplitSpanColumn,
   type GradingReportTableRow,
@@ -259,7 +265,7 @@ function addTotalsRow(
   columnIds: string[]
 ) {
   const exRow = ws.addRow(values);
-  exRow.height = 40;
+  applyExcelRowHeight(exRow, EXCEL_DATA_ROW_HEIGHT);
   exRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
     const rawVal = values[colNumber - 1];
     const colId = columnIds[colNumber - 1];
@@ -576,6 +582,7 @@ export const GradingExcelButton = ({
         const workbook = new ExcelJS.Workbook();
         workbook.creator = safeName;
         const worksheet = workbook.addWorksheet('Grading Report');
+        configureWorksheetForMicrosoftExcel(worksheet);
 
         applySmartColumnWidths(worksheet, headerLabels, allRowsForWidth);
 
@@ -644,7 +651,7 @@ export const GradingExcelButton = ({
         worksheet.addRow([]);
 
         const columnHeaderRow = worksheet.addRow(headerLabels);
-        columnHeaderRow.height = 40;
+        applyExcelRowHeight(columnHeaderRow, EXCEL_DATA_ROW_HEIGHT);
         columnHeaderRow.eachCell((cell) => {
           applyFill(cell, COLORS.headerBg);
           applyBorder(cell, COLORS.borderColor);
@@ -661,20 +668,7 @@ export const GradingExcelButton = ({
           const background = dataRow.isGroupedOrAggregatedRow
             ? COLORS.rowEven
             : COLORS.rowOdd;
-          let maxLineCount = 1;
-          for (let i = 0; i < dataRow.values.length; i += 1) {
-            const colId = exportColumnIds[i];
-            const value = dataRow.values[i];
-            if (
-              colId != null &&
-              isMultilineBagSizeValue(colId, value) &&
-              typeof value === 'string'
-            ) {
-              maxLineCount = Math.max(maxLineCount, value.split('\n').length);
-            }
-          }
-          excelRow.height =
-            maxLineCount > 1 ? Math.max(40, maxLineCount * 16) : 40;
+          applyExcelRowHeight(excelRow, EXCEL_DATA_ROW_HEIGHT);
 
           excelRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
             applyFill(cell, background);
@@ -711,6 +705,8 @@ export const GradingExcelButton = ({
         });
 
         addTotalsRow(worksheet, totalsRowValues, exportColumnIds);
+
+        enforceExcelTableRowHeights(worksheet, columnHeaderRow.number);
 
         const buffer = await workbook.xlsx.writeBuffer();
         return {
