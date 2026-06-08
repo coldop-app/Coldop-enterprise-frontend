@@ -150,9 +150,55 @@ export function recomputeNikasiVarietyRowSpans(
   return adjusted;
 }
 
+export const NIKASI_WEIGHT_DECIMALS = 2;
+
+export function roundNikasiWeight(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
+  return Math.round(value * factor) / factor;
+}
+
 export function getNikasiBagSizeQuantity(
   row: NikasiReportDisplayRow,
   columnId: string
 ): number {
   return row.bagSizeFields[columnId]?.quantity ?? 0;
+}
+
+/** Bags issued for this variety sub-row only (sum of bag-size columns). */
+export function getNikasiVarietyRowTotalBags(
+  row: NikasiReportDisplayRow
+): number {
+  return Object.values(row.bagSizeFields).reduce(
+    (sum, cell) => sum + (Number(cell?.quantity) || 0),
+    0
+  );
+}
+
+/** Net weight allocated to this variety row (proportional to gate-pass totals). */
+export function getNikasiVarietyRowNetWeight(
+  row: NikasiReportDisplayRow
+): number {
+  const varietyBags = getNikasiVarietyRowTotalBags(row);
+  if (varietyBags <= 0) return 0;
+
+  const gatePassBags = Number(row.totalBagsIssued ?? 0);
+  const gatePassNet = Number(row.netWeight ?? 0);
+
+  if (gatePassBags > 0 && gatePassNet > 0) {
+    return roundNikasiWeight((varietyBags / gatePassBags) * gatePassNet);
+  }
+
+  const average = Number(row.averageWeightPerBag ?? 0);
+  return average > 0 ? roundNikasiWeight(varietyBags * average) : 0;
+}
+
+export function getNikasiVarietyRowAverageWeight(
+  row: NikasiReportDisplayRow
+): number | null {
+  const varietyBags = getNikasiVarietyRowTotalBags(row);
+  if (varietyBags <= 0) return null;
+
+  const varietyNet = getNikasiVarietyRowNetWeight(row);
+  return roundNikasiWeight(varietyNet / varietyBags);
 }

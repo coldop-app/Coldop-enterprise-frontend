@@ -13,7 +13,14 @@ export type FilterField =
   | 'remarks'
   | 'truckNumber'
   | 'farmerMobile'
+  | 'farmerMobileNumber'
   | 'farmerAddress'
+  | 'grossWeightKg'
+  | 'tareWeightKg'
+  | 'createdByMobileNumber'
+  | 'slipNumber'
+  | 'createdAt'
+  | 'updatedAt'
   | 'varietyName'
   | 'generation'
   | 'sizeName'
@@ -116,8 +123,11 @@ export const bagSizeFilterFieldIds = [
 
 export const numericFilterFields: FilterField[] = [
   'gatePassNo',
+  'manualGatePassNumber',
   'totalBags',
   'bagsReceived',
+  'grossWeightKg',
+  'tareWeightKg',
   'netWeightKg',
   'totalAcres',
   'averageRate',

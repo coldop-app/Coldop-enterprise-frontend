@@ -2,7 +2,6 @@ import type {
   AggregationFn,
   ColumnDef,
   FilterFn,
-  Row,
   SortingFn,
   VisibilityState,
 } from '@tanstack/react-table';
@@ -14,13 +13,16 @@ import type {
   NikasiGatePassReportColumn,
   NikasiGatePassReportDataRow,
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
-import type {
-  NikasiBagSizeCellValue,
-  NikasiReportDisplayRow,
+import {
+  getNikasiVarietyRowAverageWeight,
+  getNikasiVarietyRowNetWeight,
+  getNikasiVarietyRowTotalBags,
+  NIKASI_WEIGHT_DECIMALS,
+  roundNikasiWeight,
+  type NikasiBagSizeCellValue,
+  type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
-import { formatIndianNumber, getDecimalPlaces } from './nikasi-report-totals';
-
-const AVERAGE_WEIGHT_AGGREGATE_DECIMALS = 2;
+import { formatIndianNumber } from './nikasi-report-totals';
 
 /** Columns rendered once per variety sub-row (no rowSpan). */
 export const NIKASI_VARIETY_SPLIT_COLUMN_IDS = new Set<string>(['variety']);
@@ -33,7 +35,7 @@ export const NIKASI_EXCLUDED_TABLE_COLUMN_IDS = new Set<string>([
 
 /**
  * Gate-pass-level fields duplicated on every variety sub-row.
- * Most suppress aggregates; weight/bag totals use deduped gate-pass aggregation.
+ * Bag/weight metrics are variety-scoped; other fields suppress grouped aggregates.
  */
 export const NIKASI_FROM_COLUMN_ID = 'from';
 
@@ -74,27 +76,11 @@ const nikasiNoAggregate = {
   aggregationFn: () => null,
 } as const;
 
-function uniqueGatePassRowsFromLeaves(
-  leafRows: Row<NikasiReportDisplayRow>[]
-): NikasiReportDisplayRow[] {
-  const seen = new Set<string>();
-  const unique: NikasiReportDisplayRow[] = [];
-
-  for (const row of leafRows) {
-    const gatePassId = row.original.gatePassId;
-    if (seen.has(gatePassId)) continue;
-    seen.add(gatePassId);
-    unique.push(row.original);
-  }
-
-  return unique;
-}
-
 const nikasiTotalBagsIssuedAggregationFn: AggregationFn<
   NikasiReportDisplayRow
 > = (_columnId, leafRows) =>
-  uniqueGatePassRowsFromLeaves(leafRows).reduce(
-    (sum, row) => sum + (Number(row.totalBagsIssued) || 0),
+  leafRows.reduce(
+    (sum, row) => sum + getNikasiVarietyRowTotalBags(row.original),
     0
   );
 
@@ -102,21 +88,13 @@ const nikasiNetWeightAggregationFn: AggregationFn<NikasiReportDisplayRow> = (
   _columnId,
   leafRows
 ) => {
-  const uniqueRows = uniqueGatePassRowsFromLeaves(leafRows);
-  let netPrecision = 0;
-
-  for (const row of uniqueRows) {
-    netPrecision = Math.max(
-      netPrecision,
-      getDecimalPlaces(Number(row.netWeight ?? 0))
-    );
-  }
-
-  const factor = 10 ** netPrecision;
+  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
   let scaledNetSum = 0;
 
-  for (const row of uniqueRows) {
-    scaledNetSum += Math.round((Number(row.netWeight ?? 0) || 0) * factor);
+  for (const row of leafRows) {
+    scaledNetSum += Math.round(
+      getNikasiVarietyRowNetWeight(row.original) * factor
+    );
   }
 
   return scaledNetSum / factor;
@@ -125,14 +103,18 @@ const nikasiNetWeightAggregationFn: AggregationFn<NikasiReportDisplayRow> = (
 const nikasiAverageWeightPerBagAggregationFn: AggregationFn<
   NikasiReportDisplayRow
 > = (_columnId, leafRows) => {
-  const values = uniqueGatePassRowsFromLeaves(leafRows)
-    .map((row) => row.averageWeightPerBag)
-    .filter((value): value is number => Number.isFinite(Number(value)))
-    .map(Number);
+  const totalBags = leafRows.reduce(
+    (sum, row) => sum + getNikasiVarietyRowTotalBags(row.original),
+    0
+  );
+  if (totalBags <= 0) return null;
 
-  if (values.length === 0) return null;
+  const totalNet = leafRows.reduce(
+    (sum, row) => sum + getNikasiVarietyRowNetWeight(row.original),
+    0
+  );
 
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return roundNikasiWeight(totalNet / totalBags);
 };
 
 function renderNikasiAggregatedMetricCell(value: unknown, precision = 0) {
@@ -167,17 +149,14 @@ function getGatePassMetricAggregationExtras(
   if (columnId === 'netWeight') {
     return {
       aggregationFn: nikasiNetWeightAggregationFn,
-      aggregatedCell: ({ getValue }) => {
-        const numericValue = Number(getValue()) || 0;
-        return (
-          <div className="flex w-full justify-end">
-            {renderNikasiAggregatedMetricCell(
-              numericValue,
-              getDecimalPlaces(numericValue)
-            )}
-          </div>
-        );
-      },
+      aggregatedCell: ({ getValue }) => (
+        <div className="flex w-full justify-end">
+          {renderNikasiAggregatedMetricCell(
+            Number(getValue()) || 0,
+            NIKASI_WEIGHT_DECIMALS
+          )}
+        </div>
+      ),
     };
   }
 
@@ -186,10 +165,7 @@ function getGatePassMetricAggregationExtras(
       aggregationFn: nikasiAverageWeightPerBagAggregationFn,
       aggregatedCell: ({ getValue }) => (
         <div className="flex w-full justify-end">
-          {renderNikasiAggregatedMetricCell(
-            getValue(),
-            AVERAGE_WEIGHT_AGGREGATE_DECIMALS
-          )}
+          {renderNikasiAggregatedMetricCell(getValue(), NIKASI_WEIGHT_DECIMALS)}
         </div>
       ),
     };
@@ -347,6 +323,16 @@ export function formatNikasiReportCellValue(
 ): string {
   if (columnId === 'date') {
     return formatNikasiDisplayDate(value);
+  }
+
+  if (columnId === 'netWeight' || columnId === 'averageWeightPerBag') {
+    if (value === null || value === undefined || value === '') return '-';
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return '-';
+    return formatIndianNumber(
+      roundNikasiWeight(numericValue),
+      NIKASI_WEIGHT_DECIMALS
+    );
   }
 
   if (value === null || value === undefined || value === '') return '-';
@@ -528,11 +514,25 @@ export function buildNikasiReportColumns(
     const metricAggregationExtras = getGatePassMetricAggregationExtras(
       column.id
     );
+    const varietyScopedMetricAccessor =
+      column.id === 'totalBagsIssued'
+        ? (row: NikasiReportDisplayRow) => getNikasiVarietyRowTotalBags(row)
+        : column.id === 'netWeight'
+          ? (row: NikasiReportDisplayRow) => getNikasiVarietyRowNetWeight(row)
+          : column.id === 'averageWeightPerBag'
+            ? (row: NikasiReportDisplayRow) =>
+                getNikasiVarietyRowAverageWeight(row)
+            : undefined;
 
     columns.push({
       id: column.id,
       ...getNikasiColumnSizing(column.id),
-      accessorKey: column.accessorKey as keyof NikasiGatePassReportDataRow,
+      ...(varietyScopedMetricAccessor
+        ? { accessorFn: varietyScopedMetricAccessor }
+        : {
+            accessorKey:
+              column.accessorKey as keyof NikasiGatePassReportDataRow,
+          }),
       header: column.header,
       enableHiding: true,
       enableGrouping: true,

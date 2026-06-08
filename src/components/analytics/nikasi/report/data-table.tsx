@@ -1,3 +1,4 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   memo,
@@ -6,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
@@ -24,14 +26,12 @@ import {
   type ColumnResizeMode,
   type ExpandedState,
   type GroupingState,
-  type PaginationState,
   type Row,
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table,
   TableBody,
   TableCell,
   TableFooter,
@@ -84,15 +84,32 @@ import {
 } from './nikasi-report-totals';
 import type { NikasiReportExportContext } from './nikasi-excel-button';
 
-const DEFAULT_PAGE_SIZE = 100;
+const TABLE_SKELETON_COLUMNS = 8;
+const TABLE_SKELETON_ROWS = 10;
+const TABLE_SCROLLBAR_CLEARANCE_PX = 14;
+const TABLE_VIEWPORT_HEIGHT_PX = 560;
+const isFirefoxBrowser =
+  typeof window !== 'undefined' &&
+  window.navigator.userAgent.includes('Firefox');
 
 type NikasiTableRow = Row<NikasiReportDisplayRow>;
+
+function getColumnFlexStyle(size: number): CSSProperties {
+  return {
+    display: 'flex',
+    width: size,
+    minWidth: size,
+    maxWidth: size,
+    flex: `0 0 ${size}px`,
+  };
+}
 
 function renderGroupedNikasiCell(
   row: NikasiTableRow,
   cell: Cell<NikasiReportDisplayRow, unknown>,
   numericColumnIds: Set<string>,
-  bagSizeColumnIds: Set<string>
+  bagSizeColumnIds: Set<string>,
+  useFlexLayout = false
 ) {
   const columnId = cell.column.id;
   const isRightAligned =
@@ -134,17 +151,23 @@ function renderGroupedNikasiCell(
     content = flexRender(cell.column.columnDef.cell, cell.getContext());
   }
 
+  const columnSize = cell.column.getSize();
+
   return (
     <TableCell
       key={cell.id}
-      style={{
-        width: cell.column.getSize(),
-        minWidth: cell.column.getSize(),
-        maxWidth: cell.column.getSize(),
-      }}
+      style={
+        useFlexLayout
+          ? getColumnFlexStyle(columnSize)
+          : {
+              width: columnSize,
+              minWidth: columnSize,
+              maxWidth: columnSize,
+            }
+      }
       className={`font-custom border-border/40 border-r px-3 py-2.5 align-top text-sm wrap-break-word whitespace-normal last:border-r-0 ${
         isRightAligned ? 'text-right tabular-nums' : ''
-      }`}
+      } ${useFlexLayout && isRightAligned ? 'justify-end' : ''}`}
     >
       {content}
     </TableCell>
@@ -182,10 +205,7 @@ const NikasiReportDataTable = ({
     useState<ColumnResizeMode>('onChange');
   const [columnResizeDirection, setColumnResizeDirection] =
     useState<ColumnResizeDirection>('ltr');
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   const hasInitializedColumnOrderRef = useRef(false);
   const hasInitializedBagVisibilityRef = useRef(false);
 
@@ -302,14 +322,9 @@ const NikasiReportDataTable = ({
   }, [displayRows.length, emptyBagSizeColumnIds]);
 
   useEffect(() => {
-    setPagination((current) => ({ ...current, pageIndex: 0 }));
-  }, [columnFilters, globalFilter, sourceRows]);
-
-  useEffect(() => {
     if (grouping.length > 0) {
       setExpanded({});
     }
-    setPagination((current) => ({ ...current, pageIndex: 0 }));
   }, [grouping]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -382,21 +397,9 @@ const NikasiReportDataTable = ({
     [spanAdjustedDisplayRows]
   );
 
-  const filteredSourceRows = useMemo(() => {
-    const gatePassIds = new Set(
-      filteredDisplayRows.map((row) => row.gatePassId)
-    );
-    return sourceRows.filter((row) => gatePassIds.has(row.id));
-  }, [filteredDisplayRows, sourceRows]);
-
   const totals = useMemo(
-    () =>
-      computeNikasiReportTotals(
-        filteredSourceRows,
-        filteredDisplayRows,
-        bagSizeColumnIds
-      ),
-    [filteredSourceRows, filteredDisplayRows, bagSizeColumnIds]
+    () => computeNikasiReportTotals(spanAdjustedDisplayRows, bagSizeColumnIds),
+    [spanAdjustedDisplayRows, bagSizeColumnIds]
   );
 
   const flatSortedTableRows = useMemo(() => {
@@ -429,27 +432,22 @@ const NikasiReportDataTable = ({
     ? table.getExpandedRowModel().rows
     : [];
 
-  const rowsForPagination = isGroupingActive
-    ? groupedTableRows
-    : flatSortedTableRows;
-
+  const rows = isGroupingActive ? groupedTableRows : flatSortedTableRows;
   const tableWidth = table.getTotalSize();
+  const visibleColumnIds = table
+    .getVisibleLeafColumns()
+    .map((column) => column.id);
 
-  const totalEntries = rowsForPagination.length;
-  const paginatedRows = useMemo(() => {
-    const { pageIndex, pageSize } = pagination;
-    const start = pageIndex * pageSize;
-    return rowsForPagination.slice(start, start + pageSize);
-  }, [pagination, rowsForPagination]);
-
-  const currentPageSize = pagination.pageSize;
-  const currentPageIndex = pagination.pageIndex;
-  const currentPageStartEntry =
-    totalEntries === 0 ? 0 : currentPageIndex * currentPageSize + 1;
-  const currentPageEndEntry = Math.min(
-    (currentPageIndex + 1) * currentPageSize,
-    totalEntries
-  );
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
+    count: rows.length,
+    estimateSize: () => 42,
+    getScrollElement: () => tableContainerRef.current,
+    measureElement: isFirefoxBrowser
+      ? undefined
+      : (element) => element?.getBoundingClientRect().height,
+    overscan: 8,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
 
   const getExportRows = useCallback((): NikasiTableRow[] => {
     if (isGroupingActive) {
@@ -486,14 +484,6 @@ const NikasiReportDataTable = ({
     totals,
   ]);
 
-  if (isLoading) {
-    return (
-      <p className="font-custom text-muted-foreground px-4 py-8 text-sm">
-        Loading report...
-      </p>
-    );
-  }
-
   if (!isLoading && columns.length === 0) {
     return (
       <p className="font-custom text-muted-foreground px-4 py-8 text-sm">
@@ -504,39 +494,115 @@ const NikasiReportDataTable = ({
 
   return (
     <>
-      <div className="space-y-2">
-        <div className="border-primary/15 bg-card/95 ring-primary/5 overflow-x-auto rounded-2xl border shadow-sm ring-1">
-          <Table
-            className="font-custom border-collapse text-sm"
-            style={{ tableLayout: 'fixed', width: tableWidth }}
+      <div
+        ref={tableContainerRef}
+        className="subtle-scrollbar border-primary/15 bg-card/95 ring-primary/5 relative overflow-x-auto overflow-y-auto rounded-2xl border shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.06)] ring-1"
+        style={{
+          direction: table.options.columnResizeDirection,
+          height: `${TABLE_VIEWPORT_HEIGHT_PX}px`,
+          position: 'relative',
+        }}
+      >
+        {isLoading ? (
+          <div className="space-y-4 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-8 w-44 rounded-lg" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </div>
+            <div className="grid grid-cols-8 gap-2">
+              {Array.from({ length: TABLE_SKELETON_COLUMNS }).map(
+                (_, index) => (
+                  <Skeleton
+                    key={`nikasi-report-header-skeleton-${index}`}
+                    className="h-8 w-full rounded-md"
+                  />
+                )
+              )}
+            </div>
+            <div className="space-y-2">
+              {Array.from({ length: TABLE_SKELETON_ROWS }).map(
+                (_, rowIndex) => (
+                  <div
+                    key={`nikasi-report-row-skeleton-${rowIndex}`}
+                    className="grid grid-cols-8 gap-2"
+                  >
+                    {Array.from({ length: TABLE_SKELETON_COLUMNS }).map(
+                      (_, columnIndex) => (
+                        <Skeleton
+                          key={`nikasi-report-cell-skeleton-${rowIndex}-${columnIndex}`}
+                          className="h-7 w-full rounded-md"
+                        />
+                      )
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="text-muted-foreground flex h-24 items-center justify-center">
+            No data found.
+          </div>
+        ) : (
+          <table
+            className="font-custom text-sm"
+            style={
+              isGroupingActive
+                ? { display: 'grid', width: tableWidth, minWidth: tableWidth }
+                : {
+                    tableLayout: 'fixed',
+                    width: tableWidth,
+                    minWidth: tableWidth,
+                  }
+            }
           >
-            <colgroup>
-              {table.getVisibleLeafColumns().map((column) => (
-                <col key={column.id} style={{ width: column.getSize() }} />
-              ))}
-            </colgroup>
-            <TableHeader className="bg-secondary border-border/60 border-b">
+            <TableHeader
+              className="bg-secondary border-border/60 text-secondary-foreground border-b backdrop-blur-sm"
+              style={
+                isGroupingActive
+                  ? { display: 'grid', position: 'sticky', top: 0, zIndex: 10 }
+                  : { position: 'sticky', top: 0, zIndex: 10 }
+              }
+            >
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                <TableRow
+                  key={headerGroup.id}
+                  className="hover:bg-transparent"
+                  style={
+                    isGroupingActive
+                      ? {
+                          display: 'flex',
+                          width: tableWidth,
+                          minWidth: tableWidth,
+                        }
+                      : undefined
+                  }
+                >
                   {headerGroup.headers.map((header) => {
                     if (header.isPlaceholder) return null;
 
                     const isRightAligned = numericColumnIds.has(header.id);
+                    const columnSize = header.getSize();
 
                     return (
                       <TableHead
                         key={header.id}
                         style={{
-                          width: header.getSize(),
-                          minWidth: header.getSize(),
-                          maxWidth: header.getSize(),
+                          ...(isGroupingActive
+                            ? getColumnFlexStyle(columnSize)
+                            : {
+                                width: columnSize,
+                                minWidth: columnSize,
+                                maxWidth: columnSize,
+                              }),
+                          position: 'relative',
                         }}
-                        className={`font-custom border-border/50 text-foreground/75 h-auto min-h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] wrap-break-word whitespace-normal uppercase select-none last:border-r-0 ${
+                        className={`font-custom border-border/50 text-foreground/75 h-10 border-r px-3 py-2.5 text-[11px] font-semibold tracking-[0.08em] wrap-break-word whitespace-normal uppercase select-none last:border-r-0 ${
                           isRightAligned ? 'text-right' : 'text-left'
                         }`}
                       >
                         <div
-                          className={`group flex w-full min-w-0 cursor-pointer items-start gap-1 transition-colors duration-200 ${
+                          className={`group flex w-full min-w-0 cursor-pointer items-center gap-1 transition-colors duration-200 ${
                             isRightAligned
                               ? 'justify-end text-right'
                               : 'justify-between text-left'
@@ -558,110 +624,180 @@ const NikasiReportDataTable = ({
                             )}
                           </span>
                         </div>
+                        <div
+                          onDoubleClick={() => header.column.resetSize()}
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          onClick={(event) => event.stopPropagation()}
+                          className="hover:bg-primary/25 absolute top-0 right-0 h-full w-1 cursor-col-resize bg-transparent transition-colors"
+                          style={{
+                            transform:
+                              table.options.columnResizeMode === 'onEnd' &&
+                              header.column.getIsResizing()
+                                ? `translateX(${
+                                    (table.options.columnResizeDirection ===
+                                    'rtl'
+                                      ? -1
+                                      : 1) *
+                                    (table.getState().columnSizingInfo
+                                      .deltaOffset ?? 0)
+                                  }px)`
+                                : '',
+                          }}
+                        />
                       </TableHead>
                     );
                   })}
                 </TableRow>
               ))}
             </TableHeader>
-            <TableBody>
-              {paginatedRows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={table.getVisibleLeafColumns().length || 1}
-                    className="font-custom text-muted-foreground h-24 text-center text-sm"
-                  >
-                    No data found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedRows.map((row, index) => {
-                  if (isGroupingActive) {
-                    return (
-                      <TableRow
-                        key={row.id}
-                        className={
-                          index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
-                        }
-                      >
-                        {row
-                          .getVisibleCells()
-                          .map((cell) =>
-                            renderGroupedNikasiCell(
-                              row,
-                              cell,
-                              numericColumnIds,
-                              bagSizeColumnIds
-                            )
-                          )}
-                      </TableRow>
-                    );
-                  }
-
-                  const spanMeta = spanMetaByRowId.get(row.id);
-                  const varietyRowIndex =
-                    spanMeta?.varietyRowIndex ?? row.original.varietyRowIndex;
-                  const varietyRowSpan =
-                    spanMeta?.varietyRowSpan ?? row.original.varietyRowSpan;
-
+            <TableBody
+              style={
+                isGroupingActive
+                  ? {
+                      display: 'grid',
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      position: 'relative',
+                    }
+                  : undefined
+              }
+            >
+              {(isGroupingActive
+                ? virtualRows.map((virtualRow) => rows[virtualRow.index]!)
+                : rows
+              ).map((row, rowIndex) => {
+                if (isGroupingActive) {
+                  const virtualRow = virtualRows[rowIndex];
                   return (
                     <TableRow
                       key={row.id}
-                      className={
-                        index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                      data-index={virtualRow?.index}
+                      ref={(node) => rowVirtualizer.measureElement(node)}
+                      className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
+                        virtualRow && virtualRow.index % 2 === 0
+                          ? 'bg-background'
+                          : 'bg-muted/25'
+                      }`}
+                      style={
+                        virtualRow
+                          ? {
+                              display: 'flex',
+                              position: 'absolute',
+                              transform: `translateY(${virtualRow.start}px)`,
+                              width: tableWidth,
+                              minWidth: tableWidth,
+                            }
+                          : undefined
                       }
                     >
-                      {row.getVisibleCells().map((cell) => {
-                        const columnId = cell.column.id;
-                        const isSplitColumn = isNikasiVarietySplitColumn(
-                          columnId,
-                          bagSizeColumnIds
-                        );
-
-                        if (!isSplitColumn && varietyRowIndex > 0) {
-                          return null;
-                        }
-
-                        const rowSpan =
-                          !isSplitColumn &&
-                          varietyRowIndex === 0 &&
-                          varietyRowSpan > 1
-                            ? varietyRowSpan
-                            : undefined;
-
-                        return (
-                          <TableCell
-                            key={cell.id}
-                            rowSpan={rowSpan}
-                            style={{
-                              width: cell.column.getSize(),
-                              minWidth: cell.column.getSize(),
-                              maxWidth: cell.column.getSize(),
-                            }}
-                            className={`font-custom border-border/40 border-r px-3 py-2.5 align-top text-sm wrap-break-word whitespace-normal last:border-r-0 ${
-                              bagSizeColumnIds.has(columnId) ||
-                              numericColumnIds.has(columnId)
-                                ? 'text-right tabular-nums'
-                                : ''
-                            }`}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        );
-                      })}
+                      {row
+                        .getVisibleCells()
+                        .map((cell) =>
+                          renderGroupedNikasiCell(
+                            row,
+                            cell,
+                            numericColumnIds,
+                            bagSizeColumnIds,
+                            true
+                          )
+                        )}
                     </TableRow>
                   );
-                })
-              )}
+                }
+
+                const spanMeta = spanMetaByRowId.get(row.id);
+                const varietyRowIndex =
+                  spanMeta?.varietyRowIndex ?? row.original.varietyRowIndex;
+                const varietyRowSpan =
+                  spanMeta?.varietyRowSpan ?? row.original.varietyRowSpan;
+
+                return (
+                  <TableRow
+                    key={row.id}
+                    className={`border-border/50 hover:bg-accent/40 border-b transition-colors ${
+                      rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/25'
+                    }`}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const columnId = cell.column.id;
+                      const isSplitColumn = isNikasiVarietySplitColumn(
+                        columnId,
+                        bagSizeColumnIds
+                      );
+
+                      if (!isSplitColumn && varietyRowIndex > 0) {
+                        return null;
+                      }
+
+                      const rowSpan =
+                        !isSplitColumn &&
+                        varietyRowIndex === 0 &&
+                        varietyRowSpan > 1
+                          ? varietyRowSpan
+                          : undefined;
+
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          rowSpan={rowSpan}
+                          style={{
+                            width: cell.column.getSize(),
+                            minWidth: cell.column.getSize(),
+                            maxWidth: cell.column.getSize(),
+                          }}
+                          className={`font-custom border-border/40 border-r px-3 py-2.5 align-top text-sm wrap-break-word whitespace-normal last:border-r-0 ${
+                            bagSizeColumnIds.has(columnId) ||
+                            numericColumnIds.has(columnId)
+                              ? 'text-right tabular-nums'
+                              : ''
+                          }`}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })}
             </TableBody>
-            {totalEntries > 0 ? (
-              <TableFooter className="bg-secondary border-border/70 border-t [&>tr]:border-t-0">
-                <TableRow className="hover:bg-transparent">
-                  {table.getVisibleLeafColumns().map((column, columnIndex) => {
-                    const columnId = column.id;
+            {rows.length > 0 ? (
+              <TableFooter
+                className="bg-secondary border-border/70 text-secondary-foreground border-t backdrop-blur-sm"
+                style={
+                  isGroupingActive
+                    ? {
+                        display: 'grid',
+                        position: 'sticky',
+                        bottom: 0,
+                        paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                        zIndex: 9,
+                      }
+                    : {
+                        position: 'sticky',
+                        bottom: 0,
+                        paddingBottom: TABLE_SCROLLBAR_CLEARANCE_PX,
+                        zIndex: 9,
+                      }
+                }
+              >
+                <TableRow
+                  className="hover:bg-transparent"
+                  style={
+                    isGroupingActive
+                      ? {
+                          display: 'flex',
+                          width: tableWidth,
+                          minWidth: tableWidth,
+                        }
+                      : undefined
+                  }
+                >
+                  {visibleColumnIds.map((columnId, columnIndex) => {
+                    const column = table.getColumn(columnId);
+                    const columnSize = column?.getSize() ?? 0;
                     const isRightAligned = numericColumnIds.has(columnId);
                     const cellValue = getNikasiTotalsCellValue(
                       columnId,
@@ -672,14 +808,18 @@ const NikasiReportDataTable = ({
                     return (
                       <TableCell
                         key={`totals-${columnId}`}
-                        style={{
-                          width: column.getSize(),
-                          minWidth: column.getSize(),
-                          maxWidth: column.getSize(),
-                        }}
-                        className={`font-custom border-border/50 text-foreground h-auto min-h-10 border-r px-3 py-2.5 text-sm font-semibold wrap-break-word whitespace-normal last:border-r-0 ${
+                        style={
+                          isGroupingActive
+                            ? getColumnFlexStyle(columnSize)
+                            : {
+                                width: columnSize,
+                                minWidth: columnSize,
+                                maxWidth: columnSize,
+                              }
+                        }
+                        className={`font-custom border-border/50 text-foreground h-10 border-r px-3 py-2.5 text-sm font-semibold wrap-break-word whitespace-normal last:border-r-0 ${
                           isRightAligned ? 'text-right tabular-nums' : ''
-                        }`}
+                        } ${isGroupingActive && isRightAligned ? 'justify-end' : ''}`}
                       >
                         {columnIndex === 0 ? 'Total' : cellValue}
                       </TableCell>
@@ -688,116 +828,8 @@ const NikasiReportDataTable = ({
                 </TableRow>
               </TableFooter>
             ) : null}
-          </Table>
-        </div>
-
-        {totalEntries > 0 ? (
-          <div className="border-border/50 bg-background/70 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <label
-                htmlFor="nikasi-report-page-size"
-                className="font-custom text-muted-foreground text-sm"
-              >
-                Rows per page
-              </label>
-              <select
-                id="nikasi-report-page-size"
-                value={currentPageSize}
-                onChange={(event) =>
-                  setPagination((current) => ({
-                    ...current,
-                    pageSize: Number(event.target.value),
-                    pageIndex: 0,
-                  }))
-                }
-                className="font-custom border-input bg-background text-foreground h-8 rounded-md border px-2 text-sm"
-              >
-                {[50, 100, 200].map((size) => (
-                  <option key={size} value={size}>
-                    {size} per page
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-custom text-muted-foreground text-sm">
-                Showing{' '}
-                <span className="text-foreground font-semibold">
-                  {currentPageStartEntry}-{currentPageEndEntry}
-                </span>{' '}
-                of{' '}
-                <span className="text-foreground font-semibold">
-                  {totalEntries}
-                </span>{' '}
-                entries
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                onClick={() =>
-                  setPagination((current) => ({ ...current, pageIndex: 0 }))
-                }
-                disabled={currentPageIndex === 0}
-              >
-                {'<<'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                onClick={() =>
-                  setPagination((current) => ({
-                    ...current,
-                    pageIndex: Math.max(0, current.pageIndex - 1),
-                  }))
-                }
-                disabled={currentPageIndex === 0}
-              >
-                {'<'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                onClick={() =>
-                  setPagination((current) => ({
-                    ...current,
-                    pageIndex: current.pageIndex + 1,
-                  }))
-                }
-                disabled={
-                  (currentPageIndex + 1) * currentPageSize >= totalEntries
-                }
-              >
-                {'>'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                onClick={() =>
-                  setPagination((current) => ({
-                    ...current,
-                    pageIndex: Math.max(
-                      0,
-                      Math.ceil(totalEntries / currentPageSize) - 1
-                    ),
-                  }))
-                }
-                disabled={
-                  (currentPageIndex + 1) * currentPageSize >= totalEntries
-                }
-              >
-                {'>>'}
-              </Button>
-            </div>
-          </div>
-        ) : null}
+          </table>
+        )}
       </div>
 
       <ViewFiltersSheet

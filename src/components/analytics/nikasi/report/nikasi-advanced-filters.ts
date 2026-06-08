@@ -12,7 +12,12 @@ import {
   formatNikasiReportCellValue,
   getNikasiColumnFilterValue,
 } from './columns';
-import type { NikasiReportDisplayRow } from './nikasi-report-flatten';
+import {
+  getNikasiVarietyRowAverageWeight,
+  getNikasiVarietyRowNetWeight,
+  getNikasiVarietyRowTotalBags,
+  type NikasiReportDisplayRow,
+} from './nikasi-report-flatten';
 
 export type NikasiGlobalFilterValue = string | FilterGroupNode;
 
@@ -41,6 +46,21 @@ function setNikasiAdvancedFilterFieldValue(
 
   if (field in row.bagSizeFields) {
     record[field] = row.bagSizeFields[field]?.quantity ?? 0;
+    return;
+  }
+
+  if (field === 'totalBagsIssued') {
+    record[field] = getNikasiVarietyRowTotalBags(row);
+    return;
+  }
+
+  if (field === 'netWeight') {
+    record[field] = getNikasiVarietyRowNetWeight(row);
+    return;
+  }
+
+  if (field === 'averageWeightPerBag') {
+    record[field] = getNikasiVarietyRowAverageWeight(row) ?? 0;
     return;
   }
 

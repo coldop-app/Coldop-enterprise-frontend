@@ -1,10 +1,11 @@
-import type { NikasiGatePassReportDataRow } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 import {
   getNikasiBagSizeQuantity,
+  getNikasiVarietyRowNetWeight,
+  getNikasiVarietyRowTotalBags,
+  NIKASI_WEIGHT_DECIMALS,
+  roundNikasiWeight,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
-
-const AVERAGE_WEIGHT_TOTALS_DECIMALS = 2;
 
 export type NikasiReportTotals = {
   bagColumnTotals: Record<string, number>;
@@ -42,7 +43,6 @@ export function formatIndianNumber(value: number, precision = 0): string {
 }
 
 export function computeNikasiReportTotals(
-  sourceRows: NikasiGatePassReportDataRow[],
   displayRows: NikasiReportDisplayRow[],
   bagSizeColumnIds: Iterable<string>
 ): NikasiReportTotals {
@@ -52,40 +52,29 @@ export function computeNikasiReportTotals(
     bagColumnTotals[id] = 0;
   }
 
+  let totalBagsIssued = 0;
+
   for (const row of displayRows) {
     for (const id of bagSizeColumnIds) {
       bagColumnTotals[id] += getNikasiBagSizeQuantity(row, id);
     }
+
+    totalBagsIssued += getNikasiVarietyRowTotalBags(row);
   }
 
-  let totalBagsIssued = 0;
-  let netPrecision = 0;
-
-  for (const row of sourceRows) {
-    totalBagsIssued += Number(row.totalBagsIssued ?? 0);
-    netPrecision = Math.max(
-      netPrecision,
-      getDecimalPlaces(Number(row.netWeight ?? 0))
-    );
-  }
-
-  const factor = 10 ** netPrecision;
+  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
   let scaledNetSum = 0;
 
-  for (const row of sourceRows) {
-    const value = Number(row.netWeight ?? 0);
+  for (const row of displayRows) {
+    const value = getNikasiVarietyRowNetWeight(row);
     scaledNetSum += Math.round(value * factor);
   }
 
   const netWeight = scaledNetSum / factor;
   const averageWeightPerBag =
-    totalBagsIssued > 0
-      ? Math.round(
-          (netWeight / totalBagsIssued) * 10 ** AVERAGE_WEIGHT_TOTALS_DECIMALS
-        ) /
-        10 ** AVERAGE_WEIGHT_TOTALS_DECIMALS
-      : null;
-  const averagePrecision = AVERAGE_WEIGHT_TOTALS_DECIMALS;
+    totalBagsIssued > 0 ? roundNikasiWeight(netWeight / totalBagsIssued) : null;
+  const netPrecision = NIKASI_WEIGHT_DECIMALS;
+  const averagePrecision = NIKASI_WEIGHT_DECIMALS;
 
   return {
     bagColumnTotals,

@@ -20,16 +20,3 @@ export type ViewFiltersSheetProps = {
 };
 
 export type StatusFilterValue = 'GRADED' | 'NOT_GRADED';
-
-/** Value-filter columns aligned with the default incoming report table view. */
-export type FilterableColumnId =
-  | 'farmerName'
-  | 'farmerAddress'
-  | 'gatePassNo'
-  | 'manualGatePassNumber'
-  | 'date'
-  | 'variety'
-  | 'truckNumber'
-  | 'bagsReceived'
-  | 'netWeightKg'
-  | 'remarks';

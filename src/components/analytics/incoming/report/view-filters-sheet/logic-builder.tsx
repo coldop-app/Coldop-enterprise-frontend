@@ -15,9 +15,8 @@ import type {
   FilterGroupNode,
   FilterOperator,
 } from '@/lib/advanced-filters';
-import { numericFilterFields } from '@/lib/advanced-filters';
+import { isNumericFilterField } from '@/lib/advanced-filters';
 import {
-  advancedFilterFields,
   filterOperatorLabels,
   numberOperators,
   stringOperators,
@@ -25,6 +24,7 @@ import {
 
 type LogicBuilderProps = {
   group: FilterGroupNode;
+  advancedFilterFields: Array<{ id: FilterField; label: string }>;
   advancedFieldValueOptions: Record<FilterField, string[]>;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
   onAddConditionToGroup: (groupId: string) => void;
@@ -40,6 +40,7 @@ type LogicBuilderProps = {
 
 export const LogicBuilder = React.memo(function LogicBuilder({
   group,
+  advancedFilterFields,
   advancedFieldValueOptions,
   onSetGroupOperator,
   onAddConditionToGroup,
@@ -120,7 +121,7 @@ export const LogicBuilder = React.memo(function LogicBuilder({
                 );
               }
 
-              const isNumeric = numericFilterFields.includes(node.field);
+              const isNumeric = isNumericFilterField(node.field);
               const operators = isNumeric ? numberOperators : stringOperators;
               const valueOptions = advancedFieldValueOptions[node.field] ?? [];
 

@@ -30,14 +30,27 @@ function filterGroupTargetsSplitColumns(
   });
 }
 
+function isActiveColumnFilterValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  return true;
+}
+
+export function nikasiVarietyColumnFilterIsActive(
+  columnFilters: ColumnFiltersState
+): boolean {
+  return columnFilters.some(
+    ({ id, value }) => id === 'variety' && isActiveColumnFilterValue(value)
+  );
+}
+
 export function nikasiColumnFiltersTargetSplitColumns(
   columnFilters: ColumnFiltersState,
   bagSizeColumnIds: ReadonlySet<string>
 ): boolean {
   return columnFilters.some(({ id, value }) => {
-    if (value == null) return false;
-    if (Array.isArray(value) && value.length === 0) return false;
-    if (typeof value === 'string' && value.trim() === '') return false;
+    if (!isActiveColumnFilterValue(value)) return false;
     return isNikasiVarietySplitColumn(id, bagSizeColumnIds);
   });
 }
@@ -54,12 +67,29 @@ export function nikasiGlobalFilterTargetsSplitColumns(
 }
 
 /** True when any active view or logic filter can remove individual variety sub-rows. */
+function globalFilterTargetsVariety(filter: NikasiGlobalFilterValue): boolean {
+  if (!isAdvancedFilterGroup(filter) || !hasAnyUsableFilter(filter)) {
+    return false;
+  }
+
+  const visit = (group: FilterGroupNode): boolean =>
+    group.conditions.some((node) => {
+      if (node.type === 'group') return visit(node);
+      if (node.value.trim().length === 0) return false;
+      return node.field === 'variety';
+    });
+
+  return visit(filter);
+}
+
 export function nikasiActiveFiltersTargetSplitColumns(
   columnFilters: ColumnFiltersState,
   globalFilter: NikasiGlobalFilterValue,
   bagSizeColumnIds: ReadonlySet<string>
 ): boolean {
   return (
+    nikasiVarietyColumnFilterIsActive(columnFilters) ||
+    globalFilterTargetsVariety(globalFilter) ||
     nikasiColumnFiltersTargetSplitColumns(columnFilters, bagSizeColumnIds) ||
     nikasiGlobalFilterTargetsSplitColumns(globalFilter, bagSizeColumnIds)
   );

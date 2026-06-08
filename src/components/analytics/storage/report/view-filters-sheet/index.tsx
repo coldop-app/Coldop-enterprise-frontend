@@ -51,14 +51,7 @@ import {
   type FilterGroupNode,
   type FilterOperator,
 } from '@/lib/advanced-filters';
-import type { FilterableColumnId, ViewFiltersSheetProps } from './types';
-import {
-  advancedFilterFields,
-  filterableColumns,
-  getEmptyValueFilters,
-  getInitialExpandedFilters,
-  getInitialSearchQueries,
-} from './constants';
+import type { ViewFiltersSheetProps } from './types';
 import {
   mutateFilterNodeById,
   parseGroupingColumnId,
@@ -88,27 +81,20 @@ const columnLabels: Record<string, string> = {
   bag30to40: '30-40 (mm)',
   bag35to40: '35-40 (mm)',
   bag40to45: '40-45 (mm)',
+  bag40to50: '40-50 (mm)',
   bag45to50: '45-50 (mm)',
   bag50to55: '50-55 (mm)',
   bagAbove50: 'Above 50 (mm)',
   bagAbove55: 'Above 55 (mm)',
   bagCut: 'Cut',
+  bagUngraded: 'Ungraded',
   totalBags: 'Total Bags',
   remarks: 'Remarks',
 };
 
-const getInitialValueFilterTouched = (): Partial<
-  Record<FilterableColumnId, boolean>
-> => ({
-  gatePassNo: false,
-  manualGatePassNumber: false,
-  date: false,
-  variety: false,
-  totalBags: false,
-});
-
 type AdvancedTabContentProps = {
   draftLogicFilter: FilterGroupNode;
+  advancedFilterFields: Array<{ id: FilterField; label: string }>;
   advancedFieldValueOptions: Partial<Record<FilterField, string[]>>;
   onResetLogicBuilder: () => void;
   onSetGroupOperator: (groupId: string, operator: 'AND' | 'OR') => void;
@@ -127,6 +113,7 @@ type AdvancedTabContentProps = {
 
 const AdvancedTabContent = React.memo(function AdvancedTabContent({
   draftLogicFilter,
+  advancedFilterFields,
   advancedFieldValueOptions,
   onResetLogicBuilder,
   onSetGroupOperator,
@@ -162,6 +149,7 @@ const AdvancedTabContent = React.memo(function AdvancedTabContent({
           </p>
           <LogicBuilder
             group={draftLogicFilter}
+            advancedFilterFields={advancedFilterFields}
             advancedFieldValueOptions={advancedFieldValueOptions}
             onSetGroupOperator={onSetGroupOperator}
             onAddConditionToGroup={onAddConditionToGroup}
@@ -215,11 +203,11 @@ export function ViewFiltersSheet({
 }: ViewFiltersSheetProps) {
   const [activeTab, setActiveTab] = React.useState('filters');
   const [searchQueries, setSearchQueries] = React.useState<
-    Record<FilterableColumnId, string>
-  >(getInitialSearchQueries());
+    Record<string, string>
+  >({});
   const [expandedFilters, setExpandedFilters] = React.useState<
-    Record<FilterableColumnId, boolean>
-  >(getInitialExpandedFilters());
+    Record<string, boolean>
+  >({});
 
   const hidableColumns = React.useMemo(
     () => table.getAllLeafColumns().filter((column) => column.getCanHide()),
@@ -229,6 +217,35 @@ export function ViewFiltersSheet({
     () => hidableColumns.map((column) => column.id),
     [hidableColumns]
   );
+
+  const filterableColumns = React.useMemo(() => {
+    const leafById = new Map(table.getAllLeafColumns().map((c) => [c.id, c]));
+    const order = table.getState().columnOrder;
+    const canonical = order.length > 0 ? order : defaultColumnOrder;
+    const seen = new Set<string>();
+    const rows: Array<{ id: string; label: string }> = [];
+
+    const pushIfFilterable = (id: string) => {
+      if (seen.has(id)) return;
+      const col = leafById.get(id);
+      if (!col?.getCanFilter()) return;
+      seen.add(id);
+      const h = col.columnDef.header;
+      rows.push({
+        id,
+        label: columnLabels[id] ?? (typeof h === 'string' ? h : id),
+      });
+    };
+
+    canonical.forEach(pushIfFilterable);
+    leafById.forEach((col, id) => {
+      if (!seen.has(id) && col.getCanFilter()) {
+        pushIfFilterable(id);
+      }
+    });
+
+    return rows;
+  }, [defaultColumnOrder, table]);
 
   const [draftColumnVisibility, setDraftColumnVisibility] = React.useState<
     Record<string, boolean>
@@ -253,11 +270,11 @@ export function ViewFiltersSheet({
   const [draftLogicFilter, setDraftLogicFilter] =
     React.useState<FilterGroupNode>(createDefaultFilterGroup());
   const [draftValueFilters, setDraftValueFilters] = React.useState<
-    Record<FilterableColumnId, string[]>
-  >(getEmptyValueFilters());
+    Record<string, string[]>
+  >({});
   const [valueFilterTouched, setValueFilterTouched] = React.useState<
-    Partial<Record<FilterableColumnId, boolean>>
-  >(getInitialValueFilterTouched());
+    Record<string, boolean>
+  >({});
   const [activeGroupingDropIndex, setActiveGroupingDropIndex] = React.useState<
     number | null
   >(null);
@@ -314,43 +331,75 @@ export function ViewFiltersSheet({
     [table, coreRowCount]
   );
 
-  const availableFilterOptions = React.useMemo<
-    Record<FilterableColumnId, string[]>
-  >(() => {
-    const options = getEmptyValueFilters();
+  const resetFilterUiState = React.useCallback(() => {
+    setSearchQueries(
+      Object.fromEntries(filterableColumns.map((c) => [c.id, '']))
+    );
+    setExpandedFilters(
+      Object.fromEntries(filterableColumns.map((c) => [c.id, false]))
+    );
+    setValueFilterTouched(
+      Object.fromEntries(filterableColumns.map((c) => [c.id, false]))
+    );
+  }, [filterableColumns]);
 
+  const availableFilterOptions = React.useMemo(() => {
+    const options: Record<string, string[]> = {};
     filterableColumns.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [filterableColumns, getUniqueColumnValues]);
+
+  const advancedFilterFields = React.useMemo<
+    Array<{ id: FilterField; label: string }>
+  >(
+    () =>
+      filterableColumns.map(({ id, label }) => ({
+        id: id as FilterField,
+        label,
+      })),
+    [filterableColumns]
+  );
 
   const advancedFieldValueOptions = React.useMemo<
     Partial<Record<FilterField, string[]>>
   >(() => {
-    const options = {
-      gatePassNo: [],
-      manualGatePassNumber: [],
-      date: [],
-      variety: [],
-      totalBags: [],
-    } as Partial<Record<FilterField, string[]>>;
-
+    const options = {} as Partial<Record<FilterField, string[]>>;
     advancedFilterFields.forEach(({ id }) => {
       options[id] = getUniqueColumnValues(id);
     });
     return options;
-  }, [getUniqueColumnValues]);
+  }, [advancedFilterFields, getUniqueColumnValues]);
+
+  const resolveColumnLabel = React.useCallback(
+    (columnId: string) => {
+      if (columnLabels[columnId]) return columnLabels[columnId];
+      const col = table.getColumn(columnId);
+      const h = col?.columnDef.header;
+      if (typeof h === 'string') return h;
+      return (
+        filterableColumns.find((c) => c.id === columnId)?.label ?? columnId
+      );
+    },
+    [filterableColumns, table]
+  );
 
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
     filterableColumns.forEach(({ id }) => {
-      const all = availableFilterOptions[id];
-      if (all.length > 0 && draftValueFilters[id].length < all.length) count++;
+      const all = availableFilterOptions[id] ?? [];
+      const selected = draftValueFilters[id] ?? [];
+      if (all.length > 0 && selected.length < all.length) count++;
     });
     if (hasAnyUsableFilter(draftLogicFilter)) count++;
     return count;
-  }, [draftValueFilters, draftLogicFilter, availableFilterOptions]);
+  }, [
+    draftValueFilters,
+    draftLogicFilter,
+    availableFilterOptions,
+    filterableColumns,
+  ]);
 
   const activeColumnCount = React.useMemo(
     () => Object.values(draftColumnVisibility).filter((v) => !v).length,
@@ -406,13 +455,13 @@ export function ViewFiltersSheet({
     ).filter((id) => hidableColumnIds.includes(id));
     const missing = hidableColumnIds.filter((id) => !validOrder.includes(id));
 
-    const nextValueFilters = getEmptyValueFilters();
+    const nextValueFilters: Record<string, string[]> = {};
 
     filterableColumns.forEach(({ id }) => {
       const rawFilter = table.getColumn(id)?.getFilterValue();
       nextValueFilters[id] = Array.isArray(rawFilter)
         ? rawFilter.map((value) => String(value))
-        : [...availableFilterOptions[id]];
+        : [...(availableFilterOptions[id] ?? [])];
     });
 
     setDraftColumnVisibility(visibility);
@@ -428,6 +477,7 @@ export function ViewFiltersSheet({
   }, [
     availableFilterOptions,
     defaultColumnOrder,
+    filterableColumns,
     hidableColumnIds,
     hidableColumns,
     table,
@@ -438,10 +488,10 @@ export function ViewFiltersSheet({
       onOpenChange(nextOpen);
       if (!nextOpen) return;
       syncDraftFromTable();
-      setValueFilterTouched(getInitialValueFilterTouched());
+      resetFilterUiState();
       setActiveTab('filters');
     },
-    [onOpenChange, syncDraftFromTable]
+    [onOpenChange, resetFilterUiState, syncDraftFromTable]
   );
 
   const handleResetAll = React.useCallback(() => {
@@ -473,33 +523,33 @@ export function ViewFiltersSheet({
     setDraftColumnOrder([...validOrder, ...missing]);
     setDraftGrouping([]);
     setActiveGroupingDropIndex(null);
-    const nextValueFilters = getEmptyValueFilters();
+    const nextValueFilters: Record<string, string[]> = {};
     filterableColumns.forEach(({ id }) => {
       nextValueFilters[id] = collectDistinctColumnStringsFromCore(id);
     });
     setDraftValueFilters(nextValueFilters);
     setDraftLogicFilter(createDefaultFilterGroup());
-    setSearchQueries(getInitialSearchQueries());
-    setExpandedFilters(getInitialExpandedFilters());
-    setValueFilterTouched(getInitialValueFilterTouched());
+    resetFilterUiState();
     setActiveTab('filters');
   }, [
     collectDistinctColumnStringsFromCore,
     defaultColumnOrder,
     defaultColumnVisibility,
     emptyBagSizeColumnIds,
+    filterableColumns,
     hidableColumnIds,
     hidableColumns,
     onColumnResizeDirectionChange,
     onColumnResizeModeChange,
+    resetFilterUiState,
     table,
   ]);
 
   const getEffectiveDraftValues = React.useCallback(
-    (columnId: FilterableColumnId) => {
-      const selected = draftValueFilters[columnId];
+    (columnId: string) => {
+      const selected = draftValueFilters[columnId] ?? [];
       if (valueFilterTouched[columnId] || selected.length > 0) return selected;
-      return availableFilterOptions[columnId];
+      return availableFilterOptions[columnId] ?? [];
     },
     [availableFilterOptions, draftValueFilters, valueFilterTouched]
   );
@@ -510,12 +560,14 @@ export function ViewFiltersSheet({
     table.setGrouping(draftGrouping);
 
     filterableColumns.forEach(({ id }) => {
-      const allValues = availableFilterOptions[id];
+      const allValues = availableFilterOptions[id] ?? [];
       const selected = getEffectiveDraftValues(id);
       table
         .getColumn(id)
         ?.setFilterValue(
-          selected.length === allValues.length ? undefined : selected
+          allValues.length > 0 && selected.length === allValues.length
+            ? undefined
+            : selected
         );
     });
 
@@ -531,6 +583,7 @@ export function ViewFiltersSheet({
     draftColumnVisibility,
     draftGrouping,
     draftLogicFilter,
+    filterableColumns,
     getEffectiveDraftValues,
     onOpenChange,
     table,
@@ -608,13 +661,13 @@ export function ViewFiltersSheet({
   };
 
   const toggleValueDraft = React.useCallback(
-    (columnId: FilterableColumnId, value: string, checked: boolean) => {
+    (columnId: string, value: string, checked: boolean) => {
       setDraftValueFilters((current) => {
         const hasTouchedFilter = valueFilterTouched[columnId];
         const currentValues =
-          hasTouchedFilter || current[columnId].length > 0
-            ? current[columnId]
-            : availableFilterOptions[columnId];
+          hasTouchedFilter || (current[columnId]?.length ?? 0) > 0
+            ? (current[columnId] ?? [])
+            : (availableFilterOptions[columnId] ?? []);
         if (checked) {
           return currentValues.includes(value)
             ? current
@@ -631,9 +684,9 @@ export function ViewFiltersSheet({
   );
 
   const handleToggleAllValues = React.useCallback(
-    (columnId: FilterableColumnId) => {
+    (columnId: string) => {
       setValueFilterTouched((current) => ({ ...current, [columnId]: true }));
-      const allValues = availableFilterOptions[columnId];
+      const allValues = availableFilterOptions[columnId] ?? [];
       const areAllSelected =
         allValues.length > 0 &&
         getEffectiveDraftValues(columnId).length === allValues.length;
@@ -646,9 +699,9 @@ export function ViewFiltersSheet({
   );
 
   const getFilteredOptionsForColumn = React.useCallback(
-    (columnId: FilterableColumnId) => {
-      const query = searchQueries[columnId].trim().toLowerCase();
-      const allValues = availableFilterOptions[columnId];
+    (columnId: string) => {
+      const query = (searchQueries[columnId] ?? '').trim().toLowerCase();
+      const allValues = availableFilterOptions[columnId] ?? [];
       return query
         ? allValues.filter((option) => option.toLowerCase().includes(query))
         : allValues;
@@ -821,7 +874,7 @@ export function ViewFiltersSheet({
                         const selectedCount = effectiveDraftValues.length;
                         const allValues = availableFilterOptions[id];
                         const filteredValues = getFilteredOptionsForColumn(id);
-                        const isExpanded = expandedFilters[id];
+                        const isExpanded = expandedFilters[id] ?? false;
                         const areAllSelected =
                           allValues.length > 0 &&
                           selectedCount === allValues.length;
@@ -867,7 +920,7 @@ export function ViewFiltersSheet({
                                 <div className="border-border bg-background relative border-b">
                                   <Search className="text-muted-foreground absolute top-2.5 left-3 h-3.5 w-3.5" />
                                   <input
-                                    value={searchQueries[id]}
+                                    value={searchQueries[id] ?? ''}
                                     onChange={(e) =>
                                       setSearchQueries((c) => ({
                                         ...c,
@@ -969,7 +1022,7 @@ export function ViewFiltersSheet({
                           <SortableColumnRow
                             key={columnId}
                             columnId={columnId}
-                            label={columnLabels[columnId] ?? columnId}
+                            label={resolveColumnLabel(columnId)}
                             visible={draftColumnVisibility[columnId] ?? true}
                             onToggle={(checked) =>
                               setDraftColumnVisibility((c) => ({
@@ -1021,7 +1074,7 @@ export function ViewFiltersSheet({
                       >
                         <div className="space-y-1">
                           {draftGrouping.map((columnId, index) => {
-                            const label = columnLabels[columnId] ?? columnId;
+                            const label = resolveColumnLabel(columnId);
                             return (
                               <React.Fragment key={columnId}>
                                 <GroupingDropZone
@@ -1055,34 +1108,27 @@ export function ViewFiltersSheet({
                   <div>
                     <SectionLabel>Available Columns</SectionLabel>
                     <div className="space-y-1.5">
-                      {table
-                        .getAllLeafColumns()
-                        .filter(
-                          (c) =>
-                            c.getCanGroup() && !draftGrouping.includes(c.id)
-                        ).length === 0 ? (
+                      {draftColumnOrder.filter(
+                        (id) => !draftGrouping.includes(id)
+                      ).length === 0 ? (
                         <p className="text-muted-foreground py-3 text-center text-xs">
                           All columns are grouped.
                         </p>
                       ) : (
-                        table
-                          .getAllLeafColumns()
-                          .filter(
-                            (c) =>
-                              c.getCanGroup() && !draftGrouping.includes(c.id)
-                          )
-                          .map((column) => (
+                        draftColumnOrder
+                          .filter((id) => !draftGrouping.includes(id))
+                          .map((columnId) => (
                             <div
-                              key={column.id}
+                              key={columnId}
                               className="bg-background flex items-center justify-between rounded-lg border px-3 py-2.5"
                             >
                               <span className="text-foreground text-sm">
-                                {columnLabels[column.id] ?? column.id}
+                                {resolveColumnLabel(columnId)}
                               </span>
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setDraftGrouping((c) => [...c, column.id])
+                                  setDraftGrouping((c) => [...c, columnId])
                                 }
                                 className="text-primary flex items-center gap-1 text-xs font-medium hover:underline"
                               >
@@ -1098,6 +1144,7 @@ export function ViewFiltersSheet({
 
               <AdvancedTabContent
                 draftLogicFilter={draftLogicFilter}
+                advancedFilterFields={advancedFilterFields}
                 advancedFieldValueOptions={advancedFieldValueOptions}
                 onResetLogicBuilder={handleResetLogicBuilder}
                 onSetGroupOperator={setGroupOperator}
