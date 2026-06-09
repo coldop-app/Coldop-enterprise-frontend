@@ -704,9 +704,14 @@ export function buildNikasiReportColumns(
       sortingFn,
       sortUndefined: 'last' as const,
       filterFn: nikasiMultiValueFilterFn,
-      cell: ({ getValue }) => (
+      cell: ({ row, getValue }) => (
         <span className="font-custom block w-full text-sm wrap-break-word whitespace-normal">
-          {formatNikasiReportCellValue(getValue(), column.id)}
+          {formatNikasiReportCellValue(
+            column.id === 'totalBagsIssued'
+              ? getNikasiGatePassTotalBags(row.original)
+              : getValue(),
+            column.id
+          )}
         </span>
       ),
     });

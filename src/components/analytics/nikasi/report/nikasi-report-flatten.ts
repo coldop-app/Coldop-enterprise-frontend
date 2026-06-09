@@ -170,6 +170,31 @@ export function recomputeNikasiVarietyRowSpans(
   return adjusted;
 }
 
+/** Sets gatePassTotalBags from filtered/visible sub-rows only (not expanded blocks). */
+export function applyVisibleGatePassTotalBags(
+  rows: NikasiReportDisplayRow[],
+  visibleRows: NikasiReportDisplayRow[]
+): NikasiReportDisplayRow[] {
+  const totalsByGatePassId = new Map<string, number>();
+
+  for (const row of visibleRows) {
+    const current = totalsByGatePassId.get(row.gatePassId) ?? 0;
+    totalsByGatePassId.set(
+      row.gatePassId,
+      current + getNikasiVarietyRowTotalBags(row)
+    );
+  }
+
+  return rows.map((row) => {
+    const visibleTotal = totalsByGatePassId.get(row.gatePassId) ?? 0;
+    return {
+      ...row,
+      gatePassTotalBags: visibleTotal,
+      totalBagsIssued: visibleTotal,
+    };
+  });
+}
+
 export const NIKASI_WEIGHT_DECIMALS = 2;
 
 export function roundNikasiWeight(value: number): number {
