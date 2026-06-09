@@ -13,9 +13,9 @@ import {
   getNikasiColumnFilterValue,
 } from './columns';
 import {
+  getNikasiGatePassTotalBags,
   getNikasiVarietyRowAverageWeight,
   getNikasiVarietyRowNetWeight,
-  getNikasiVarietyRowTotalBags,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
 
@@ -50,7 +50,7 @@ function setNikasiAdvancedFilterFieldValue(
   }
 
   if (field === 'totalBagsIssued') {
-    record[field] = getNikasiVarietyRowTotalBags(row);
+    record[field] = getNikasiGatePassTotalBags(row);
     return;
   }
 

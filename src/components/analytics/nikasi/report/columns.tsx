@@ -14,6 +14,7 @@ import type {
   NikasiGatePassReportDataRow,
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 import {
+  getNikasiGatePassTotalBags,
   getNikasiVarietyRowAverageWeight,
   getNikasiVarietyRowNetWeight,
   getNikasiVarietyRowTotalBags,
@@ -678,7 +679,7 @@ export function buildNikasiReportColumns(
     );
     const varietyScopedMetricAccessor =
       column.id === 'totalBagsIssued'
-        ? (row: NikasiReportDisplayRow) => getNikasiVarietyRowTotalBags(row)
+        ? (row: NikasiReportDisplayRow) => getNikasiGatePassTotalBags(row)
         : column.id === 'netWeight'
           ? (row: NikasiReportDisplayRow) => getNikasiVarietyRowNetWeight(row)
           : column.id === 'averageWeightPerBag'

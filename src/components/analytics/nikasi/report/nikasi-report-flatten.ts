@@ -16,6 +16,7 @@ export interface NikasiReportDisplayRow extends NikasiGatePassReportDataRow {
   varietyRowIndex: number;
   varietyRowSpan: number;
   bagSizeFields: NikasiReportBagFields;
+  gatePassTotalBags: number;
 }
 
 function orderedVarietyGroups(
@@ -65,6 +66,13 @@ function accumulateBagFields(
   return acc;
 }
 
+function sumBagFieldsQuantity(fields: NikasiReportBagFields): number {
+  return Object.values(fields).reduce(
+    (sum, cell) => sum + (Number(cell?.quantity) || 0),
+    0
+  );
+}
+
 function varietyGroupsFromRow(
   row: NikasiGatePassReportDataRow
 ): Array<{ variety: string; lines: NikasiGatePassReportBagSize[] }> {
@@ -96,6 +104,11 @@ export function flattenNikasiReportRows(
   for (const row of rows) {
     const groups = varietyGroupsFromRow(row);
     const span = groups.length;
+    const gatePassTotalBags = groups.reduce(
+      (sum, { lines }) =>
+        sum + sumBagFieldsQuantity(accumulateBagFields(lines)),
+      0
+    );
 
     groups.forEach(({ variety, lines }, index) => {
       flattened.push({
@@ -107,6 +120,7 @@ export function flattenNikasiReportRows(
         bagSizeFields: accumulateBagFields(lines),
         varietyRowIndex: index,
         varietyRowSpan: span,
+        gatePassTotalBags,
       });
     });
   }
@@ -138,11 +152,17 @@ export function recomputeNikasiVarietyRowSpans(
     block.sort((a, b) => a.varietyRowIndex - b.varietyRowIndex);
 
     const span = block.length;
+    const gatePassTotalBags = block.reduce(
+      (sum, row) => sum + getNikasiVarietyRowTotalBags(row),
+      0
+    );
+
     block.forEach((row, index) => {
       adjusted.push({
         ...row,
         varietyRowIndex: index,
         varietyRowSpan: span,
+        gatePassTotalBags,
       });
     });
   }
@@ -169,10 +189,14 @@ export function getNikasiBagSizeQuantity(
 export function getNikasiVarietyRowTotalBags(
   row: NikasiReportDisplayRow
 ): number {
-  return Object.values(row.bagSizeFields).reduce(
-    (sum, cell) => sum + (Number(cell?.quantity) || 0),
-    0
-  );
+  return sumBagFieldsQuantity(row.bagSizeFields);
+}
+
+/** Total bags issued across all visible variety sub-rows for this gate pass. */
+export function getNikasiGatePassTotalBags(
+  row: NikasiReportDisplayRow
+): number {
+  return row.gatePassTotalBags;
 }
 
 /** Net weight allocated to this variety row (proportional to gate-pass totals). */
@@ -182,7 +206,7 @@ export function getNikasiVarietyRowNetWeight(
   const varietyBags = getNikasiVarietyRowTotalBags(row);
   if (varietyBags <= 0) return 0;
 
-  const gatePassBags = Number(row.totalBagsIssued ?? 0);
+  const gatePassBags = getNikasiGatePassTotalBags(row);
   const gatePassNet = Number(row.netWeight ?? 0);
 
   if (gatePassBags > 0 && gatePassNet > 0) {
