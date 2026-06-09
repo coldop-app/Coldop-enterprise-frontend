@@ -20,7 +20,12 @@ import {
   isNikasiVarietySplitColumn,
   shouldSuppressNikasiGroupedAggregation,
 } from './columns';
-import type { NikasiReportDisplayRow } from './nikasi-report-flatten';
+import {
+  getNikasiGatePassAverageWeight,
+  getNikasiGatePassNetWeight,
+  getNikasiGatePassTotalBags,
+  type NikasiReportDisplayRow,
+} from './nikasi-report-flatten';
 import type { NikasiReportTotals } from './nikasi-report-totals';
 
 const COLORS = {
@@ -203,6 +208,20 @@ function normalizeExcelValue(
   if (row.bagSizeFields && columnId in row.bagSizeFields) {
     const quantity = row.bagSizeFields[columnId]?.quantity ?? 0;
     return quantity > 0 ? quantity : '-';
+  }
+
+  if (columnId === 'totalBagsIssued') {
+    return getNikasiGatePassTotalBags(row);
+  }
+
+  if (columnId === 'netWeight') {
+    const netWeight = getNikasiGatePassNetWeight(row);
+    return netWeight > 0 ? netWeight : '-';
+  }
+
+  if (columnId === 'averageWeightPerBag') {
+    const average = getNikasiGatePassAverageWeight(row);
+    return average != null && average > 0 ? average : '-';
   }
 
   if (numericColumnIds.has(columnId)) {

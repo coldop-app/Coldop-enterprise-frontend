@@ -7,7 +7,7 @@ import {
 import { isNikasiVarietySplitColumn } from './columns';
 import type { NikasiGlobalFilterValue } from './nikasi-advanced-filters';
 import {
-  applyVisibleGatePassTotalBags,
+  applyVisibleGatePassMetrics,
   recomputeNikasiVarietyRowSpans,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
@@ -117,7 +117,7 @@ export function normalizeNikasiFilteredDisplayRows(
     : filteredRows;
 
   const spanAdjusted = recomputeNikasiVarietyRowSpans(baseRows);
-  return applyVisibleGatePassTotalBags(spanAdjusted, filteredRows);
+  return applyVisibleGatePassMetrics(spanAdjusted, filteredRows);
 }
 
 export function buildNikasiRowSpanMetaById(

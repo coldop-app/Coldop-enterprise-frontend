@@ -13,9 +13,9 @@ import {
   getNikasiColumnFilterValue,
 } from './columns';
 import {
+  getNikasiGatePassAverageWeight,
+  getNikasiGatePassNetWeight,
   getNikasiGatePassTotalBags,
-  getNikasiVarietyRowAverageWeight,
-  getNikasiVarietyRowNetWeight,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
 
@@ -55,12 +55,12 @@ function setNikasiAdvancedFilterFieldValue(
   }
 
   if (field === 'netWeight') {
-    record[field] = getNikasiVarietyRowNetWeight(row);
+    record[field] = getNikasiGatePassNetWeight(row);
     return;
   }
 
   if (field === 'averageWeightPerBag') {
-    record[field] = getNikasiVarietyRowAverageWeight(row) ?? 0;
+    record[field] = getNikasiGatePassAverageWeight(row) ?? 0;
     return;
   }
 

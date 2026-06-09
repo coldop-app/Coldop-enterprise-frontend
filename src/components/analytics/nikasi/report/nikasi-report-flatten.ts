@@ -16,7 +16,11 @@ export interface NikasiReportDisplayRow extends NikasiGatePassReportDataRow {
   varietyRowIndex: number;
   varietyRowSpan: number;
   bagSizeFields: NikasiReportBagFields;
+  gatePassOriginalTotalBags: number;
+  gatePassOriginalNetWeight: number;
   gatePassTotalBags: number;
+  gatePassNetWeight: number;
+  gatePassAverageWeightPerBag: number | null;
 }
 
 function orderedVarietyGroups(
@@ -96,6 +100,27 @@ function varietyGroupsFromRow(
   return [{ variety: '-', lines: [] }];
 }
 
+export const NIKASI_WEIGHT_DECIMALS = 2;
+
+export function roundNikasiWeight(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
+  return Math.round(value * factor) / factor;
+}
+
+function computeGatePassAverageWeight(
+  netWeight: number,
+  totalBags: number,
+  apiAverage?: number
+): number | null {
+  if (totalBags > 0 && netWeight > 0) {
+    return roundNikasiWeight(netWeight / totalBags);
+  }
+
+  const average = Number(apiAverage ?? 0);
+  return average > 0 ? roundNikasiWeight(average) : null;
+}
+
 export function flattenNikasiReportRows(
   rows: NikasiGatePassReportDataRow[]
 ): NikasiReportDisplayRow[] {
@@ -109,6 +134,12 @@ export function flattenNikasiReportRows(
         sum + sumBagFieldsQuantity(accumulateBagFields(lines)),
       0
     );
+    const gatePassOriginalNetWeight = Number(row.netWeight ?? 0);
+    const gatePassAverageWeightPerBag = computeGatePassAverageWeight(
+      gatePassOriginalNetWeight,
+      gatePassTotalBags,
+      row.averageWeightPerBag
+    );
 
     groups.forEach(({ variety, lines }, index) => {
       flattened.push({
@@ -120,7 +151,14 @@ export function flattenNikasiReportRows(
         bagSizeFields: accumulateBagFields(lines),
         varietyRowIndex: index,
         varietyRowSpan: span,
+        gatePassOriginalTotalBags: gatePassTotalBags,
+        gatePassOriginalNetWeight,
         gatePassTotalBags,
+        gatePassNetWeight: gatePassOriginalNetWeight,
+        gatePassAverageWeightPerBag,
+        totalBagsIssued: gatePassTotalBags,
+        netWeight: gatePassOriginalNetWeight,
+        averageWeightPerBag: gatePassAverageWeightPerBag ?? undefined,
       });
     });
   }
@@ -170,38 +208,49 @@ export function recomputeNikasiVarietyRowSpans(
   return adjusted;
 }
 
-/** Sets gatePassTotalBags from filtered/visible sub-rows only (not expanded blocks). */
-export function applyVisibleGatePassTotalBags(
+/** Sets gate-pass metrics from filtered/visible sub-rows only (not expanded blocks). */
+export function applyVisibleGatePassMetrics(
   rows: NikasiReportDisplayRow[],
   visibleRows: NikasiReportDisplayRow[]
 ): NikasiReportDisplayRow[] {
-  const totalsByGatePassId = new Map<string, number>();
+  const bagsByGatePassId = new Map<string, number>();
+  const netByGatePassId = new Map<string, number>();
+  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
 
   for (const row of visibleRows) {
-    const current = totalsByGatePassId.get(row.gatePassId) ?? 0;
-    totalsByGatePassId.set(
-      row.gatePassId,
-      current + getNikasiVarietyRowTotalBags(row)
+    const gatePassId = row.gatePassId;
+    bagsByGatePassId.set(
+      gatePassId,
+      (bagsByGatePassId.get(gatePassId) ?? 0) +
+        getNikasiVarietyRowTotalBags(row)
     );
+
+    const scaledNet =
+      (netByGatePassId.get(gatePassId) ?? 0) +
+      Math.round(getNikasiVarietyRowNetWeight(row) * factor);
+    netByGatePassId.set(gatePassId, scaledNet);
   }
 
   return rows.map((row) => {
-    const visibleTotal = totalsByGatePassId.get(row.gatePassId) ?? 0;
+    const visibleBags = bagsByGatePassId.get(row.gatePassId) ?? 0;
+    const visibleNet = (netByGatePassId.get(row.gatePassId) ?? 0) / factor;
+    const visibleAverage =
+      visibleBags > 0 ? roundNikasiWeight(visibleNet / visibleBags) : null;
+
     return {
       ...row,
-      gatePassTotalBags: visibleTotal,
-      totalBagsIssued: visibleTotal,
+      gatePassTotalBags: visibleBags,
+      totalBagsIssued: visibleBags,
+      gatePassNetWeight: visibleNet,
+      netWeight: visibleNet,
+      gatePassAverageWeightPerBag: visibleAverage,
+      averageWeightPerBag: visibleAverage ?? undefined,
     };
   });
 }
 
-export const NIKASI_WEIGHT_DECIMALS = 2;
-
-export function roundNikasiWeight(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
-  return Math.round(value * factor) / factor;
-}
+/** @deprecated Use applyVisibleGatePassMetrics */
+export const applyVisibleGatePassTotalBags = applyVisibleGatePassMetrics;
 
 export function getNikasiBagSizeQuantity(
   row: NikasiReportDisplayRow,
@@ -224,18 +273,32 @@ export function getNikasiGatePassTotalBags(
   return row.gatePassTotalBags;
 }
 
-/** Net weight allocated to this variety row (proportional to gate-pass totals). */
+/** Net weight across all visible variety sub-rows for this gate pass. */
+export function getNikasiGatePassNetWeight(
+  row: NikasiReportDisplayRow
+): number {
+  return row.gatePassNetWeight;
+}
+
+/** Average weight per bag across all visible variety sub-rows for this gate pass. */
+export function getNikasiGatePassAverageWeight(
+  row: NikasiReportDisplayRow
+): number | null {
+  return row.gatePassAverageWeightPerBag;
+}
+
+/** Net weight allocated to this variety row (proportional to original gate-pass totals). */
 export function getNikasiVarietyRowNetWeight(
   row: NikasiReportDisplayRow
 ): number {
   const varietyBags = getNikasiVarietyRowTotalBags(row);
   if (varietyBags <= 0) return 0;
 
-  const gatePassBags = getNikasiGatePassTotalBags(row);
-  const gatePassNet = Number(row.netWeight ?? 0);
+  const originalBags = row.gatePassOriginalTotalBags;
+  const originalNet = row.gatePassOriginalNetWeight;
 
-  if (gatePassBags > 0 && gatePassNet > 0) {
-    return roundNikasiWeight((varietyBags / gatePassBags) * gatePassNet);
+  if (originalBags > 0 && originalNet > 0) {
+    return roundNikasiWeight((varietyBags / originalBags) * originalNet);
   }
 
   const average = Number(row.averageWeightPerBag ?? 0);
