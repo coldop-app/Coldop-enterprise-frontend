@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Building2, RefreshCw } from 'lucide-react';
-import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import { Item, ItemHeader, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useGetShedStockReport } from '@/services/store-admin/general/useGetShedStockReport';
@@ -11,20 +9,6 @@ import ShedStockSummaryTable, {
   type ShedSizeBagRow,
 } from './shed-stock-summary-table';
 import ShedUngradedTable from './shed-ungraded-table';
-
-function toApiDate(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === '') return '';
-
-  const [day, month, year] = trimmed.split('.');
-  if (!day || !month || !year) return '';
-
-  const normalizedDay = day.padStart(2, '0');
-  const normalizedMonth = month.padStart(2, '0');
-  const normalizedYear = year.padStart(4, '0');
-
-  return `${normalizedYear}-${normalizedMonth}-${normalizedDay}`;
-}
 
 function toShedSizeBagRows(
   varieties: ShedStockReportSourceVariety[]
@@ -36,18 +20,8 @@ function toShedSizeBagRows(
 }
 
 const ShedReportPage = () => {
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [appliedFromDate, setAppliedFromDate] = useState('');
-  const [appliedToDate, setAppliedToDate] = useState('');
-
-  const queryParams = {
-    ...(appliedFromDate ? { dateFrom: appliedFromDate } : {}),
-    ...(appliedToDate ? { dateTo: appliedToDate } : {}),
-  };
-
   const { data, isLoading, isFetching, isError, error, refetch } =
-    useGetShedStockReport(queryParams);
+    useGetShedStockReport();
 
   const tableProps = {
     isLoading,
@@ -76,58 +50,17 @@ const ShedReportPage = () => {
               Shed Stock Report
             </ItemTitle>
           </div>
-          <div className="flex flex-wrap items-end gap-2 sm:gap-3">
-            <DatePicker
-              id="shed-report-from-date"
-              label="From"
-              compact
-              value={fromDate}
-              onChange={setFromDate}
+          <Button
+            variant="ghost"
+            className="text-muted-foreground h-8 rounded-lg px-2"
+            disabled={isFetching}
+            onClick={() => refetch()}
+            aria-label="Refresh shed stock report"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
             />
-            <DatePicker
-              id="shed-report-to-date"
-              label="To"
-              compact
-              value={toDate}
-              onChange={setToDate}
-            />
-            <Button
-              className="font-custom h-8 rounded-lg px-4 text-sm shadow-none"
-              disabled={!fromDate || !toDate}
-              onClick={() => {
-                const nextFrom = toApiDate(fromDate);
-                const nextTo = toApiDate(toDate);
-                if (!nextFrom || !nextTo) return;
-                setAppliedFromDate(nextFrom);
-                setAppliedToDate(nextTo);
-              }}
-            >
-              Apply
-            </Button>
-            <Button
-              variant="outline"
-              className="font-custom text-muted-foreground h-8 rounded-lg px-4 text-sm"
-              onClick={() => {
-                setFromDate('');
-                setToDate('');
-                setAppliedFromDate('');
-                setAppliedToDate('');
-              }}
-            >
-              Reset
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-muted-foreground h-8 rounded-lg px-2"
-              disabled={isFetching}
-              onClick={() => refetch()}
-              aria-label="Refresh shed stock report"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
-              />
-            </Button>
-          </div>
+          </Button>
         </ItemHeader>
       </Item>
 

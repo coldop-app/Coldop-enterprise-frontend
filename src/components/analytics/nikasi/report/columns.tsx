@@ -76,48 +76,63 @@ const nikasiNoAggregate = {
   aggregationFn: () => null,
 } as const;
 
+export function aggregateNikasiTotalBags(
+  rows: NikasiReportDisplayRow[]
+): number {
+  return rows.reduce((sum, row) => sum + getNikasiVarietyRowTotalBags(row), 0);
+}
+
+export function aggregateNikasiNetWeight(
+  rows: NikasiReportDisplayRow[]
+): number {
+  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
+  let scaledNetSum = 0;
+
+  for (const row of rows) {
+    scaledNetSum += Math.round(getNikasiVarietyRowNetWeight(row) * factor);
+  }
+
+  return scaledNetSum / factor;
+}
+
+export function aggregateNikasiAverageWeightPerBag(
+  rows: NikasiReportDisplayRow[]
+): number | null {
+  const totalBags = aggregateNikasiTotalBags(rows);
+  if (totalBags <= 0) return null;
+
+  return roundNikasiWeight(aggregateNikasiNetWeight(rows) / totalBags);
+}
+
+export function aggregateNikasiBagSizeQuantity(
+  rows: NikasiReportDisplayRow[],
+  columnId: string
+): number {
+  return rows.reduce(
+    (sum, row) => sum + (row.bagSizeFields[columnId]?.quantity ?? 0),
+    0
+  );
+}
+
 const nikasiTotalBagsIssuedAggregationFn: AggregationFn<
   NikasiReportDisplayRow
 > = (_columnId, leafRows) =>
-  leafRows.reduce(
-    (sum, row) => sum + getNikasiVarietyRowTotalBags(row.original),
-    0
-  );
+  aggregateNikasiTotalBags(leafRows.map((row) => row.original));
 
 const nikasiNetWeightAggregationFn: AggregationFn<NikasiReportDisplayRow> = (
   _columnId,
   leafRows
-) => {
-  const factor = 10 ** NIKASI_WEIGHT_DECIMALS;
-  let scaledNetSum = 0;
-
-  for (const row of leafRows) {
-    scaledNetSum += Math.round(
-      getNikasiVarietyRowNetWeight(row.original) * factor
-    );
-  }
-
-  return scaledNetSum / factor;
-};
+) => aggregateNikasiNetWeight(leafRows.map((row) => row.original));
 
 const nikasiAverageWeightPerBagAggregationFn: AggregationFn<
   NikasiReportDisplayRow
-> = (_columnId, leafRows) => {
-  const totalBags = leafRows.reduce(
-    (sum, row) => sum + getNikasiVarietyRowTotalBags(row.original),
-    0
-  );
-  if (totalBags <= 0) return null;
+> = (_columnId, leafRows) =>
+  aggregateNikasiAverageWeightPerBag(leafRows.map((row) => row.original));
 
-  const totalNet = leafRows.reduce(
-    (sum, row) => sum + getNikasiVarietyRowNetWeight(row.original),
-    0
-  );
-
-  return roundNikasiWeight(totalNet / totalBags);
-};
-
-function renderNikasiAggregatedMetricCell(value: unknown, precision = 0) {
+export function renderNikasiAggregatedMetricCell(
+  value: unknown,
+  precision = 0
+) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
     return (
@@ -274,7 +289,7 @@ export function createNikasiSortingFn(
   };
 }
 
-function renderNikasiAggregatedBagQuantity(value: unknown) {
+export function renderNikasiAggregatedBagQuantity(value: unknown) {
   const quantity = Number(value) || 0;
   if (quantity <= 0) {
     return (
@@ -389,6 +404,95 @@ function isBagSizesApiColumn(column: NikasiGatePassReportColumn): boolean {
   return column.id === 'bagSizes' || column.accessorKey === 'bagSizes';
 }
 
+/** Canonical order for metric columns after variety. */
+export const NIKASI_METRIC_TAIL_COLUMN_IDS = [
+  'totalBagsIssued',
+  'bagSizes',
+  'averageWeightPerBag',
+  'netWeight',
+  'isInternalTransfer',
+  'remarks',
+] as const;
+
+const NIKASI_METRIC_TAIL_ID_SET = new Set<string>(
+  NIKASI_METRIC_TAIL_COLUMN_IDS
+);
+
+function isNikasiMetricTailColumn(column: NikasiGatePassReportColumn): boolean {
+  return (
+    NIKASI_METRIC_TAIL_ID_SET.has(column.id) || isBagSizesApiColumn(column)
+  );
+}
+
+/** Reorders API metadata so bag sizes follow Total Bags Issued. */
+export function normalizeNikasiReportApiColumnOrder(
+  apiColumns: NikasiGatePassReportColumn[]
+): NikasiGatePassReportColumn[] {
+  const byId = new Map<string, NikasiGatePassReportColumn>();
+
+  for (const column of apiColumns) {
+    if (!NIKASI_EXCLUDED_TABLE_COLUMN_IDS.has(column.id)) {
+      byId.set(column.id, column);
+    }
+  }
+
+  const leading: NikasiGatePassReportColumn[] = [];
+  const seenLeading = new Set<string>();
+
+  for (const column of apiColumns) {
+    if (NIKASI_EXCLUDED_TABLE_COLUMN_IDS.has(column.id)) continue;
+    if (isNikasiMetricTailColumn(column)) continue;
+    if (seenLeading.has(column.id)) continue;
+    seenLeading.add(column.id);
+    leading.push(column);
+  }
+
+  const tail = NIKASI_METRIC_TAIL_COLUMN_IDS.map((id) => byId.get(id)).filter(
+    (column): column is NikasiGatePassReportColumn => column != null
+  );
+
+  return [...leading, ...tail];
+}
+
+/** Moves metric/bag columns into canonical tail order while preserving leading order. */
+export function reorderNikasiMetricColumns(
+  order: string[],
+  bagSizeColumnIds: string[]
+): string[] {
+  const tailIdSet = new Set<string>([
+    'totalBagsIssued',
+    ...bagSizeColumnIds,
+    'averageWeightPerBag',
+    'netWeight',
+    'isInternalTransfer',
+    'remarks',
+  ]);
+
+  const leading = order.filter((id) => !tailIdSet.has(id));
+  const tail: string[] = [];
+  const orderSet = new Set(order);
+
+  const pushIfInOrder = (id: string) => {
+    if (orderSet.has(id) && !tail.includes(id)) {
+      tail.push(id);
+    }
+  };
+
+  pushIfInOrder('totalBagsIssued');
+  for (const id of bagSizeColumnIds) {
+    pushIfInOrder(id);
+  }
+  pushIfInOrder('averageWeightPerBag');
+  pushIfInOrder('netWeight');
+  pushIfInOrder('isInternalTransfer');
+  pushIfInOrder('remarks');
+
+  const placed = new Set([...leading, ...tail]);
+  const remainder = order.filter((id) => !placed.has(id));
+
+  return [...leading, ...tail, ...remainder];
+}
+
 export const defaultNikasiReportColumnVisibility: VisibilityState = {
   gatePassNo: false,
 };
@@ -425,12 +529,12 @@ export const DEFAULT_NIKASI_REPORT_API_COLUMNS: NikasiGatePassReportColumn[] = [
     accessorKey: 'truckNumber',
   },
   { id: 'variety', header: 'Variety', accessorKey: 'variety' },
-  { id: 'bagSizes', header: 'Bag Sizes', accessorKey: 'bagSizes' },
   {
     id: 'totalBagsIssued',
     header: 'Total Bags Issued',
     accessorKey: 'totalBagsIssued',
   },
+  { id: 'bagSizes', header: 'Bag Sizes', accessorKey: 'bagSizes' },
   {
     id: 'averageWeightPerBag',
     header: 'Average Weight Per Bag',
@@ -481,7 +585,9 @@ export function resolveNikasiReportApiColumns(
 ): NikasiGatePassReportColumn[] {
   const base =
     apiColumns.length > 0 ? apiColumns : DEFAULT_NIKASI_REPORT_API_COLUMNS;
-  return ensureNikasiFromReportColumn(base);
+  return normalizeNikasiReportApiColumnOrder(
+    ensureNikasiFromReportColumn(base)
+  );
 }
 
 export function getNikasiColumnLabels(
@@ -511,8 +617,9 @@ export function getNikasiDefaultColumnOrder(
   bagSizeColumnIds: string[]
 ): string[] {
   const order: string[] = [];
+  const normalized = normalizeNikasiReportApiColumnOrder(apiColumns);
 
-  for (const column of apiColumns) {
+  for (const column of normalized) {
     if (NIKASI_EXCLUDED_TABLE_COLUMN_IDS.has(column.id)) continue;
 
     if (isBagSizesApiColumn(column)) {

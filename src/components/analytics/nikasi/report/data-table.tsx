@@ -52,12 +52,19 @@ import type {
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 import { usePreferencesStore } from '@/stores/store';
 import {
+  aggregateNikasiAverageWeightPerBag,
+  aggregateNikasiBagSizeQuantity,
+  aggregateNikasiNetWeight,
+  aggregateNikasiTotalBags,
   buildNikasiReportColumns,
   defaultNikasiReportColumnVisibility,
   getNikasiColumnLabels,
   getNikasiDefaultColumnOrder,
   getNikasiNumericColumnIds,
   isNikasiVarietySplitColumn,
+  reorderNikasiMetricColumns,
+  renderNikasiAggregatedBagQuantity,
+  renderNikasiAggregatedMetricCell,
   shouldSuppressNikasiGroupedAggregation,
   NIKASI_DEFAULT_COLUMN_MAX_SIZE,
   NIKASI_DEFAULT_COLUMN_MIN_SIZE,
@@ -67,6 +74,7 @@ import { ViewFiltersSheet } from './view-filters-sheet/index';
 import {
   flattenNikasiReportRows,
   getNikasiBagSizeQuantity,
+  NIKASI_WEIGHT_DECIMALS,
   recomputeNikasiVarietyRowSpans,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
@@ -104,11 +112,69 @@ function getColumnFlexStyle(size: number): CSSProperties {
   };
 }
 
+function renderFilterAwareGroupedAggregate(
+  columnId: string,
+  row: NikasiTableRow,
+  filteredRowIdSet: Set<string>,
+  bagSizeColumnIds: Set<string>
+): ReactNode | null {
+  const filteredRows = row
+    .getLeafRows()
+    .filter((leaf) => filteredRowIdSet.has(leaf.original.id))
+    .map((leaf) => leaf.original);
+
+  if (bagSizeColumnIds.has(columnId)) {
+    return (
+      <div className="flex w-full justify-end">
+        {renderNikasiAggregatedBagQuantity(
+          aggregateNikasiBagSizeQuantity(filteredRows, columnId)
+        )}
+      </div>
+    );
+  }
+
+  if (columnId === 'totalBagsIssued') {
+    return (
+      <div className="flex w-full justify-end">
+        {renderNikasiAggregatedMetricCell(
+          aggregateNikasiTotalBags(filteredRows),
+          0
+        )}
+      </div>
+    );
+  }
+
+  if (columnId === 'netWeight') {
+    return (
+      <div className="flex w-full justify-end">
+        {renderNikasiAggregatedMetricCell(
+          aggregateNikasiNetWeight(filteredRows),
+          NIKASI_WEIGHT_DECIMALS
+        )}
+      </div>
+    );
+  }
+
+  if (columnId === 'averageWeightPerBag') {
+    return (
+      <div className="flex w-full justify-end">
+        {renderNikasiAggregatedMetricCell(
+          aggregateNikasiAverageWeightPerBag(filteredRows),
+          NIKASI_WEIGHT_DECIMALS
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function renderGroupedNikasiCell(
   row: NikasiTableRow,
   cell: Cell<NikasiReportDisplayRow, unknown>,
   numericColumnIds: Set<string>,
   bagSizeColumnIds: Set<string>,
+  filteredRowIdSet: Set<string>,
   useFlexLayout = false
 ) {
   const columnId = cell.column.id;
@@ -141,10 +207,17 @@ function renderGroupedNikasiCell(
   } else if (suppressAggregation) {
     content = <span className="text-muted-foreground/50">-</span>;
   } else if (isAggregated) {
-    content = flexRender(
-      cell.column.columnDef.aggregatedCell ?? cell.column.columnDef.cell,
-      cell.getContext()
-    );
+    content =
+      renderFilterAwareGroupedAggregate(
+        columnId,
+        row,
+        filteredRowIdSet,
+        bagSizeColumnIds
+      ) ??
+      flexRender(
+        cell.column.columnDef.aggregatedCell ?? cell.column.columnDef.cell,
+        cell.getContext()
+      );
   } else if (cell.getIsPlaceholder()) {
     content = null;
   } else {
@@ -306,6 +379,11 @@ const NikasiReportDataTable = ({
     [defaultColumnOrder]
   );
 
+  const bagSizeColumnIdList = useMemo(
+    () => visibleBagSizeColumnConfig.map((entry) => entry.id),
+    [visibleBagSizeColumnConfig]
+  );
+
   useEffect(() => {
     if (columns.length === 0) return;
     if (lastAppliedDefaultColumnOrderKeyRef.current === defaultColumnOrderKey) {
@@ -320,11 +398,16 @@ const NikasiReportDataTable = ({
       }
 
       const missing = defaultColumnOrder.filter((id) => !current.includes(id));
+      const merged = missing.length === 0 ? current : [...current, ...missing];
       lastAppliedDefaultColumnOrderKeyRef.current = defaultColumnOrderKey;
-      if (missing.length === 0) return current;
-      return [...current, ...missing];
+      return reorderNikasiMetricColumns(merged, bagSizeColumnIdList);
     });
-  }, [columns.length, defaultColumnOrder, defaultColumnOrderKey]);
+  }, [
+    bagSizeColumnIdList,
+    columns.length,
+    defaultColumnOrder,
+    defaultColumnOrderKey,
+  ]);
 
   useEffect(() => {
     if (
@@ -403,6 +486,10 @@ const NikasiReportDataTable = ({
 
   const filteredTableRows = table.getFilteredRowModel().rows;
   const filteredDisplayRows = filteredTableRows.map((row) => row.original);
+  const filteredRowIdSet = useMemo(
+    () => new Set(filteredDisplayRows.map((row) => row.id)),
+    [filteredDisplayRows]
+  );
 
   const splitColumnFilteringActive = useMemo(
     () =>
@@ -428,8 +515,8 @@ const NikasiReportDataTable = ({
   );
 
   const totals = useMemo(
-    () => computeNikasiReportTotals(spanAdjustedDisplayRows, bagSizeColumnIds),
-    [spanAdjustedDisplayRows, bagSizeColumnIds]
+    () => computeNikasiReportTotals(filteredDisplayRows, bagSizeColumnIds),
+    [filteredDisplayRows, bagSizeColumnIds]
   );
 
   const flatSortedTableRows = useMemo(() => {
@@ -733,6 +820,7 @@ const NikasiReportDataTable = ({
                             cell,
                             numericColumnIds,
                             bagSizeColumnIds,
+                            filteredRowIdSet,
                             true
                           )
                         )}
