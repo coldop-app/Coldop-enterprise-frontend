@@ -34,11 +34,14 @@ import {
   getNumericColumnIds,
   defaultStorageReportColumnVisibility,
   globalManualGatePassFilterFn,
+  createEmptyStorageBagSizeCell,
+  formatStorageBagLocation,
   getIncomingBagValue,
   getStorageReportColumns,
   type BagSizeColumnId,
   type GlobalFilterValue,
   type IncomingReportRow,
+  type StorageBagSizeCellValue,
 } from './columns';
 import { StorageReportDataTable } from './storage-report-data-table';
 
@@ -80,46 +83,41 @@ function getAccountNumber(gatePass: StorageGatePassWithLink): number | null {
   return null;
 }
 
-type BagSizeValues = Pick<
-  IncomingReportRow,
-  | 'bagBelow25'
-  | 'bag25to30'
-  | 'bagBelow30'
-  | 'bag30to35'
-  | 'bag30to40'
-  | 'bag35to40'
-  | 'bag40to45'
-  | 'bag45to50'
-  | 'bag50to55'
-  | 'bagAbove50'
-  | 'bagAbove55'
-  | 'bagCut'
->;
+function mergeUniqueLabels(current: string, next: string): string {
+  const normalized = next.trim();
+  if (!normalized || current === normalized) return current;
 
-function createEmptyBagSizeValues(): BagSizeValues {
-  return {
-    bagBelow25: 0,
-    bag25to30: 0,
-    bagBelow30: 0,
-    bag30to35: 0,
-    bag30to40: 0,
-    bag35to40: 0,
-    bag40to45: 0,
-    bag45to50: 0,
-    bag50to55: 0,
-    bagAbove50: 0,
-    bagAbove55: 0,
-    bagCut: 0,
-  };
+  const labels = new Set(current.split(' / ').filter(Boolean));
+  labels.add(normalized);
+  return Array.from(labels).join(' / ');
 }
 
-function getBagSizeValues(gatePass: StorageGatePassWithLink): BagSizeValues {
-  const values = createEmptyBagSizeValues();
+function accumulateBagSizeCell(
+  cell: StorageBagSizeCellValue,
+  quantity: number,
+  bagType: string,
+  location: string
+): void {
+  cell.quantity += quantity;
+  cell.bagType = mergeUniqueLabels(cell.bagType, bagType);
+  cell.location = mergeUniqueLabels(cell.location, location);
+}
+
+function getBagSizeValues(
+  gatePass: StorageGatePassWithLink
+): Record<string, StorageBagSizeCellValue> {
+  const values: Record<string, StorageBagSizeCellValue> = {};
   for (const bagSize of gatePass.bagSizes ?? []) {
     const columnId = resolveBagSizeColumnId(String(bagSize.size || ''));
     if (!columnId) continue;
-    values[columnId as keyof BagSizeValues] += Number(
-      bagSize.initialQuantity || 0
+    if (!values[columnId]) {
+      values[columnId] = createEmptyStorageBagSizeCell();
+    }
+    accumulateBagSizeCell(
+      values[columnId],
+      Number(bagSize.initialQuantity || 0),
+      String(bagSize.bagType ?? ''),
+      formatStorageBagLocation(bagSize.chamber, bagSize.floor, bagSize.row)
     );
   }
   return values;
@@ -216,23 +214,31 @@ const StorageReportTable = () => {
 
   const incomingReportData = React.useMemo<IncomingReportRow[]>(
     () =>
-      (data ?? []).map((item) => ({
-        id: item._id,
-        farmerId: getFarmerId(item),
-        gatePassNo: item.gatePassNo,
-        manualGatePassNumber: item.manualGatePassNumber,
-        farmerMobileNumber: getFarmerMobile(item),
-        accountNumber: getAccountNumber(item),
-        variety: item.variety,
-        ...getBagSizeValues(item),
-        totalBags: getTotalBags(item),
-        remarks: item.remarks ?? '-',
-        date: toDisplayDate(item.date),
-        dateSortValue: toSortableDateValue(item.date),
-        createdAt: toDisplayDate(item.createdAt),
-        updatedAt: toDisplayDate(item.updatedAt),
-      })),
-    [data]
+      (data ?? []).map((item) => {
+        const bagValues = getBagSizeValues(item);
+        return {
+          id: item._id,
+          farmerId: getFarmerId(item),
+          gatePassNo: item.gatePassNo,
+          manualGatePassNumber: item.manualGatePassNumber,
+          farmerMobileNumber: getFarmerMobile(item),
+          accountNumber: getAccountNumber(item),
+          variety: item.variety,
+          ...Object.fromEntries(
+            bagSizeColumnIds.map((columnId) => [
+              columnId,
+              bagValues[columnId] ?? createEmptyStorageBagSizeCell(),
+            ])
+          ),
+          totalBags: getTotalBags(item),
+          remarks: item.remarks ?? '-',
+          date: toDisplayDate(item.date),
+          dateSortValue: toSortableDateValue(item.date),
+          createdAt: toDisplayDate(item.createdAt),
+          updatedAt: toDisplayDate(item.updatedAt),
+        } as IncomingReportRow;
+      }),
+    [bagSizeColumnIds, data]
   );
 
   const emptyBagSizeColumnIds = React.useMemo(() => {
@@ -356,9 +362,11 @@ const StorageReportTable = () => {
 
   const totalsByColumn = React.useMemo(() => {
     const totals: Record<string, number> & { totalBags: number } = {
-      ...createEmptyBagSizeValues(),
       totalBags: 0,
     };
+    bagSizeColumnIds.forEach((columnId) => {
+      totals[columnId] = 0;
+    });
     for (const row of filteredRows) {
       bagSizeColumnIds.forEach((columnId) => {
         totals[columnId] += getIncomingBagValue(row.original, columnId);

@@ -221,12 +221,14 @@ export const EditFarmerDialog = memo(function EditFarmerDialog({
                       id={field.name}
                       name={field.name}
                       type="number"
+                      inputMode="decimal"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       aria-invalid={isInvalid}
                       className={cn(businessNumberSpinnerClassName)}
                       min={1}
+                      step="any"
                       onWheel={blurTargetOnNumberWheel}
                       onKeyDown={preventArrowUpDownOnNumericInput}
                     />

@@ -14,6 +14,25 @@ import {
   DEFAULT_BAG_SIZE_COLUMN_CONFIG as SHARED_DEFAULT_BAG_SIZE_COLUMN_CONFIG,
 } from '@/lib/bag-size-columns';
 
+export type StorageBagSizeCellValue = {
+  quantity: number;
+  bagType: string;
+  location: string;
+};
+
+export function formatStorageBagLocation(
+  chamber: string,
+  floor: string,
+  row: string
+): string {
+  const parts = [chamber, floor, row]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return '';
+  return `(${parts.join(' - ')})`;
+}
+
 export type IncomingReportRow = {
   id: string;
   farmerId: string;
@@ -24,23 +43,23 @@ export type IncomingReportRow = {
   date: string;
   dateSortValue: number;
   variety: string;
-  bagBelow25: number;
-  bag25to30: number;
-  bagBelow30: number;
-  bag30to35: number;
-  bag30to40: number;
-  bag35to40: number;
-  bag40to45: number;
-  bag45to50: number;
-  bag50to55: number;
-  bagAbove50: number;
-  bagAbove55: number;
-  bagCut: number;
+  bagBelow25: StorageBagSizeCellValue;
+  bag25to30: StorageBagSizeCellValue;
+  bagBelow30: StorageBagSizeCellValue;
+  bag30to35: StorageBagSizeCellValue;
+  bag30to40: StorageBagSizeCellValue;
+  bag35to40: StorageBagSizeCellValue;
+  bag40to45: StorageBagSizeCellValue;
+  bag45to50: StorageBagSizeCellValue;
+  bag50to55: StorageBagSizeCellValue;
+  bagAbove50: StorageBagSizeCellValue;
+  bagAbove55: StorageBagSizeCellValue;
+  bagCut: StorageBagSizeCellValue;
   totalBags: number;
   remarks: string;
   createdAt: string;
   updatedAt: string;
-};
+} & Record<`bagSize__${string}`, StorageBagSizeCellValue | undefined>;
 
 export type BagSizeColumnId =
   | 'bagBelow25'
@@ -59,13 +78,82 @@ export type BagSizeColumnId =
   | 'bagUngraded'
   | `bagSize__${string}`;
 
+export function createEmptyStorageBagSizeCell(): StorageBagSizeCellValue {
+  return { quantity: 0, bagType: '', location: '' };
+}
+
+export function getStorageBagSizeCell(
+  row: IncomingReportRow,
+  columnId: BagSizeColumnId | string
+): StorageBagSizeCellValue | undefined {
+  return (row as IncomingReportRow & Record<string, StorageBagSizeCellValue>)[
+    columnId
+  ];
+}
+
 export function getIncomingBagValue(
   row: IncomingReportRow,
   columnId: BagSizeColumnId | string
 ): number {
-  return Number(
-    (row as IncomingReportRow & Record<string, number>)[columnId] ?? 0
+  return Number(getStorageBagSizeCell(row, columnId)?.quantity ?? 0);
+}
+
+export function isStorageBagSizeColumnId(columnId: string): boolean {
+  return columnId.startsWith('bag') || columnId.startsWith('bagSize__');
+}
+
+function toStorageReportFilterRecord(
+  row: IncomingReportRow
+): Record<string, unknown> {
+  const record: Record<string, unknown> = { ...row };
+
+  for (const [key, value] of Object.entries(row)) {
+    if (!isStorageBagSizeColumnId(key)) continue;
+    if (value && typeof value === 'object' && 'quantity' in value) {
+      record[key] = (value as StorageBagSizeCellValue).quantity;
+    }
+  }
+
+  return record;
+}
+
+function renderStorageBagSizeQuantityCell(value?: StorageBagSizeCellValue) {
+  if (!value || value.quantity <= 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex w-full flex-col items-end gap-0.5 text-right">
+      <span className="font-custom text-sm font-medium tabular-nums">
+        {value.quantity.toLocaleString('en-IN')}
+      </span>
+      {value.bagType ? (
+        <span className="font-custom text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+          {value.bagType}
+        </span>
+      ) : null}
+      {value.location ? (
+        <span className="font-custom text-muted-foreground text-[10px] font-normal">
+          {value.location}
+        </span>
+      ) : null}
+    </div>
   );
+}
+
+export function formatStorageBagSizeCellForExcel(
+  value: StorageBagSizeCellValue | undefined
+): string | number {
+  if (!value || value.quantity <= 0) return '';
+
+  const lines = [value.quantity.toLocaleString('en-IN')];
+  const bagType = value.bagType.trim();
+  const location = value.location.trim();
+
+  if (bagType) lines.push(bagType.toUpperCase());
+  if (location) lines.push(location);
+
+  return lines.length === 1 ? value.quantity : lines.join('\n');
 }
 
 export const DEFAULT_BAG_SIZE_COLUMN_CONFIG: Array<{
@@ -147,7 +235,10 @@ export const globalManualGatePassFilterFn: FilterFn<IncomingReportRow> = (
   filterValue: GlobalFilterValue
 ) => {
   if (isAdvancedFilterGroup(filterValue)) {
-    return evaluateFilterGroup(row.original, filterValue);
+    return evaluateFilterGroup(
+      toStorageReportFilterRecord(row.original),
+      filterValue
+    );
   }
   const normalized = String(filterValue).trim().toLowerCase();
   if (!normalized) return true;
@@ -216,7 +307,7 @@ export function getStorageReportColumns(
       maxSize: 220,
     }),
     ...bagSizeColumnConfig.map(({ id, label }) =>
-      columnHelper.accessor(id as keyof IncomingReportRow, {
+      columnHelper.accessor((row) => getIncomingBagValue(row, id), {
         id,
         header: () => <div className="w-full text-right">{label} (mm)</div>,
         sortingFn: 'basic',
@@ -229,11 +320,10 @@ export function getStorageReportColumns(
         ),
         minSize: 90,
         maxSize: 170,
-        cell: (info) => (
-          <div className="w-full text-right tabular-nums">
-            {formatNumberOrEmpty(Number(info.getValue() || 0), 0)}
-          </div>
-        ),
+        cell: ({ row }) =>
+          renderStorageBagSizeQuantityCell(
+            getStorageBagSizeCell(row.original, id)
+          ),
       })
     ),
     columnHelper.accessor('totalBags', {

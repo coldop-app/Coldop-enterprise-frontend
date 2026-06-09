@@ -12,9 +12,14 @@ import {
   EXCEL_DATA_ROW_HEIGHT,
   applyExcelRowHeight,
   configureWorksheetForMicrosoftExcel,
-  enforceExcelTableRowHeights,
 } from '@/lib/excel-worksheet-compat';
-import type { IncomingReportRow } from './columns';
+import {
+  formatStorageBagSizeCellForExcel,
+  getIncomingBagValue,
+  getStorageBagSizeCell,
+  isStorageBagSizeColumnId,
+  type IncomingReportRow,
+} from './columns';
 
 const COLORS = {
   titleBg: 'FFFFFFFF',
@@ -41,38 +46,76 @@ const FONTS = {
 } as const;
 
 const SMART_NUMBER_FORMAT = '#,##0.##';
+const EXCEL_MULTILINE_LINE_HEIGHT = 14;
 
-/** Bag quantities + total (exclude gate pass / account ids). */
-const STORAGE_SUM_COLUMN_IDS = new Set<string>([
-  'bagBelow25',
-  'bag25to30',
-  'bagBelow30',
-  'bag30to35',
-  'bag30to40',
-  'bag35to40',
-  'bag40to45',
-  'bag45to50',
-  'bag50to55',
-  'bagAbove50',
-  'bagAbove55',
-  'bagCut',
-  'totalBags',
-]);
+function getBagSizeExcelLineCount(value: string | number): number {
+  if (typeof value === 'number') return 1;
+  const trimmed = String(value).trim();
+  if (!trimmed) return 1;
+  return trimmed.split('\n').length;
+}
 
-function toSumNumber(value: unknown): number {
-  if (value == null) return 0;
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const t = value.trim();
-    if (t === '' || t === '-') return 0;
-    const n = Number(t);
-    return Number.isNaN(n) ? 0 : n;
+function getExcelDataRowHeight(
+  values: Array<string | number>,
+  columnIds: string[]
+): number {
+  let maxLines = 1;
+
+  columnIds.forEach((columnId, index) => {
+    if (!isStorageBagSizeColumnId(columnId)) return;
+    maxLines = Math.max(
+      maxLines,
+      getBagSizeExcelLineCount(values[index] ?? '')
+    );
+  });
+
+  if (maxLines <= 1) return EXCEL_DATA_ROW_HEIGHT;
+  return EXCEL_DATA_ROW_HEIGHT + (maxLines - 1) * EXCEL_MULTILINE_LINE_HEIGHT;
+}
+
+function isStorageBagSizeExcelMultilineValue(
+  columnId: string,
+  value: string | number
+): boolean {
+  return (
+    isStorageBagSizeColumnId(columnId) &&
+    typeof value === 'string' &&
+    value.includes('\n')
+  );
+}
+
+function getExcelCellDisplayLength(cell: string | number): number {
+  if (typeof cell === 'number') {
+    return cell.toLocaleString('en-IN').length;
   }
-  return 0;
+
+  return String(cell)
+    .split('\n')
+    .reduce((max, line) => Math.max(max, line.length), 0);
+}
+
+function enforceExcelTableRowHeightsWithOverrides(
+  worksheet: ExcelJS.Worksheet,
+  fromRowNumber: number,
+  rowHeightsByNumber: Map<number, number>
+): void {
+  worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    if (rowNumber >= fromRowNumber) {
+      applyExcelRowHeight(
+        row,
+        rowHeightsByNumber.get(rowNumber) ?? EXCEL_DATA_ROW_HEIGHT
+      );
+    }
+  });
+}
+
+function isStorageSummableColumnId(columnId: string): boolean {
+  return isStorageBagSizeColumnId(columnId) || columnId === 'totalBags';
 }
 
 function collectStorageLeafColumnSums(
   rows: Row<IncomingReportRow>[],
+  columnIds: string[],
   sums: Record<string, number>
 ): void {
   const visitedRowIds = new Set<string>();
@@ -89,10 +132,13 @@ function collectStorageLeafColumnSums(
         continue;
       }
 
-      for (const id of STORAGE_SUM_COLUMN_IDS) {
-        sums[id] =
-          (sums[id] ?? 0) +
-          toSumNumber(current.getValue(id as keyof IncomingReportRow));
+      for (const id of columnIds) {
+        if (!isStorageSummableColumnId(id)) continue;
+        const nextValue =
+          id === 'totalBags'
+            ? Number(current.original.totalBags ?? 0)
+            : getIncomingBagValue(current.original, id);
+        sums[id] = (sums[id] ?? 0) + nextValue;
       }
     }
   }
@@ -105,7 +151,7 @@ function buildStorageTotalsRowValues(
   return visibleColumns.map((col, idx) => {
     if (idx === 0) return 'Total';
     const id = col.id;
-    if (STORAGE_SUM_COLUMN_IDS.has(id)) return sums[id] ?? 0;
+    if (isStorageSummableColumnId(id)) return sums[id] ?? 0;
     return '';
   });
 }
@@ -261,9 +307,7 @@ function estimateColWidth(
   for (const row of bodyRows) {
     const cell = row[colIndex];
     if (cell !== '' && cell != null) {
-      const str =
-        typeof cell === 'number' ? cell.toLocaleString('en-IN') : String(cell);
-      maxDataChars = Math.max(maxDataChars, str.length);
+      maxDataChars = Math.max(maxDataChars, getExcelCellDisplayLength(cell));
     }
   }
 
@@ -365,14 +409,17 @@ function buildReportHeader(
 function addStyledTable(
   ws: ExcelJS.Worksheet,
   headers: string[],
+  columnIds: string[],
   rows: Array<{
     values: Array<string | number>;
     boldByColumn: boolean[];
     isGroupedOrAggregatedRow: boolean;
   }>
-): number {
+): { tableStartRow: number; rowHeights: Map<number, number> } {
+  const rowHeights = new Map<number, number>();
   const headerRow = ws.addRow(headers);
   applyExcelRowHeight(headerRow, EXCEL_DATA_ROW_HEIGHT);
+  rowHeights.set(headerRow.number, EXCEL_DATA_ROW_HEIGHT);
   headerRow.eachCell((cell) => {
     applyFill(cell, COLORS.headerBg);
     applyBorder(cell, COLORS.borderColor);
@@ -386,11 +433,20 @@ function addStyledTable(
 
   rows.forEach((dataRow) => {
     const exRow = ws.addRow(dataRow.values);
-    applyExcelRowHeight(exRow, EXCEL_DATA_ROW_HEIGHT);
+    const rowHeight = getExcelDataRowHeight(dataRow.values, columnIds);
+    applyExcelRowHeight(exRow, rowHeight);
+    rowHeights.set(exRow.number, rowHeight);
     const bgArgb = dataRow.isGroupedOrAggregatedRow
       ? COLORS.rowEven
       : COLORS.rowOdd;
     exRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
+      const columnId = columnIds[colIndex - 1] ?? '';
+      const rawValue = dataRow.values[colIndex - 1];
+      const isMultilineBagCell = isStorageBagSizeExcelMultilineValue(
+        columnId,
+        rawValue
+      );
+
       applyFill(cell, bgArgb);
       applyBorder(cell, COLORS.borderColor);
       cell.font = {
@@ -398,16 +454,24 @@ function addStyledTable(
         bold: dataRow.boldByColumn[colIndex - 1] === true,
         color: { argb: 'FF1F2937' },
       };
-      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.alignment = {
+        horizontal:
+          typeof rawValue === 'number' || isStorageBagSizeColumnId(columnId)
+            ? 'right'
+            : 'left',
+        vertical: isMultilineBagCell ? 'top' : 'middle',
+        wrapText: isMultilineBagCell,
+      };
 
-      if (typeof dataRow.values[colIndex - 1] === 'number') {
-        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      if (typeof rawValue === 'number') {
         cell.numFmt = SMART_NUMBER_FORMAT;
+      } else if (isMultilineBagCell) {
+        cell.value = rawValue;
       }
     });
   });
 
-  return headerRow.number;
+  return { tableStartRow: headerRow.number, rowHeights };
 }
 
 function getExcelBodyRows(
@@ -458,6 +522,10 @@ function getExcelBodyRows(
           boldByColumn[columnIndex] = true;
         } else if (cell.getIsPlaceholder()) {
           nextRow[columnIndex] = '';
+        } else if (isStorageBagSizeColumnId(columnId)) {
+          nextRow[columnIndex] = formatStorageBagSizeCellForExcel(
+            getStorageBagSizeCell(row.original, columnId)
+          );
         } else {
           const value = row.getValue(columnId);
           nextRow[columnIndex] =
@@ -524,7 +592,8 @@ export const StorageExcelButton = ({
         }));
 
         const sums: Record<string, number> = {};
-        collectStorageLeafColumnSums(sourceRows, sums);
+        const visibleColumnIds = visibleColumns.map((column) => column.id);
+        collectStorageLeafColumnSums(sourceRows, visibleColumnIds, sums);
         const totalsRowValues = buildStorageTotalsRowValues(
           visibleColumns,
           sums
@@ -556,9 +625,22 @@ export const StorageExcelButton = ({
           overviewLines
         );
 
-        const tableStartRow = addStyledTable(worksheet, headerLabels, bodyRows);
+        const { tableStartRow, rowHeights } = addStyledTable(
+          worksheet,
+          headerLabels,
+          visibleColumnIds,
+          bodyRows
+        );
         addTotalsRow(worksheet, totalsRowValues);
-        enforceExcelTableRowHeights(worksheet, tableStartRow);
+        const totalsRowNumber = worksheet.lastRow?.number;
+        if (totalsRowNumber != null) {
+          rowHeights.set(totalsRowNumber, EXCEL_DATA_ROW_HEIGHT);
+        }
+        enforceExcelTableRowHeightsWithOverrides(
+          worksheet,
+          tableStartRow,
+          rowHeights
+        );
 
         const buffer = await workbook.xlsx.writeBuffer();
         return {
