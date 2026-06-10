@@ -35,7 +35,6 @@ import {
   defaultStorageReportColumnVisibility,
   globalManualGatePassFilterFn,
   createEmptyStorageBagSizeCell,
-  formatStorageBagLocation,
   getIncomingBagValue,
   getStorageReportColumns,
   type BagSizeColumnId,
@@ -83,24 +82,18 @@ function getAccountNumber(gatePass: StorageGatePassWithLink): number | null {
   return null;
 }
 
-function mergeUniqueLabels(current: string, next: string): string {
-  const normalized = next.trim();
-  if (!normalized || current === normalized) return current;
-
-  const labels = new Set(current.split(' / ').filter(Boolean));
-  labels.add(normalized);
-  return Array.from(labels).join(' / ');
-}
-
 function accumulateBagSizeCell(
   cell: StorageBagSizeCellValue,
   quantity: number,
-  bagType: string,
-  location: string
+  bagType: string
 ): void {
   cell.quantity += quantity;
-  cell.bagType = mergeUniqueLabels(cell.bagType, bagType);
-  cell.location = mergeUniqueLabels(cell.location, location);
+  const normalizedBagType = bagType.trim();
+  if (!normalizedBagType || cell.bagType === normalizedBagType) return;
+
+  const types = new Set(cell.bagType.split(' / ').filter(Boolean));
+  types.add(normalizedBagType);
+  cell.bagType = Array.from(types).join(' / ');
 }
 
 function getBagSizeValues(
@@ -116,8 +109,7 @@ function getBagSizeValues(
     accumulateBagSizeCell(
       values[columnId],
       Number(bagSize.initialQuantity || 0),
-      String(bagSize.bagType ?? ''),
-      formatStorageBagLocation(bagSize.chamber, bagSize.floor, bagSize.row)
+      String(bagSize.bagType ?? '')
     );
   }
   return values;

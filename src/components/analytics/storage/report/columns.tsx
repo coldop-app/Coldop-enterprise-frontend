@@ -17,21 +17,7 @@ import {
 export type StorageBagSizeCellValue = {
   quantity: number;
   bagType: string;
-  location: string;
 };
-
-export function formatStorageBagLocation(
-  chamber: string,
-  floor: string,
-  row: string
-): string {
-  const parts = [chamber, floor, row]
-    .map((part) => String(part ?? '').trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) return '';
-  return `(${parts.join(' - ')})`;
-}
 
 export type IncomingReportRow = {
   id: string;
@@ -79,7 +65,7 @@ export type BagSizeColumnId =
   | `bagSize__${string}`;
 
 export function createEmptyStorageBagSizeCell(): StorageBagSizeCellValue {
-  return { quantity: 0, bagType: '', location: '' };
+  return { quantity: 0, bagType: '' };
 }
 
 export function getStorageBagSizeCell(
@@ -132,11 +118,6 @@ function renderStorageBagSizeQuantityCell(value?: StorageBagSizeCellValue) {
           {value.bagType}
         </span>
       ) : null}
-      {value.location ? (
-        <span className="font-custom text-muted-foreground text-[10px] font-normal">
-          {value.location}
-        </span>
-      ) : null}
     </div>
   );
 }
@@ -146,14 +127,10 @@ export function formatStorageBagSizeCellForExcel(
 ): string | number {
   if (!value || value.quantity <= 0) return '';
 
-  const lines = [value.quantity.toLocaleString('en-IN')];
   const bagType = value.bagType.trim();
-  const location = value.location.trim();
+  if (!bagType) return value.quantity;
 
-  if (bagType) lines.push(bagType.toUpperCase());
-  if (location) lines.push(location);
-
-  return lines.length === 1 ? value.quantity : lines.join('\n');
+  return `${value.quantity.toLocaleString('en-IN')}\n${bagType.toUpperCase()}`;
 }
 
 export const DEFAULT_BAG_SIZE_COLUMN_CONFIG: Array<{
