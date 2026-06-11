@@ -15,17 +15,8 @@ import {
   NikasiExcelButton,
   type NikasiReportExportContext,
 } from './nikasi-excel-button';
-
-function toApiDate(value: string): string | undefined {
-  const [day, month, year] = value.split('.');
-  if (!day || !month || !year) return undefined;
-
-  const normalizedDay = day.padStart(2, '0');
-  const normalizedMonth = month.padStart(2, '0');
-  if (year.length !== 4) return undefined;
-
-  return `${year}-${normalizedMonth}-${normalizedDay}`;
-}
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
+import { useAnalyticsDateFilters } from '@/routes/store-admin/_authenticated/analytics/-analytics-date-search';
 
 function filterSourceRowsByManualGatePassSearch(
   rows: NikasiGatePassReportDataRow[],
@@ -45,10 +36,17 @@ const NikasiReportTable = () => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [appliedFromDate, setAppliedFromDate] = useState('');
-  const [appliedToDate, setAppliedToDate] = useState('');
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedFromDate,
+    appliedToDate,
+    hasAppliedFilters,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
   const [manualGatePassSearch, setManualGatePassSearch] = useState('');
   const [isViewFiltersOpen, setIsViewFiltersOpen] = useState(false);
   const [exportContext, setExportContext] =
@@ -61,15 +59,13 @@ const NikasiReportTable = () => {
     []
   );
 
-  const hasDateFilters = Boolean(fromDate && toDate);
-  const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
-  const canApply = hasDateFilters;
+  const canApply = Boolean(fromDate && toDate);
 
   const { data, isFetching, isLoading, isError, error, refetch } =
     useGetNikasiGatePassReport(
       {
-        fromDate: hasAppliedDateFilters ? appliedFromDate : undefined,
-        toDate: hasAppliedDateFilters ? appliedToDate : undefined,
+        fromDate: hasAppliedFilters ? appliedFromDate : undefined,
+        toDate: hasAppliedFilters ? appliedToDate : undefined,
       },
       { enabled: true }
     );
@@ -97,6 +93,7 @@ const NikasiReportTable = () => {
           className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
         >
           <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
+            <AnalyticsBackLink />
             <div className="flex items-end gap-2 self-end">
               <DatePicker
                 id="nikasi-analytics-from-date"
@@ -123,26 +120,14 @@ const NikasiReportTable = () => {
               <Button
                 className="h-8 rounded-lg px-4 text-sm shadow-none"
                 disabled={!canApply}
-                onClick={() => {
-                  if (!hasDateFilters) return;
-                  const nextFromDate = toApiDate(fromDate);
-                  const nextToDate = toApiDate(toDate);
-                  if (!nextFromDate || !nextToDate) return;
-                  setAppliedFromDate(nextFromDate);
-                  setAppliedToDate(nextToDate);
-                }}
+                onClick={apply}
               >
                 Apply
               </Button>
               <Button
                 variant="outline"
                 className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                onClick={() => {
-                  setFromDate('');
-                  setToDate('');
-                  setAppliedFromDate('');
-                  setAppliedToDate('');
-                }}
+                onClick={reset}
               >
                 Reset
               </Button>

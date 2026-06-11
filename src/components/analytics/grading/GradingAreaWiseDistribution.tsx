@@ -61,11 +61,12 @@ function navigateToAreaBreakdown(
 ) {
   void navigate({
     to: '/store-admin/analytics/area-breakdown',
-    search: {
+    search: (prev) => ({
+      ...prev,
       ...(params.area ? { area: params.area } : {}),
       variety: params.variety,
       ...(params.size ? { size: params.size } : {}),
-    },
+    }),
   });
 }
 

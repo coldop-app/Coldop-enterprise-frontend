@@ -139,6 +139,12 @@ const AppSidebar = () => {
                         preloadDelay={100}
                         activeOptions={{ exact: true }}
                         to={item.href}
+                        search={
+                          item.href === '/store-admin/analytics' &&
+                          pathname.startsWith('/store-admin/analytics')
+                            ? true
+                            : undefined
+                        }
                       >
                         <Icon className="h-4 w-4 text-current" />
                         <span>{item.name}</span>

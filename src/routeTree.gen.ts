@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ZustandIndexRouteImport } from './routes/zustand/index'
 import { Route as StoreAdminAuthenticatedRouteImport } from './routes/store-admin/_authenticated'
 import { Route as StoreAdminLoginIndexRouteImport } from './routes/store-admin/login/index'
+import { Route as StoreAdminAuthenticatedAnalyticsRouteRouteImport } from './routes/store-admin/_authenticated/analytics/route'
 import { Route as StoreAdminAuthenticatedStorageGatePassIndexRouteImport } from './routes/store-admin/_authenticated/storage-gate-pass/index'
 import { Route as StoreAdminAuthenticatedSettingsIndexRouteImport } from './routes/store-admin/_authenticated/settings/index'
 import { Route as StoreAdminAuthenticatedPeopleIndexRouteImport } from './routes/store-admin/_authenticated/people/index'
@@ -73,6 +74,12 @@ const StoreAdminLoginIndexRoute = StoreAdminLoginIndexRouteImport.update({
   path: '/store-admin/login/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StoreAdminAuthenticatedAnalyticsRouteRoute =
+  StoreAdminAuthenticatedAnalyticsRouteRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => StoreAdminAuthenticatedRoute,
+  } as any)
 const StoreAdminAuthenticatedStorageGatePassIndexRoute =
   StoreAdminAuthenticatedStorageGatePassIndexRouteImport.update({
     id: '/storage-gate-pass/',
@@ -129,9 +136,9 @@ const StoreAdminAuthenticatedContractTestIndexRoute =
   } as any)
 const StoreAdminAuthenticatedAnalyticsIndexRoute =
   StoreAdminAuthenticatedAnalyticsIndexRouteImport.update({
-    id: '/analytics/',
-    path: '/analytics/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute =
   StoreAdminAuthenticatedStorageGatePassHistoryIndexRouteImport.update({
@@ -219,9 +226,9 @@ const StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute =
   } as any)
 const StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute =
   StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRouteImport.update({
-    id: '/analytics/area-breakdown/',
-    path: '/analytics/area-breakdown/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/area-breakdown/',
+    path: '/area-breakdown/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedSettingsMasterStationsIndexRoute =
   StoreAdminAuthenticatedSettingsMasterStationsIndexRouteImport.update({
@@ -261,54 +268,54 @@ const StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
   )
 const StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport.update({
-    id: '/analytics/reports/ungraded/',
-    path: '/analytics/reports/ungraded/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/reports/ungraded/',
+    path: '/reports/ungraded/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport.update({
-    id: '/analytics/reports/storage/',
-    path: '/analytics/reports/storage/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/reports/storage/',
+    path: '/reports/storage/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsShedIndexRouteImport.update({
-    id: '/analytics/reports/shed/',
-    path: '/analytics/reports/shed/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/reports/shed/',
+    path: '/reports/shed/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport.update({
-    id: '/analytics/reports/incoming/',
-    path: '/analytics/reports/incoming/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/reports/incoming/',
+    path: '/reports/incoming/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport.update({
-    id: '/analytics/reports/grading/',
-    path: '/analytics/reports/grading/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/reports/grading/',
+    path: '/reports/grading/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport.update({
-    id: '/analytics/reports/farmer-seed/',
-    path: '/analytics/reports/farmer-seed/',
-    getParentRoute: () => StoreAdminAuthenticatedRoute,
+    id: '/reports/farmer-seed/',
+    path: '/reports/farmer-seed/',
+    getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
   } as any)
 const StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRouteImport.update(
     {
-      id: '/analytics/reports/dispatch-pre-storage/',
-      path: '/analytics/reports/dispatch-pre-storage/',
-      getParentRoute: () => StoreAdminAuthenticatedRoute,
+      id: '/reports/dispatch-pre-storage/',
+      path: '/reports/dispatch-pre-storage/',
+      getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
     } as any,
   )
 const StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute =
   StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport.update(
     {
-      id: '/analytics/reports/contract-farming/',
-      path: '/analytics/reports/contract-farming/',
-      getParentRoute: () => StoreAdminAuthenticatedRoute,
+      id: '/reports/contract-farming/',
+      path: '/reports/contract-farming/',
+      getParentRoute: () => StoreAdminAuthenticatedAnalyticsRouteRoute,
     } as any,
   )
 const StoreAdminAuthenticatedPeopleDispatchLedgerIdDispatchLedgerReportIndexRoute =
@@ -324,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/store-admin': typeof StoreAdminAuthenticatedRouteWithChildren
   '/zustand/': typeof ZustandIndexRoute
+  '/store-admin/analytics': typeof StoreAdminAuthenticatedAnalyticsRouteRouteWithChildren
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/contract-test/': typeof StoreAdminAuthenticatedContractTestIndexRoute
@@ -415,6 +423,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/store-admin/_authenticated': typeof StoreAdminAuthenticatedRouteWithChildren
   '/zustand/': typeof ZustandIndexRoute
+  '/store-admin/_authenticated/analytics': typeof StoreAdminAuthenticatedAnalyticsRouteRouteWithChildren
   '/store-admin/login/': typeof StoreAdminLoginIndexRoute
   '/store-admin/_authenticated/analytics/': typeof StoreAdminAuthenticatedAnalyticsIndexRoute
   '/store-admin/_authenticated/contract-test/': typeof StoreAdminAuthenticatedContractTestIndexRoute
@@ -462,6 +471,7 @@ export interface FileRouteTypes {
     | '/'
     | '/store-admin'
     | '/zustand/'
+    | '/store-admin/analytics'
     | '/store-admin/login/'
     | '/store-admin/analytics/'
     | '/store-admin/contract-test/'
@@ -552,6 +562,7 @@ export interface FileRouteTypes {
     | '/'
     | '/store-admin/_authenticated'
     | '/zustand/'
+    | '/store-admin/_authenticated/analytics'
     | '/store-admin/login/'
     | '/store-admin/_authenticated/analytics/'
     | '/store-admin/_authenticated/contract-test/'
@@ -631,6 +642,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StoreAdminLoginIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/store-admin/_authenticated/analytics': {
+      id: '/store-admin/_authenticated/analytics'
+      path: '/analytics'
+      fullPath: '/store-admin/analytics'
+      preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRouteImport
+      parentRoute: typeof StoreAdminAuthenticatedRoute
+    }
     '/store-admin/_authenticated/storage-gate-pass/': {
       id: '/store-admin/_authenticated/storage-gate-pass/'
       path: '/storage-gate-pass'
@@ -696,10 +714,10 @@ declare module '@tanstack/react-router' {
     }
     '/store-admin/_authenticated/analytics/': {
       id: '/store-admin/_authenticated/analytics/'
-      path: '/analytics'
+      path: '/'
       fullPath: '/store-admin/analytics/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/storage-gate-pass/history/': {
       id: '/store-admin/_authenticated/storage-gate-pass/history/'
@@ -801,10 +819,10 @@ declare module '@tanstack/react-router' {
     }
     '/store-admin/_authenticated/analytics/area-breakdown/': {
       id: '/store-admin/_authenticated/analytics/area-breakdown/'
-      path: '/analytics/area-breakdown'
+      path: '/area-breakdown'
       fullPath: '/store-admin/analytics/area-breakdown/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/settings/master/stations/': {
       id: '/store-admin/_authenticated/settings/master/stations/'
@@ -843,59 +861,59 @@ declare module '@tanstack/react-router' {
     }
     '/store-admin/_authenticated/analytics/reports/ungraded/': {
       id: '/store-admin/_authenticated/analytics/reports/ungraded/'
-      path: '/analytics/reports/ungraded'
+      path: '/reports/ungraded'
       fullPath: '/store-admin/analytics/reports/ungraded/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/storage/': {
       id: '/store-admin/_authenticated/analytics/reports/storage/'
-      path: '/analytics/reports/storage'
+      path: '/reports/storage'
       fullPath: '/store-admin/analytics/reports/storage/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/shed/': {
       id: '/store-admin/_authenticated/analytics/reports/shed/'
-      path: '/analytics/reports/shed'
+      path: '/reports/shed'
       fullPath: '/store-admin/analytics/reports/shed/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsShedIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/incoming/': {
       id: '/store-admin/_authenticated/analytics/reports/incoming/'
-      path: '/analytics/reports/incoming'
+      path: '/reports/incoming'
       fullPath: '/store-admin/analytics/reports/incoming/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/grading/': {
       id: '/store-admin/_authenticated/analytics/reports/grading/'
-      path: '/analytics/reports/grading'
+      path: '/reports/grading'
       fullPath: '/store-admin/analytics/reports/grading/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/farmer-seed/': {
       id: '/store-admin/_authenticated/analytics/reports/farmer-seed/'
-      path: '/analytics/reports/farmer-seed'
+      path: '/reports/farmer-seed'
       fullPath: '/store-admin/analytics/reports/farmer-seed/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/': {
       id: '/store-admin/_authenticated/analytics/reports/dispatch-pre-storage/'
-      path: '/analytics/reports/dispatch-pre-storage'
+      path: '/reports/dispatch-pre-storage'
       fullPath: '/store-admin/analytics/reports/dispatch-pre-storage/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/analytics/reports/contract-farming/': {
       id: '/store-admin/_authenticated/analytics/reports/contract-farming/'
-      path: '/analytics/reports/contract-farming'
+      path: '/reports/contract-farming'
       fullPath: '/store-admin/analytics/reports/contract-farming/'
       preLoaderRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRouteImport
-      parentRoute: typeof StoreAdminAuthenticatedRoute
+      parentRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRoute
     }
     '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/': {
       id: '/store-admin/_authenticated/people/dispatch-ledger/$id/dispatch-ledger-report/'
@@ -907,8 +925,50 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface StoreAdminAuthenticatedRouteChildren {
+interface StoreAdminAuthenticatedAnalyticsRouteRouteChildren {
   StoreAdminAuthenticatedAnalyticsIndexRoute: typeof StoreAdminAuthenticatedAnalyticsIndexRoute
+  StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute: typeof StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
+  StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
+}
+
+const StoreAdminAuthenticatedAnalyticsRouteRouteChildren: StoreAdminAuthenticatedAnalyticsRouteRouteChildren =
+  {
+    StoreAdminAuthenticatedAnalyticsIndexRoute:
+      StoreAdminAuthenticatedAnalyticsIndexRoute,
+    StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute:
+      StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute,
+    StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute:
+      StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute,
+  }
+
+const StoreAdminAuthenticatedAnalyticsRouteRouteWithChildren =
+  StoreAdminAuthenticatedAnalyticsRouteRoute._addFileChildren(
+    StoreAdminAuthenticatedAnalyticsRouteRouteChildren,
+  )
+
+interface StoreAdminAuthenticatedRouteChildren {
+  StoreAdminAuthenticatedAnalyticsRouteRoute: typeof StoreAdminAuthenticatedAnalyticsRouteRouteWithChildren
   StoreAdminAuthenticatedContractTestIndexRoute: typeof StoreAdminAuthenticatedContractTestIndexRoute
   StoreAdminAuthenticatedDaybookIndexRoute: typeof StoreAdminAuthenticatedDaybookIndexRoute
   StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassIndexRoute
@@ -918,7 +978,6 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedPeopleIndexRoute: typeof StoreAdminAuthenticatedPeopleIndexRoute
   StoreAdminAuthenticatedSettingsIndexRoute: typeof StoreAdminAuthenticatedSettingsIndexRoute
   StoreAdminAuthenticatedStorageGatePassIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassIndexRoute
-  StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute: typeof StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute
   StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute
   StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute
   StoreAdminAuthenticatedGradingGatePassEditIndexRoute: typeof StoreAdminAuthenticatedGradingGatePassEditIndexRoute
@@ -933,14 +992,6 @@ interface StoreAdminAuthenticatedRouteChildren {
   StoreAdminAuthenticatedSettingsRbacIndexRoute: typeof StoreAdminAuthenticatedSettingsRbacIndexRoute
   StoreAdminAuthenticatedStorageGatePassEditIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassEditIndexRoute
   StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute: typeof StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute
-  StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute: typeof StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute
   StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute: typeof StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFinanceReportIndexRoute
@@ -951,8 +1002,8 @@ interface StoreAdminAuthenticatedRouteChildren {
 
 const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren =
   {
-    StoreAdminAuthenticatedAnalyticsIndexRoute:
-      StoreAdminAuthenticatedAnalyticsIndexRoute,
+    StoreAdminAuthenticatedAnalyticsRouteRoute:
+      StoreAdminAuthenticatedAnalyticsRouteRouteWithChildren,
     StoreAdminAuthenticatedContractTestIndexRoute:
       StoreAdminAuthenticatedContractTestIndexRoute,
     StoreAdminAuthenticatedDaybookIndexRoute:
@@ -971,8 +1022,6 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedSettingsIndexRoute,
     StoreAdminAuthenticatedStorageGatePassIndexRoute:
       StoreAdminAuthenticatedStorageGatePassIndexRoute,
-    StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute:
-      StoreAdminAuthenticatedAnalyticsAreaBreakdownIndexRoute,
     StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute:
       StoreAdminAuthenticatedFarmerSeedGatePassEditIndexRoute,
     StoreAdminAuthenticatedFarmerSeedGatePassHistoryIndexRoute:
@@ -1001,22 +1050,6 @@ const StoreAdminAuthenticatedRouteChildren: StoreAdminAuthenticatedRouteChildren
       StoreAdminAuthenticatedStorageGatePassEditIndexRoute,
     StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute:
       StoreAdminAuthenticatedStorageGatePassHistoryIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsContractFarmingIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsDispatchPreStorageIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsFarmerSeedIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsGradingIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsIncomingIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsShedIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsStorageIndexRoute,
-    StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute:
-      StoreAdminAuthenticatedAnalyticsReportsUngradedIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute:
       StoreAdminAuthenticatedPeopleFarmerStorageLinkIdAccountingReportIndexRoute,
     StoreAdminAuthenticatedPeopleFarmerStorageLinkIdFarmerReportIndexRoute:

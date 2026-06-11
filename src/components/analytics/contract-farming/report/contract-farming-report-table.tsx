@@ -70,6 +70,7 @@ import { ContractFarmingReportDataTable } from './contract-farming-report-data-t
 import { GRADE_BAG_COLUMN_KEY_PREFIX, type FlattenedRow } from './types';
 import { ContractFarmingExcelButton } from './contract-farming-excel-button';
 import { ContractFarmingViewFiltersSheet } from './view-filters-sheet';
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
 
 const DEFAULT_COLUMN_SIZE = 170;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
@@ -638,6 +639,7 @@ export default function ContractFarmingReportTable() {
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
+              <AnalyticsBackLink />
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2 self-end">
                 <div className="relative w-[170px] sm:w-[220px]">
                   <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />

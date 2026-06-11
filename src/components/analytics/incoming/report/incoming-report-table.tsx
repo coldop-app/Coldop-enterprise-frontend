@@ -41,6 +41,8 @@ import {
   type IncomingReportRow,
 } from './columns';
 import { IncomingReportDataTable } from './incoming-report-data-table';
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
+import { useAnalyticsDateFilters } from '@/routes/store-admin/_authenticated/analytics/-analytics-date-search';
 
 const DEFAULT_COLUMN_SIZE = 170;
 const DEFAULT_COLUMN_MIN_SIZE = 120;
@@ -139,17 +141,6 @@ function toSortableDateValue(value?: string): number {
   return parsed.getTime();
 }
 
-function toApiDate(value: string): string | undefined {
-  const [day, month, year] = value.split('.');
-  if (!day || !month || !year) return undefined;
-
-  const normalizedDay = day.padStart(2, '0');
-  const normalizedMonth = month.padStart(2, '0');
-  if (year.length !== 4) return undefined;
-
-  return `${year}-${normalizedMonth}-${normalizedDay}`;
-}
-
 function subtractWithPrecision(
   grossWeightKg: number,
   tareWeightKg: number
@@ -174,10 +165,17 @@ const IncomingReportTable = ({
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
 
-  const [fromDate, setFromDate] = React.useState('');
-  const [toDate, setToDate] = React.useState('');
-  const [appliedFromDate, setAppliedFromDate] = React.useState('');
-  const [appliedToDate, setAppliedToDate] = React.useState('');
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedFromDate,
+    appliedToDate,
+    hasAppliedFilters,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -199,13 +197,11 @@ const IncomingReportTable = ({
   const [columnResizeDirection, setColumnResizeDirection] =
     React.useState<ColumnResizeDirection>('ltr');
 
-  const hasDateFilters = Boolean(fromDate && toDate);
-  const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
   const canApply = Boolean(fromDate && toDate);
 
   const reportParams = {
-    fromDate: hasAppliedDateFilters ? appliedFromDate : undefined,
-    toDate: hasAppliedDateFilters ? appliedToDate : undefined,
+    fromDate: hasAppliedFilters ? appliedFromDate : undefined,
+    toDate: hasAppliedFilters ? appliedToDate : undefined,
   };
 
   const incomingQuery = useGetIncomingGatePassReport(reportParams, {
@@ -375,6 +371,7 @@ const IncomingReportTable = ({
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
+              <AnalyticsBackLink />
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="analytics-from-date"
@@ -401,26 +398,14 @@ const IncomingReportTable = ({
                 <Button
                   className="h-8 rounded-lg px-4 text-sm shadow-none"
                   disabled={!canApply}
-                  onClick={() => {
-                    if (!hasDateFilters) return;
-                    const nextFromDate = toApiDate(fromDate);
-                    const nextToDate = toApiDate(toDate);
-                    if (!nextFromDate || !nextToDate) return;
-                    setAppliedFromDate(nextFromDate);
-                    setAppliedToDate(nextToDate);
-                  }}
+                  onClick={apply}
                 >
                   Apply
                 </Button>
                 <Button
                   variant="outline"
                   className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                  onClick={() => {
-                    setFromDate('');
-                    setToDate('');
-                    setAppliedFromDate('');
-                    setAppliedToDate('');
-                  }}
+                  onClick={reset}
                 >
                   Reset
                 </Button>

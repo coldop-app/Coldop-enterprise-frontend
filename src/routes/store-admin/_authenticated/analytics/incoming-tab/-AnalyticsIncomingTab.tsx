@@ -1,6 +1,6 @@
 import IncomingVarietyChart from '@/components/analytics/incoming/IncomingVarietyChart';
 import IncomingDailyBreakdown from '@/components/analytics/incoming/IncomingDailyBreakdown';
-import type { AnalyticsDateRange } from '../index';
+import type { AnalyticsDateRange } from '../-analytics-date-search';
 
 interface AnalyticsIncomingTabProps {
   dateRange: AnalyticsDateRange;

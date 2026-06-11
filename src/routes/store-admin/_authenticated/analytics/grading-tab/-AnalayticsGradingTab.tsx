@@ -1,7 +1,7 @@
 import GradingSizeDistributionChart from '@/components/analytics/grading/GradingSizeDistributionChart';
 import GradingDailyBreakdown from '@/components/analytics/grading/GradingDailyBreakdown';
 import GradingAreaWiseDistribution from '@/components/analytics/grading/GradingAreaWiseDistribution';
-import type { AnalyticsDateRange } from '../index';
+import type { AnalyticsDateRange } from '../-analytics-date-search';
 
 interface AnalayticsGradingTabProps {
   dateRange: AnalyticsDateRange;

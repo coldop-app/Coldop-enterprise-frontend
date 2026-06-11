@@ -1,6 +1,6 @@
 import StorageDailyBreakdown from '@/components/analytics/storage/StorageDailyBreakdown';
 import StorageSummaryTable from '@/components/analytics/storage/StorageSummaryTable';
-import type { AnalyticsDateRange } from '../index';
+import type { AnalyticsDateRange } from '../-analytics-date-search';
 
 interface AnalyticsStorageTabProps {
   dateRange?: AnalyticsDateRange;

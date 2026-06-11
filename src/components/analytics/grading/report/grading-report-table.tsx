@@ -51,17 +51,8 @@ import {
 import { GradingExcelButton } from './grading-excel-button';
 import { GradingReportDataTable } from './grading-report-data-table';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
-
-function toApiDate(value: string): string | undefined {
-  const [day, month, year] = value.split('.');
-  if (!day || !month || !year) return undefined;
-
-  const normalizedDay = day.padStart(2, '0');
-  const normalizedMonth = month.padStart(2, '0');
-  if (year.length !== 4) return undefined;
-
-  return `${year}-${normalizedMonth}-${normalizedDay}`;
-}
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
+import { useAnalyticsDateFilters } from '@/routes/store-admin/_authenticated/analytics/-analytics-date-search';
 
 function normalizePreferenceBagSize(value: string): string {
   return value
@@ -128,10 +119,16 @@ const GradingReportTable = () => {
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
   const preferences = usePreferencesStore((store) => store.preferences);
-  const [fromDate, setFromDate] = React.useState('');
-  const [toDate, setToDate] = React.useState('');
-  const [appliedFromDate, setAppliedFromDate] = React.useState('');
-  const [appliedToDate, setAppliedToDate] = React.useState('');
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedFromDate,
+    appliedToDate,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState(
@@ -275,22 +272,6 @@ const GradingReportTable = () => {
     getRowId: (row) => `${row.gradingGatePass._id}_${row.incomingSubIndex}`,
   });
 
-  const handleApply = () => {
-    if (!hasDateFilters) return;
-    const nextFromDate = toApiDate(fromDate);
-    const nextToDate = toApiDate(toDate);
-    if (!nextFromDate || !nextToDate) return;
-    setAppliedFromDate(nextFromDate);
-    setAppliedToDate(nextToDate);
-  };
-
-  const handleResetFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setAppliedFromDate('');
-    setAppliedToDate('');
-  };
-
   const rows = table.getRowModel().rows;
   const filteredRows = table.getFilteredRowModel().rows;
   const totalFilteredEntries = filteredRows.length;
@@ -359,6 +340,7 @@ const GradingReportTable = () => {
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-3 lg:flex-nowrap">
+              <AnalyticsBackLink />
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="grading-report-from-date"
@@ -386,7 +368,7 @@ const GradingReportTable = () => {
                   type="button"
                   className="h-8 rounded-lg px-4 text-sm shadow-none"
                   disabled={!canApply}
-                  onClick={handleApply}
+                  onClick={apply}
                 >
                   Apply
                 </Button>
@@ -394,7 +376,7 @@ const GradingReportTable = () => {
                   type="button"
                   variant="outline"
                   className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                  onClick={handleResetFilters}
+                  onClick={reset}
                 >
                   Reset
                 </Button>

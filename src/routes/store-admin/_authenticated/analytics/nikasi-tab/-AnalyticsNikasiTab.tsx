@@ -1,5 +1,5 @@
 import NikasiSummaryTable from '@/components/analytics/nikasi/NikasiSummaryTable';
-import type { AnalyticsDateRange } from '../index';
+import type { AnalyticsDateRange } from '../-analytics-date-search';
 
 interface AnalyticsNikasiTabProps {
   dateRange?: AnalyticsDateRange;

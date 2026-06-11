@@ -37,6 +37,8 @@ import {
   type FarmerSeedReportRow,
 } from './columns';
 import { FarmerSeedReportDataTable } from './farmer-seed-report-data-table';
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
+import { useAnalyticsDateFilters } from '@/routes/store-admin/_authenticated/analytics/-analytics-date-search';
 
 const DEFAULT_COLUMN_SIZE = 170;
 const DEFAULT_COLUMN_MIN_SIZE = 110;
@@ -67,13 +69,6 @@ function toSortableDateValue(value?: string): number {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 0;
   return parsed.getTime();
-}
-
-function toApiDate(value: string): string | undefined {
-  const [day, month, year] = value.split('.');
-  if (!day || !month || !year) return undefined;
-  if (year.length !== 4) return undefined;
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
 function getFarmerData(item: FarmerSeedReportEntry) {
@@ -264,10 +259,17 @@ const FarmerSeedReportTable = () => {
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
   const preferences = usePreferencesStore((state) => state.preferences);
-  const [fromDate, setFromDate] = React.useState('');
-  const [toDate, setToDate] = React.useState('');
-  const [appliedFromDate, setAppliedFromDate] = React.useState('');
-  const [appliedToDate, setAppliedToDate] = React.useState('');
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedFromDate,
+    appliedToDate,
+    hasAppliedFilters,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
@@ -299,15 +301,13 @@ const FarmerSeedReportTable = () => {
   const hasInitializedBagVisibilityRef = React.useRef(false);
   const hasInitializedColumnOrderRef = React.useRef(false);
 
-  const hasDateFilters = Boolean(fromDate && toDate);
-  const hasAppliedDateFilters = Boolean(appliedFromDate && appliedToDate);
   const canApply = Boolean(fromDate && toDate);
 
   const { data, isFetching, isLoading, isError, error, refetch } =
     useGetFarmerSeedReport(
       {
-        fromDate: hasAppliedDateFilters ? appliedFromDate : undefined,
-        toDate: hasAppliedDateFilters ? appliedToDate : undefined,
+        fromDate: hasAppliedFilters ? appliedFromDate : undefined,
+        toDate: hasAppliedFilters ? appliedToDate : undefined,
       },
       { enabled: true }
     );
@@ -482,22 +482,6 @@ const FarmerSeedReportTable = () => {
     [visibleColumnIds]
   );
 
-  const handleApply = () => {
-    if (!hasDateFilters) return;
-    const nextFromDate = toApiDate(fromDate);
-    const nextToDate = toApiDate(toDate);
-    if (!nextFromDate || !nextToDate) return;
-    setAppliedFromDate(nextFromDate);
-    setAppliedToDate(nextToDate);
-  };
-
-  const handleResetFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setAppliedFromDate('');
-    setAppliedToDate('');
-  };
-
   return (
     <>
       <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -508,6 +492,7 @@ const FarmerSeedReportTable = () => {
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
+              <AnalyticsBackLink />
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="analytics-seed-from-date"
@@ -534,14 +519,14 @@ const FarmerSeedReportTable = () => {
                 <Button
                   className="h-8 rounded-lg px-4 text-sm shadow-none"
                   disabled={!canApply}
-                  onClick={handleApply}
+                  onClick={apply}
                 >
                   Apply
                 </Button>
                 <Button
                   variant="outline"
                   className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                  onClick={handleResetFilters}
+                  onClick={reset}
                 >
                   Reset
                 </Button>

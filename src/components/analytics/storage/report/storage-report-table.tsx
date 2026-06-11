@@ -28,6 +28,8 @@ import { resolveBagSizeColumnId } from '@/lib/bag-size-columns';
 import { usePreferencesStore, useStore } from '@/stores/store';
 import { ViewFiltersSheet } from './view-filters-sheet/index';
 import { StorageExcelButton } from './storage-excel-button';
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
+import { useAnalyticsDateFilters } from '@/routes/store-admin/_authenticated/analytics/-analytics-date-search';
 import {
   getBagSizeColumnConfig,
   getDefaultColumnOrder,
@@ -136,21 +138,20 @@ function toSortableDateValue(value?: string): number {
   return parsed.getTime();
 }
 
-function toApiDate(value: string): string | undefined {
-  const [day, month, year] = value.split('.');
-  if (!day || !month || !year) return undefined;
-  if (year.length !== 4) return undefined;
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-}
-
 const StorageReportTable = () => {
   const coldStorageName = useStore(
     (state) => state.coldStorage?.name?.trim() || 'Cold Storage'
   );
-  const [fromDate, setFromDate] = React.useState('');
-  const [toDate, setToDate] = React.useState('');
-  const [appliedFromDate, setAppliedFromDate] = React.useState('');
-  const [appliedToDate, setAppliedToDate] = React.useState('');
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedFromDate,
+    appliedToDate,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
   const [isViewFiltersOpen, setIsViewFiltersOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const preferences = usePreferencesStore((state) => state.preferences);
@@ -383,6 +384,7 @@ const StorageReportTable = () => {
             className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
           >
             <div className="flex w-full flex-wrap items-end gap-3 lg:flex-nowrap">
+              <AnalyticsBackLink />
               <div className="flex items-end gap-2 self-end">
                 <DatePicker
                   id="analytics-from-date"
@@ -407,25 +409,14 @@ const StorageReportTable = () => {
                 <Button
                   className="h-8 rounded-lg px-4 text-sm shadow-none"
                   disabled={!fromDate || !toDate}
-                  onClick={() => {
-                    const nextFromDate = toApiDate(fromDate);
-                    const nextToDate = toApiDate(toDate);
-                    if (!nextFromDate || !nextToDate) return;
-                    setAppliedFromDate(nextFromDate);
-                    setAppliedToDate(nextToDate);
-                  }}
+                  onClick={apply}
                 >
                   Apply
                 </Button>
                 <Button
                   variant="outline"
                   className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
-                  onClick={() => {
-                    setFromDate('');
-                    setToDate('');
-                    setAppliedFromDate('');
-                    setAppliedToDate('');
-                  }}
+                  onClick={reset}
                 >
                   Reset
                 </Button>

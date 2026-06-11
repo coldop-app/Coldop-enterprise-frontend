@@ -1,6 +1,6 @@
-import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Building2, RefreshCw } from 'lucide-react';
+import { Building2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
 import { Item, ItemHeader, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useGetShedStockReport } from '@/services/store-admin/general/useGetShedStockReport';
 import type { ShedStockReportSourceVariety } from '@/types/analytics';
@@ -34,15 +34,7 @@ const ShedReportPage = () => {
       <Item variant="outline" size="sm" className="rounded-xl shadow-sm">
         <ItemHeader className="h-full flex-wrap gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Button variant="ghost" size="icon-sm" className="shrink-0" asChild>
-              <Link
-                to="/store-admin/analytics"
-                className="focus-visible:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                aria-label="Back to analytics"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
+            <AnalyticsBackLink />
             <ItemMedia variant="icon" className="rounded-lg">
               <Building2 className="text-primary h-5 w-5" />
             </ItemMedia>

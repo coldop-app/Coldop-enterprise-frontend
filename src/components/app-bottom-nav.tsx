@@ -77,6 +77,12 @@ const AppBottomNav = () => {
             <Link
               key={item.name}
               to={item.href}
+              search={
+                item.href === '/store-admin/analytics' &&
+                pathname.startsWith('/store-admin/analytics')
+                  ? true
+                  : undefined
+              }
               className={cn(
                 'font-custom focus-visible:ring-primary flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-t px-2 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
                 item.isActive ? 'text-primary' : 'text-foreground/70'

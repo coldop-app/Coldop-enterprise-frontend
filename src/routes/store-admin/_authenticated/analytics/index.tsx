@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 import {
   ArrowRightFromLine,
   ArrowRightLeft,
@@ -31,6 +30,9 @@ import AnalyticsStorageTab from './storage-tab/-AnalyticsStorageTab';
 import AnalayticsGradingTab from './grading-tab/-AnalayticsGradingTab';
 import AnalyticsNikasiTab from './nikasi-tab/-AnalyticsNikasiTab';
 import AnalyticsOutgoingTab from './outgoing-tab/-AnalyticsOutgoingTab';
+import { useAnalyticsDateFilters } from './-analytics-date-search';
+
+export type { AnalyticsDateRange } from './-analytics-date-search';
 
 export const Route = createFileRoute('/store-admin/_authenticated/analytics/')({
   component: RouteComponent,
@@ -47,32 +49,16 @@ const ANALYTICS_TABS = [
 
 type AnalyticsTab = (typeof ANALYTICS_TABS)[number];
 
-export interface AnalyticsDateRange {
-  fromDate: string;
-  toDate: string;
-}
-
-function toApiDate(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === '') return '';
-
-  const [day, month, year] = trimmed.split('.');
-  if (!day || !month || !year) return '';
-
-  const normalizedDay = day.padStart(2, '0');
-  const normalizedMonth = month.padStart(2, '0');
-  const normalizedYear = year.padStart(4, '0');
-
-  return `${normalizedYear}-${normalizedMonth}-${normalizedDay}`;
-}
-
 function RouteComponent() {
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [appliedDateRange, setAppliedDateRange] = useState<AnalyticsDateRange>({
-    fromDate: '',
-    toDate: '',
-  });
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedDateRange,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
   const activeTab = useStore((state) => state.analyticsActiveTab);
   const setActiveTab = useStore((state) => state.setAnalyticsActiveTab);
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
@@ -80,19 +66,6 @@ function RouteComponent() {
   const canReadAnalyticsCharts = hasPermission('analytics-charts', 'read');
   const canShowAnalyticsSections =
     canReadAnalyticsOverview || canReadAnalyticsCharts;
-
-  const handleResetFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setAppliedDateRange({ fromDate: '', toDate: '' });
-  };
-
-  const handleApplyFilters = () => {
-    setAppliedDateRange({
-      fromDate: toApiDate(fromDate),
-      toDate: toApiDate(toDate),
-    });
-  };
 
   const handleValueChange = (value: string) => {
     if ((ANALYTICS_TABS as readonly string[]).includes(value)) {
@@ -156,14 +129,14 @@ function RouteComponent() {
             <Button
               className="font-custom rounded-lg px-5 shadow-sm transition-all duration-200 ease-in-out hover:shadow-md"
               disabled={!fromDate || !toDate}
-              onClick={handleApplyFilters}
+              onClick={apply}
             >
               Apply
             </Button>
             <Button
               variant="secondary"
               className="font-custom border-border/70 bg-background/80 hover:bg-secondary rounded-lg border px-5 text-[#333] transition-colors duration-200 ease-in-out"
-              onClick={handleResetFilters}
+              onClick={reset}
             >
               Reset
             </Button>

@@ -41,7 +41,10 @@ import {
 import { useStore } from '@/stores/store';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 import { useGetOverview } from '@/services/store-admin/general/useGetOverview';
-import type { AnalyticsDateRange } from './index';
+import {
+  toAnalyticsDateSearch,
+  type AnalyticsDateRange,
+} from './-analytics-date-search';
 interface GradingBags {
   initialQuantity: number;
   currentQuantity: number;
@@ -367,6 +370,17 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
     dateTo: dateRange.toDate || undefined,
   });
   const normalized = normalizeOverviewData(data);
+  const dateSearch = toAnalyticsDateSearch(dateRange);
+
+  const goToReport = (to: string) => {
+    void navigate({
+      to,
+      search: (prev) => ({
+        ...prev,
+        ...dateSearch,
+      }),
+    });
+  };
 
   if (isLoading) {
     return <OverviewSkeleton />;
@@ -444,10 +458,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         description="Total seed bags issued to farmers"
         onGetReportClick={
           canReadFarmerSeedReports
-            ? () =>
-                void navigate({
-                  to: '/store-admin/analytics/reports/farmer-seed',
-                })
+            ? () => goToReport('/store-admin/analytics/reports/farmer-seed')
             : undefined
         }
       />
@@ -458,8 +469,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         icon={<Package className="h-5 w-5" />}
         onGetReportClick={
           canReadIncomingReports
-            ? () =>
-                void navigate({ to: '/store-admin/analytics/reports/incoming' })
+            ? () => goToReport('/store-admin/analytics/reports/incoming')
             : undefined
         }
       />
@@ -470,10 +480,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         icon={<Boxes className="h-5 w-5" />}
         onGetReportClick={
           canReadIncomingReports
-            ? () =>
-                void navigate({
-                  to: '/store-admin/analytics/reports/ungraded',
-                })
+            ? () => goToReport('/store-admin/analytics/reports/ungraded')
             : undefined
         }
       />
@@ -484,8 +491,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         icon={<ClipboardList className="h-5 w-5" />}
         onGetReportClick={
           canReadGradingReports
-            ? () =>
-                void navigate({ to: '/store-admin/analytics/reports/grading' })
+            ? () => goToReport('/store-admin/analytics/reports/grading')
             : undefined
         }
       />
@@ -495,8 +501,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         icon={<Warehouse className="h-5 w-5" />}
         onGetReportClick={
           canReadStorageReports
-            ? () =>
-                void navigate({ to: '/store-admin/analytics/reports/storage' })
+            ? () => goToReport('/store-admin/analytics/reports/storage')
             : undefined
         }
       />
@@ -507,10 +512,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         icon={<Building2 className="h-5 w-5" />}
         onGetReportClick={
           canReadOverview
-            ? () =>
-                void navigate({
-                  to: '/store-admin/analytics/reports/shed',
-                })
+            ? () => goToReport('/store-admin/analytics/reports/shed')
             : undefined
         }
       />
@@ -521,9 +523,9 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         onGetReportClick={
           canReadNikasiReports
             ? () =>
-                void navigate({
-                  to: '/store-admin/analytics/reports/dispatch-pre-storage',
-                })
+                goToReport(
+                  '/store-admin/analytics/reports/dispatch-pre-storage'
+                )
             : undefined
         }
       />
@@ -533,9 +535,16 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
         icon={<ArrowUpRight className="h-5 w-5" />}
         onGetReportClick={
           canReadOutgoingReports
-            ? () =>
-                void (setAnalyticsActiveTab('dispatch-outgoing'),
-                navigate({ to: '/store-admin/analytics' }))
+            ? () => {
+                setAnalyticsActiveTab('dispatch-outgoing');
+                void navigate({
+                  to: '/store-admin/analytics',
+                  search: (prev) => ({
+                    ...prev,
+                    ...dateSearch,
+                  }),
+                });
+              }
             : undefined
         }
       />
@@ -546,9 +555,7 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
           onGetReportClick={
             canReadFarmerSeedReports
               ? () =>
-                  void navigate({
-                    to: '/store-admin/analytics/reports/contract-farming',
-                  })
+                  goToReport('/store-admin/analytics/reports/contract-farming')
               : undefined
           }
         />
