@@ -58,6 +58,8 @@ export type FilterField =
   | 'buyBackAmount'
   | 'netAmount'
   | 'netAmountPerAcre'
+  | 'netProfitToCompany'
+  | 'netProfitToCompanyPerAcre'
   | `grade_bags_${string}`
   | `grade_weight_pct_${string}`
   /** Nikasi (dispatch) gate pass report */
@@ -148,6 +150,8 @@ export const numericFilterFields: FilterField[] = [
   'buyBackAmount',
   'netAmount',
   'netAmountPerAcre',
+  'netProfitToCompany',
+  'netProfitToCompanyPerAcre',
   'averageWeightPerBag',
   'totalBagsIssued',
   'netWeight',

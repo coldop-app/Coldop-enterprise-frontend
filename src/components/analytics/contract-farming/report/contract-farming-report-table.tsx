@@ -50,6 +50,8 @@ import {
   BUY_BACK_AMOUNT_COLUMN_ID,
   NET_AMOUNT_COLUMN_ID,
   NET_AMOUNT_PER_ACRE_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
@@ -224,6 +226,8 @@ function flattenFarmers(
           varietyTotalSeedAmountPayable: Number(
             variety.seed?.totalAmountPayable ?? 0
           ),
+          netProfitToCompany: farmer.netProfitToCompany ?? null,
+          netProfitToCompanyPerAcre: farmer.netProfitToCompanyPerAcre ?? null,
         };
 
         gradeHeaders.forEach((grade) => {
@@ -280,6 +284,9 @@ function createGlobalContractFarmingFilterFn(
           row.original,
           preferences
         ),
+        [NET_PROFIT_TO_COMPANY_COLUMN_ID]: row.original.netProfitToCompany,
+        [NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID]:
+          row.original.netProfitToCompanyPerAcre,
       };
 
       gradeHeaders.forEach((grade) => {
@@ -611,7 +618,9 @@ export default function ContractFarmingReportTable() {
       columnId === 'amount' ||
       columnId === BUY_BACK_AMOUNT_COLUMN_ID ||
       columnId === NET_AMOUNT_COLUMN_ID ||
-      columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID
+      columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID ||
+      columnId === NET_PROFIT_TO_COMPANY_COLUMN_ID ||
+      columnId === NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID
     ) {
       return `₹${formatted}`;
     }

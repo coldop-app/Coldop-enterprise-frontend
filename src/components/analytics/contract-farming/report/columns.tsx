@@ -71,11 +71,20 @@ export const NET_AMOUNT_COLUMN_ID = 'netAmount';
 /** ₹ net divided by variety total acres (variety rowspan). */
 export const NET_AMOUNT_PER_ACRE_COLUMN_ID = 'netAmountPerAcre';
 
+/** Farmer-level net profit to company (farmer rowspan). */
+export const NET_PROFIT_TO_COMPANY_COLUMN_ID = 'netProfitToCompany';
+
+/** Farmer-level net profit per acre (farmer rowspan). */
+export const NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID =
+  'netProfitToCompanyPerAcre';
+
 /** Headers with `rowSpan={2}` after the Grading group (preserve table column order here). */
 export const TRAILING_TWO_ROW_HEADER_COLUMN_IDS = [
   SEED_AMOUNT_COLUMN_ID,
   NET_AMOUNT_COLUMN_ID,
   NET_AMOUNT_PER_ACRE_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
 ] as const;
 
 export const TRAILING_TWO_ROW_HEADER_ID_SET = new Set<string>(
@@ -173,6 +182,8 @@ const CONTRACT_FARMING_FAMILY_SPAN_COLUMN_IDS = new Set<string>([
   'farmerMobile',
   'accountNumber',
   'address',
+  NET_PROFIT_TO_COMPANY_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
 ]);
 
 export function isContractFarmingFamilySpanColumn(columnId: string): boolean {
@@ -263,6 +274,8 @@ export function isNumericSortColumnId(columnId: string) {
     columnId === SEED_AMOUNT_COLUMN_ID ||
     columnId === NET_AMOUNT_COLUMN_ID ||
     columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID ||
+    columnId === NET_PROFIT_TO_COMPANY_COLUMN_ID ||
+    columnId === NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID ||
     BUY_BACK_COLUMN_IDS.has(columnId) ||
     columnId.startsWith(VARIETY_LEVEL_COLUMN_PREFIX) ||
     columnId.startsWith(VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX) ||
@@ -293,6 +306,8 @@ export function buildDefaultContractFarmingColumnOrder(
     SEED_AMOUNT_COLUMN_ID,
     NET_AMOUNT_COLUMN_ID,
     NET_AMOUNT_PER_ACRE_COLUMN_ID,
+    NET_PROFIT_TO_COMPANY_COLUMN_ID,
+    NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
   ];
 }
 
@@ -607,6 +622,56 @@ export function buildColumns(
     }
   );
 
+  const netProfitToCompanyColumn = columnHelper.accessor(
+    (row) => row.netProfitToCompany,
+    {
+      id: NET_PROFIT_TO_COMPANY_COLUMN_ID,
+      header: 'Net Profit To Company',
+      sortingFn: 'basic',
+      size: 165,
+      minSize: 120,
+      maxSize: 300,
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
+      aggregatedCell: ({ getValue }) => (
+        <StrongRupee value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        return (
+          <span className="font-custom text-right tabular-nums">
+            {v !== null ? `₹${formatNumber(v)}` : '-'}
+          </span>
+        );
+      },
+    }
+  );
+
+  const netProfitToCompanyPerAcreColumn = columnHelper.accessor(
+    (row) => row.netProfitToCompanyPerAcre,
+    {
+      id: NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
+      header: 'Net Profit To Company Per Acre',
+      sortingFn: 'basic',
+      size: 185,
+      minSize: 120,
+      maxSize: 320,
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
+      aggregatedCell: ({ getValue }) => (
+        <StrongRupee value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => {
+        const v = getValue() as number | null;
+        return (
+          <span className="font-custom text-right tabular-nums">
+            {v !== null ? `₹${formatNumber(v)}` : '-'}
+          </span>
+        );
+      },
+    }
+  );
+
   const gradingColumns = gradeHeaders.length
     ? [
         ...gradeHeaders.map((grade) =>
@@ -853,5 +918,7 @@ export function buildColumns(
     seedAmountColumn,
     netAmountColumn,
     netAmountPerAcreColumn,
+    netProfitToCompanyColumn,
+    netProfitToCompanyPerAcreColumn,
   ] as ColumnDef<FlattenedRow, unknown>[];
 }

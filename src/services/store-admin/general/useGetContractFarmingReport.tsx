@@ -42,6 +42,8 @@ export type ContractFarmingReportFarmer = {
   address: string;
   mobileNumber: string;
   accountNumber: number;
+  netProfitToCompany?: number;
+  netProfitToCompanyPerAcre?: number;
   varieties: ContractFarmingVariety[];
 };
 

@@ -19,18 +19,41 @@ export interface QuickRegisterFarmerApiResponse {
   data?: FarmerStorageLink | null;
 }
 
-/** Payload for PUT /farmer-storage-link/:id */
+/** Payload for PUT /farmer-storage-link/:id (partial updates supported) */
 export interface EditFarmerStorageLinkInput {
-  name: string;
-  mobileNumber: string;
-  accountNumber: number;
-  address: string;
-  stationId: string;
-  localityId: string;
+  name?: string;
+  mobileNumber?: string;
+  accountNumber?: number;
+  address?: string;
+  stationId?: string;
+  localityId?: string;
+  netProfitToCompany?: number;
+  netProfitToCompanyPerAcre?: number;
 }
 
 export interface EditFarmerStorageLinkApiResponse {
   success: boolean;
   message?: string;
   data?: FarmerStorageLink | null;
+}
+
+/** Single item in PATCH /farmer-storage-link/bulk/net-profit */
+export interface BulkNetProfitUpdate {
+  farmerStorageLinkId: string;
+  netProfitToCompany: number;
+  netProfitToCompanyPerAcre?: number;
+}
+
+export interface BulkNetProfitSkippedItem {
+  farmerStorageLinkId: string;
+  reason: string;
+}
+
+export interface BulkNetProfitSyncApiResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    updatedCount: number;
+    skipped: BulkNetProfitSkippedItem[];
+  };
 }

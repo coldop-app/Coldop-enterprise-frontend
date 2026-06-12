@@ -1,12 +1,16 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
+import { RefreshCw } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useEditFarmer } from '@/services/store-admin/people/useEditFarmer';
 import FarmerDetailsSection from './farmer-details-section';
 import GradingVarietyTable from './grading-variety-table';
 import PlantingVarietyTable from './planting-variety-table';
 import ReportMetaCards from './report-meta-cards';
 import ReportSnapshotBar from './report-snapshot-bar';
 import ReportTableSection from './report-table-section';
+import { buildNetProfitSyncPayload } from './build-net-profit-sync-payload';
 import { useFinanceReportData } from './use-finance-report-data';
 
 export interface FinanceReportProps {
@@ -32,8 +36,22 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
     rowStats,
   } = useFinanceReportData(farmerStorageLinkId);
 
+  const { mutate: editFarmer, isPending: isSyncing } = useEditFarmer();
+
   const showSummary = !isLoading && !isError && hasReportData;
   const sectionEmpty = !hasReportData;
+  const canSync = showSummary && !isSyncing;
+
+  const handleSyncWithCfReport = useCallback(() => {
+    const payload = buildNetProfitSyncPayload(
+      farmerStorageLinkId,
+      summary,
+      showSummary
+    );
+    if (!payload) return;
+
+    editFarmer(payload);
+  }, [editFarmer, farmerStorageLinkId, showSummary, summary]);
 
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">
@@ -53,13 +71,30 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
                 </p>
               </div>
 
-              <div className="border-border/50 bg-card/90 rounded-xl border px-3 py-2 text-right">
-                <p className="font-custom text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Powered By
-                </p>
-                <p className="font-custom text-primary text-base font-bold tracking-wide">
-                  COLDOP
-                </p>
+              <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="font-custom focus-visible:ring-primary font-bold focus-visible:ring-offset-2"
+                  disabled={!canSync}
+                  onClick={handleSyncWithCfReport}
+                  aria-label="Sync with Cf Report"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`}
+                    aria-hidden
+                  />
+                  Sync with Cf Report
+                </Button>
+                <div className="border-border/50 bg-card/90 rounded-xl border px-3 py-2 text-right">
+                  <p className="font-custom text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                    Powered By
+                  </p>
+                  <p className="font-custom text-primary text-base font-bold tracking-wide">
+                    COLDOP
+                  </p>
+                </div>
               </div>
             </div>
           </div>

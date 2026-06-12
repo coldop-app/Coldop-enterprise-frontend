@@ -21,6 +21,7 @@ import {
   ItemTitle,
 } from '@/components/ui/item';
 import { FarmerCard } from '@/components/people/FarmerCard';
+import { useBulkSyncFarmerNetProfit } from '@/services/store-admin/people/useBulkSyncFarmerNetProfit';
 import { useGetAllFarmers } from '@/services/store-admin/people/useGetAllFarmers';
 import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
@@ -47,6 +48,8 @@ const FarmerTab = () => {
     error,
     refetch,
   } = useGetAllFarmers();
+  const { mutate: bulkSyncNetProfit, isPending: isBulkSyncing } =
+    useBulkSyncFarmerNetProfit();
 
   const trimmedSearch = search.trim().toLowerCase();
   const sortedFarmers = useMemo(() => {
@@ -104,13 +107,28 @@ const FarmerTab = () => {
               {sortedFarmers.length} farmers
             </ItemTitle>
           </div>
-          <ItemActions>
+          <ItemActions className="flex flex-wrap gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              className="font-custom gap-2 font-bold"
+              onClick={() => bulkSyncNetProfit()}
+              disabled={isLoading || isBulkSyncing || farmers.length === 0}
+              aria-label="Sync all with Cf Report"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isBulkSyncing ? 'animate-spin' : ''}`}
+                aria-hidden
+              />
+              <span className="hidden sm:inline">Sync all with Cf Report</span>
+              <span className="sm:hidden">Sync all</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
               className="font-custom gap-2"
               onClick={() => void refetch()}
-              disabled={isFetching}
+              disabled={isFetching || isBulkSyncing}
             >
               <RefreshCw
                 className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}

@@ -393,6 +393,8 @@ export function ContractFarmingViewFiltersSheet({
       buyBackAmount: 'grade_bags___buyBackAmount',
       netAmount: 'netAmount',
       netAmountPerAcre: 'netAmountPerAcre',
+      netProfitToCompany: 'netProfitToCompany',
+      netProfitToCompanyPerAcre: 'netProfitToCompanyPerAcre',
     }),
     []
   );

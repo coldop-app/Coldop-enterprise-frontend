@@ -365,7 +365,7 @@ function normalizeGatePassesData(
   };
 }
 
-async function fetchAllGatePassesOfFarmer(
+export async function fetchAllGatePassesOfFarmer(
   farmerStorageLinkId: string
 ): Promise<GetAllGatePassesOfFarmerData> {
   try {

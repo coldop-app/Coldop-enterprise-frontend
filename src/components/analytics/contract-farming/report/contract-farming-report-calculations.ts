@@ -944,6 +944,8 @@ export function flattenRows(
           gradeData,
           varietyTotalAcres,
           varietyTotalSeedAmountPayable,
+          netProfitToCompany: farmer.netProfitToCompany ?? null,
+          netProfitToCompanyPerAcre: farmer.netProfitToCompanyPerAcre ?? null,
         };
 
         for (const grade of gradeHeaders) {

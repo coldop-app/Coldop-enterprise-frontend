@@ -42,6 +42,8 @@ export interface FarmerStorageLink {
   localityId?: string | FarmerStorageLinkLocalityRef;
   accountNumber: number;
   isActive: boolean;
+  netProfitToCompany?: number;
+  netProfitToCompanyPerAcre?: number;
   createdAt?: string;
   updatedAt?: string;
   __v?: number;
