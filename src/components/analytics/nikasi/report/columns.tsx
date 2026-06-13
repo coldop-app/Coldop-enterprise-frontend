@@ -21,6 +21,7 @@ import {
   getNikasiVarietyRowTotalBags,
   NIKASI_WEIGHT_DECIMALS,
   roundNikasiWeight,
+  type NikasiBagSizeCellLine,
   type NikasiBagSizeCellValue,
   type NikasiReportDisplayRow,
 } from './nikasi-report-flatten';
@@ -306,21 +307,65 @@ export function renderNikasiAggregatedBagQuantity(value: unknown) {
   );
 }
 
+function normalizeBagTypeKey(bagType: string): string {
+  return bagType.trim().toLowerCase();
+}
+
+function formatBagTypeLabel(bagType: string): string {
+  const trimmed = bagType.trim();
+  if (!trimmed) return '';
+  return trimmed
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function sortNikasiBagSizeLines(
+  lines: NikasiBagSizeCellLine[]
+): NikasiBagSizeCellLine[] {
+  return [...lines].sort((a, b) =>
+    formatBagTypeLabel(a.bagType).localeCompare(formatBagTypeLabel(b.bagType))
+  );
+}
 function renderNikasiBagSizeQuantityCell(value?: NikasiBagSizeCellValue) {
-  if (!value || value.quantity <= 0) {
+  if (!value || value.quantity <= 0 || value.lines.length === 0) {
     return (
       <span className="font-custom text-muted-foreground/40 text-sm">-</span>
     );
   }
 
+  if (value.lines.length > 1) {
+    const lines = sortNikasiBagSizeLines(value.lines);
+    return (
+      <div className="flex w-full justify-end">
+        <div className="font-custom bg-muted/45 text-foreground inline-flex max-w-44 flex-col items-end gap-1 rounded-md px-2 py-1.5 text-right">
+          <span className="font-custom text-foreground text-base leading-none font-bold tabular-nums">
+            {formatIndianNumber(value.quantity, 0)}
+          </span>
+          <div className="font-custom flex flex-col gap-0.5">
+            {lines.map((line) => (
+              <span
+                key={normalizeBagTypeKey(line.bagType)}
+                className="font-custom text-muted-foreground text-[11px] leading-snug tabular-nums"
+              >
+                {`${formatBagTypeLabel(line.bagType)} ${formatIndianNumber(line.quantity, 0)}`}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const line = value.lines[0]!;
   return (
     <div className="flex w-full flex-col items-end gap-0.5 text-right">
       <span className="font-custom text-sm font-medium tabular-nums">
-        {value.quantity.toLocaleString('en-IN')}
+        {formatIndianNumber(value.quantity, 0)}
       </span>
-      {value.bagType ? (
+      {line.bagType ? (
         <span className="font-custom text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-          {value.bagType}
+          {formatBagTypeLabel(line.bagType)}
         </span>
       ) : null}
     </div>
@@ -330,12 +375,24 @@ function renderNikasiBagSizeQuantityCell(value?: NikasiBagSizeCellValue) {
 export function formatNikasiBagSizeCellForExcel(
   value: NikasiBagSizeCellValue | undefined
 ): string | number {
-  if (!value || value.quantity <= 0) return '-';
+  if (!value || value.quantity <= 0 || value.lines.length === 0) return '-';
 
-  const bagType = value.bagType.trim();
-  if (!bagType) return value.quantity;
+  const output = [formatIndianNumber(value.quantity, 0)];
 
-  return `${value.quantity.toLocaleString('en-IN')}\n${bagType.toUpperCase()}`;
+  if (value.lines.length > 1) {
+    for (const line of sortNikasiBagSizeLines(value.lines)) {
+      output.push(
+        `${formatBagTypeLabel(line.bagType)} ${formatIndianNumber(line.quantity, 0)}`
+      );
+    }
+  } else {
+    const line = value.lines[0]!;
+    if (line.bagType.trim()) {
+      output.push(formatBagTypeLabel(line.bagType).toUpperCase());
+    }
+  }
+
+  return output.length === 1 ? value.quantity : output.join('\n');
 }
 
 function formatNikasiDisplayDate(value: unknown): string {

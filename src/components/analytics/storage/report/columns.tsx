@@ -14,9 +14,14 @@ import {
   DEFAULT_BAG_SIZE_COLUMN_CONFIG as SHARED_DEFAULT_BAG_SIZE_COLUMN_CONFIG,
 } from '@/lib/bag-size-columns';
 
+export type StorageBagSizeCellLine = {
+  bagType: string;
+  quantity: number;
+};
+
 export type StorageBagSizeCellValue = {
   quantity: number;
-  bagType: string;
+  lines: StorageBagSizeCellLine[];
 };
 
 export type IncomingReportRow = {
@@ -65,7 +70,28 @@ export type BagSizeColumnId =
   | `bagSize__${string}`;
 
 export function createEmptyStorageBagSizeCell(): StorageBagSizeCellValue {
-  return { quantity: 0, bagType: '' };
+  return { quantity: 0, lines: [] };
+}
+
+function normalizeBagTypeKey(bagType: string): string {
+  return bagType.trim().toLowerCase();
+}
+
+function formatBagTypeLabel(bagType: string): string {
+  const trimmed = bagType.trim();
+  if (!trimmed) return '';
+  return trimmed
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function sortStorageBagSizeLines(
+  lines: StorageBagSizeCellLine[]
+): StorageBagSizeCellLine[] {
+  return [...lines].sort((a, b) =>
+    formatBagTypeLabel(a.bagType).localeCompare(formatBagTypeLabel(b.bagType))
+  );
 }
 
 export function getStorageBagSizeCell(
@@ -104,18 +130,42 @@ function toStorageReportFilterRecord(
 }
 
 function renderStorageBagSizeQuantityCell(value?: StorageBagSizeCellValue) {
-  if (!value || value.quantity <= 0) {
+  if (!value || value.quantity <= 0 || value.lines.length === 0) {
     return null;
   }
 
+  if (value.lines.length > 1) {
+    const lines = sortStorageBagSizeLines(value.lines);
+    return (
+      <div className="flex w-full justify-end">
+        <div className="font-custom bg-muted/45 text-foreground inline-flex max-w-44 flex-col items-end gap-1 rounded-md px-2 py-1.5 text-right">
+          <span className="font-custom text-foreground text-base leading-none font-bold tabular-nums">
+            {formatIndianNumber(value.quantity, 0)}
+          </span>
+          <div className="font-custom flex flex-col gap-0.5">
+            {lines.map((line) => (
+              <span
+                key={normalizeBagTypeKey(line.bagType)}
+                className="font-custom text-muted-foreground text-[11px] leading-snug tabular-nums"
+              >
+                {`${formatBagTypeLabel(line.bagType)} ${formatIndianNumber(line.quantity, 0)}`}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const line = value.lines[0]!;
   return (
     <div className="flex w-full flex-col items-end gap-0.5 text-right">
       <span className="font-custom text-sm font-medium tabular-nums">
-        {value.quantity.toLocaleString('en-IN')}
+        {formatIndianNumber(value.quantity, 0)}
       </span>
-      {value.bagType ? (
+      {line.bagType ? (
         <span className="font-custom text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-          {value.bagType}
+          {formatBagTypeLabel(line.bagType)}
         </span>
       ) : null}
     </div>
@@ -125,12 +175,24 @@ function renderStorageBagSizeQuantityCell(value?: StorageBagSizeCellValue) {
 export function formatStorageBagSizeCellForExcel(
   value: StorageBagSizeCellValue | undefined
 ): string | number {
-  if (!value || value.quantity <= 0) return '';
+  if (!value || value.quantity <= 0 || value.lines.length === 0) return '';
 
-  const bagType = value.bagType.trim();
-  if (!bagType) return value.quantity;
+  const output = [formatIndianNumber(value.quantity, 0)];
 
-  return `${value.quantity.toLocaleString('en-IN')}\n${bagType.toUpperCase()}`;
+  if (value.lines.length > 1) {
+    for (const line of sortStorageBagSizeLines(value.lines)) {
+      output.push(
+        `${formatBagTypeLabel(line.bagType)} ${formatIndianNumber(line.quantity, 0)}`
+      );
+    }
+  } else {
+    const line = value.lines[0]!;
+    if (line.bagType.trim()) {
+      output.push(formatBagTypeLabel(line.bagType).toUpperCase());
+    }
+  }
+
+  return output.length === 1 ? value.quantity : output.join('\n');
 }
 
 export const DEFAULT_BAG_SIZE_COLUMN_CONFIG: Array<{

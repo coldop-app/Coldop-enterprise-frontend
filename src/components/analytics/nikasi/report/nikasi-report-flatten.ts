@@ -4,12 +4,48 @@ import type {
   NikasiGatePassReportDataRow,
 } from '@/services/store-admin/nikasi-gate-pass/analytics/useGetNikasiGatePassReport';
 
+export type NikasiBagSizeCellLine = {
+  bagType: string;
+  quantity: number;
+};
+
 export type NikasiBagSizeCellValue = {
   quantity: number;
-  bagType: string;
+  lines: NikasiBagSizeCellLine[];
 };
 
 export type NikasiReportBagFields = Record<string, NikasiBagSizeCellValue>;
+
+function createEmptyNikasiBagSizeCell(): NikasiBagSizeCellValue {
+  return { quantity: 0, lines: [] };
+}
+
+function normalizeBagTypeKey(bagType: string): string {
+  return bagType.trim().toLowerCase();
+}
+
+function accumulateIntoBagCell(
+  cell: NikasiBagSizeCellValue,
+  quantity: number,
+  bagType: string
+): void {
+  const amount = Number(quantity) || 0;
+  if (amount <= 0) return;
+
+  cell.quantity += amount;
+  const normalizedBagType = bagType.trim();
+  if (!normalizedBagType) return;
+
+  const key = normalizeBagTypeKey(normalizedBagType);
+  const existing = cell.lines.find(
+    (line) => normalizeBagTypeKey(line.bagType) === key
+  );
+  if (existing) {
+    existing.quantity += amount;
+  } else {
+    cell.lines.push({ bagType: normalizedBagType, quantity: amount });
+  }
+}
 
 export interface NikasiReportDisplayRow extends NikasiGatePassReportDataRow {
   gatePassId: string;
@@ -55,16 +91,10 @@ function accumulateBagFields(
     const bagType = (line.bagType ?? '').trim();
 
     if (!acc[columnId]) {
-      acc[columnId] = { quantity, bagType };
-      continue;
+      acc[columnId] = createEmptyNikasiBagSizeCell();
     }
 
-    acc[columnId].quantity += quantity;
-    if (bagType && acc[columnId].bagType !== bagType) {
-      const types = new Set(acc[columnId].bagType.split(' / ').filter(Boolean));
-      types.add(bagType);
-      acc[columnId].bagType = Array.from(types).join(' / ');
-    }
+    accumulateIntoBagCell(acc[columnId], quantity, bagType);
   }
 
   return acc;

@@ -84,18 +84,31 @@ function getAccountNumber(gatePass: StorageGatePassWithLink): number | null {
   return null;
 }
 
+function normalizeBagTypeKey(bagType: string): string {
+  return bagType.trim().toLowerCase();
+}
+
 function accumulateBagSizeCell(
   cell: StorageBagSizeCellValue,
   quantity: number,
   bagType: string
 ): void {
-  cell.quantity += quantity;
-  const normalizedBagType = bagType.trim();
-  if (!normalizedBagType || cell.bagType === normalizedBagType) return;
+  const amount = Number(quantity) || 0;
+  if (amount <= 0) return;
 
-  const types = new Set(cell.bagType.split(' / ').filter(Boolean));
-  types.add(normalizedBagType);
-  cell.bagType = Array.from(types).join(' / ');
+  cell.quantity += amount;
+  const normalizedBagType = bagType.trim();
+  if (!normalizedBagType) return;
+
+  const key = normalizeBagTypeKey(normalizedBagType);
+  const existing = cell.lines.find(
+    (line) => normalizeBagTypeKey(line.bagType) === key
+  );
+  if (existing) {
+    existing.quantity += amount;
+  } else {
+    cell.lines.push({ bagType: normalizedBagType, quantity: amount });
+  }
 }
 
 function getBagSizeValues(
