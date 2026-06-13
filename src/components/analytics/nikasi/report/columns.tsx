@@ -327,6 +327,17 @@ function renderNikasiBagSizeQuantityCell(value?: NikasiBagSizeCellValue) {
   );
 }
 
+export function formatNikasiBagSizeCellForExcel(
+  value: NikasiBagSizeCellValue | undefined
+): string | number {
+  if (!value || value.quantity <= 0) return '-';
+
+  const bagType = value.bagType.trim();
+  if (!bagType) return value.quantity;
+
+  return `${value.quantity.toLocaleString('en-IN')}\n${bagType.toUpperCase()}`;
+}
+
 function formatNikasiDisplayDate(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-';
   const parsed = new Date(String(value));

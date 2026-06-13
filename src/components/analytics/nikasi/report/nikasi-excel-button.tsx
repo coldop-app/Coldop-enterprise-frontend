@@ -15,6 +15,7 @@ import {
   enforceExcelTableRowHeights,
 } from '@/lib/excel-worksheet-compat';
 import {
+  formatNikasiBagSizeCellForExcel,
   formatNikasiReportCellValue,
   getNikasiNumericColumnIds,
   isNikasiVarietySplitColumn,
@@ -109,7 +110,10 @@ function estimateColWidth(
     if (cell !== '' && cell != null) {
       const str =
         typeof cell === 'number' ? cell.toLocaleString('en-IN') : String(cell);
-      maxDataChars = Math.max(maxDataChars, str.length);
+      const lines = str.split('\n');
+      for (const line of lines) {
+        maxDataChars = Math.max(maxDataChars, line.length);
+      }
     }
   }
 
@@ -206,8 +210,7 @@ function normalizeExcelValue(
   numericColumnIds: Set<string>
 ): string | number {
   if (row.bagSizeFields && columnId in row.bagSizeFields) {
-    const quantity = row.bagSizeFields[columnId]?.quantity ?? 0;
-    return quantity > 0 ? quantity : '-';
+    return formatNikasiBagSizeCellForExcel(row.bagSizeFields[columnId]);
   }
 
   if (columnId === 'totalBagsIssued') {
@@ -576,14 +579,22 @@ export const NikasiExcelButton = ({
             };
             const raw = dataRow.values[columnNumber - 1];
             const colId = exportColumnIds[columnNumber - 1];
+            const isBagSizeColumn =
+              colId != null && bagSizeColumnIds.has(colId);
+            const isMultilineBagCell =
+              isBagSizeColumn && typeof raw === 'string' && raw.includes('\n');
             const isNumber = typeof raw === 'number';
             const isDashNumeric =
               raw === '-' && colId != null && numericColumnIds.has(colId);
             if (isNumber) {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
               cell.numFmt = SMART_NUMBER_FORMAT;
-            } else if (isDashNumeric) {
-              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (isDashNumeric || isBagSizeColumn) {
+              cell.alignment = {
+                horizontal: 'right',
+                vertical: isMultilineBagCell ? 'top' : 'middle',
+                wrapText: isMultilineBagCell,
+              };
             } else {
               cell.alignment = { horizontal: 'left', vertical: 'middle' };
             }

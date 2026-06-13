@@ -1,7 +1,9 @@
 import { Building2, RefreshCw } from 'lucide-react';
+import { DatePicker } from '@/components/date-picker';
 import { Button } from '@/components/ui/button';
 import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
-import { Item, ItemHeader, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { useAnalyticsDateFilters } from '@/routes/store-admin/_authenticated/analytics/-analytics-date-search';
+import { Item, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useGetShedStockReport } from '@/services/store-admin/general/useGetShedStockReport';
 import type { ShedStockReportSourceVariety } from '@/types/analytics';
 import ShedStockDetailTable from './shed-stock-detail-table';
@@ -20,8 +22,25 @@ function toShedSizeBagRows(
 }
 
 const ShedReportPage = () => {
+  const {
+    fromDate,
+    toDate,
+    setFromDate,
+    setToDate,
+    appliedFromDate,
+    appliedToDate,
+    hasAppliedFilters,
+    apply,
+    reset,
+  } = useAnalyticsDateFilters();
+
+  const canApply = Boolean(fromDate && toDate);
+
   const { data, isLoading, isFetching, isError, error, refetch } =
-    useGetShedStockReport();
+    useGetShedStockReport({
+      dateFrom: hasAppliedFilters ? appliedFromDate : undefined,
+      dateTo: hasAppliedFilters ? appliedToDate : undefined,
+    });
 
   const tableProps = {
     isLoading,
@@ -31,10 +50,14 @@ const ShedReportPage = () => {
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 p-3 sm:p-4 lg:p-6">
-      <Item variant="outline" size="sm" className="rounded-xl shadow-sm">
-        <ItemHeader className="h-full flex-wrap gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <AnalyticsBackLink />
+      <Item
+        variant="outline"
+        size="sm"
+        className="border-border/30 bg-background rounded-2xl border p-3 shadow-sm"
+      >
+        <div className="flex w-full flex-wrap items-end gap-2.5 xl:flex-nowrap">
+          <AnalyticsBackLink />
+          <div className="flex min-w-0 items-center gap-2 self-end">
             <ItemMedia variant="icon" className="rounded-lg">
               <Building2 className="text-primary h-5 w-5" />
             </ItemMedia>
@@ -42,18 +65,62 @@ const ShedReportPage = () => {
               Shed Stock Report
             </ItemTitle>
           </div>
-          <Button
-            variant="ghost"
-            className="text-muted-foreground h-8 rounded-lg px-2"
-            disabled={isFetching}
-            onClick={() => refetch()}
-            aria-label="Refresh shed stock report"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
+
+          <div className="bg-border/40 hidden h-7 w-px lg:block" />
+
+          <div className="flex items-end gap-2 self-end">
+            <DatePicker
+              id="shed-analytics-from-date"
+              label="From"
+              compact
+              value={fromDate}
+              onChange={setFromDate}
             />
-          </Button>
-        </ItemHeader>
+            <span className="text-muted-foreground mb-2 self-end text-sm">
+              →
+            </span>
+            <DatePicker
+              id="shed-analytics-to-date"
+              label="To"
+              compact
+              value={toDate}
+              onChange={setToDate}
+            />
+          </div>
+
+          <div className="bg-border/40 hidden h-7 w-px lg:block" />
+
+          <div className="flex items-center gap-2 self-end">
+            <Button
+              className="h-8 rounded-lg px-4 text-sm shadow-none"
+              disabled={!canApply}
+              onClick={apply}
+            >
+              Apply
+            </Button>
+            <Button
+              variant="outline"
+              className="text-muted-foreground h-8 rounded-lg px-4 text-sm"
+              onClick={reset}
+            >
+              Reset
+            </Button>
+          </div>
+
+          <div className="ml-auto flex items-center self-end">
+            <Button
+              variant="ghost"
+              className="text-muted-foreground h-8 rounded-lg px-2"
+              disabled={isFetching}
+              onClick={() => refetch()}
+              aria-label="Refresh shed stock report"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
+              />
+            </Button>
+          </div>
+        </div>
       </Item>
 
       <ShedStockSummaryTable
