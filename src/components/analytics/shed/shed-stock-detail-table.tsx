@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/table';
 import {
   isUngradedSize,
-  normalizeSizeKey,
   sortSizeLabels,
   sumByNormalizedSize,
 } from './shed-report-utils';
@@ -35,7 +34,8 @@ import {
   getNotInternalUngradedBags,
   getShedStockVarietyTotal,
   getUngradedShedStockCellValue,
-  varietyHasUngradedColumnData,
+  mergeShedVarietiesWithUngraded,
+  resolveEffectiveSizesForMetric,
 } from './shed-ungraded-utils';
 import {
   buildCellBreakdown,
@@ -79,34 +79,6 @@ function collectSizeLabels(varieties: ShedStockReportShedVariety[]): string[] {
     }
   }
   return sortSizeLabels(labels);
-}
-
-function filterSizesForMetric(
-  sizes: string[],
-  varieties: ShedStockReportShedVariety[],
-  metric: ShedStockMetric,
-  ungradedTable: ReturnType<typeof buildUngradedBagsByVariety>,
-  notInternalUngraded: ReturnType<typeof buildNotInternalUngradedBagsByVariety>
-): string[] {
-  const withData = new Set<string>();
-  for (const variety of varieties) {
-    for (const sizeRow of variety.sizes) {
-      if (Number(sizeRow[metric]) !== 0) {
-        withData.add(normalizeSizeKey(sizeRow.size));
-      }
-    }
-    if (
-      varietyHasUngradedColumnData(
-        variety,
-        ungradedTable,
-        notInternalUngraded,
-        metric
-      )
-    ) {
-      withData.add('ungraded');
-    }
-  }
-  return sizes.filter((size) => withData.has(normalizeSizeKey(size)));
 }
 
 function getVarietyMetricValue(
@@ -188,6 +160,10 @@ const ShedStockDetailTable = ({
     () => buildNotInternalUngradedBagsByVariety(notInternalTransfer),
     [notInternalTransfer]
   );
+  const displayVarieties = useMemo(
+    () => mergeShedVarietiesWithUngraded(varieties, ungraded),
+    [varieties, ungraded]
+  );
   const [activeTab, setActiveTab] = useState<ShedStockMetric>('shedStock');
   const [selection, setSelection] = useState<CellSelection | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -203,18 +179,21 @@ const ShedStockDetailTable = ({
     [selection]
   );
 
-  const allSizes = useMemo(() => collectSizeLabels(varieties), [varieties]);
+  const allSizes = useMemo(
+    () => collectSizeLabels(displayVarieties),
+    [displayVarieties]
+  );
 
   const effectiveSizes = useMemo(
     () =>
-      filterSizesForMetric(
+      resolveEffectiveSizesForMetric(
         allSizes,
-        varieties,
+        displayVarieties,
         activeTab,
         ungradedTable,
         notInternalUngraded
       ),
-    [allSizes, varieties, activeTab, ungradedTable, notInternalUngraded]
+    [allSizes, displayVarieties, activeTab, ungradedTable, notInternalUngraded]
   );
 
   const { tableRows, columnTotals } = useMemo(() => {
@@ -225,7 +204,7 @@ const ShedStockDetailTable = ({
       totalsMap[size] = 0;
     }
 
-    for (const variety of varieties) {
+    for (const variety of displayVarieties) {
       const values: Record<string, number> = {};
 
       for (const size of effectiveSizes) {
@@ -249,7 +228,7 @@ const ShedStockDetailTable = ({
 
     return { tableRows: rowsData, columnTotals: totalsMap };
   }, [
-    varieties,
+    displayVarieties,
     effectiveSizes,
     activeTab,
     ungradedTable,
@@ -308,7 +287,7 @@ const ShedStockDetailTable = ({
         ? buildCellBreakdown(
             selection,
             activeTab,
-            varieties,
+            displayVarieties,
             totals,
             columnTotals,
             ungradedTable,
@@ -318,7 +297,7 @@ const ShedStockDetailTable = ({
     [
       selection,
       activeTab,
-      varieties,
+      displayVarieties,
       totals,
       columnTotals,
       ungradedTable,
@@ -362,7 +341,7 @@ const ShedStockDetailTable = ({
     );
   }
 
-  if (varieties.length === 0) {
+  if (displayVarieties.length === 0) {
     return (
       <Card className="font-custom border-border rounded-xl shadow-sm">
         <CardContent className="p-4 py-8 sm:p-5">

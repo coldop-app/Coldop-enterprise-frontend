@@ -2,7 +2,12 @@ import type {
   ShedStockReportSourceVariety,
   ShedStockReportShedVariety,
 } from '@/types/analytics';
-import { isUngradedSize, sumByNormalizedSize } from './shed-report-utils';
+import {
+  isUngradedSize,
+  normalizeSizeKey,
+  sortSizeLabels,
+  sumByNormalizedSize,
+} from './shed-report-utils';
 import type { ShedStockMetric } from './shed-stock-calculation';
 
 export type UngradedBagsByVariety = ReadonlyMap<string, number>;
@@ -140,4 +145,83 @@ export function collectUngradedColumnLabels(
     )
   );
   return hasData ? ['Ungraded'] : [];
+}
+
+function createEmptyShedVariety(variety: string): ShedStockReportShedVariety {
+  return {
+    variety,
+    gradingInitial: 0,
+    stored: 0,
+    dispatched: 0,
+    internallyTransferred: 0,
+    notInternallyTransferred: 0,
+    shedStock: 0,
+    sizes: [],
+  };
+}
+
+/** Append stub shed rows for varieties that only appear in the ungraded table. */
+export function mergeShedVarietiesWithUngraded(
+  shedVarieties: ShedStockReportShedVariety[],
+  ungradedVarieties: ReadonlyArray<ShedStockReportSourceVariety>
+): ShedStockReportShedVariety[] {
+  const existing = new Set(shedVarieties.map((row) => row.variety));
+  const merged = [...shedVarieties];
+
+  for (const { variety, totalBags, sizes } of ungradedVarieties) {
+    if (existing.has(variety)) continue;
+
+    let bags = Number(totalBags ?? 0);
+    if (bags === 0 && sizes.length > 0) {
+      bags = sizes.reduce((sum, row) => sum + Number(row.bags ?? 0), 0);
+    }
+
+    if (bags > 0) {
+      merged.push(createEmptyShedVariety(variety));
+      existing.add(variety);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Size columns for a metric tab, including an Ungraded column when ungraded-table
+ * or dispatch data exists even if the API shed-stock sizes omit that label.
+ */
+export function resolveEffectiveSizesForMetric(
+  sizes: string[],
+  varieties: ShedStockReportShedVariety[],
+  metric: ShedStockMetric,
+  ungradedTable: UngradedBagsByVariety,
+  notInternalUngraded: UngradedBagsByVariety
+): string[] {
+  const withData = new Set<string>();
+
+  for (const variety of varieties) {
+    for (const sizeRow of variety.sizes) {
+      if (Number(sizeRow[metric]) !== 0) {
+        withData.add(normalizeSizeKey(sizeRow.size));
+      }
+    }
+
+    if (
+      varietyHasUngradedColumnData(
+        variety,
+        ungradedTable,
+        notInternalUngraded,
+        metric
+      )
+    ) {
+      withData.add('ungraded');
+    }
+  }
+
+  const filtered = sizes.filter((size) => withData.has(normalizeSizeKey(size)));
+
+  if (withData.has('ungraded') && !filtered.some(isUngradedSize)) {
+    filtered.push('Ungraded');
+  }
+
+  return sortSizeLabels(filtered);
 }
