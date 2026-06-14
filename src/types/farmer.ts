@@ -1,6 +1,10 @@
-import type { FarmerStorageLink } from '@/types/incoming-gate-pass';
+import type {
+  FarmerStorageLink,
+  FarmerStorageLinkProfit,
+  VarietyProfitEntry,
+} from '@/types/incoming-gate-pass';
 
-export type { FarmerStorageLink };
+export type { FarmerStorageLink, FarmerStorageLinkProfit, VarietyProfitEntry };
 
 /** Payload for POST /store-admin/quick-register-farmer */
 export interface QuickRegisterFarmerInput {
@@ -27,8 +31,7 @@ export interface EditFarmerStorageLinkInput {
   address?: string;
   stationId?: string;
   localityId?: string;
-  netProfitToCompany?: number;
-  netProfitToCompanyPerAcre?: number;
+  profit?: FarmerStorageLinkProfit;
 }
 
 export interface EditFarmerStorageLinkApiResponse {
@@ -40,8 +43,7 @@ export interface EditFarmerStorageLinkApiResponse {
 /** Single item in PATCH /farmer-storage-link/bulk/net-profit */
 export interface BulkNetProfitUpdate {
   farmerStorageLinkId: string;
-  netProfitToCompany: number;
-  netProfitToCompanyPerAcre?: number;
+  profit: FarmerStorageLinkProfit;
 }
 
 export interface BulkNetProfitSkippedItem {

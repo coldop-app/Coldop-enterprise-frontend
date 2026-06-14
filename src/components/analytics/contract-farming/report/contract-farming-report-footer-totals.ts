@@ -34,6 +34,8 @@ const VARIETY_LEVEL_TOTAL_COLUMN_IDS = new Set<string>([
   BUY_BACK_AMOUNT_COLUMN_ID,
   NET_AMOUNT_COLUMN_ID,
   NET_AMOUNT_PER_ACRE_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_COLUMN_ID,
+  NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
 ]);
 
 const VARIETY_LEVEL_AVERAGE_COLUMN_IDS = new Set<string>([
@@ -41,19 +43,6 @@ const VARIETY_LEVEL_AVERAGE_COLUMN_IDS = new Set<string>([
   WASTAGE_KG_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
 ]);
-
-const FARMER_LEVEL_TOTAL_COLUMN_IDS = new Set<string>([
-  NET_PROFIT_TO_COMPANY_COLUMN_ID,
-  NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
-]);
-
-function getFarmerFooterKey(row: FlattenedRow): string {
-  const familyKey = row.familyKey ?? 0;
-  if (familyKey > 0 && row.varietyRowKey.startsWith('family-')) {
-    return `family:${familyKey}`;
-  }
-  return `farmer:${row.farmerId}`;
-}
 
 function getVarietyAggregationKey(row: FlattenedRow): string {
   if (row.varietyRowKey.startsWith('family-')) {
@@ -83,7 +72,6 @@ export function computeContractFarmingFooterTotals(
     isNumericSortColumnId(columnId)
   );
   const uniqueVarietyRows = new Map<string, FlattenedRow>();
-  const uniqueFarmerRows = new Map<string, FlattenedRow>();
 
   numericVisibleColumnIds.forEach((columnId) => {
     totals[columnId] = 0;
@@ -95,10 +83,6 @@ export function computeContractFarmingFooterTotals(
     if (!uniqueVarietyRows.has(varietyKey)) {
       uniqueVarietyRows.set(varietyKey, row.original);
     }
-    const farmerKey = getFarmerFooterKey(row.original);
-    if (!uniqueFarmerRows.has(farmerKey)) {
-      uniqueFarmerRows.set(farmerKey, row.original);
-    }
   }
 
   for (const row of filteredRows) {
@@ -106,7 +90,6 @@ export function computeContractFarmingFooterTotals(
       if (
         VARIETY_LEVEL_TOTAL_COLUMN_IDS.has(columnId) ||
         VARIETY_LEVEL_AVERAGE_COLUMN_IDS.has(columnId) ||
-        FARMER_LEVEL_TOTAL_COLUMN_IDS.has(columnId) ||
         columnId.startsWith(VARIETY_LEVEL_PERCENT_COLUMN_PREFIX)
       ) {
         continue;
@@ -174,10 +157,8 @@ export function computeContractFarmingFooterTotals(
         : 0;
   }
 
-  const farmerRows = Array.from(uniqueFarmerRows.values());
-
   if (numericVisibleColumnIds.includes(NET_PROFIT_TO_COMPANY_COLUMN_ID)) {
-    totals[NET_PROFIT_TO_COMPANY_COLUMN_ID] = farmerRows.reduce(
+    totals[NET_PROFIT_TO_COMPANY_COLUMN_ID] = varietyRows.reduce(
       (sum, row) => sum + (row.netProfitToCompany ?? 0),
       0
     );
@@ -189,7 +170,10 @@ export function computeContractFarmingFooterTotals(
       NET_PROFIT_TO_COMPANY_COLUMN_ID
     )
       ? totals[NET_PROFIT_TO_COMPANY_COLUMN_ID]
-      : farmerRows.reduce((sum, row) => sum + (row.netProfitToCompany ?? 0), 0);
+      : varietyRows.reduce(
+          (sum, row) => sum + (row.netProfitToCompany ?? 0),
+          0
+        );
     totals[NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID] =
       totalPlantedAcres > 0 && Number.isFinite(totalNetProfit)
         ? roundMax2(totalNetProfit / totalPlantedAcres)

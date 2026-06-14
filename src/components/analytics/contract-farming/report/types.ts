@@ -72,8 +72,8 @@ export type FlattenedRow = {
   varietyTotalAcres: number;
   /** Sum of seed `amountPayable` for this farmer × variety (matches seed.totalAmountPayable or summed sizes). */
   varietyTotalSeedAmountPayable: number;
-  /** Farmer-level net profit to company (duplicated on every size row; dedupe by farmerId for totals). */
+  /** Variety-level net profit to company (duplicated on every size row; dedupe by farmerId|varietyName for totals). */
   netProfitToCompany: number | null;
-  /** Farmer-level net profit per acre (duplicated on every size row). */
+  /** Variety-level net profit per acre (duplicated on every size row). */
   netProfitToCompanyPerAcre: number | null;
 } & Partial<Record<GradeBagFlatKey, number | null>>;

@@ -7,8 +7,57 @@ import {
 } from '@/services/store-admin/general/useGetContractFarmingReport';
 import { usePreferencesStore } from '@/stores/store';
 
+import type {
+  FarmerStorageLinkProfit,
+  VarietyProfitEntry,
+} from '@/types/incoming-gate-pass';
 import type { FlattenedRow } from './types';
 import { GRADE_BAG_COLUMN_KEY_PREFIX } from './types';
+
+function resolveProfitEntry(
+  profit: FarmerStorageLinkProfit | undefined,
+  varietyName: string
+): VarietyProfitEntry | undefined {
+  if (!profit) return undefined;
+
+  const trimmed = varietyName.trim();
+  if (Object.prototype.hasOwnProperty.call(profit, trimmed)) {
+    return profit[trimmed];
+  }
+
+  const target = trimmed.toLowerCase();
+  for (const [key, entry] of Object.entries(profit)) {
+    if (key.trim().toLowerCase() === target) return entry;
+  }
+
+  return undefined;
+}
+
+export function getVarietyProfit(
+  profit: FarmerStorageLinkProfit | undefined,
+  varietyName: string
+): {
+  netProfitToCompany: number | null;
+  netProfitToCompanyPerAcre: number | null;
+} {
+  const entry = resolveProfitEntry(profit, varietyName);
+  if (!entry) {
+    return { netProfitToCompany: null, netProfitToCompanyPerAcre: null };
+  }
+
+  const netProfitToCompany =
+    entry.netProfitToCompany != null &&
+    Number.isFinite(entry.netProfitToCompany)
+      ? entry.netProfitToCompany
+      : null;
+  const netProfitToCompanyPerAcre =
+    entry.netProfitToCompanyPerAcre != null &&
+    Number.isFinite(entry.netProfitToCompanyPerAcre)
+      ? entry.netProfitToCompanyPerAcre
+      : null;
+
+  return { netProfitToCompany, netProfitToCompanyPerAcre };
+}
 
 function normalizeBuyBackSizeToken(raw: string): string {
   return raw
@@ -917,6 +966,7 @@ export function flattenRows(
       const mergedRowSpan = normalizedSizes.length;
 
       normalizedSizes.forEach((size, sizeIndex) => {
+        const varietyProfit = getVarietyProfit(farmer.profit, variety.name);
         const base: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${sizeIndex}-${farmerIndex}-${varietyIndex}`,
           varietyRowKey,
@@ -944,8 +994,8 @@ export function flattenRows(
           gradeData,
           varietyTotalAcres,
           varietyTotalSeedAmountPayable,
-          netProfitToCompany: farmer.netProfitToCompany ?? null,
-          netProfitToCompanyPerAcre: farmer.netProfitToCompanyPerAcre ?? null,
+          netProfitToCompany: varietyProfit.netProfitToCompany,
+          netProfitToCompanyPerAcre: varietyProfit.netProfitToCompanyPerAcre,
         };
 
         for (const grade of gradeHeaders) {

@@ -71,10 +71,10 @@ export const NET_AMOUNT_COLUMN_ID = 'netAmount';
 /** ₹ net divided by variety total acres (variety rowspan). */
 export const NET_AMOUNT_PER_ACRE_COLUMN_ID = 'netAmountPerAcre';
 
-/** Farmer-level net profit to company (farmer rowspan). */
+/** Variety-level net profit to company (variety rowspan). */
 export const NET_PROFIT_TO_COMPANY_COLUMN_ID = 'netProfitToCompany';
 
-/** Farmer-level net profit per acre (farmer rowspan). */
+/** Variety-level net profit per acre (variety rowspan). */
 export const NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID =
   'netProfitToCompanyPerAcre';
 
@@ -182,8 +182,6 @@ const CONTRACT_FARMING_FAMILY_SPAN_COLUMN_IDS = new Set<string>([
   'farmerMobile',
   'accountNumber',
   'address',
-  NET_PROFIT_TO_COMPANY_COLUMN_ID,
-  NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
 ]);
 
 export function isContractFarmingFamilySpanColumn(columnId: string): boolean {

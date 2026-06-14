@@ -2,6 +2,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import storeAdminAxiosClient from '@/lib/axios';
 import { queryClient } from '@/lib/queryClient';
+import type { FarmerStorageLinkProfit } from '@/types/incoming-gate-pass';
 
 type ContractFarmingSeedSize = {
   name: string;
@@ -42,8 +43,7 @@ export type ContractFarmingReportFarmer = {
   address: string;
   mobileNumber: string;
   accountNumber: number;
-  netProfitToCompany?: number;
-  netProfitToCompanyPerAcre?: number;
+  profit?: FarmerStorageLinkProfit;
   varieties: ContractFarmingVariety[];
 };
 

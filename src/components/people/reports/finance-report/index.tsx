@@ -45,13 +45,23 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
   const handleSyncWithCfReport = useCallback(() => {
     const payload = buildNetProfitSyncPayload(
       farmerStorageLinkId,
-      summary,
+      plantingGroups,
+      gradingGroups,
       showSummary
     );
     if (!payload) return;
 
-    editFarmer(payload);
-  }, [editFarmer, farmerStorageLinkId, showSummary, summary]);
+    editFarmer({
+      farmerStorageLinkId: payload.farmerStorageLinkId,
+      profit: payload.profit,
+    });
+  }, [
+    editFarmer,
+    farmerStorageLinkId,
+    gradingGroups,
+    plantingGroups,
+    showSummary,
+  ]);
 
   return (
     <main className="from-background via-muted/20 to-background mx-auto max-w-7xl bg-linear-to-b p-3 sm:p-4 lg:p-6">

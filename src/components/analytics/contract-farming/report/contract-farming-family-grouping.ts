@@ -134,16 +134,16 @@ function mergeFamilyGroup(
 
   const primaryMember = familyMembers[0];
 
-  const netProfitByFarmer = new Map<string, number>();
+  let summedNetProfit = 0;
+  let hasNetProfit = false;
   const seenVarietyAcres = new Set<string>();
   let totalFamilyAcres = 0;
 
   for (const row of sortedMembers) {
-    if (!netProfitByFarmer.has(row.farmerId)) {
-      const profit = row.netProfitToCompany;
-      if (profit != null && Number.isFinite(profit)) {
-        netProfitByFarmer.set(row.farmerId, profit);
-      }
+    const profit = row.netProfitToCompany;
+    if (profit != null && Number.isFinite(profit)) {
+      summedNetProfit += profit;
+      hasNetProfit = true;
     }
     const varietyAcresKey = `${row.farmerId}|${row.varietyName}`;
     if (!seenVarietyAcres.has(varietyAcresKey)) {
@@ -151,12 +151,6 @@ function mergeFamilyGroup(
       totalFamilyAcres += row.varietyTotalAcres;
     }
   }
-
-  const summedNetProfit = Array.from(netProfitByFarmer.values()).reduce(
-    (sum, value) => sum + value,
-    0
-  );
-  const hasNetProfit = netProfitByFarmer.size > 0;
 
   const merged: FlattenedRow = {
     ...first,

@@ -41,6 +41,7 @@ import {
   getOutputPercentage,
   getTotalGradeBags,
   getTotalGradeNetWeightKg,
+  getVarietyProfit,
   getWastageKg,
   orderContractFarmingGradeHeaders,
 } from './contract-farming-report-calculations';
@@ -195,6 +196,7 @@ function flattenFarmers(
       const mergedRowSpan = sizeRows.length;
 
       sizeRows.forEach((size, sizeIndex) => {
+        const varietyProfit = getVarietyProfit(farmer.profit, variety.name);
         const row: FlattenedRow = {
           rowId: `${farmer.id}-${variety.name}-${size?.name ?? 'no-size'}-${sizeIndex}`,
           varietyRowKey,
@@ -226,8 +228,8 @@ function flattenFarmers(
           varietyTotalSeedAmountPayable: Number(
             variety.seed?.totalAmountPayable ?? 0
           ),
-          netProfitToCompany: farmer.netProfitToCompany ?? null,
-          netProfitToCompanyPerAcre: farmer.netProfitToCompanyPerAcre ?? null,
+          netProfitToCompany: varietyProfit.netProfitToCompany,
+          netProfitToCompanyPerAcre: varietyProfit.netProfitToCompanyPerAcre,
         };
 
         gradeHeaders.forEach((grade) => {

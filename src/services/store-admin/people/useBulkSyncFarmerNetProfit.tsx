@@ -93,7 +93,8 @@ async function computeNetProfitUpdateForFarmer(
     const hasReportData = reportData.plantingGroups.length > 0;
     const update = buildNetProfitSyncPayload(
       farmer._id,
-      reportData.summary,
+      reportData.plantingGroups,
+      reportData.gradingGroups,
       hasReportData
     );
 
@@ -184,8 +185,8 @@ async function bulkSyncFarmerNetProfit(): Promise<BulkNetProfitSyncApiResponse> 
 }
 
 /**
- * Bulk-syncs netProfitToCompany / netProfitToCompanyPerAcre for all farmers
- * using the same finance report calculations as the per-farmer sync button.
+ * Bulk-syncs per-variety profit for all farmers using the same finance report
+ * calculations as the per-farmer sync button.
  */
 export function useBulkSyncFarmerNetProfit() {
   return useMutation<

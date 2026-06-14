@@ -33,6 +33,13 @@ export interface FarmerStorageLinkLocalityRef {
   seedBuyBackRatePerQuintal?: number;
 }
 
+export type VarietyProfitEntry = {
+  netProfitToCompany?: number;
+  netProfitToCompanyPerAcre?: number;
+};
+
+export type FarmerStorageLinkProfit = Record<string, VarietyProfitEntry>;
+
 export interface FarmerStorageLink {
   _id: string;
   farmerId: Farmer;
@@ -42,8 +49,7 @@ export interface FarmerStorageLink {
   localityId?: string | FarmerStorageLinkLocalityRef;
   accountNumber: number;
   isActive: boolean;
-  netProfitToCompany?: number;
-  netProfitToCompanyPerAcre?: number;
+  profit?: FarmerStorageLinkProfit;
   createdAt?: string;
   updatedAt?: string;
   __v?: number;
