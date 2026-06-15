@@ -22,6 +22,7 @@ import {
 } from './contract-farming-report-calculations';
 import { ReportMetricCalculationCell } from './report-metric-calculation-cell';
 import { formatFamilyAccountNumber } from './contract-farming-family-grouping';
+import { createFamilyAwareNumericSortingFn } from './contract-farming-family-sorting';
 import type { FlattenedRow } from './types';
 import { GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX } from './types';
 import {
@@ -595,7 +596,10 @@ export function buildColumns(
     {
       id: NET_AMOUNT_PER_ACRE_COLUMN_ID,
       header: 'Net Amount Per Acre',
-      sortingFn: 'basic',
+      sortingFn: createFamilyAwareNumericSortingFn(
+        (row) => getNetAmountPerAcreRupee(row),
+        (row) => row.familySortNetAmountPerAcre
+      ),
       size: 165,
       minSize: 120,
       maxSize: 300,
@@ -625,7 +629,10 @@ export function buildColumns(
     {
       id: NET_PROFIT_TO_COMPANY_COLUMN_ID,
       header: 'Net Profit To Company',
-      sortingFn: 'basic',
+      sortingFn: createFamilyAwareNumericSortingFn(
+        (row) => row.netProfitToCompany,
+        (row) => row.familySortNetProfitToCompany
+      ),
       size: 165,
       minSize: 120,
       maxSize: 300,
@@ -650,7 +657,10 @@ export function buildColumns(
     {
       id: NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
       header: 'Net Profit To Company Per Acre',
-      sortingFn: 'basic',
+      sortingFn: createFamilyAwareNumericSortingFn(
+        (row) => row.netProfitToCompanyPerAcre,
+        (row) => row.familySortNetProfitToCompanyPerAcre
+      ),
       size: 185,
       minSize: 120,
       maxSize: 320,
@@ -806,7 +816,10 @@ export function buildColumns(
         columnHelper.accessor((row) => getAverageQuintalPerAcre(row), {
           id: AVG_QUINTAL_PER_ACRE_COLUMN_ID,
           header: 'Average Quintal Per Acre',
-          sortingFn: 'basic',
+          sortingFn: createFamilyAwareNumericSortingFn(
+            (row) => getAverageQuintalPerAcre(row),
+            (row) => row.familySortAverageQuintalPerAcre
+          ),
           size: 175,
           minSize: 175,
           maxSize: 280,

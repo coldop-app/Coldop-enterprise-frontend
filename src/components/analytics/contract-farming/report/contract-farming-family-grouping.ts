@@ -1,4 +1,10 @@
-import { getGradeBagCount } from './contract-farming-report-calculations';
+import { roundMax2 } from '@/components/daybook/grading-calculations';
+import {
+  getAverageQuintalPerAcre,
+  getGradeBagCount,
+  getNetAmountRupee,
+  varietyMetricDedupeKey,
+} from './contract-farming-report-calculations';
 import {
   GRADE_BAG_COLUMN_KEY_PREFIX,
   type FamilyMemberSummary,
@@ -329,8 +335,116 @@ export function prepareFamilyGroupedRows(
   }
 
   return recomputeSpanMetadata(
-    sortContractFarmingRows([...mergedFamilyRows, ...nonFamilyRows])
+    stampFamilySortMetrics(
+      sortContractFarmingRows([...mergedFamilyRows, ...nonFamilyRows])
+    )
   );
+}
+
+function stampFamilySortMetrics(rows: FlattenedRow[]): FlattenedRow[] {
+  const rowsByFamily = new Map<number, FlattenedRow[]>();
+
+  for (const row of rows) {
+    const familyKey = row.familyKey ?? 0;
+    if (!isFamilyGroupedRowForStamp(row)) continue;
+    const familyRows = rowsByFamily.get(familyKey) ?? [];
+    familyRows.push(row);
+    rowsByFamily.set(familyKey, familyRows);
+  }
+
+  const sortMetricsByFamily = new Map<number, FamilySortMetrics>();
+  for (const [familyKey, familyRows] of rowsByFamily) {
+    sortMetricsByFamily.set(familyKey, computeFamilySortMetrics(familyRows));
+  }
+
+  return rows.map((row) => {
+    const familyKey = row.familyKey ?? 0;
+    if (!isFamilyGroupedRowForStamp(row)) return row;
+
+    const metrics = sortMetricsByFamily.get(familyKey);
+    if (!metrics) return row;
+
+    return {
+      ...row,
+      familySortNetProfitToCompany: metrics.netProfit,
+      familySortNetProfitToCompanyPerAcre: metrics.netProfitPerAcre,
+      familySortNetAmountPerAcre: metrics.netAmountPerAcre,
+      familySortAverageQuintalPerAcre: metrics.averageQuintalPerAcre,
+    };
+  });
+}
+
+type FamilySortMetrics = {
+  netProfit: number | null;
+  netProfitPerAcre: number | null;
+  netAmountPerAcre: number | null;
+  averageQuintalPerAcre: number | null;
+};
+
+function computeFamilySortMetrics(
+  familyRows: FlattenedRow[]
+): FamilySortMetrics {
+  const seenVarietyKeys = new Set<string>();
+  const seenMetricKeys = new Set<string>();
+  let netProfit = 0;
+  let hasProfit = false;
+  let varietyAcres = 0;
+  let sumNetAmount = 0;
+  let sumSizeAcres = 0;
+  let hasNetAmount = false;
+  let avgQuintalWeighted = 0;
+  let avgQuintalVarietyAcres = 0;
+
+  for (const row of familyRows) {
+    const profit = row.netProfitToCompany;
+    if (profit != null && Number.isFinite(profit)) {
+      netProfit += profit;
+      hasProfit = true;
+    }
+
+    if (!seenVarietyKeys.has(row.varietyRowKey)) {
+      seenVarietyKeys.add(row.varietyRowKey);
+      varietyAcres += row.varietyTotalAcres;
+    }
+
+    sumSizeAcres += row.sizeAcres;
+
+    const metricKey = varietyMetricDedupeKey(row);
+    if (seenMetricKeys.has(metricKey)) continue;
+    seenMetricKeys.add(metricKey);
+
+    const netAmount = getNetAmountRupee(row);
+    if (netAmount != null) {
+      sumNetAmount += netAmount;
+      hasNetAmount = true;
+    }
+
+    const quintalPerAcre = getAverageQuintalPerAcre(row);
+    const acres = row.varietyTotalAcres;
+    if (quintalPerAcre != null && acres > 0) {
+      avgQuintalWeighted += quintalPerAcre * acres;
+      avgQuintalVarietyAcres += acres;
+    }
+  }
+
+  return {
+    netProfit: hasProfit ? netProfit : null,
+    netProfitPerAcre:
+      hasProfit && varietyAcres > 0 ? netProfit / varietyAcres : null,
+    netAmountPerAcre:
+      hasNetAmount && sumSizeAcres > 0
+        ? roundMax2(sumNetAmount / sumSizeAcres)
+        : null,
+    averageQuintalPerAcre:
+      avgQuintalVarietyAcres > 0
+        ? avgQuintalWeighted / avgQuintalVarietyAcres
+        : null,
+  };
+}
+
+function isFamilyGroupedRowForStamp(row: FlattenedRow): boolean {
+  const familyKey = row.familyKey ?? 0;
+  return familyKey > 0 && row.varietyRowKey.startsWith('family-');
 }
 
 /** @deprecated Use {@link prepareFamilyGroupedRows}. */

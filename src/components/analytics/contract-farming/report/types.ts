@@ -76,4 +76,17 @@ export type FlattenedRow = {
   netProfitToCompany: number | null;
   /** Variety-level net profit per acre (duplicated on every size row). */
   netProfitToCompanyPerAcre: number | null;
+  /**
+   * Family-level net profit used for sorting when Group Families is enabled
+   * (same value on every row in the family block).
+   */
+  familySortNetProfitToCompany?: number | null;
+  /**
+   * Family-level net profit per acre used for sorting when Group Families is enabled.
+   */
+  familySortNetProfitToCompanyPerAcre?: number | null;
+  /** Family-level net amount per acre used for sorting when Group Families is enabled. */
+  familySortNetAmountPerAcre?: number | null;
+  /** Family-level average quintal per acre used for sorting when Group Families is enabled. */
+  familySortAverageQuintalPerAcre?: number | null;
 } & Partial<Record<GradeBagFlatKey, number | null>>;
