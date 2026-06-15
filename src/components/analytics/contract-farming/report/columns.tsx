@@ -22,7 +22,6 @@ import {
 } from './contract-farming-report-calculations';
 import { ReportMetricCalculationCell } from './report-metric-calculation-cell';
 import { formatFamilyAccountNumber } from './contract-farming-family-grouping';
-import { createFamilyAwareNumericSortingFn } from './contract-farming-family-sorting';
 import type { FlattenedRow } from './types';
 import { GRADE_NET_WEIGHT_COLUMN_KEY_PREFIX } from './types';
 import {
@@ -317,7 +316,6 @@ export function buildColumns(
     columnHelper.accessor('familyKey', {
       id: 'familyKey',
       header: 'Family Key',
-      sortingFn: 'basic',
       size: 110,
       minSize: 90,
       maxSize: 160,
@@ -334,7 +332,6 @@ export function buildColumns(
     columnHelper.accessor('farmerName', {
       id: 'farmer',
       header: 'Farmer',
-      sortingFn: 'text',
       size: 240,
       minSize: 180,
       maxSize: 550,
@@ -375,7 +372,6 @@ export function buildColumns(
     columnHelper.accessor('mobileNumber', {
       id: 'farmerMobile',
       header: 'Mobile',
-      sortingFn: 'text',
       size: 150,
       minSize: 120,
       maxSize: 320,
@@ -389,7 +385,6 @@ export function buildColumns(
     columnHelper.accessor('address', {
       id: 'address',
       header: 'Address',
-      sortingFn: 'text',
       size: 230,
       minSize: 160,
       maxSize: 550,
@@ -403,7 +398,6 @@ export function buildColumns(
     columnHelper.accessor('varietyName', {
       id: 'variety',
       header: 'Variety',
-      sortingFn: 'text',
       size: 150,
       minSize: 120,
       maxSize: 260,
@@ -420,7 +414,6 @@ export function buildColumns(
     columnHelper.accessor('generation', {
       id: 'generation',
       header: 'Stage',
-      sortingFn: 'text',
       size: 110,
       minSize: 90,
       maxSize: 180,
@@ -439,7 +432,6 @@ export function buildColumns(
     columnHelper.accessor('sizeName', {
       id: 'size',
       header: 'Size',
-      sortingFn: 'text',
       size: 120,
       minSize: 90,
       maxSize: 220,
@@ -453,7 +445,6 @@ export function buildColumns(
     columnHelper.accessor('sizeQuantity', {
       id: 'qty',
       header: 'Qty (bags)',
-      sortingFn: 'basic',
       size: 120,
       minSize: 100,
       maxSize: 220,
@@ -472,7 +463,6 @@ export function buildColumns(
     columnHelper.accessor('sizeAcres', {
       id: 'acres',
       header: 'Acres',
-      sortingFn: 'basic',
       size: 120,
       minSize: 100,
       maxSize: 220,
@@ -491,7 +481,6 @@ export function buildColumns(
     columnHelper.accessor('buyBackBags', {
       id: 'bbBags',
       header: 'Bags',
-      sortingFn: 'basic',
       size: 120,
       minSize: 100,
       maxSize: 220,
@@ -510,7 +499,6 @@ export function buildColumns(
     columnHelper.accessor('buyBackNetWeightKg', {
       id: 'bbNetWeight',
       header: 'Net wt (kg)',
-      sortingFn: 'basic',
       size: 140,
       minSize: 120,
       maxSize: 260,
@@ -531,7 +519,6 @@ export function buildColumns(
   const seedAmountColumn = columnHelper.accessor('sizeAmountPayable', {
     id: SEED_AMOUNT_COLUMN_ID,
     header: 'Seed amt (₹)',
-    sortingFn: 'basic',
     size: 145,
     minSize: 120,
     maxSize: 260,
@@ -570,7 +557,6 @@ export function buildColumns(
     {
       id: NET_AMOUNT_COLUMN_ID,
       header: 'Net Amount',
-      sortingFn: 'basic',
       size: 150,
       minSize: 120,
       maxSize: 280,
@@ -596,10 +582,6 @@ export function buildColumns(
     {
       id: NET_AMOUNT_PER_ACRE_COLUMN_ID,
       header: 'Net Amount Per Acre',
-      sortingFn: createFamilyAwareNumericSortingFn(
-        (row) => getNetAmountPerAcreRupee(row),
-        (row) => row.familySortNetAmountPerAcre
-      ),
       size: 165,
       minSize: 120,
       maxSize: 300,
@@ -629,10 +611,6 @@ export function buildColumns(
     {
       id: NET_PROFIT_TO_COMPANY_COLUMN_ID,
       header: 'Net Profit To Company',
-      sortingFn: createFamilyAwareNumericSortingFn(
-        (row) => row.netProfitToCompany,
-        (row) => row.familySortNetProfitToCompany
-      ),
       size: 165,
       minSize: 120,
       maxSize: 300,
@@ -657,10 +635,6 @@ export function buildColumns(
     {
       id: NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
       header: 'Net Profit To Company Per Acre',
-      sortingFn: createFamilyAwareNumericSortingFn(
-        (row) => row.netProfitToCompanyPerAcre,
-        (row) => row.familySortNetProfitToCompanyPerAcre
-      ),
       size: 185,
       minSize: 120,
       maxSize: 320,
@@ -686,7 +660,6 @@ export function buildColumns(
           columnHelper.accessor((row) => getGradeBagCount(row, grade), {
             id: `${VARIETY_LEVEL_COLUMN_PREFIX}${grade}`,
             header: formatContractFarmingGradeColumnLabel(grade),
-            sortingFn: 'basic',
             size: 130,
             minSize: 110,
             maxSize: 260,
@@ -715,7 +688,6 @@ export function buildColumns(
           columnHelper.accessor((row) => getGradeNetWeightKg(row, grade), {
             id: `${VARIETY_LEVEL_NET_WEIGHT_COLUMN_PREFIX}${grade}`,
             header: formatContractFarmingGradeNetWeightColumnLabel(grade),
-            sortingFn: 'basic',
             size: 130,
             minSize: 110,
             maxSize: 260,
@@ -739,7 +711,6 @@ export function buildColumns(
           columnHelper.accessor((row) => getGradeWeightPercent(row, grade), {
             id: `${VARIETY_LEVEL_PERCENT_COLUMN_PREFIX}${grade}`,
             header: `${formatContractFarmingGradeColumnLabel(grade)} %`,
-            sortingFn: 'basic',
             size: 130,
             minSize: 110,
             maxSize: 260,
@@ -767,7 +738,6 @@ export function buildColumns(
         columnHelper.accessor((row) => getTotalGradeBags(row), {
           id: TOTAL_GRADED_BAGS_COLUMN_ID,
           header: 'Total Bags After Grading',
-          sortingFn: 'basic',
           size: 170,
           minSize: 165,
           maxSize: 280,
@@ -794,7 +764,6 @@ export function buildColumns(
         columnHelper.accessor((row) => getTotalGradeNetWeightKg(row), {
           id: TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
           header: 'Net Weight After Grading',
-          sortingFn: 'basic',
           size: 170,
           minSize: 170,
           maxSize: 280,
@@ -816,10 +785,6 @@ export function buildColumns(
         columnHelper.accessor((row) => getAverageQuintalPerAcre(row), {
           id: AVG_QUINTAL_PER_ACRE_COLUMN_ID,
           header: 'Average Quintal Per Acre',
-          sortingFn: createFamilyAwareNumericSortingFn(
-            (row) => getAverageQuintalPerAcre(row),
-            (row) => row.familySortAverageQuintalPerAcre
-          ),
           size: 175,
           minSize: 175,
           maxSize: 280,
@@ -845,7 +810,6 @@ export function buildColumns(
         columnHelper.accessor((row) => getWastageKg(row), {
           id: WASTAGE_KG_COLUMN_ID,
           header: 'Wastage (kg)',
-          sortingFn: 'basic',
           size: 150,
           minSize: 120,
           maxSize: 260,
@@ -871,7 +835,6 @@ export function buildColumns(
         columnHelper.accessor((row) => getOutputPercentage(row), {
           id: OUTPUT_PERCENTAGE_COLUMN_ID,
           header: 'Output Percentage',
-          sortingFn: 'basic',
           size: 155,
           minSize: 150,
           maxSize: 260,
@@ -897,7 +860,6 @@ export function buildColumns(
         columnHelper.accessor((row) => getBuyBackAmountFromGradeData(row), {
           id: BUY_BACK_AMOUNT_COLUMN_ID,
           header: 'Buy Back Amount',
-          sortingFn: 'basic',
           size: 160,
           minSize: 155,
           maxSize: 280,
