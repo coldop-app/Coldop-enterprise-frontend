@@ -1,8 +1,7 @@
-import { roundMax2 } from '@/components/daybook/grading-calculations';
 import type { BulkNetProfitUpdate } from '@/types/farmer';
 import type { FarmerStorageLinkProfit } from '@/types/incoming-gate-pass';
 import {
-  aggregateVarietyNetAcres,
+  computeFinanceVarietySummaries,
   type FinanceGradingVarietyGroup,
   type FinancePlantingVarietyGroup,
 } from './finance-calculations';
@@ -15,30 +14,25 @@ export function buildVarietyProfitMap(
   plantingGroups: FinancePlantingVarietyGroup[],
   gradingGroups: FinanceGradingVarietyGroup[]
 ): FarmerStorageLinkProfit {
-  const gradingByKey = new Map(
-    gradingGroups.map((group) => [group.varietyKey, group])
-  );
   const profit: FarmerStorageLinkProfit = {};
 
-  for (const planting of plantingGroups) {
-    const grading = gradingByKey.get(planting.varietyKey);
-    const saleAmount = grading?.totals.saleAmount ?? 0;
-    const netProfitToCompany = roundMax2(saleAmount - planting.netAmount);
-    const acres = aggregateVarietyNetAcres(planting.seedRows);
-
+  for (const summary of computeFinanceVarietySummaries(
+    plantingGroups,
+    gradingGroups
+  )) {
     const entry: FarmerStorageLinkProfit[string] = {
-      netProfitToCompany,
+      netProfitToCompany: summary.netRevenue,
     };
 
-    if (acres > 0) {
-      entry.netProfitToCompanyPerAcre = roundMax2(netProfitToCompany / acres);
+    if (summary.netAmountPerAcre != null) {
+      entry.netProfitToCompanyPerAcre = summary.netAmountPerAcre;
     }
 
     if (
       Number.isFinite(entry.netProfitToCompany) ||
       Number.isFinite(entry.netProfitToCompanyPerAcre)
     ) {
-      profit[planting.varietyLabel] = entry;
+      profit[summary.varietyLabel] = entry;
     }
   }
 

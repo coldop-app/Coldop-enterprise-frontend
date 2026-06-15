@@ -33,6 +33,7 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
     plantingGroups,
     gradingGroups,
     summary,
+    varietySummaries,
     rowStats,
   } = useFinanceReportData(farmerStorageLinkId);
 
@@ -115,6 +116,7 @@ const FinanceReport = ({ farmerStorageLinkId }: FinanceReportProps) => {
               reportPeriodLabel={reportPeriodLabel}
               showSummary={showSummary}
               summary={summary}
+              varietySummaries={varietySummaries}
             />
 
             {farmerStorageLink ? (

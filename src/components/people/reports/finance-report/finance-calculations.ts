@@ -86,6 +86,7 @@ export type FinanceReportRowStats = {
 
 export type FinanceReportData = FinanceReportGroups & {
   summary: FinanceReportSummary;
+  varietySummaries: FinanceVarietySummary[];
   rowStats: FinanceReportRowStats;
 };
 
@@ -101,6 +102,14 @@ export type FinanceGradingVarietyTotals = {
 export type FinanceReportSummary = {
   totalGradingSaleAmount: number;
   totalPlantingNetAmount: number;
+  netRevenue: number;
+  totalAcresPlanted: number;
+  netAmountPerAcre: number | null;
+};
+
+export type FinanceVarietySummary = {
+  varietyKey: string;
+  varietyLabel: string;
   netRevenue: number;
   totalAcresPlanted: number;
   netAmountPerAcre: number | null;
@@ -758,6 +767,32 @@ export function computeFinanceReportSummary(
   };
 }
 
+export function computeFinanceVarietySummaries(
+  plantingGroups: FinancePlantingVarietyGroup[],
+  gradingGroups: FinanceGradingVarietyGroup[]
+): FinanceVarietySummary[] {
+  const gradingByKey = new Map(
+    gradingGroups.map((group) => [group.varietyKey, group])
+  );
+
+  return plantingGroups.map((planting) => {
+    const grading = gradingByKey.get(planting.varietyKey);
+    const saleAmount = grading?.totals.saleAmount ?? 0;
+    const netRevenue = roundMax2(saleAmount - planting.netAmount);
+    const totalAcresPlanted = aggregateVarietyNetAcres(planting.seedRows);
+    const netAmountPerAcre =
+      totalAcresPlanted > 0 ? roundMax2(netRevenue / totalAcresPlanted) : null;
+
+    return {
+      varietyKey: planting.varietyKey,
+      varietyLabel: planting.varietyLabel,
+      netRevenue,
+      totalAcresPlanted,
+      netAmountPerAcre,
+    };
+  });
+}
+
 export function buildFinanceReportGroups(
   farmerSeeds: FarmerSeedGatePass[] | null | undefined,
   incomingPasses: IncomingGatePassByFarmerStorageLinkItem[] | null | undefined,
@@ -836,6 +871,10 @@ export function buildFinanceReportData(
     plantingGroups,
     gradingGroups,
     summary: computeFinanceReportSummary(plantingGroups, gradingGroups),
+    varietySummaries: computeFinanceVarietySummaries(
+      plantingGroups,
+      gradingGroups
+    ),
     rowStats: computeFinanceReportRowStats(plantingGroups, gradingGroups),
   };
 }

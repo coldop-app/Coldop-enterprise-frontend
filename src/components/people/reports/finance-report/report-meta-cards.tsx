@@ -3,13 +3,17 @@ import { CalendarDays, FileText } from 'lucide-react';
 
 import { MDASH } from './format-utils';
 import FinanceSummaryStatItems from './finance-summary-card';
-import type { FinanceReportSummary } from './finance-calculations';
+import type {
+  FinanceReportSummary,
+  FinanceVarietySummary,
+} from './finance-calculations';
 
 export interface ReportMetaCardsProps {
   reportGeneratedOn: string;
   reportPeriodLabel: string;
   showSummary: boolean;
   summary: FinanceReportSummary;
+  varietySummaries: FinanceVarietySummary[];
 }
 
 function ReportMetaCards({
@@ -17,6 +21,7 @@ function ReportMetaCards({
   reportPeriodLabel,
   showSummary,
   summary,
+  varietySummaries,
 }: ReportMetaCardsProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -39,7 +44,10 @@ function ReportMetaCards({
         </p>
       </div>
       {showSummary ? (
-        <FinanceSummaryStatItems summary={summary} />
+        <FinanceSummaryStatItems
+          summary={summary}
+          varietySummaries={varietySummaries}
+        />
       ) : (
         <>
           <div className="border-border/50 bg-card rounded-xl border p-3">
