@@ -66,10 +66,6 @@ import {
   isNumericSortColumnId,
 } from './columns';
 import {
-  buildBlockSortValuesByKey,
-  createBlockAwareSortingFn,
-} from './contract-farming-block-sorting';
-import {
   prepareFamilyGroupedRows,
   recomputeSpanMetadata,
 } from './contract-farming-family-grouping';
@@ -545,16 +541,6 @@ export default function ContractFarmingReportTable() {
     gradePercentColumnIds,
   ]);
 
-  const blockSortValuesByKey = React.useMemo(
-    () => buildBlockSortValuesByKey(tableData, gradeHeaders),
-    [tableData, gradeHeaders]
-  );
-
-  const blockAwareSortingFn = React.useMemo(
-    () => createBlockAwareSortingFn(() => blockSortValuesByKey),
-    [blockSortValuesByKey]
-  );
-
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<FlattenedRow>({
     data: tableData,
@@ -563,7 +549,6 @@ export default function ContractFarmingReportTable() {
       size: DEFAULT_COLUMN_SIZE,
       minSize: DEFAULT_COLUMN_MIN_SIZE,
       maxSize: DEFAULT_COLUMN_MAX_SIZE,
-      sortingFn: blockAwareSortingFn,
     },
     state: {
       sorting,

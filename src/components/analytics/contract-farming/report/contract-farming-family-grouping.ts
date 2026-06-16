@@ -6,7 +6,7 @@ import {
 } from './types';
 
 function familyMergeKey(row: FlattenedRow): string {
-  return `${row.familyKey ?? 0}\x00${row.varietyName}\x00${row.sizeName}`;
+  return `${row.familyKey ?? 0}\x00${row.varietyName}`;
 }
 
 export function formatFamilyAccountNumber(accountNumber: number): string {
@@ -154,7 +154,7 @@ function mergeFamilyGroup(
 
   const merged: FlattenedRow = {
     ...first,
-    rowId: `family-${familyKey}-${first.varietyName}-${first.sizeName}`,
+    rowId: `family-${familyKey}-${first.varietyName}`,
     varietyRowKey: `family-${familyKey}|${first.varietyName}`,
     familyKey,
     familyMembers,
