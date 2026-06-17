@@ -9,6 +9,7 @@ import {
   NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
   SEED_AMOUNT_COLUMN_ID,
+  TOTAL_ACRES_PLANTED_COLUMN_ID,
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   VARIETY_LEVEL_COLUMN_PREFIX,
@@ -19,6 +20,10 @@ import {
   isNumericSortColumnId,
 } from './columns';
 import { getDisplayFamilyBlockKey } from './contract-farming-display-span-metadata';
+import {
+  type ContractFarmingSortContext,
+  getSortBlockKey,
+} from './contract-farming-sort-context';
 import {
   getAverageQuintalPerAcre,
   getBuyBackAmountFromGradeData,
@@ -151,22 +156,6 @@ function sumSizeField(
   return blockRows.reduce((sum, row) => sum + getValue(row), 0);
 }
 
-function sumAllNumeric(
-  blockRows: FlattenedRow[],
-  getValue: (row: FlattenedRow) => number | null | undefined
-): number | null {
-  let sum = 0;
-  let any = false;
-  for (const row of blockRows) {
-    const value = getValue(row);
-    if (value != null && Number.isFinite(value)) {
-      sum += value;
-      any = true;
-    }
-  }
-  return any ? sum : null;
-}
-
 function blockNetAmountPerAcre(blockRows: FlattenedRow[]): number | null {
   const seen = new Set<string>();
   let sumNet = 0;
@@ -201,19 +190,6 @@ function blockAverageQuintalPerAcre(blockRows: FlattenedRow[]): number | null {
     }
   }
   return sumVarietyAcres > 0 ? weighted / sumVarietyAcres : null;
-}
-
-function blockNetProfitPerAcre(blockRows: FlattenedRow[]): number | null {
-  const profit = sumAllNumeric(blockRows, (row) => row.netProfitToCompany);
-  const seenVarietyKeys = new Set<string>();
-  let varietyAcres = 0;
-  for (const row of blockRows) {
-    if (seenVarietyKeys.has(row.varietyRowKey)) continue;
-    seenVarietyKeys.add(row.varietyRowKey);
-    varietyAcres += row.varietyTotalAcres;
-  }
-  if (profit == null || varietyAcres <= 0) return null;
-  return profit / varietyAcres;
 }
 
 function blockGradeWeightPercent(
@@ -261,6 +237,8 @@ function getBlockColumnSortValue(
       return sumSizeField(blockRows, (row) => row.sizeQuantity);
     case 'acres':
       return sumSizeField(blockRows, (row) => row.sizeAcres);
+    case TOTAL_ACRES_PLANTED_COLUMN_ID:
+      return sumSizeField(blockRows, (row) => row.sizeAcres);
     case 'bbBags':
       return sumDedupedNumeric(blockRows, (row) => row.buyBackBags);
     case 'bbNetWeight':
@@ -272,9 +250,12 @@ function getBlockColumnSortValue(
     case NET_AMOUNT_PER_ACRE_COLUMN_ID:
       return blockNetAmountPerAcre(blockRows);
     case NET_PROFIT_TO_COMPANY_COLUMN_ID:
-      return sumAllNumeric(blockRows, (row) => row.netProfitToCompany);
+      return sumDedupedNumeric(blockRows, (row) => row.netProfitToCompany);
     case NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID:
-      return blockNetProfitPerAcre(blockRows);
+      return sumDedupedNumeric(
+        blockRows,
+        (row) => row.netProfitToCompanyPerAcre
+      );
     case TOTAL_GRADED_BAGS_COLUMN_ID:
       return sumDedupedNumeric(blockRows, (row) => getTotalGradeBags(row));
     case TOTAL_GRADED_NET_WEIGHT_COLUMN_ID:
@@ -321,42 +302,47 @@ function getBlockColumnSortValue(
 
 export function buildBlockSortValuesByKey(
   rows: FlattenedRow[],
-  gradeHeaders: readonly string[]
+  gradeHeaders: readonly string[],
+  sortContext: ContractFarmingSortContext = { varietyFilterActive: false }
 ): BlockSortValuesByKey {
   const columnIds = buildDefaultContractFarmingColumnOrder(gradeHeaders);
-  const rowsByBlock = new Map<string, FlattenedRow[]>();
-
-  for (const row of rows) {
-    const blockKey = getDisplayFamilyBlockKey(row);
-    const blockRows = rowsByBlock.get(blockKey) ?? [];
-    blockRows.push(row);
-    rowsByBlock.set(blockKey, blockRows);
-  }
-
   const valuesByKey: BlockSortValuesByKey = new Map();
-  for (const [blockKey, blockRows] of rowsByBlock) {
-    const values: Record<string, BlockSortValue> = {};
-    for (const columnId of columnIds) {
+
+  for (const columnId of columnIds) {
+    const rowsByBlock = new Map<string, FlattenedRow[]>();
+    for (const row of rows) {
+      const blockKey = getSortBlockKey(row, columnId, sortContext);
+      const blockRows = rowsByBlock.get(blockKey) ?? [];
+      blockRows.push(row);
+      rowsByBlock.set(blockKey, blockRows);
+    }
+
+    for (const [blockKey, blockRows] of rowsByBlock) {
+      let values = valuesByKey.get(blockKey);
+      if (!values) {
+        values = {};
+        valuesByKey.set(blockKey, values);
+      }
       values[columnId] = getBlockColumnSortValue(
         columnId,
         blockRows,
         gradeHeaders
       );
     }
-    valuesByKey.set(blockKey, values);
   }
 
   return valuesByKey;
 }
 
 export function createBlockAwareSortingFn(
-  getBlockSortValues: () => BlockSortValuesByKey
+  getBlockSortValues: () => BlockSortValuesByKey,
+  sortContext: ContractFarmingSortContext = { varietyFilterActive: false }
 ): SortingFn<FlattenedRow> {
   return (rowA, rowB, columnId) => {
     const a = rowA.original;
     const b = rowB.original;
-    const blockA = getDisplayFamilyBlockKey(a);
-    const blockB = getDisplayFamilyBlockKey(b);
+    const blockA = getSortBlockKey(a, columnId, sortContext);
+    const blockB = getSortBlockKey(b, columnId, sortContext);
 
     if (blockA === blockB) {
       return compareBlockInternalOrder(a, b);

@@ -1,6 +1,31 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const mockGetNetAmountRupee = vi.hoisted(() =>
+  vi.fn<(row: import('./types').FlattenedRow) => number | null>()
+);
+
+vi.mock('./contract-farming-report-calculations', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('./contract-farming-report-calculations')
+    >();
+  return {
+    ...actual,
+    getNetAmountRupee: (
+      row: import('./types').FlattenedRow,
+      preferencesOverride?:
+        | import('@/services/store-admin/preferences/useGetPreferences').PreferencesData
+        | null
+    ) =>
+      mockGetNetAmountRupee(row) ??
+      actual.getNetAmountRupee(row, preferencesOverride),
+  };
+});
+
 import {
+  NET_AMOUNT_COLUMN_ID,
   NET_PROFIT_TO_COMPANY_COLUMN_ID,
+  TOTAL_ACRES_PLANTED_COLUMN_ID,
   VARIETY_LEVEL_COLUMN_PREFIX,
 } from './columns';
 import {
@@ -51,7 +76,7 @@ function makeRow(
 }
 
 describe('contract-farming-block-sorting', () => {
-  it('keeps grouped family rows contiguous when sorting by net profit', () => {
+  it('sorts each variety independently when sorting by net profit', () => {
     const rows: FlattenedRow[] = [
       makeRow({
         rowId: 'family-2-a',
@@ -86,14 +111,161 @@ describe('contract-farming-block-sorting', () => {
       true
     );
 
-    const familyTwoRows = sorted.filter((row) => row.familyKey === 2);
-    expect(familyTwoRows).toHaveLength(2);
-    expect(familyTwoRows.map((row) => row.rowId).sort()).toEqual([
+    expect(sorted.map((row) => row.rowId)).toEqual([
       'family-2-a',
+      'family-4',
       'family-2-b',
     ]);
-    expect(sorted[2]?.familyKey).toBe(4);
-    expect(getSplitDisplayBlocks(sorted)).toEqual([]);
+    expect(getSplitDisplayBlocks(sorted)).toEqual([
+      { key: 'family:2', count: 2 },
+    ]);
+  });
+
+  it('sorts each variety independently by net amount for one farmer', () => {
+    mockGetNetAmountRupee.mockImplementation((row) => {
+      if (row.varietyName === 'B101') return 855_931.04;
+      if (row.varietyName === 'Himalini') return 659_326.73;
+      return null;
+    });
+
+    const rows: FlattenedRow[] = [
+      makeRow({
+        rowId: 'farmer-1-himalini-0',
+        varietyRowKey: 'farmer-1|Himalini',
+        farmerId: 'farmer-1',
+        varietyName: 'Himalini',
+        sizeRowIndex: 0,
+      }),
+      makeRow({
+        rowId: 'farmer-1-himalini-1',
+        varietyRowKey: 'farmer-1|Himalini',
+        farmerId: 'farmer-1',
+        varietyName: 'Himalini',
+        sizeRowIndex: 1,
+        sizeName: '50–55',
+      }),
+      makeRow({
+        rowId: 'farmer-1-b101-0',
+        varietyRowKey: 'farmer-1|B101',
+        farmerId: 'farmer-1',
+        varietyName: 'B101',
+        sizeRowIndex: 0,
+      }),
+      makeRow({
+        rowId: 'farmer-1-b101-1',
+        varietyRowKey: 'farmer-1|B101',
+        farmerId: 'farmer-1',
+        varietyName: 'B101',
+        sizeRowIndex: 1,
+        sizeName: '50–55',
+      }),
+    ];
+
+    const values = buildBlockSortValuesByKey(rows, GRADE_HEADERS);
+    expect(values.get('variety:farmer-1|B101')?.[NET_AMOUNT_COLUMN_ID]).toBe(
+      855_931.04
+    );
+    expect(
+      values.get('variety:farmer-1|Himalini')?.[NET_AMOUNT_COLUMN_ID]
+    ).toBe(659_326.73);
+    expect(
+      values.get('farmer:farmer-1')?.[NET_AMOUNT_COLUMN_ID]
+    ).toBeUndefined();
+
+    const sorted = sortFlattenedRowsByColumn(
+      rows,
+      NET_AMOUNT_COLUMN_ID,
+      GRADE_HEADERS,
+      true
+    );
+
+    expect(sorted.map((row) => row.varietyName)).toEqual([
+      'B101',
+      'B101',
+      'Himalini',
+      'Himalini',
+    ]);
+
+    mockGetNetAmountRupee.mockReset();
+  });
+
+  it('sorts each variety independently by total acres planted for one farmer', () => {
+    const rows: FlattenedRow[] = [
+      makeRow({
+        rowId: 'farmer-1-himalini-0',
+        varietyRowKey: 'farmer-1|Himalini',
+        farmerId: 'farmer-1',
+        varietyName: 'Himalini',
+        sizeRowIndex: 0,
+        sizeAcres: 20,
+        varietyTotalAcres: 40.79,
+      }),
+      makeRow({
+        rowId: 'farmer-1-himalini-1',
+        varietyRowKey: 'farmer-1|Himalini',
+        farmerId: 'farmer-1',
+        varietyName: 'Himalini',
+        sizeRowIndex: 1,
+        sizeName: '50–55',
+        sizeAcres: 20.7,
+        varietyTotalAcres: 40.79,
+      }),
+      makeRow({
+        rowId: 'farmer-1-himalini-2',
+        varietyRowKey: 'farmer-1|Himalini',
+        farmerId: 'farmer-1',
+        varietyName: 'Himalini',
+        sizeRowIndex: 2,
+        sizeName: '60–65',
+        sizeAcres: 0.09,
+        varietyTotalAcres: 40.79,
+      }),
+      makeRow({
+        rowId: 'farmer-1-b101-0',
+        varietyRowKey: 'farmer-1|B101',
+        farmerId: 'farmer-1',
+        varietyName: 'B101',
+        sizeRowIndex: 0,
+        sizeAcres: 6.48,
+        varietyTotalAcres: 17.81,
+      }),
+      makeRow({
+        rowId: 'farmer-1-b101-1',
+        varietyRowKey: 'farmer-1|B101',
+        farmerId: 'farmer-1',
+        varietyName: 'B101',
+        sizeRowIndex: 1,
+        sizeName: '50–55',
+        sizeAcres: 11.33,
+        varietyTotalAcres: 17.81,
+      }),
+    ];
+
+    const values = buildBlockSortValuesByKey(rows, GRADE_HEADERS);
+    expect(
+      values.get('variety:farmer-1|Himalini')?.[TOTAL_ACRES_PLANTED_COLUMN_ID]
+    ).toBeCloseTo(40.79, 2);
+    expect(
+      values.get('variety:farmer-1|B101')?.[TOTAL_ACRES_PLANTED_COLUMN_ID]
+    ).toBeCloseTo(17.81, 2);
+    expect(
+      values.get('farmer:farmer-1')?.[TOTAL_ACRES_PLANTED_COLUMN_ID]
+    ).toBeUndefined();
+
+    const sorted = sortFlattenedRowsByColumn(
+      rows,
+      TOTAL_ACRES_PLANTED_COLUMN_ID,
+      GRADE_HEADERS,
+      true
+    );
+
+    expect(sorted.map((row) => row.varietyName)).toEqual([
+      'Himalini',
+      'Himalini',
+      'Himalini',
+      'B101',
+      'B101',
+    ]);
   });
 
   it('keeps non-family farmer rows contiguous when sorting by variety', () => {

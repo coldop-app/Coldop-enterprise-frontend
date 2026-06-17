@@ -19,6 +19,7 @@ import {
   NET_PROFIT_TO_COMPANY_COLUMN_ID,
   NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
+  TOTAL_ACRES_PLANTED_COLUMN_ID,
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   VARIETY_LEVEL_PERCENT_COLUMN_PREFIX,
@@ -132,6 +133,12 @@ export function computeContractFarmingFooterTotals(
   if (numericVisibleColumnIds.includes(NET_AMOUNT_COLUMN_ID)) {
     totals[NET_AMOUNT_COLUMN_ID] = varietyRows.reduce(
       (sum, row) => sum + (getNetAmountRupee(row, preferences) ?? 0),
+      0
+    );
+  }
+  if (numericVisibleColumnIds.includes(TOTAL_ACRES_PLANTED_COLUMN_ID)) {
+    totals[TOTAL_ACRES_PLANTED_COLUMN_ID] = varietyRows.reduce(
+      (sum, row) => sum + row.varietyTotalAcres,
       0
     );
   }

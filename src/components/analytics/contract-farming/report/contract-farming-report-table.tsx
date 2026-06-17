@@ -54,6 +54,7 @@ import {
   NET_PROFIT_TO_COMPANY_COLUMN_ID,
   NET_PROFIT_TO_COMPANY_PER_ACRE_COLUMN_ID,
   OUTPUT_PERCENTAGE_COLUMN_ID,
+  TOTAL_ACRES_PLANTED_COLUMN_ID,
   TOTAL_GRADED_BAGS_COLUMN_ID,
   TOTAL_GRADED_NET_WEIGHT_COLUMN_ID,
   VARIETY_LEVEL_COLUMN_PREFIX,
@@ -69,6 +70,12 @@ import {
   prepareFamilyGroupedRows,
   recomputeSpanMetadata,
 } from './contract-farming-family-grouping';
+import {
+  buildBlockSortValuesByKey,
+  createBlockAwareSortingFn,
+} from './contract-farming-block-sorting';
+import { filterFlattenedRowsForBlockSorting } from './contract-farming-filter-for-sorting';
+import { isContractFarmingVarietyFilterActive } from './contract-farming-sort-context';
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
 import { GRADE_BAG_COLUMN_KEY_PREFIX, type FlattenedRow } from './types';
 import { ContractFarmingExcelButton } from './contract-farming-excel-button';
@@ -192,6 +199,11 @@ function flattenFarmers(
         Array.isArray(variety.seed?.sizes) && variety.seed.sizes.length > 0
           ? variety.seed.sizes
           : [null];
+      const acresSum = sizeRows.reduce(
+        (sum, size) => sum + Number(size?.acres ?? 0),
+        0
+      );
+      const varietyTotalAcres = Number(variety.seed?.totalAcres ?? acresSum);
       const varietyRowKey = `${farmer.id}|${variety.name}`;
       const mergedRowSpan = sizeRows.length;
 
@@ -224,7 +236,7 @@ function flattenFarmers(
           buyBackNetWeightKg: Number(variety.buyBack?.netWeightKg ?? 0),
           incomingNetWeightKg: variety.incomingNetWeightKg ?? null,
           gradeData,
-          varietyTotalAcres: Number(variety.seed?.totalAcres ?? 0),
+          varietyTotalAcres,
           varietyTotalSeedAmountPayable: Number(
             variety.seed?.totalAmountPayable ?? 0
           ),
@@ -265,6 +277,7 @@ function createGlobalContractFarmingFilterFn(
         size: row.original.sizeName,
         qty: row.original.sizeQuantity,
         acres: row.original.sizeAcres,
+        [TOTAL_ACRES_PLANTED_COLUMN_ID]: row.original.varietyTotalAcres,
         bbBags: row.original.buyBackBags,
         bbNetWeight: row.original.buyBackNetWeightKg,
         amount: row.original.sizeAmountPayable,
@@ -541,6 +554,48 @@ export default function ContractFarmingReportTable() {
     gradePercentColumnIds,
   ]);
 
+  const sortContext = React.useMemo(
+    () => ({
+      varietyFilterActive: isContractFarmingVarietyFilterActive(
+        columnFilters,
+        globalFilter
+      ),
+    }),
+    [columnFilters, globalFilter]
+  );
+
+  const blockSortValues = React.useMemo(() => {
+    const filteredForSort = filterFlattenedRowsForBlockSorting(
+      tableData,
+      columns,
+      columnFilters,
+      globalFilter,
+      globalContractFarmingFilterFn
+    );
+    return buildBlockSortValuesByKey(
+      filteredForSort,
+      gradeHeaders,
+      sortContext
+    );
+  }, [
+    tableData,
+    columns,
+    columnFilters,
+    globalFilter,
+    globalContractFarmingFilterFn,
+    gradeHeaders,
+    sortContext,
+  ]);
+
+  const blockSortValuesRef = React.useRef(blockSortValues);
+  blockSortValuesRef.current = blockSortValues;
+
+  const blockAwareSortingFn = React.useMemo(
+    () =>
+      createBlockAwareSortingFn(() => blockSortValuesRef.current, sortContext),
+    [sortContext]
+  );
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<FlattenedRow>({
     data: tableData,
@@ -549,6 +604,7 @@ export default function ContractFarmingReportTable() {
       size: DEFAULT_COLUMN_SIZE,
       minSize: DEFAULT_COLUMN_MIN_SIZE,
       maxSize: DEFAULT_COLUMN_MAX_SIZE,
+      sortingFn: 'blockAware',
     },
     state: {
       sorting,
@@ -571,6 +627,9 @@ export default function ContractFarmingReportTable() {
     // exactly as the user (or the default) configured it.
     groupedColumnMode: false,
     globalFilterFn: globalContractFarmingFilterFn,
+    sortingFns: {
+      blockAware: blockAwareSortingFn,
+    },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),

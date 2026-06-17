@@ -65,6 +65,9 @@ export const BUY_BACK_AMOUNT_COLUMN_ID = `${VARIETY_LEVEL_COLUMN_PREFIX}__buyBac
 /** Seed amount column (`sizeAmountPayable`), rendered after grading / buy-back amount in column order */
 export const SEED_AMOUNT_COLUMN_ID = 'amount';
 
+/** Sum of planted acres for farmer × variety (all sizes); variety rowspan. */
+export const TOTAL_ACRES_PLANTED_COLUMN_ID = 'totalAcresPlanted';
+
 /** ₹ net after seed: Buy Back Amount − total seed amt for farmer × variety (variety rowspan). */
 export const NET_AMOUNT_COLUMN_ID = 'netAmount';
 
@@ -142,6 +145,7 @@ export const defaultContractFarmingColumnVisibility: VisibilityState = {
   generation: false,
   size: false,
   qty: false,
+  acres: false,
   bbBags: false,
   bbNetWeight: false,
   [TOTAL_GRADED_BAGS_COLUMN_ID]: false,
@@ -269,6 +273,7 @@ export function isNumericSortColumnId(columnId: string) {
   return (
     columnId === 'qty' ||
     columnId === 'acres' ||
+    columnId === TOTAL_ACRES_PLANTED_COLUMN_ID ||
     columnId === SEED_AMOUNT_COLUMN_ID ||
     columnId === NET_AMOUNT_COLUMN_ID ||
     columnId === NET_AMOUNT_PER_ACRE_COLUMN_ID ||
@@ -298,6 +303,7 @@ export function buildDefaultContractFarmingColumnOrder(
     'size',
     'qty',
     'acres',
+    TOTAL_ACRES_PLANTED_COLUMN_ID,
     'bbBags',
     'bbNetWeight',
     ...gradingSectionOrder,
@@ -469,6 +475,24 @@ export function buildColumns(
       enableGrouping: false,
       filterFn: multiValueFilterFn,
       aggregationFn: 'sum',
+      aggregatedCell: ({ getValue }) => (
+        <StrongNum decimals={2} value={getValue() as number | null} />
+      ),
+      cell: ({ getValue }) => (
+        <span className="font-custom text-right tabular-nums">
+          {formatNumber(getValue() as number)}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('varietyTotalAcres', {
+      id: TOTAL_ACRES_PLANTED_COLUMN_ID,
+      header: 'Total Acres Planted',
+      size: 155,
+      minSize: 120,
+      maxSize: 240,
+      enableGrouping: false,
+      filterFn: multiValueFilterFn,
+      aggregationFn: sumVarietyMetrics,
       aggregatedCell: ({ getValue }) => (
         <StrongNum decimals={2} value={getValue() as number | null} />
       ),

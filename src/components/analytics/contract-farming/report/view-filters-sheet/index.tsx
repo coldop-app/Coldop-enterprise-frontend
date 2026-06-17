@@ -380,6 +380,7 @@ export function ContractFarmingViewFiltersSheet({
       sizeName: 'size',
       sizeQuantity: 'qty',
       sizeAcres: 'acres',
+      varietyTotalAcres: 'totalAcresPlanted',
       sizeAmount: 'amount',
       buyBackBags: 'bbBags',
       buyBackNetWeightKg: 'bbNetWeight',
