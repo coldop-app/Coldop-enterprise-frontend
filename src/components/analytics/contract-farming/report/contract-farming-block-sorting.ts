@@ -51,17 +51,10 @@ export function compareBlockInternalOrder(
   return a.sizeRowIndex - b.sizeRowIndex;
 }
 
-function compareNullableNumbers(
-  a: number | null | undefined,
-  b: number | null | undefined
-): number {
-  const aMissing = a == null || !Number.isFinite(a);
-  const bMissing = b == null || !Number.isFinite(b);
-  if (aMissing && bMissing) return 0;
-  if (aMissing) return 1;
-  if (bMissing) return -1;
-  if (a === b) return 0;
-  return a < b ? -1 : 1;
+function normalizeNumericSortValue(value: BlockSortValue): number {
+  if (value == null || value === '') return 0;
+  const num = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(num) ? num : 0;
 }
 
 function compareTextValues(a: string, b: string): number {
@@ -74,14 +67,10 @@ function compareSortableValues(
   b: BlockSortValue
 ): number {
   if (isNumericSortColumnId(columnId) || columnId === 'familyKey') {
-    const numA = typeof a === 'number' ? a : Number(a);
-    const numB = typeof b === 'number' ? b : Number(b);
-    const aMissing = a == null || a === '' || !Number.isFinite(numA);
-    const bMissing = b == null || b === '' || !Number.isFinite(numB);
-    if (aMissing && bMissing) return 0;
-    if (aMissing) return 1;
-    if (bMissing) return -1;
-    return compareNullableNumbers(numA, numB);
+    const numA = normalizeNumericSortValue(a);
+    const numB = normalizeNumericSortValue(b);
+    if (numA === numB) return 0;
+    return numA < numB ? -1 : 1;
   }
 
   const textA = a == null ? '' : String(a);

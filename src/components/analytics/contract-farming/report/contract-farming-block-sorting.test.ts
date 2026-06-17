@@ -121,6 +121,58 @@ describe('contract-farming-block-sorting', () => {
     ]);
   });
 
+  it('treats missing numeric sort values as zero', () => {
+    const rows: FlattenedRow[] = [
+      makeRow({
+        rowId: 'farmer-with-value',
+        varietyRowKey: 'farmer-1|Alpha',
+        farmerId: 'farmer-1',
+        varietyName: 'Alpha',
+        netProfitToCompany: 197_897.77,
+      }),
+      makeRow({
+        rowId: 'farmer-missing',
+        varietyRowKey: 'farmer-2|Beta',
+        farmerId: 'farmer-2',
+        varietyName: 'Beta',
+        netProfitToCompany: null,
+      }),
+      makeRow({
+        rowId: 'farmer-zero',
+        varietyRowKey: 'farmer-3|Gamma',
+        farmerId: 'farmer-3',
+        varietyName: 'Gamma',
+        netProfitToCompany: 0,
+      }),
+    ];
+
+    const ascending = sortFlattenedRowsByColumn(
+      rows,
+      NET_PROFIT_TO_COMPANY_COLUMN_ID,
+      GRADE_HEADERS,
+      false
+    );
+    expect(ascending.map((row) => row.rowId)).toEqual([
+      'farmer-missing',
+      'farmer-zero',
+      'farmer-with-value',
+    ]);
+
+    const descending = sortFlattenedRowsByColumn(
+      rows,
+      NET_PROFIT_TO_COMPANY_COLUMN_ID,
+      GRADE_HEADERS,
+      true
+    );
+    expect(descending[0]?.rowId).toBe('farmer-with-value');
+    expect(
+      descending
+        .slice(1)
+        .map((row) => row.rowId)
+        .sort()
+    ).toEqual(['farmer-missing', 'farmer-zero']);
+  });
+
   it('sorts each variety independently by net amount for one farmer', () => {
     mockGetNetAmountRupee.mockImplementation((row) => {
       if (row.varietyName === 'B101') return 855_931.04;
