@@ -604,7 +604,7 @@ export default function ContractFarmingReportTable() {
       size: DEFAULT_COLUMN_SIZE,
       minSize: DEFAULT_COLUMN_MIN_SIZE,
       maxSize: DEFAULT_COLUMN_MAX_SIZE,
-      sortingFn: 'blockAware',
+      sortingFn: blockAwareSortingFn,
     },
     state: {
       sorting,
