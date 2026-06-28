@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { getRouteApi, useLocation, useRouter } from '@tanstack/react-router';
+import { parseContractFarmingGroupFamiliesSearch } from '@/components/analytics/contract-farming/report/contract-farming-report-search';
 
 export type AnalyticsDateSearch = {
   fromDate?: string;
   toDate?: string;
+  /** Contract farming report: Group Families toolbar toggle. */
+  groupFamilies?: boolean;
 };
 
 export interface AnalyticsDateRange {
@@ -33,6 +36,9 @@ export function validateAnalyticsDateSearch(
   return {
     fromDate: parseOptionalIsoDate(search.fromDate),
     toDate: parseOptionalIsoDate(search.toDate),
+    groupFamilies: parseContractFarmingGroupFamiliesSearch(
+      search.groupFamilies
+    ),
   };
 }
 

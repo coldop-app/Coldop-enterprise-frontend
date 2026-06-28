@@ -114,10 +114,17 @@ function mergeFamilyGroup(
   let hasBuyBackBags = false;
   let hasBuyBackNetWeight = false;
   let hasIncomingNetWeight = false;
+  let summedNetProfit = 0;
+  let hasNetProfit = false;
 
   for (const row of accountRows) {
     varietyTotalAcres += row.varietyTotalAcres;
     varietyTotalSeedAmountPayable += row.varietyTotalSeedAmountPayable;
+    const profit = row.netProfitToCompany;
+    if (profit != null && Number.isFinite(profit)) {
+      summedNetProfit += profit;
+      hasNetProfit = true;
+    }
     if (row.buyBackBags != null) {
       buyBackBags += row.buyBackBags;
       hasBuyBackBags = true;
@@ -133,24 +140,6 @@ function mergeFamilyGroup(
   }
 
   const primaryMember = familyMembers[0];
-
-  let summedNetProfit = 0;
-  let hasNetProfit = false;
-  const seenVarietyAcres = new Set<string>();
-  let totalFamilyAcres = 0;
-
-  for (const row of sortedMembers) {
-    const profit = row.netProfitToCompany;
-    if (profit != null && Number.isFinite(profit)) {
-      summedNetProfit += profit;
-      hasNetProfit = true;
-    }
-    const varietyAcresKey = `${row.farmerId}|${row.varietyName}`;
-    if (!seenVarietyAcres.has(varietyAcresKey)) {
-      seenVarietyAcres.add(varietyAcresKey);
-      totalFamilyAcres += row.varietyTotalAcres;
-    }
-  }
 
   const merged: FlattenedRow = {
     ...first,
@@ -182,8 +171,8 @@ function mergeFamilyGroup(
     incomingNetWeightKg: hasIncomingNetWeight ? incomingNetWeightKg : null,
     netProfitToCompany: hasNetProfit ? summedNetProfit : null,
     netProfitToCompanyPerAcre:
-      hasNetProfit && totalFamilyAcres > 0
-        ? summedNetProfit / totalFamilyAcres
+      hasNetProfit && varietyTotalAcres > 0
+        ? summedNetProfit / varietyTotalAcres
         : null,
     mergedRowSpan: 1,
     isFirstOfMergedBlock: true,

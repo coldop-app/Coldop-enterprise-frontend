@@ -8,7 +8,7 @@ import { validateAnalyticsDateSearch } from './-analytics-date-search';
 export const Route = createFileRoute('/store-admin/_authenticated/analytics')({
   validateSearch: validateAnalyticsDateSearch,
   search: {
-    middlewares: [retainSearchParams(['fromDate', 'toDate'])],
+    middlewares: [retainSearchParams(['fromDate', 'toDate', 'groupFamilies'])],
   },
   component: () => <Outlet />,
 });

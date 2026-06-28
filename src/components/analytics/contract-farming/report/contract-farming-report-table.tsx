@@ -79,6 +79,7 @@ import { isContractFarmingVarietyFilterActive } from './contract-farming-sort-co
 import { ContractFarmingReportDataTable } from './contract-farming-report-data-table';
 import { GRADE_BAG_COLUMN_KEY_PREFIX, type FlattenedRow } from './types';
 import { ContractFarmingExcelButton } from './contract-farming-excel-button';
+import { useContractFarmingGroupFamiliesSearch } from './contract-farming-report-search';
 import { ContractFarmingViewFiltersSheet } from './view-filters-sheet';
 import AnalyticsBackLink from '@/routes/store-admin/_authenticated/analytics/-AnalyticsBackLink';
 
@@ -356,7 +357,8 @@ export default function ContractFarmingReportTable() {
     []
   );
   const [grouping, setGrouping] = React.useState<GroupingState>([]);
-  const [groupFamiliesEnabled, setGroupFamiliesEnabled] = React.useState(false);
+  const { groupFamiliesEnabled, setGroupFamiliesEnabled } =
+    useContractFarmingGroupFamiliesSearch();
   const [globalFilter, setGlobalFilter] = React.useState<GlobalFilterValue>('');
   const [columnResizeMode, setColumnResizeMode] =
     React.useState<ColumnResizeMode>('onChange');
@@ -737,11 +739,9 @@ export default function ContractFarmingReportTable() {
                   variant="default"
                   className="font-custom h-8 rounded-lg px-4 text-sm leading-none"
                   onClick={() => {
-                    setGroupFamiliesEnabled((enabled) => {
-                      const next = !enabled;
-                      if (next) setGrouping([]);
-                      return next;
-                    });
+                    const next = !groupFamiliesEnabled;
+                    if (next) setGrouping([]);
+                    setGroupFamiliesEnabled(next);
                   }}
                 >
                   {groupFamiliesEnabled ? 'Ungroup' : 'Group Families'}
