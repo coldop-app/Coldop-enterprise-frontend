@@ -9,7 +9,7 @@ export type VoucherNumberType =
   | 'grading-gate-pass'
   | 'storage-gate-pass'
   | 'nikasi-gate-pass'
-  | 'outgoing-gate-pass';
+  | 'dispatch-post-storage';
 
 /** API response shape for voucher-number endpoint */
 export interface VoucherNumberApiResponse {

@@ -1,4 +1,6 @@
-import { type KeyboardEvent, useMemo, useState } from 'react';
+'use no memo';
+
+import { type KeyboardEvent, memo, useMemo, useState } from 'react';
 import {
   type ColumnDef,
   flexRender,
@@ -19,7 +21,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type {
-  StorageSummaryData,
   StorageSummarySizeItem,
   StorageSummaryVarietyItem,
 } from '@/types/analytics';
@@ -54,6 +55,9 @@ const TAB_CONFIG: { id: TabMode; label: string }[] = [
   { id: 'initial', label: 'Initial' },
   { id: 'outgoing', label: 'Outgoing' },
 ];
+
+const EMPTY_SUMMARY: VarietyStockSummary[] = [];
+const EMPTY_SIZES: string[] = [];
 
 const cellClickClass =
   'font-custom border-border border px-4 py-2 cursor-pointer hover:bg-muted hover:ring-1 hover:ring-primary/20 transition-all duration-150';
@@ -94,22 +98,28 @@ const StorageSummaryTable = ({
   showStockFilterTabs,
   stockSummaryByFilter,
 }: StorageSummaryTableProps) => {
-  const queryParams: GetStorageSummaryParams = {
-    ...(dateParams?.dateFrom ? { dateFrom: dateParams.dateFrom } : {}),
-    ...(dateParams?.dateTo ? { dateTo: dateParams.dateTo } : {}),
-  };
+  'use no memo';
+
+  const queryParams = useMemo<GetStorageSummaryParams>(
+    () => ({
+      ...(dateParams?.dateFrom ? { dateFrom: dateParams.dateFrom } : {}),
+      ...(dateParams?.dateTo ? { dateTo: dateParams.dateTo } : {}),
+    }),
+    [dateParams?.dateFrom, dateParams?.dateTo]
+  );
   const storageSummaryQuery = useGetStorageSummaryQuery(queryParams);
-  const fetchedSummary = storageSummaryQuery.data ?? [];
-  const baseSummary: StorageSummaryData = stockSummary ?? fetchedSummary;
-  const derivedSizes =
-    sizes ??
-    Array.from(
-      new Set(
-        baseSummary.flatMap((variety) =>
-          variety.sizes.map((sizeItem) => sizeItem.size)
-        )
-      )
-    );
+  const baseSummary = stockSummary ?? storageSummaryQuery.data ?? EMPTY_SUMMARY;
+  const derivedSizes = useMemo(() => {
+    if (sizes != null) return sizes;
+    const uniqueSizes = new Set<string>();
+    for (const variety of baseSummary) {
+      for (const sizeItem of variety.sizes) {
+        uniqueSizes.add(sizeItem.size);
+      }
+    }
+    if (uniqueSizes.size === 0) return EMPTY_SIZES;
+    return Array.from(uniqueSizes);
+  }, [sizes, baseSummary]);
 
   const [internalTab, setInternalTab] = useState<TabMode>('current');
   const [stockFilterTab, setStockFilterTab] = useState<StockFilterTab>('all');
@@ -122,7 +132,7 @@ const StorageSummaryTable = ({
     const key = stockFilterTab === 'owned' ? 'OWNED' : 'FARMER';
     const slice = stockSummaryByFilter?.[key];
     if (!slice) {
-      return { effectiveSummary: [], effectiveSizes: derivedSizes };
+      return { effectiveSummary: EMPTY_SUMMARY, effectiveSizes: derivedSizes };
     }
     return {
       effectiveSummary: slice.stockSummary,
@@ -212,10 +222,13 @@ const StorageSummaryTable = ({
     return cols;
   }, [effectiveSizes]);
 
+  const coreRowModel = useMemo(() => getCoreRowModel<TableRowData>(), []);
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table instance
   const table = useReactTable({
     data: rows,
     columns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: coreRowModel,
   });
 
   const totalForActiveTab =
@@ -225,7 +238,12 @@ const StorageSummaryTable = ({
         ? tabTotals.initial
         : tabTotals.outgoing;
 
-  if (storageSummaryQuery.isLoading || storageSummaryQuery.isFetching) {
+  const isInitialLoading =
+    stockSummary == null &&
+    storageSummaryQuery.data == null &&
+    (storageSummaryQuery.isLoading || storageSummaryQuery.isFetching);
+
+  if (isInitialLoading) {
     return (
       <Card className="font-custom border-border rounded-xl shadow-sm">
         <CardContent className="p-4 py-8 sm:p-5">
@@ -443,4 +461,4 @@ const StorageSummaryTable = ({
   );
 };
 
-export default StorageSummaryTable;
+export default memo(StorageSummaryTable);

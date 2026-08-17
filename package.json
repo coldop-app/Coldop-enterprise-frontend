@@ -55,6 +55,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.4",
     "usehooks-ts": "^3.1.1",
+    "vaul": "^1.1.2",
     "vibe-rules": "^0.3.91",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"

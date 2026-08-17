@@ -18,7 +18,7 @@ import IncomingTab from './-IncomingTab';
 import GradingTab from './-GradingTab';
 import StorageTab from './-StorageTab';
 import NikasiTab from './-NikasiTab';
-import OutgoingTab from './-OutgoingTab';
+import DispatchPostStorageTab from './-DispatchPostStorageTab';
 
 const DAYBOOK_TABS = [
   'seed',
@@ -111,7 +111,7 @@ function RouteComponent() {
         </TabsContent>
         <TabsContent value="dispatch-outgoing">
           <Suspense fallback={<DaybookTabSkeleton />}>
-            <OutgoingTab />
+            <DispatchPostStorageTab />
           </Suspense>
         </TabsContent>
       </Tabs>

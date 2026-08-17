@@ -2,10 +2,13 @@ import {
   ArrowUpFromLine,
   ChevronDown,
   NotebookText,
+  RefreshCw,
   Search,
 } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import { usePermissionsStore } from '@/stores/usePermissionsStore';
+
+import { DispatchPostStorageVoucherCard } from '@/components/daybook/dispatch-post-storage-card';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,6 +16,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import {
   Item,
@@ -28,11 +38,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { useGetDispatchPostStorage } from '@/services/store-admin/dispatch-post-storage/useGetDispatchPostStorage';
+import { usePermissionsStore } from '@/stores/usePermissionsStore';
 
 const SORT_ORDER_OPTIONS = ['Latest first', 'Oldest first'] as const;
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;
 const DEFAULT_ITEMS_PER_PAGE = 10;
-const OUTGOING_GATE_PASS_COUNT = 118;
 
 type SortOrder = (typeof SORT_ORDER_OPTIONS)[number];
 
@@ -49,7 +60,7 @@ const SortDropdown = ({ value, onChange }: SortDropdownProps) => (
         className="font-custom focus-visible:ring-primary w-full rounded-lg sm:w-auto"
       >
         Sort Order: {value}
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+        <ChevronDown data-icon="inline-end" />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start">
@@ -79,7 +90,7 @@ const ItemsPerPageDropdown = ({
         className="font-custom w-full justify-between rounded-md sm:w-auto sm:min-w-28"
       >
         {value} per page
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
+        <ChevronDown data-icon="inline-end" />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start">
@@ -92,14 +103,18 @@ const ItemsPerPageDropdown = ({
   </DropdownMenu>
 );
 
-const OutgoingTab = () => {
+const DispatchPostStorageTab = () => {
+  const navigate = useNavigate();
   const hasPermission = usePermissionsStore((state) => state.hasPermission);
-  const canReadOutgoingGatePass = hasPermission('outgoing-gate-pass', 'read');
-  const canCreateOutgoingGatePass = hasPermission(
+  const canReadDispatchPostStorage = hasPermission(
+    'outgoing-gate-pass',
+    'read'
+  );
+  const canCreateDispatchPostStorage = hasPermission(
     'outgoing-gate-pass',
     'create'
   );
-  const canUpdateOutgoingGatePass = hasPermission(
+  const canUpdateDispatchPostStorage = hasPermission(
     'outgoing-gate-pass',
     'update'
   );
@@ -108,9 +123,29 @@ const OutgoingTab = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const totalPages = 1;
+  const {
+    data: listResponse,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
+  } = useGetDispatchPostStorage(
+    {
+      page: currentPage,
+      limit: itemsPerPage,
+      sortOrder: sortOrder === 'Latest first' ? 'desc' : 'asc',
+    },
+    {
+      enabled: canReadDispatchPostStorage,
+    }
+  );
+
+  const entries = listResponse?.data ?? [];
+  const totalPages = listResponse?.pagination?.totalPages ?? 1;
+  const totalCount = listResponse?.pagination?.total ?? 0;
   const isOnFirstPage = currentPage <= 1;
-  const isOnLastPage = currentPage >= totalPages;
+  const isOnLastPage = currentPage >= totalPages || entries.length === 0;
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,17 +182,32 @@ const OutgoingTab = () => {
   );
 
   return (
-    <main className="space-y-5">
+    <main className="flex flex-col gap-5">
       <Item variant="outline" size="sm" className="rounded-xl shadow-sm">
         <ItemHeader className="h-full">
           <div className="flex items-center gap-3">
             <ItemMedia variant="icon" className="rounded-lg">
-              <NotebookText className="text-primary h-5 w-5" />
+              <NotebookText className="text-primary" />
             </ItemMedia>
             <ItemTitle className="font-custom text-sm font-semibold sm:text-base">
-              {OUTGOING_GATE_PASS_COUNT} outgoing gate passes
+              {totalCount} Dispatch (Post Storage)
             </ItemTitle>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-custom"
+            onClick={() => {
+              void refetch();
+            }}
+            disabled={isFetching || !canReadDispatchPostStorage}
+          >
+            <RefreshCw
+              data-icon="inline-start"
+              className={isFetching ? 'animate-spin' : undefined}
+            />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
         </ItemHeader>
       </Item>
 
@@ -167,11 +217,11 @@ const OutgoingTab = () => {
         className="flex-col items-stretch gap-4 rounded-xl"
       >
         <div className="relative w-full">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
             value={searchQuery}
             onChange={handleSearchChange}
-            placeholder="Enter Outgoing Gate Pass Number"
+            placeholder="Enter Dispatch (Post Storage) Number"
             className="font-custom focus-visible:ring-primary w-full pl-10 focus-visible:ring-2 focus-visible:ring-offset-2"
           />
         </div>
@@ -181,20 +231,30 @@ const OutgoingTab = () => {
             <SortDropdown value={sortOrder} onChange={handleSortChange} />
           </div>
 
-          {(canUpdateOutgoingGatePass || canCreateOutgoingGatePass) && (
+          {(canUpdateDispatchPostStorage || canCreateDispatchPostStorage) && (
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-              {canUpdateOutgoingGatePass && (
+              {canUpdateDispatchPostStorage && (
                 <Button
                   variant="secondary"
                   className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={() =>
+                    navigate({
+                      to: '/store-admin/dispatch-post-storage/history',
+                    })
+                  }
                 >
-                  Outgoing History
+                  Dispatch (Post Storage) History
                 </Button>
               )}
-              {canCreateOutgoingGatePass && (
-                <Button className="font-custom w-full cursor-pointer sm:w-auto">
-                  <ArrowUpFromLine className="h-4 w-4" />
-                  Add Outgoing
+              {canCreateDispatchPostStorage && (
+                <Button
+                  className="font-custom w-full cursor-pointer sm:w-auto"
+                  onClick={() =>
+                    navigate({ to: '/store-admin/dispatch-post-storage' })
+                  }
+                >
+                  <ArrowUpFromLine data-icon="inline-start" />
+                  Add Dispatch (Post Storage)
                 </Button>
               )}
             </div>
@@ -202,17 +262,73 @@ const OutgoingTab = () => {
         </ItemFooter>
       </Item>
 
-      <Item
-        variant="outline"
-        size="sm"
-        className="font-custom text-muted-foreground rounded-xl px-4 py-6 text-sm"
-      >
-        {canReadOutgoingGatePass ? (
-          <p>Display outgoing gate pass here..</p>
-        ) : (
-          <p>You do not have read permission for outgoing gate passes.</p>
-        )}
-      </Item>
+      {!canReadDispatchPostStorage ? (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Access restricted for Dispatch (Post Storage)
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              You do not have read permission for Dispatch (Post Storage).
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : isLoading ? (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Loading Dispatch (Post Storage)...
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              Please wait while we fetch the latest entries.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : isError ? (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              Failed to load Dispatch (Post Storage)
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              {error?.message ??
+                'Please refresh and try again to fetch dispatch entries.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : entries.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          {entries.map((gatePass) => (
+            <DispatchPostStorageVoucherCard
+              key={gatePass._id}
+              gatePass={gatePass}
+            />
+          ))}
+        </div>
+      ) : (
+        <Empty className="bg-muted/10 rounded-xl border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <NotebookText />
+            </EmptyMedia>
+            <EmptyTitle className="font-custom">
+              No Dispatch (Post Storage) found
+            </EmptyTitle>
+            <EmptyDescription className="font-custom">
+              Create a dispatch to see it listed here.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
 
       <Item
         variant="outline"
@@ -260,4 +376,4 @@ const OutgoingTab = () => {
   );
 };
 
-export default OutgoingTab;
+export default DispatchPostStorageTab;
