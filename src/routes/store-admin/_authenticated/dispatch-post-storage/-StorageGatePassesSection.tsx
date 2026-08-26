@@ -209,52 +209,15 @@ export function StorageGatePassesSection({
           </div>
 
           {matrix.uniqueVarieties.length > 0 ? (
-            <div
-              className={cn(
-                'flex flex-col gap-2 rounded-lg transition-[box-shadow,background-color,border-color]',
-                matrix.needsVarietySelection &&
-                  'border-primary/50 bg-primary/5 ring-primary/25 border-2 p-2.5 shadow-sm ring-2'
-              )}
-            >
-              <div className="flex flex-col gap-0.5">
-                <Label
-                  className={cn(
-                    'text-xs leading-none font-medium',
-                    matrix.needsVarietySelection
-                      ? 'text-primary'
-                      : 'text-muted-foreground'
-                  )}
-                >
-                  Variety
-                  {matrix.needsVarietySelection ? (
-                    <span className="text-destructive ml-0.5 font-semibold">
-                      *
-                    </span>
-                  ) : null}
-                </Label>
-                {matrix.needsVarietySelection ? (
-                  <p className="text-muted-foreground max-w-52 text-xs leading-snug">
-                    Choose a variety to show gate passes below.
-                  </p>
-                ) : null}
-              </div>
-              <MatrixRadioFilter
-                value={matrix.varietyFilter}
-                options={matrix.uniqueVarieties}
-                onChange={matrix.setVarietyFilter}
-                icon={Package}
-                triggerClassName={cn(
-                  'min-w-30',
-                  matrix.needsVarietySelection &&
-                    'border-primary/60 bg-background text-primary hover:bg-primary/10'
-                )}
-                ariaLabel={
-                  matrix.needsVarietySelection
-                    ? 'Variety — required'
-                    : 'Variety filter'
-                }
-              />
-            </div>
+            <MatrixRadioFilter
+              label="Variety"
+              value={matrix.varietyFilter}
+              options={matrix.uniqueVarieties}
+              onChange={matrix.setVarietyFilter}
+              icon={Package}
+              triggerClassName="min-w-30"
+              ariaLabel="Variety filter"
+            />
           ) : null}
 
           {matrix.uniqueLocations.chambers.length > 0 ? (

@@ -35,7 +35,6 @@ export interface CreateDispatchPostStorageInput {
   farmerStorageLinkId: string;
   gatePassNo: number;
   date: string;
-  variety: string;
   from: string;
   to: string;
   storageGatePasses: CreateDispatchPostStorageStorageGatePass[];
@@ -109,6 +108,7 @@ export interface DispatchPostStorageCreatedBy {
 }
 
 export interface DispatchPostStorageOrderDetail {
+  variety: string;
   size: string;
   bagType: string;
   quantityIssued: number;
@@ -144,7 +144,6 @@ export interface DispatchPostStorage {
   gatePassNo: number;
   manualGatePassNumber?: number;
   date: string;
-  variety: string;
   from: string;
   to: string;
   truckNumber?: string;
@@ -183,4 +182,44 @@ export interface GetDispatchPostStorageListApiResponse {
 export interface GetDispatchPostStorageListResult {
   data: DispatchPostStorage[];
   pagination: DispatchPostStoragePagination;
+}
+
+export type DispatchPostStorageAuditAction = 'CREATE' | 'EDIT' | 'MARK_AS_NULL';
+
+export interface DispatchPostStorageAuditPerformedBy {
+  _id: string;
+  name: string;
+  mobileNumber?: string;
+}
+
+export type DispatchPostStorageAuditSnapshot = Record<string, unknown>;
+
+/** Populated voucher on an audit row; later pages may return a shortened document. */
+export type DispatchPostStorageAuditVoucher =
+  | string
+  | (Partial<DispatchPostStorage> & { _id: string });
+
+/** Single audit row from GET /dispatch-post-storage/audit */
+export interface DispatchPostStorageAuditItem {
+  _id: string;
+  dispatchPostStorageId: DispatchPostStorageAuditVoucher;
+  action: DispatchPostStorageAuditAction | string;
+  performedById?: DispatchPostStorageAuditPerformedBy | string;
+  previousState?: DispatchPostStorageAuditSnapshot;
+  modifiedState?: DispatchPostStorageAuditSnapshot;
+  createdAt: string;
+}
+
+/** API response for GET /dispatch-post-storage/audit */
+export interface GetDispatchPostStorageAuditApiResponse {
+  success: boolean;
+  data?: DispatchPostStorageAuditItem[] | null;
+  pagination?: DispatchPostStoragePagination;
+  message?: string;
+  error?: { code?: string; message?: string };
+}
+
+export interface GetDispatchPostStorageAuditResult {
+  data: DispatchPostStorageAuditItem[];
+  pagination?: DispatchPostStoragePagination;
 }

@@ -305,15 +305,11 @@ export function listPositiveAllocations(
     });
 }
 
-export type BuildStorageGatePassesError =
-  | 'empty'
-  | 'unresolved'
-  | 'mixed-variety';
+export type BuildStorageGatePassesError = 'empty' | 'unresolved';
 
 export type BuildStorageGatePassesResult =
   | {
       ok: true;
-      variety: string;
       storageGatePasses: CreateDispatchPostStorageStorageGatePass[];
     }
   | { ok: false; reason: BuildStorageGatePassesError };
@@ -328,7 +324,6 @@ export function buildStorageGatePassesFromAllocations(
     string,
     CreateDispatchPostStorageStorageGatePass['allocations']
   >();
-  const varieties = new Set<string>();
 
   const positiveEntries = Object.entries(allocations).filter(
     ([, qty]) => (qty ?? 0) > 0
@@ -345,9 +340,6 @@ export function buildStorageGatePassesFromAllocations(
     const bag = pass?.bagSizes?.[parsed.bagIndex];
     if (!pass || !bag) return { ok: false, reason: 'unresolved' };
 
-    const variety = pass.variety?.trim() ?? '';
-    if (variety) varieties.add(variety);
-
     const list = grouped.get(pass._id) ?? [];
     list.push({
       size: bag.size?.trim() || parsed.sizeName,
@@ -359,13 +351,8 @@ export function buildStorageGatePassesFromAllocations(
     grouped.set(pass._id, list);
   }
 
-  if (varieties.size > 1) return { ok: false, reason: 'mixed-variety' };
-  const variety = [...varieties][0];
-  if (!variety) return { ok: false, reason: 'unresolved' };
-
   return {
     ok: true,
-    variety,
     storageGatePasses: [...grouped.entries()].map(
       ([storageGatePassId, passAllocations]) => ({
         storageGatePassId,

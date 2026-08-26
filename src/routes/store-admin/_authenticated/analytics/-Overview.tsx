@@ -63,7 +63,7 @@ interface OverviewMetrics {
   totalBagsDispatched: number;
   bagsDispatchedInternalTransfer: number;
   bagsDispatchedNotInternalTransfer: number;
-  totalOutgoingBags: number;
+  totalBagsDispatchedPostStorage: number;
 }
 
 function formatNumber(value: number): string {
@@ -119,7 +119,10 @@ function normalizeOverviewData(data: unknown): OverviewMetrics | null {
       raw.bagsDispatchedNotInternalTransfer == null
         ? toNumber(raw.totalBagsDispatched)
         : toNumber(raw.bagsDispatchedNotInternalTransfer),
-    totalOutgoingBags: toNumber(raw.totalOutgoingBags),
+    totalBagsDispatchedPostStorage:
+      raw.totalBagsDispatchedPostStorage == null
+        ? toNumber(raw.totalOutgoingBags)
+        : toNumber(raw.totalBagsDispatchedPostStorage),
   };
 }
 
@@ -531,7 +534,8 @@ const Overview = memo(function Overview({ dateRange }: OverviewProps) {
       />
       <StatCard
         title="Dispatch (Post Storage)"
-        value={formatNumber(normalized.totalOutgoingBags)}
+        value={formatNumber(normalized.totalBagsDispatchedPostStorage)}
+        description="Bags dispatched after storage"
         icon={<ArrowUpRight className="h-5 w-5" />}
         onGetReportClick={
           canReadOutgoingReports

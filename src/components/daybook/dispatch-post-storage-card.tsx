@@ -126,6 +126,14 @@ export function DispatchPostStorageVoucherCard({
     ? gatePass.createdBy.name
     : '--';
   const orderDetails = gatePass.orderDetails ?? [];
+  const varietyLabel =
+    [
+      ...new Set(
+        orderDetails
+          .map((row) => row.variety?.trim())
+          .filter((value): value is string => Boolean(value))
+      ),
+    ].join(', ') || '--';
   const totalIssued = orderDetails.reduce(
     (sum, row) => sum + (row.quantityIssued ?? 0),
     0
@@ -254,11 +262,7 @@ export function DispatchPostStorageVoucherCard({
               }
               icon={Hash}
             />
-            <InfoBlock
-              label="Variety"
-              value={gatePass.variety?.trim() || '--'}
-              icon={Package}
-            />
+            <InfoBlock label="Variety" value={varietyLabel} icon={Package} />
             <InfoBlock
               label="From"
               value={gatePass.from?.trim() || '--'}
@@ -353,6 +357,7 @@ export function DispatchPostStorageVoucherCard({
                   <table className="w-full min-w-140 text-left text-xs">
                     <thead className="bg-muted/50 text-muted-foreground font-custom text-[10px] font-semibold tracking-wide uppercase">
                       <tr>
+                        <th className="px-4 py-3">Variety</th>
                         <th className="px-4 py-3">Bag Size</th>
                         <th className="px-4 py-3">Bag Type</th>
                         <th className="px-4 py-3">Location</th>
@@ -365,6 +370,9 @@ export function DispatchPostStorageVoucherCard({
                           key={`${row.size}-${row.chamber}-${row.floor}-${row.row}-${idx}`}
                           className="hover:bg-muted/20 transition-colors duration-200"
                         >
+                          <td className="text-foreground px-4 py-3 font-medium">
+                            {row.variety?.trim() || '—'}
+                          </td>
                           <td className="text-foreground px-4 py-3 font-medium">
                             {row.size}
                           </td>
@@ -393,7 +401,7 @@ export function DispatchPostStorageVoucherCard({
                       <tr>
                         <td
                           className="font-custom px-4 py-3 font-bold"
-                          colSpan={3}
+                          colSpan={4}
                         >
                           Total Summary
                         </td>

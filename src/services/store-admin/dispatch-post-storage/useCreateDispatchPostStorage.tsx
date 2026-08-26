@@ -58,7 +58,6 @@ function normalizeCreateDispatchPostStoragePayload(
     farmerStorageLinkId: payload.farmerStorageLinkId.trim(),
     gatePassNo: payload.gatePassNo,
     date: payload.date,
-    variety: payload.variety.trim(),
     from: payload.from.trim(),
     to: payload.to.trim(),
     storageGatePasses: payload.storageGatePasses.map((entry) => ({

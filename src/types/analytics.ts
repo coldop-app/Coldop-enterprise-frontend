@@ -39,6 +39,7 @@ export interface AnalyticsOverviewData {
   totalBagsDispatched: number;
   bagsDispatchedInternalTransfer?: number;
   bagsDispatchedNotInternalTransfer?: number;
+  totalBagsDispatchedPostStorage?: number;
   totalOutgoingBags: number;
 }
 
@@ -744,6 +745,56 @@ export interface StorageTrendData {
 export interface GetStorageTrendApiResponse {
   success: boolean;
   data: StorageTrendData;
+  message?: string;
+}
+
+// --- Dispatch (post storage) summary (GET /analytics/dispatch-summary) ---
+
+/** Bag type quantity in dispatch summary */
+export interface DispatchSummaryByBagType {
+  bagType: string;
+  quantityIssued: number;
+}
+
+/** Size entry within a variety in dispatch summary */
+export interface DispatchSummarySizeItem {
+  size: string;
+  quantityIssued: number;
+  byBagType: DispatchSummaryByBagType[];
+}
+
+/** Variety entry in dispatch summary (variety → sizes → byBagType) */
+export interface DispatchSummaryVarietyItem {
+  variety: string;
+  quantityIssued: number;
+  sizes: DispatchSummarySizeItem[];
+}
+
+/** Data shape for GET /analytics/dispatch-summary */
+export type DispatchSummaryData = DispatchSummaryVarietyItem[];
+
+/** API response for GET /analytics/dispatch-summary */
+export interface GetDispatchSummaryApiResponse {
+  success: boolean;
+  data: DispatchSummaryData;
+  message?: string;
+}
+
+// --- Dispatch daily/monthly trend (GET /analytics/dispatch-daily-monthly-trend) ---
+
+/** Daily series for dispatch trend: one variety with its daily dataPoints */
+export type DispatchDailyTrendChartSeries = StorageDailyTrendChartSeries;
+
+/** Monthly series for dispatch trend: one variety with its monthly dataPoints */
+export type DispatchMonthlyTrendChartSeries = StorageMonthlyTrendChartSeries;
+
+/** Data shape for GET /analytics/dispatch-daily-monthly-trend (grouped by variety) */
+export type DispatchTrendData = StorageTrendData;
+
+/** API response for GET /analytics/dispatch-daily-monthly-trend */
+export interface GetDispatchTrendApiResponse {
+  success: boolean;
+  data: DispatchTrendData;
   message?: string;
 }
 

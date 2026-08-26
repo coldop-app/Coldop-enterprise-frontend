@@ -127,8 +127,6 @@ export const CreateDispatchPostStorageForm = memo(
           empty: 'Please allocate at least one quantity.',
           unresolved:
             'Some allocated slots could not be matched to a storage gate pass. Refresh and try again.',
-          'mixed-variety':
-            'All allocated storage gate passes must be the same variety.',
         } as const;
         toast.error(messages[mapped.reason]);
         return;
@@ -139,7 +137,6 @@ export const CreateDispatchPostStorageForm = memo(
           farmerStorageLinkId: values.farmerStorageLinkId,
           gatePassNo: voucherNumber,
           date: formatDateToISO(values.date),
-          variety: mapped.variety,
           from: values.from,
           to: values.to,
           storageGatePasses: mapped.storageGatePasses,

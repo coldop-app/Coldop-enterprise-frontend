@@ -1,59 +1,248 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { History } from 'lucide-react';
+import { History, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  prefetchDispatchPostStorageEditHistory,
+  useGetDispatchPostStorageEditHistory,
+} from '@/services/store-admin/dispatch-post-storage/useGetDispatchPostStorageEditHistory';
 import { useStore } from '@/stores/store';
+import { DispatchPostStorageEditHistoryCard } from './-dispatch-post-storage-edit-history-card';
+
+const DEFAULT_PAGE_SIZE = 20;
 
 export const Route = createFileRoute(
   '/store-admin/_authenticated/dispatch-post-storage/history/'
 )({
+  loader: () =>
+    prefetchDispatchPostStorageEditHistory({
+      page: 1,
+      limit: DEFAULT_PAGE_SIZE,
+    }),
   component: RouteComponent,
 });
 
+function SkeletonCard() {
+  return (
+    <Card className="overflow-hidden rounded-xl border shadow-sm">
+      <CardHeader className="space-y-3 border-b pb-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-5 w-36" />
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-5 w-28 rounded-full" />
+          </div>
+        </div>
+        <div className="flex gap-4">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-36" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-4">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="overflow-hidden rounded-lg border">
+            <Skeleton className="h-8 w-full rounded-none" />
+            <div className="space-y-3 px-3 py-2.5">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-4/6" />
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-lg border">
+            <Skeleton className="h-8 w-full rounded-none" />
+            <div className="space-y-3 px-3 py-2.5">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-4/6" />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function RouteComponent() {
   const setDaybookTab = useStore((state) => state.setDaybookActiveTab);
+  const [currentPage, setCurrentPage] = useState(1);
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useGetDispatchPostStorageEditHistory({
+      page: currentPage,
+      limit: DEFAULT_PAGE_SIZE,
+    });
+
+  const records = data?.data ?? [];
+  const pagination = data?.pagination;
+  const totalRecords = pagination?.total ?? records.length;
+  const totalPages = pagination?.totalPages ?? 1;
+  const isOnFirstPage = currentPage <= 1;
+  const isOnLastPage = currentPage >= totalPages;
+  const shouldShowSkeleton = isLoading && records.length === 0;
+
+  useEffect(() => {
+    if (!isLoading && !isError && pagination?.hasNextPage) {
+      void prefetchDispatchPostStorageEditHistory({
+        page: currentPage + 1,
+        limit: DEFAULT_PAGE_SIZE,
+      });
+    }
+  }, [currentPage, isError, isLoading, pagination?.hasNextPage]);
 
   return (
-    <main className="font-custom mx-auto max-w-2xl px-4 py-6 sm:px-8 sm:py-12">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <h1 className="font-custom text-foreground text-3xl font-bold sm:text-4xl">
-          Dispatch (Post Storage) History
-        </h1>
-        <Button
-          variant="outline"
-          className="font-custom focus-visible:ring-primary shrink-0"
-          asChild
-        >
-          <Link
-            to="/store-admin/daybook"
-            className="focus-visible:ring-primary focus-visible:ring-offset-background rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            onClick={() => setDaybookTab('dispatch-outgoing')}
-          >
-            Back to daybook
-          </Link>
-        </Button>
-      </div>
+    <main className="mx-auto max-w-4xl p-3 sm:p-4 lg:p-6">
+      <div className="space-y-4">
+        <Card className="rounded-xl shadow-sm">
+          <CardHeader className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
+                <History className="text-primary h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <CardTitle className="font-custom text-foreground text-lg font-semibold">
+                  Dispatch (Post Storage) Edit History
+                </CardTitle>
+                <CardDescription className="font-custom text-muted-foreground text-xs">
+                  {isLoading
+                    ? 'Loading audit logs...'
+                    : `${totalRecords} edit record${totalRecords === 1 ? '' : 's'} found`}
+                </CardDescription>
+              </div>
+            </div>
 
-      <Empty className="bg-muted/10 rounded-xl border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <History />
-          </EmptyMedia>
-          <EmptyTitle className="font-custom">No edit history yet</EmptyTitle>
-          <EmptyDescription className="font-custom">
-            Dispatch (Post Storage) history will appear here once edit tracking
-            is connected.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+            <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-custom gap-2"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+                />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-custom focus-visible:ring-primary"
+                asChild
+              >
+                <Link
+                  to="/store-admin/daybook"
+                  className="focus-visible:ring-primary focus-visible:ring-offset-background rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  onClick={() => setDaybookTab('dispatch-outgoing')}
+                >
+                  Back to daybook
+                </Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <div className="space-y-3">
+          {shouldShowSkeleton && (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          )}
+
+          {records.map((audit) => (
+            <DispatchPostStorageEditHistoryCard key={audit._id} audit={audit} />
+          ))}
+
+          {!shouldShowSkeleton && records.length === 0 && (
+            <Card className="rounded-xl border-dashed">
+              <CardContent className="py-12 text-center">
+                <History className="text-muted-foreground/40 mx-auto mb-3 h-8 w-8" />
+                <p className="font-custom text-foreground text-sm font-medium">
+                  {isLoading
+                    ? 'Loading dispatch (post storage) edit history...'
+                    : isError
+                      ? 'Failed to load dispatch (post storage) edit history'
+                      : 'No edit records found'}
+                </p>
+                <p className="font-custom text-muted-foreground mt-1 text-xs">
+                  {isError
+                    ? (error?.message ??
+                      'Please try again in a moment or refresh the page.')
+                    : 'Edit records will appear here once changes are made.'}
+                </p>
+                {isError && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-custom mt-4"
+                    onClick={() => void refetch()}
+                  >
+                    Try again
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {!isLoading && totalPages > 1 && (
+          <Card className="rounded-xl shadow-sm">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between">
+                <p className="font-custom text-muted-foreground text-xs">
+                  Page {currentPage} of {totalPages}
+                </p>
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!isOnFirstPage) setCurrentPage((p) => p - 1);
+                        }}
+                        aria-disabled={isOnFirstPage}
+                        className={
+                          isOnFirstPage ? 'pointer-events-none opacity-40' : ''
+                        }
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!isOnLastPage) setCurrentPage((p) => p + 1);
+                        }}
+                        aria-disabled={isOnLastPage}
+                        className={
+                          isOnLastPage ? 'pointer-events-none opacity-40' : ''
+                        }
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </main>
   );
 }

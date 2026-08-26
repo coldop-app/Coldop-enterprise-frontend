@@ -239,7 +239,7 @@ export function StorageGatePassMatrix({
               <EmptyDescription className="font-custom">
                 {hasActiveFilters
                   ? 'Try different filters or clear the search.'
-                  : 'Choose a variety to display gate passes, or check back when stock is available.'}
+                  : 'Check back when stock is available.'}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -330,9 +330,16 @@ export function StorageGatePassMatrix({
                           stickyVoucherCellClass()
                         )}
                       >
-                        <span className="text-foreground font-mono text-sm font-medium tabular-nums">
-                          #{pass.gatePassNo}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-foreground font-mono text-sm font-medium tabular-nums">
+                            #{pass.gatePassNo}
+                          </span>
+                          {pass.variety?.trim() ? (
+                            <span className="text-muted-foreground font-custom text-[11px] leading-tight font-medium">
+                              {pass.variety.trim()}
+                            </span>
+                          ) : null}
+                        </div>
                       </TableCell>
                       {visibleSizes.map((sizeName, index) => (
                         <TableCell

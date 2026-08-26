@@ -72,9 +72,6 @@ export function useStorageGatePassMatrix({
     [allPasses, preferenceBagSizes]
   );
 
-  const needsVarietySelection =
-    uniqueVarieties.length > 1 && varietyFilter.trim() === '';
-
   const hasActiveFilters = Boolean(
     gatePassSearch.trim() ||
     varietyFilter ||
@@ -85,8 +82,6 @@ export function useStorageGatePassMatrix({
   );
 
   const filteredPasses = useMemo(() => {
-    if (needsVarietySelection) return [];
-
     let next = allPasses;
     if (varietyFilter) {
       next = next.filter((pass) => pass.variety?.trim() === varietyFilter);
@@ -101,14 +96,7 @@ export function useStorageGatePassMatrix({
       return voucherSort === 'asc' ? diff : -diff;
     });
     return sorted;
-  }, [
-    allPasses,
-    gatePassSearch,
-    locationFilters,
-    needsVarietySelection,
-    varietyFilter,
-    voucherSort,
-  ]);
+  }, [allPasses, gatePassSearch, locationFilters, varietyFilter, voucherSort]);
 
   const displayGroups = useMemo(
     () => groupPassesByDate(filteredPasses),
@@ -209,7 +197,6 @@ export function useStorageGatePassMatrix({
     uniqueVarieties,
     uniqueLocations,
     sizesForColumnPicker,
-    needsVarietySelection,
     hasActiveFilters,
     displayGroups,
     visibleSizes,
