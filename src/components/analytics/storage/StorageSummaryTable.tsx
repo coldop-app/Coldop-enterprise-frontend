@@ -10,6 +10,11 @@ import {
 import { cn } from '@/lib/utils';
 import type { GetStorageSummaryParams } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageSummary';
 import { useGetStorageSummary as useGetStorageSummaryQuery } from '@/services/store-admin/storage-gate-pass/analytics/useGetStorageSummary';
+import {
+  canonicalSizeLabel,
+  normalizeSizeKey,
+  sortSizeLabels,
+} from '@/components/analytics/shed/shed-report-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -74,14 +79,27 @@ export interface StorageSummaryTableProps {
   stockSummaryByFilter?: StockSummaryByFilterData;
 }
 
+function collectSizeLabels(summary: VarietyStockSummary[]): string[] {
+  const labels: string[] = [];
+  for (const variety of summary) {
+    for (const sizeItem of variety.sizes) {
+      labels.push(sizeItem.size);
+    }
+  }
+  return sortSizeLabels(labels);
+}
+
 function buildSizeMap(
   sizes: SizeQuantity[]
 ): Map<string, { initial: number; current: number }> {
   const map = new Map<string, { initial: number; current: number }>();
   for (const s of sizes) {
-    map.set(s.size, {
-      initial: s.initialQuantity,
-      current: s.currentQuantity,
+    const key = normalizeSizeKey(s.size);
+    if (!key) continue;
+    const existing = map.get(key) ?? { initial: 0, current: 0 };
+    map.set(key, {
+      initial: existing.initial + s.initialQuantity,
+      current: existing.current + s.currentQuantity,
     });
   }
   return map;
@@ -110,15 +128,9 @@ const StorageSummaryTable = ({
   const storageSummaryQuery = useGetStorageSummaryQuery(queryParams);
   const baseSummary = stockSummary ?? storageSummaryQuery.data ?? EMPTY_SUMMARY;
   const derivedSizes = useMemo(() => {
-    if (sizes != null) return sizes;
-    const uniqueSizes = new Set<string>();
-    for (const variety of baseSummary) {
-      for (const sizeItem of variety.sizes) {
-        uniqueSizes.add(sizeItem.size);
-      }
-    }
-    if (uniqueSizes.size === 0) return EMPTY_SIZES;
-    return Array.from(uniqueSizes);
+    const labels =
+      sizes != null ? sortSizeLabels(sizes) : collectSizeLabels(baseSummary);
+    return labels.length === 0 ? EMPTY_SIZES : labels;
   }, [sizes, baseSummary]);
 
   const [internalTab, setInternalTab] = useState<TabMode>('current');
@@ -136,7 +148,9 @@ const StorageSummaryTable = ({
     }
     return {
       effectiveSummary: slice.stockSummary,
-      effectiveSizes: slice.chartData?.sizes ?? derivedSizes,
+      effectiveSizes: slice.chartData?.sizes
+        ? sortSizeLabels(slice.chartData.sizes)
+        : derivedSizes,
     };
   }, [
     showStockFilterTabs,
@@ -165,7 +179,10 @@ const StorageSummaryTable = ({
       let rowTotal = 0;
 
       for (const size of effectiveSizes) {
-        const data = sizeMap.get(size) ?? { initial: 0, current: 0 };
+        const data = sizeMap.get(normalizeSizeKey(size)) ?? {
+          initial: 0,
+          current: 0,
+        };
         const outgoing = Math.max(0, data.initial - data.current);
         const value =
           activeTab === 'current'
@@ -202,7 +219,11 @@ const StorageSummaryTable = ({
       cols.push({
         id: size,
         accessorFn: (row) => row.values[size] ?? 0,
-        header: () => <span className="font-custom font-bold">{size}</span>,
+        header: () => (
+          <span className="font-custom font-bold">
+            {canonicalSizeLabel(size)}
+          </span>
+        ),
         cell: ({ getValue }) => (
           <span className="font-custom font-medium tabular-nums">
             {Number(getValue()).toLocaleString('en-IN')}
