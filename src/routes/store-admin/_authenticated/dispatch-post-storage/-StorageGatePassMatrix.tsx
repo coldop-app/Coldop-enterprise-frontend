@@ -334,6 +334,11 @@ export function StorageGatePassMatrix({
                           <span className="text-foreground font-mono text-sm font-medium tabular-nums">
                             #{pass.gatePassNo}
                           </span>
+                          {pass.manualGatePassNumber != null ? (
+                            <span className="text-muted-foreground font-custom text-[11px] leading-tight font-medium tabular-nums">
+                              #{pass.manualGatePassNumber}
+                            </span>
+                          ) : null}
                           {pass.variety?.trim() ? (
                             <span className="text-muted-foreground font-custom text-[11px] leading-tight font-medium">
                               {pass.variety.trim()}

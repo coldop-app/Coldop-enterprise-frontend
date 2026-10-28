@@ -176,6 +176,6 @@ export function prefetchStorageGatePassesForFarmer(
 export const STORAGE_GATE_PASSES_FOR_FARMER_QUERY_PARAMS: GetStorageGatePassesForFarmerParams =
   {
     page: 1,
-    limit: 50,
+    limit: 500,
     sortOrder: 'desc',
   };
